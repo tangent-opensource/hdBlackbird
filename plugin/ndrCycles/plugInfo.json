@@ -1,0 +1,38 @@
+{
+    "Plugins": [
+        {
+            "Info": {
+                "SdfMetadata": {
+                    "filename": {
+                        "appliesTo": [
+                            "prims"
+                        ],
+                        "default": "<built-in>",
+                        "displayGroup": "Cycles",
+                        "documentation": "Cycles plugin location for a node.",
+                        "type": "token"
+                    }
+                },
+                "Types": {
+                    "NdrCyclesParserPlugin": {
+                        "bases": [
+                            "NdrParserPlugin"
+                        ],
+                        "displayName": "Cycles Node Parser"
+                    },
+                    "NdrCyclesDiscoveryPlugin": {
+                        "bases": [
+                            "NdrDiscoveryPlugin"
+                        ],
+                        "displayName": "Cycles Node Discovery"
+                    }
+                }
+            },
+            "LibraryPath": "@PLUG_INFO_LIBRARY_PATH@",
+            "Name": "ndrCycles",
+            "ResourcePath": "resources",
+            "Root": "..",
+            "Type": "library"
+        }
+    ]
+}
