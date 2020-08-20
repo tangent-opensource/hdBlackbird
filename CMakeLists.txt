@@ -112,6 +112,13 @@ find_package(OpenVDB)
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)
 
+find_package(usdCycles REQUIRED)
+
+if(${usdCycles_FOUND})
+  option(USE_USD_CYCLES_SCHEMA "Use usdCycles Schema" ON)
+  add_definitions(-DUSE_USD_CYCLES_SCHEMA)
+endif()
+
 # -- Build Flags
 
 if("${USD_MINOR_VERSION}" STRGREATER_EQUAL "20")

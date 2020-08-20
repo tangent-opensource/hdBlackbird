@@ -51,6 +51,10 @@
 #include <pxr/imaging/hd/smoothNormals.h>
 #include <pxr/imaging/pxOsd/tokens.h>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
@@ -697,6 +701,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     auto value = GetPrimvar(sceneDelegate, pv.name);
                     VtValue triangulated;
+
+                    if(pv.name == usdCyclesTokens->cyclesObjectMblur) {
+                        std::cout << "Has mblur\n";
+                    }
 
 
                     if (pv.name == HdTokens->normals) {
