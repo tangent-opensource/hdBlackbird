@@ -401,6 +401,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     m_backgroundTexture->tex_mapping.z_mapping
                         = ccl::TextureMapping::Y;
                     m_backgroundTexture->tex_mapping.scale.x = -1;
+                    m_backgroundTexture->tex_mapping.scale.y = -1;
 
                     m_cyclesShader->tag_update(scene);
                 }
