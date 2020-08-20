@@ -92,7 +92,7 @@ find_package(Boost COMPONENTS ${boost_python_component} thread program_options f
 
 if(NOT ${Boost_${boost_python_component_upper}_FOUND})
   # We need to unset this or the new find_package won't overwrite it.
-  set (Boost_LIBRARIES )
+  unset(Boost_LIBRARIES)
   find_package(Boost COMPONENTS python thread program_options filesystem REQUIRED)
 endif()
 
