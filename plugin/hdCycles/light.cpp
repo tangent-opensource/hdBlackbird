@@ -392,7 +392,8 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     m_backgroundTexture->filename = filepath;
                     m_backgroundFilePath          = filepath;
 
-                    // This fixes orientation.  Not sure why this is needed.
+                    // This fixes orientation.
+                    // Compensates for USD coord system transformation done on camera.
                     m_backgroundTexture->tex_mapping.x_mapping
                         = ccl::TextureMapping::Z;
                     m_backgroundTexture->tex_mapping.y_mapping
