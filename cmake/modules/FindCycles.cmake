@@ -52,7 +52,7 @@ find_path(CYCLES_LIBRARY_DIR
 
     DOC "Cycles Libraries directory")
 
-set(CYCLES_LIBS cycles_bvh;cycles_device;cycles_graph;cycles_kernel;cycles_render;cycles_subd;cycles_util;extern_clew;extern_cuew;extern_numaapi)
+set(CYCLES_LIBS cycles_device;cycles_kernel;cycles_render;cycles_bvh;cycles_subd;cycles_graph;cycles_util;extern_clew;extern_cuew;extern_numaapi)
 
 foreach (lib ${CYCLES_LIBS})
     find_library(${lib}_LIBRARY
