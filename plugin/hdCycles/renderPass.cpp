@@ -119,8 +119,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             m_colorBuffer.resize(numPixels * pixelSize);
             memset(m_colorBuffer.data(), 0, numPixels * pixelSize);
 
-            m_cryptoVec.resize(numPixels * pixelSize);
-            m_cryptoInt.resize(numPixels * pixelSize);
+            m_cryptoVec.resize(numPixels);
+            m_cryptoInt.resize(numPixels);
         }
     }
 
@@ -187,8 +187,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
                         }
                         rb->Blit(HdFormatInt32, w, h, 0, w,
                                  (const uint8_t*)m_cryptoInt.data());
+                        break;
                     }
-                    break;
                 }
             }
         }
