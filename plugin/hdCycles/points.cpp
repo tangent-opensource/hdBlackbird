@@ -151,8 +151,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_cyclesMesh = _CreateSphereMesh();
         }
 
+        m_cyclesMesh->name = id.GetString();
         m_cyclesMesh->tag_update(scene, true);
-        param->AddGeometry(m_cyclesMesh);
+        param->AddGeometry(m_cyclesMesh, GetPrimId());
 
         const auto pointsValue = sceneDelegate->Get(id, HdTokens->points);
         if (!pointsValue.IsEmpty() && pointsValue.IsHolding<VtVec3fArray>()) {
@@ -170,6 +171,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     m_cyclesMesh);
 
                 pointObject->random_id = i;
+                pointObject->pass_id   = i;
                 pointObject->name
                     = ccl::ustring::format("%s@%08x", pointObject->name,
                                            pointObject->random_id);

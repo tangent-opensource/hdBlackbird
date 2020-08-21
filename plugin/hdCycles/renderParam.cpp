@@ -38,6 +38,7 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/session.h>
+#include <util/util_murmurhash.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -351,6 +352,13 @@ HdCyclesRenderParam::_SetDevice(const ccl::DeviceType& a_deviceType,
     return device_available;
 }
 
+float
+HdCyclesRenderParam::_GetCryptoFloat(const ccl::ustring& name)
+{
+    uint32_t hash = ccl::util_murmur_hash3(name.c_str(), name.size(), 0);
+    return ccl::util_hash_to_float(hash);
+}
+
 // -- Shutter motion position
 
 void
@@ -447,6 +455,17 @@ HdCyclesRenderParam::_CyclesInitialize()
     m_bufferParams.height      = m_height;
     m_bufferParams.full_width  = m_width;
     m_bufferParams.full_height = m_height;
+
+    // PASS_OBJECT could suffice and be slightly more performant.
+    // Cryptomatte is more powerful, so supporting just this for now.
+    ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, "object");
+    ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, "material");
+    ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, "asset");
+    m_cyclesScene->film->passes = m_bufferParams.passes;
+
+    m_cyclesScene->film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(
+        ccl::CRYPT_OBJECT | ccl::CRYPT_MATERIAL | ccl::CRYPT_ASSET);
+    m_cyclesScene->film->cryptomatte_depth = 1;
 
     m_cyclesScene->film->exposure = config.exposure;
 
@@ -664,6 +683,9 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 
     m_objectsUpdated = true;
 
+    m_objectToInstId.emplace(_GetCryptoFloat(a_object->name),
+                             a_object->pass_id);
+
     m_cyclesScene->mutex.lock();
     m_cyclesScene->objects.push_back(a_object);
     m_cyclesScene->mutex.unlock();
@@ -672,7 +694,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 }
 
 void
-HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
+HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry, int primId)
 {
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -680,6 +702,8 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
     }
 
     m_geometryUpdated = true;
+
+    m_assetToPrimId.emplace(_GetCryptoFloat(a_geometry->name), primId);
 
     m_cyclesScene->mutex.lock();
     m_cyclesScene->geometry.push_back(a_geometry);
@@ -689,7 +713,7 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 }
 
 void
-HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
+HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh, int primId)
 {
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -697,6 +721,8 @@ HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
     }
 
     m_meshUpdated = true;
+
+    m_assetToPrimId.emplace(_GetCryptoFloat(a_mesh->name), primId);
 
     m_cyclesScene->mutex.lock();
     m_cyclesScene->geometry.push_back(a_mesh);
@@ -731,6 +757,8 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
     }
 
     m_shadersUpdated = true;
+    m_materialToElemId.emplace(_GetCryptoFloat(a_shader->name),
+                               a_shader->pass_id);
 
     m_cyclesScene->mutex.lock();
     m_cyclesScene->shaders.push_back(a_shader);
@@ -740,6 +768,11 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 void
 HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 {
+    for (auto it = m_objectToInstId.find(_GetCryptoFloat(a_object->name));
+         it != m_objectToInstId.end();) {
+        it = m_objectToInstId.erase(it);
+    }
+
     for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin();
          it != m_cyclesScene->objects.end();) {
         if (a_object == *it) {
@@ -789,6 +822,11 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 {
+    for (auto it = m_assetToPrimId.find(_GetCryptoFloat(a_mesh->name));
+         it != m_assetToPrimId.end();) {
+        it = m_assetToPrimId.erase(it);
+    }
+
     for (ccl::vector<ccl::Geometry*>::iterator it
          = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
@@ -839,6 +877,11 @@ HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
 void
 HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
 {
+    for (auto it = m_materialToElemId.find(_GetCryptoFloat(a_shader->name));
+         it != m_materialToElemId.end();) {
+        it = m_materialToElemId.erase(it);
+    }
+
     for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin();
          it != m_cyclesScene->shaders.end();) {
         if (a_shader == *it) {

@@ -118,6 +118,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         if (numPixels != oldNumPixels) {
             m_colorBuffer.resize(numPixels * pixelSize);
             memset(m_colorBuffer.data(), 0, numPixels * pixelSize);
+
+            m_cryptoVec.resize(numPixels * pixelSize);
+            m_cryptoInt.resize(numPixels * pixelSize);
         }
     }
 
@@ -144,6 +147,49 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             if (aov.aovName == HdAovTokens->color) {
                 rb->Blit(colorFormat, w, h, 0, w,
                          reinterpret_cast<uint8_t*>(m_colorBuffer.data()));
+            } else {
+                // Check to see if this aov corresponds to a cryptomatte token
+                std::pair<TfToken, const char*> cryptoMatteTypes[] = {
+                    { HdAovTokens->primId, "asset" },
+                    { HdAovTokens->instanceId, "object" },
+
+                    { HdAovTokens->elementId, "material" },
+                };
+
+                for (const auto& cryptomatteType : cryptoMatteTypes) {
+                    const auto& token = cryptomatteType.first;
+                    if (aov.aovName != token) {
+                        continue;
+                    }
+
+                    renderParam->GetCyclesSession()->buffers->copy_from_device();
+                    if (renderParam->GetCyclesSession()->buffers->get_pass_rect(
+                            cryptomatteType.second, 1, 1, 4,
+                            &(*m_cryptoVec.data())[0])) {
+                        auto iter = m_cryptoInt.begin();
+                        for (const auto& vec : m_cryptoVec) {
+                            if (vec[0] == 0) {
+                                *iter = -1;
+                            } else {
+                                if (token == HdAovTokens->primId) {
+                                    *iter = renderParam->CryptoAssetToId(
+                                        vec[0]);
+                                } else if (token == HdAovTokens->instanceId) {
+                                    *iter = renderParam->CryptoObjectToId(
+                                        vec[0]);
+                                } else if (token == HdAovTokens->elementId) {
+                                    *iter = renderParam->CryptoMaterialToId(
+                                        vec[0]);
+                                }
+                            }
+
+                            ++iter;
+                        }
+                        rb->Blit(HdFormatInt32, w, h, 0, w,
+                                 (const uint8_t*)m_cryptoInt.data());
+                    }
+                    break;
+                }
             }
         }
     }

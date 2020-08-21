@@ -88,9 +88,11 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id,
     , m_shaderGraph(nullptr)
     , m_renderDelegate(a_renderDelegate)
 {
-    m_shader        = new ccl::Shader();
-    m_shaderGraph   = new ccl::ShaderGraph();
-    m_shader->graph = m_shaderGraph;
+    m_shader          = new ccl::Shader();
+    m_shader->pass_id = 0;
+    m_shader->name    = id.GetString();
+    m_shaderGraph     = new ccl::ShaderGraph();
+    m_shader->graph   = m_shaderGraph;
     if (m_renderDelegate)
         m_renderDelegate->GetCyclesRenderParam()->AddShader(m_shader);
 }

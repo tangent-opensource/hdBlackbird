@@ -403,14 +403,14 @@ public:
      * 
      * @param a_geometry Geometry to add
      */
-    void AddGeometry(ccl::Geometry* a_geometry);
+    void AddGeometry(ccl::Geometry* a_geometry, int primId);
 
     /**
      * @brief Add mesh to scene
      * 
      * @param a_geometry Mesh to add
      */
-    void AddMesh(ccl::Mesh* a_mesh);
+    void AddMesh(ccl::Mesh* a_mesh, int primId);
 
     /**
      * @brief Add geometry to scene
@@ -468,6 +468,57 @@ public:
      */
     void RemoveObject(ccl::Object* a_object);
 
+    const float* GetBufferData(ccl::PassType type, int* componentsOut = nullptr)
+    {
+        auto& buffers = *m_cyclesSession->buffers;
+
+        buffers.copy_from_device();
+
+        int pass_offset = 0;
+        for (const auto& pass : buffers.params.passes) {
+            if (pass.type != type) {
+                pass_offset += pass.components;
+                continue;
+            }
+
+            ccl::PassType type = pass.type;
+
+            if (componentsOut) {
+                *componentsOut = pass.components;
+            }
+
+            return buffers.buffer.data() + pass_offset;
+        }
+
+        TF_FATAL_ERROR("Could not find pass type %u", type);
+        return nullptr;
+    }
+
+    int CryptoObjectToId(float cryptoFloat)
+    {
+        const auto iter = m_objectToInstId.find(cryptoFloat);
+        if (iter == m_objectToInstId.end()) {
+            return -1;
+        }
+        return iter->second;
+    }
+    int CryptoAssetToId(float cryptoFloat)
+    {
+        const auto iter = m_assetToPrimId.find(cryptoFloat);
+        if (iter == m_assetToPrimId.end()) {
+            return -1;
+        }
+        return iter->second;
+    }
+    int CryptoMaterialToId(float cryptoFloat)
+    {
+        const auto iter = m_materialToElemId.find(cryptoFloat);
+        if (iter == m_materialToElemId.end()) {
+            return -1;
+        }
+        return iter->second;
+    }
+
 private:
     /**
      * @brief Initialize member values based on config
@@ -478,6 +529,8 @@ private:
 
     bool _SetDevice(const ccl::DeviceType& a_deviceType,
                     ccl::SessionParams& params);
+
+    float _GetCryptoFloat(const ccl::ustring& name);
 
     ccl::BufferParams m_bufferParams;
 
@@ -502,6 +555,10 @@ private:
     bool m_shouldUpdate;
 
     bool m_hasDomeLight;
+
+    std::unordered_map<float, int> m_objectToInstId;
+    std::unordered_map<float, int> m_assetToPrimId;
+    std::unordered_map<float, int> m_materialToElemId;
 
 public:
     void CommitResources();

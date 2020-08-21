@@ -74,9 +74,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     m_maxSubdivision                    = config.max_subdivision;
     m_useMotionBlur                     = config.enable_motion_blur;
 
-    m_cyclesObject = _CreateCyclesObject();
-
-    m_cyclesMesh = _CreateCyclesMesh();
 
     m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
 
@@ -89,11 +86,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
         //m_cyclesMesh->motion_steps    = m_motionSteps;
         //m_cyclesMesh->use_motion_blur = m_useMotionBlur;
     }
-
-    m_cyclesObject->geometry = m_cyclesMesh;
-
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
 }
 
 HdCyclesMesh::~HdCyclesMesh()
@@ -500,10 +492,27 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
+    const SdfPath& id          = GetId();
+    
+    // Have to delay this because GetPrimId isn't valid in constructor.
+    if (m_cyclesMesh == nullptr) {
+        m_cyclesMesh       = _CreateCyclesMesh();
+        m_cyclesMesh->name = id.GetString();
+
+        m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh,
+                                                              GetPrimId());
+    }
+
+    if (m_cyclesObject == nullptr) {
+        m_cyclesObject             = _CreateCyclesObject();
+        m_cyclesObject->geometry   = m_cyclesMesh;
+        m_cyclesObject->asset_name = m_cyclesMesh->name;
+        m_cyclesObject->name       = m_cyclesMesh->name;
+
+        m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    }
 
     scene->mutex.lock();
-
-    const SdfPath& id = GetId();
 
     // -------------------------------------
     // -- Pull scene data
@@ -893,7 +902,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
                     instanceObj->tfm = mat4d_to_transform(
                         combinedTransforms[j].data()[0]);
-                    instanceObj->geometry = m_cyclesMesh;
+                    instanceObj->geometry   = m_cyclesMesh;
+                    instanceObj->asset_name = m_cyclesMesh->name;
+                    instanceObj->random_id  = j;
+                    instanceObj->pass_id    = j;
+                    instanceObj->name
+                        = ccl::ustring::format("%s@%08x", m_cyclesMesh->name,
+                                               instanceObj->random_id);
 
                     // TODO: Implement motion blur for point instanced objects
                     /*if (m_useMotionBlur) {
