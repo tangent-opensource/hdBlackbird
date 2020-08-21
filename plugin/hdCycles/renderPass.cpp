@@ -118,7 +118,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         if (numPixels != oldNumPixels) {
             m_colorBuffer.resize(numPixels * pixelSize);
             memset(m_colorBuffer.data(), 0, numPixels * pixelSize);
-            m_depthBuffer.resize(numPixels * pixelSize);
+            m_depthBuffer.resize(numPixels);
         }
     }
 
