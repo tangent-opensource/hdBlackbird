@@ -552,7 +552,7 @@ HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
                                    : HdFormatUNorm8Vec4;
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->depth) {
-        return HdAovDescriptor(HdFormatFloat32, false, VtValue(1.0f));
+        return HdAovDescriptor(HdFormatFloat32, false, VtValue(0.f));
     } else if (name == HdAovTokens->primId || name == HdAovTokens->instanceId
                || name == HdAovTokens->elementId) {
         return HdAovDescriptor(HdFormatInt32, false, VtValue(-1));

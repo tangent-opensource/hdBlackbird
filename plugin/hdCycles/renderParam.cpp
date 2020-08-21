@@ -448,6 +448,9 @@ HdCyclesRenderParam::_CyclesInitialize()
     m_bufferParams.full_width  = m_width;
     m_bufferParams.full_height = m_height;
 
+    ccl::Pass::add(ccl::PASS_DEPTH, m_bufferParams.passes, "depth");
+
+    m_cyclesScene->film->passes = m_bufferParams.passes;
     m_cyclesScene->film->exposure = config.exposure;
 
     if (config.enable_transparent_background)

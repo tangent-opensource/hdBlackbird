@@ -91,6 +91,7 @@ protected:
     GfMatrix4d m_viewMtx;
 
     std::vector<unsigned char> m_colorBuffer;
+    std::vector<float> m_depthBuffer;
 
 public:
     int m_width  = 0;

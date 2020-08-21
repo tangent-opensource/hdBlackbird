@@ -118,6 +118,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         if (numPixels != oldNumPixels) {
             m_colorBuffer.resize(numPixels * pixelSize);
             memset(m_colorBuffer.data(), 0, numPixels * pixelSize);
+            m_depthBuffer.resize(numPixels * pixelSize);
         }
     }
 
@@ -144,6 +145,32 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             if (aov.aovName == HdAovTokens->color) {
                 rb->Blit(colorFormat, w, h, 0, w,
                          reinterpret_cast<uint8_t*>(m_colorBuffer.data()));
+            } else if (aov.aovName == HdAovTokens->depth
+                       || aov.aovName == HdAovTokens->cameraDepth) {
+                renderParam->GetCyclesSession()->buffers->copy_from_device();
+                if (renderParam->GetCyclesSession()->buffers->get_pass_rect(
+                        "depth", 1, 1, 1, m_depthBuffer.data())) {
+                    // Transform to clip space if-needed
+                    if (aov.aovName == HdAovTokens->depth) {
+                        const auto clipNear = projMtx[3][2]
+                                              / (projMtx[2][2] - 1);
+                        const auto clipFar = projMtx[3][2]
+                                             / (projMtx[2][2] + 1);
+                        const auto clipDelta = clipFar - clipNear;
+                        for (auto& depth : m_depthBuffer) {
+                            // get_pass_rect assigns this value to background
+                            if (depth >= 1e10f) {
+                                depth = -1;
+                            } else {
+                                depth -= clipNear;
+                                depth /= clipDelta;
+                            }
+                        }
+                    }
+
+                    rb->Blit(HdFormatFloat32, w, h, 0, w,
+                             (const uint8_t*)m_depthBuffer.data());
+                }
             }
         }
     }
