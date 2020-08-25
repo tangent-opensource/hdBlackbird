@@ -167,10 +167,10 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
                             }
                         }
                     }
-
-                    rb->Blit(HdFormatFloat32, w, h, 0, w,
-                             (const uint8_t*)m_depthBuffer.data());
                 }
+
+                rb->Blit(HdFormatFloat32, w, h, 0, w,
+                         (const uint8_t*)m_depthBuffer.data());
             }
         }
     }
