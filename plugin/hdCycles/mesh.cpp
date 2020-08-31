@@ -757,16 +757,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // TODO: Add more general uv support
                     //if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                     if (value.IsHolding<VtArray<GfVec2f>>()) {
-                        VtVec2fArray uvs;
-                        VtIntArray uvIndices;
-                        uvs = value.UncheckedGet<VtArray<GfVec2f>>();
+                        VtVec2fArray uvs  = value.UncheckedGet<VtArray<GfVec2f>>();
                         if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
-                            uvIndices.reserve(m_faceVertexIndices.size());
-                            for (int i = 0; i < m_faceVertexIndices.size();
-                                 ++i) {
-                                uvIndices.push_back(i);
-                            }
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                 uvs.data(), uvs.size(), HdTypeFloatVec2,
                                 &triangulated);
