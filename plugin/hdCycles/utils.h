@@ -41,6 +41,7 @@
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/vt/value.h>
+#include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
@@ -257,6 +258,74 @@ _CheckForVec2iValue(const VtValue& value, F&& f)
     }
 }
 
+// Get value
+
+template<typename T>
+T
+_HdCyclesGetVtValue(VtValue a_value, T a_default)
+{
+    if (!a_value.IsEmpty()) {
+        if (a_value.IsHolding<T>()) {
+            return a_value.UncheckedGet<T>();
+        }
+    }
+    return a_default;
+}
+
+// Bool specialization
+
+template<>
+bool
+_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default);
+
+// Get abitrary param
+
+template<typename T>
+T
+_HdCyclesGetParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
+                  T a_default)
+{
+    VtValue val = a_scene->Get(a_id, a_token);
+    return _HdCyclesGetVtValue<T>(val, a_default);
+}
+
+// Get mesh param
+
+template<typename T>
+T
+_HdCyclesGetMeshParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                      HdMesh* a_mesh, HdSceneDelegate* a_scene, TfToken a_token,
+                      T a_default)
+{
+    if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
+        VtValue v;
+        v = a_mesh->GetPrimvar(a_scene, a_token);
+        return _HdCyclesGetVtValue<T>(v, a_default);
+    }
+    return a_default;
+}
+
+// Get light param
+
+template<typename T>
+T
+_HdCyclesGetLightParam(const SdfPath& a_id, HdSceneDelegate* a_scene,
+                       TfToken a_token, T a_default)
+{
+    VtValue v = a_scene->GetLightParamValue(a_id, a_token);
+    return _HdCyclesGetVtValue<T>(v, a_default);
+}
+
+// Get camera param
+
+template<typename T>
+T
+_HdCyclesGetCameraParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
+                        T a_default)
+{
+    VtValue v = a_scene->GetCameraParamValue(a_id, a_token);
+    return _HdCyclesGetVtValue<T>(v, a_default);
+}
 
 /* ========= MikkTSpace ========= */
 

@@ -61,6 +61,14 @@ For example:
 
 ## Notes
 
+### usdCycles schema
+
+For usdcycles authoring plugins, to prevent DCC's and tooling to not have to implement the full dependency chain of hdCycles, the usdCycles schema definition into it's own repo.
+
+Building hdCycles Without usdCycles, results in a very limited subsection of render settings being available.
+
+For full usdCycles schema support, please build with usdCycles.
+
 ### Stability & Performance                           
 
 The codebase is in __active__ development and should be deemed as __unstable__. 

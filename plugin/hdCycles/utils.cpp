@@ -578,4 +578,22 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
     genTangSpaceDefault(&context);
 }
 
+template<>
+bool
+_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default)
+{
+    if (!a_value.IsEmpty()) {
+        if (a_value.IsHolding<bool>()) {
+            return a_value.UncheckedGet<bool>();
+        } else if (a_value.IsHolding<int>()) {
+            return (bool)a_value.UncheckedGet<int>();
+        } else if (a_value.IsHolding<float>()) {
+            return (a_value.UncheckedGet<float>() == 1.0f);
+        } else if (a_value.IsHolding<double>()) {
+            return (a_value.UncheckedGet<double>() == 1.0);
+        }
+    }
+    return a_default;
+}
+
 PXR_NAMESPACE_CLOSE_SCOPE

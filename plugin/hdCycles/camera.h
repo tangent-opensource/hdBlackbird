@@ -208,10 +208,16 @@ private:
     float m_fov;
     GfMatrix4d m_transform;
     float m_shutterTime;
+    float m_rollingShutterTime;
     float m_apertureRatio;
     int m_blades;
     float m_bladesRotation;
     float m_apertureSize;
+
+    int m_motionPosition;
+    int m_rollingShutterType;
+    int m_panoramaType;
+    int m_stereoEye;
 
     bool m_useDof;
 

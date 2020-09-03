@@ -24,10 +24,15 @@
 #include "renderParam.h"
 #include "utils.h"
 
+//#include <kernel/kernel_types.h>
 #include <render/camera.h>
 #include <render/scene.h>
 
 #include <pxr/usd/usdGeom/tokens.h>
+
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -64,6 +69,35 @@ EvalCameraParam(T* value, const TfToken& paramName,
 }
 }  // namespace
 
+#ifdef USE_USD_CYCLES_SCHEMA
+
+std::map<TfToken, ccl::Camera::MotionPosition> MOTION_POSITION_CONVERSION = {
+    { usdCyclesTokens->start, ccl::Camera::MOTION_POSITION_START },
+    { usdCyclesTokens->center, ccl::Camera::MOTION_POSITION_CENTER },
+    { usdCyclesTokens->end, ccl::Camera::MOTION_POSITION_END },
+};
+
+std::map<TfToken, ccl::Camera::RollingShutterType> ROLLING_SHUTTER_TYPE_CONVERSION
+    = {
+          { usdCyclesTokens->none, ccl::Camera::ROLLING_SHUTTER_NONE },
+          { usdCyclesTokens->top, ccl::Camera::ROLLING_SHUTTER_TOP },
+      };
+
+std::map<TfToken, ccl::PanoramaType> PANORAMA_TYPE_CONVERSION = {
+    { usdCyclesTokens->equirectangular, ccl::PANORAMA_EQUIRECTANGULAR },
+    { usdCyclesTokens->fisheye_equidistant, ccl::PANORAMA_FISHEYE_EQUIDISTANT },
+    { usdCyclesTokens->fisheye_equisolid, ccl::PANORAMA_FISHEYE_EQUISOLID },
+    { usdCyclesTokens->mirrorball, ccl::PANORAMA_MIRRORBALL },
+};
+
+std::map<TfToken, ccl::Camera::StereoEye> STEREO_EYE_CONVERSION = {
+    { usdCyclesTokens->none, ccl::Camera::STEREO_NONE },
+    { usdCyclesTokens->left, ccl::Camera::STEREO_LEFT },
+    { usdCyclesTokens->right, ccl::Camera::STEREO_RIGHT },
+};
+
+#endif
+
 HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
                                HdCyclesRenderDelegate* a_renderDelegate)
     : HdCamera(id)
@@ -79,6 +113,12 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_clippingRange(0.1f, 100000.0f)
     , m_renderDelegate(a_renderDelegate)
     , m_needsUpdate(false)
+    , m_shutterTime(1.0f)
+    , m_rollingShutterTime(0.1f)
+    , m_motionPosition(ccl::Camera::MOTION_POSITION_CENTER)
+    , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
+    , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
+    , m_stereoEye(ccl::Camera::STEREO_NONE)
 {
     m_cyclesCamera
         = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->camera;
@@ -216,6 +256,59 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_focusDistance  = 0.0f;
             m_apertureRatio  = 1.0f;
         }
+
+#ifdef USE_USD_CYCLES_SCHEMA
+
+        // Motion Position
+        TfToken motionPosition = _HdCyclesGetParam<TfToken>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraMotion_position,
+            usdCyclesTokens->center);
+
+        if (m_motionPosition != MOTION_POSITION_CONVERSION[motionPosition]) {
+            m_motionPosition = MOTION_POSITION_CONVERSION[motionPosition];
+        }
+
+        // rolling shutter type
+        TfToken rollingShutterType = _HdCyclesGetParam<TfToken>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraRolling_shutterType,
+            usdCyclesTokens->none);
+
+        if (m_rollingShutterType
+            != ROLLING_SHUTTER_TYPE_CONVERSION[rollingShutterType]) {
+            m_rollingShutterType
+                = ROLLING_SHUTTER_TYPE_CONVERSION[rollingShutterType];
+        }
+
+        // panorama type
+        TfToken panoramaType = _HdCyclesGetParam<TfToken>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraPanorama_type,
+            usdCyclesTokens->equirectangular);
+
+        if (m_panoramaType != PANORAMA_TYPE_CONVERSION[panoramaType]) {
+            m_panoramaType = PANORAMA_TYPE_CONVERSION[panoramaType];
+        }
+
+        // stereo eye
+        TfToken stereoEye = _HdCyclesGetParam<TfToken>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraStereo_eye,
+            usdCyclesTokens->none);
+
+        if (m_stereoEye != STEREO_EYE_CONVERSION[stereoEye]) {
+            m_stereoEye = STEREO_EYE_CONVERSION[stereoEye];
+        }
+
+        // Others
+
+        m_shutterTime = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraShutterTime,
+            m_shutterTime);
+
+        m_rollingShutterTime = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraRolling_shutterDuration,
+            m_rollingShutterTime);
+
+#endif
     }
 
     if (*dirtyBits & HdCamera::DirtyProjMatrix) {
@@ -262,6 +355,14 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     a_camera->farclip  = m_clippingRange.GetMax();
 
     a_camera->shuttertime = m_shutterTime;
+
+    a_camera->rolling_shutter_duration = m_rollingShutterTime;
+
+    a_camera->rolling_shutter_type
+        = (ccl::Camera::RollingShutterType)m_rollingShutterType;
+    a_camera->panorama_type   = (ccl::PanoramaType)m_panoramaType;
+    a_camera->motion_position = (ccl::Camera::MotionPosition)m_motionPosition;
+    a_camera->stereo_eye      = (ccl::Camera::StereoEye)m_stereoEye;
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;

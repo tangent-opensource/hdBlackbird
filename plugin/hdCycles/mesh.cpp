@@ -52,7 +52,7 @@
 #include <pxr/imaging/pxOsd/tokens.h>
 
 #ifdef USE_USD_CYCLES_SCHEMA
-#include <usdCycles/tokens.h>
+#    include <usdCycles/tokens.h>
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -71,6 +71,13 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
     , m_hasVertexColors(false)
+    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
+    , m_visCamera(true)
+    , m_visDiffuse(true)
+    , m_visGlossy(true)
+    , m_visScatter(true)
+    , m_visShadow(true)
+    , m_visTransmission(true)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_subdivEnabled                     = config.enable_subdivision;
@@ -695,17 +702,83 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             subd_params.objecttoworld = ccl::transform_identity();
         }
 
+#ifdef USE_USD_CYCLES_SCHEMA
+        for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
+            for (auto& pv : primvarDescsEntry.second) {
+                // Apply custom schema
+
+                m_useMotionBlur = (bool)_HdCyclesGetMeshParam<int>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectMblur, m_useMotionBlur);
+
+                m_motionSteps = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectMblurSteps, m_motionSteps);
+
+                m_cyclesObject->is_shadow_catcher = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectIs_shadow_catcher,
+                    m_cyclesObject->is_shadow_catcher);
+
+                m_cyclesObject->pass_id = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectPass_id,
+                    m_cyclesObject->pass_id);
+
+                m_cyclesObject->use_holdout = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectUse_holdout,
+                    m_cyclesObject->use_holdout);
+
+                // Visibility
+
+                m_visibilityFlags = 0;
+
+                m_visCamera = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectVisibilityCamera, m_visCamera);
+
+                m_visDiffuse = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectVisibilityDiffuse,
+                    m_visDiffuse);
+
+                m_visGlossy = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectVisibilityGlossy, m_visGlossy);
+
+                m_visScatter = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectVisibilityScatter,
+                    m_visScatter);
+
+                m_visShadow = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectVisibilityShadow, m_visShadow);
+
+                m_visTransmission = _HdCyclesGetMeshParam<bool>(
+                    dirtyBits, id, this, sceneDelegate,
+                    usdCyclesTokens->cyclesObjectVisibilityTransmission,
+                    m_visTransmission);
+
+                m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
+                m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
+                m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
+                m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER
+                                                  : 0;
+                m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
+                m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT
+                                                       : 0;
+            }
+        }
+#endif
+
         // Get all uvs (assumes all GfVec2f are uvs)
         for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
             for (auto& pv : primvarDescsEntry.second) {
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     auto value = GetPrimvar(sceneDelegate, pv.name);
                     VtValue triangulated;
-
-                    if(pv.name == usdCyclesTokens->cyclesObjectMblur) {
-                        std::cout << "Has mblur\n";
-                    }
-
 
                     if (pv.name == HdTokens->normals) {
                         VtVec3fArray normals;
@@ -839,10 +912,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         mesh_updated        = true;
         _sharedData.visible = sceneDelegate->GetVisible(id);
-        if (_sharedData.visible) {
-            m_cyclesObject->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
-        } else {
-            m_cyclesObject->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+        if (!_sharedData.visible) {
+            m_visibilityFlags = 0;  //~ccl::PATH_RAY_ALL_VISIBILITY;
         }
     }
 
@@ -924,7 +995,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
                 // Hide prototype
                 if (m_cyclesObject)
-                    m_cyclesObject->visibility = 0;
+                    m_visibilityFlags = 0;
             }
         }
     }
@@ -937,6 +1008,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (mesh_updated || newMesh) {
+        m_cyclesObject->visibility = m_visibilityFlags;
+        std::cout << "Vis:" << m_cyclesObject->visibility << '\n';
+        std::cout << " -" << m_visibilityFlags << '\n';
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
