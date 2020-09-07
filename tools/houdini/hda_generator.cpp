@@ -205,7 +205,7 @@ create_individual_shader(std::string path, std::string op_name,
                 "{\n"
                 "    name\t"
              << op_name << '\n'
-             << "    script\tcycles:" << raw_name << '\n'
+             << "    script\tcycles_" << raw_name << '\n'
              << "    label\t" << label << '\n'
              << "\n"
                 "    rendermask\tcycles\n"
@@ -347,7 +347,7 @@ create_individual_shader(std::string path, std::string op_name,
     // -- Create FunctionName File
 
     std::ofstream f_functionName(path + "/FunctionName");
-    f_functionName << "cycles:" << raw_name;
+    f_functionName << "cycles_" << raw_name;
     f_functionName.close();
 
     // -- Create Help File
