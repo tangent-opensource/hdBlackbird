@@ -104,6 +104,18 @@ std::map<TfToken, ccl::VolumeSampling> VOLUME_SAMPLING_CONVERSION = {
 
 #endif
 
+bool
+IsValidCyclesIdentifier(const std::string& identifier)
+{
+    bool isvalid = identifier.rfind("cycles_") == 0;
+
+    // DEPRECATED:
+    // Only needed for retroactive support of pre 0.8.0 cycles shaders
+    isvalid += identifier.rfind("cycles:") == 0;
+
+    return isvalid;
+}
+
 TfTokenVector const&
 HdCyclesMaterial::GetShaderSourceTypes()
 {
@@ -234,17 +246,18 @@ convertCyclesNode(HdMaterialNode& usd_node,
                   ccl::ShaderGraph* cycles_shader_graph)
 {
     // Get Cycles node name
-    std::vector<std::string> node_id_parts
-        = TfStringSplit(usd_node.identifier.GetString().c_str(), ":");
+    std::string node_id = usd_node.identifier.GetString();
 
-    if (node_id_parts.size() != 2) {
+    bool has_valid_prefix = IsValidCyclesIdentifier(node_id);
+
+    if (!has_valid_prefix) {
         // illegal node name
         TF_WARN("MATERIAL ERROR: Illegal cycles node name: %s",
-                usd_node.identifier.GetString().c_str());
+                node_id.c_str());
         return nullptr;
     }
 
-    ccl::ustring cycles_node_name = ccl::ustring(node_id_parts[1].c_str());
+    ccl::ustring cycles_node_name = ccl::ustring(node_id.substr(7));
 
     // Find dynamic node type
     const ccl::NodeType* node_type = ccl::NodeType::find(cycles_node_name);
@@ -501,17 +514,23 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
             HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
 
+            std::string to_identifier   = hd_tonode->identifier.GetString();
+            std::string from_identifier = hd_fromnode->identifier.GetString();
+
             ccl::ShaderOutput* output = NULL;
             ccl::ShaderInput* input   = NULL;
 
+            bool to_has_valid_prefix   = IsValidCyclesIdentifier(to_identifier);
+            bool from_has_valid_prefix = IsValidCyclesIdentifier(
+                from_identifier);
+
+            // Converts Preview surface connections
             // TODO: Handle this check better
             TfToken cInputName = matRel.inputName;
-            if (hd_fromnode->identifier.GetString().find("cycles:")
-                == std::string::npos)
+            if (!from_has_valid_prefix)
                 cInputName = socketConverter(cInputName);
             TfToken cOutputName = matRel.outputName;
-            if (hd_tonode->identifier.GetString().find("cycles:")
-                == std::string::npos)
+            if (!to_has_valid_prefix)
                 cOutputName = socketConverter(cOutputName);
 
             if (tonode == nullptr) {

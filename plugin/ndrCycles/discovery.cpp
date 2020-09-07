@@ -69,7 +69,21 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
     temp_nodes.push_back("hair_bsdf");
 
     for (const std::string& n : temp_nodes) {
-        std::string cycles_id = std::string("cycles:" + n);
+        std::string cycles_id = std::string("cycles_" + n);
+        ret.emplace_back(NdrIdentifier(
+                             TfStringPrintf(cycles_id.c_str())),  // identifier
+                         NdrVersion(1, 0),                        // version
+                         n.c_str(),                               // name
+                         _tokens->shader,                         // family
+                         _tokens->cycles,  // discoveryType
+                         _tokens->cycles,  // sourceType
+                         filename,         // uri
+                         filename          // resolvedUri
+        );
+
+        // DEPRECATED:
+        // Added for backwards support whilst we transition to new identifier
+        cycles_id = std::string("cycles:" + n);
         ret.emplace_back(NdrIdentifier(
                              TfStringPrintf(cycles_id.c_str())),  // identifier
                          NdrVersion(1, 0),                        // version

@@ -34,7 +34,6 @@ NDR_REGISTER_PARSER_PLUGIN(NdrCyclesParserPlugin);
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(_tokens,
     (cycles)
-    ((cyclesPrefix, "cycles:"))
     (binary)
 );
 // clang-format on
