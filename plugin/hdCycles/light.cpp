@@ -445,10 +445,10 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 
     // TODO: Light is_enabled doesn't seem to have any effect
-    /* if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
+    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         light_updated             = true;
         m_cyclesLight->is_enabled = sceneDelegate->GetVisible(id);
-    }*/
+    }
 
     if (*dirtyBits & HdLight::DirtyTransform) {
         light_updated = true;

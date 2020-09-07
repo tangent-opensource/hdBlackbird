@@ -262,11 +262,17 @@ _CheckForVec2iValue(const VtValue& value, F&& f)
 
 template<typename T>
 T
-_HdCyclesGetVtValue(VtValue a_value, T a_default)
+_HdCyclesGetVtValue(VtValue a_value, T a_default, bool* a_hasChanged = nullptr,
+                    bool a_checkWithDefault = false)
 {
     if (!a_value.IsEmpty()) {
         if (a_value.IsHolding<T>()) {
-            return a_value.UncheckedGet<T>();
+            T val = a_value.UncheckedGet<T>();
+            if (a_checkWithDefault && val != a_default)
+                *a_hasChanged = true;
+            else
+                *a_hasChanged = true;
+            return val;
         }
     }
     return a_default;
@@ -276,7 +282,8 @@ _HdCyclesGetVtValue(VtValue a_value, T a_default)
 
 template<>
 bool
-_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default);
+_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default, bool* a_hasChanged,
+                          bool a_checkWithDefault);
 
 // Get abitrary param
 
