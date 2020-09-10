@@ -87,6 +87,24 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
     }
 }
 
+void
+HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+                         ccl::float3& a_size)
+{
+    // @TODO: The implementation of this function is broken
+    a_loc  = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
+    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y, a_transform.z.z);
+
+    if (a_size.x != 0.0f)
+        a_size.x = 0.5f / a_size.x;
+    if (a_size.y != 0.0f)
+        a_size.y = 0.5f / a_size.y;
+    if (a_size.z != 0.0f)
+        a_size.z = 0.5f / a_size.z;
+
+    a_loc = a_loc * a_size - ccl::make_float3(0.5f, 0.5f, 0.5f);
+}
+
 /* ========== Material ========== */
 
 ccl::Shader*
@@ -204,6 +222,24 @@ ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec)
 {
     return ccl::make_float2(a_vec[0], a_vec[1]);
+}
+
+ccl::float2
+vec3f_to_float2(const GfVec3f& a_vec)
+{
+    return ccl::make_float2(a_vec[0], a_vec[1]);
+}
+
+ccl::float3
+float_to_float3(const float& a_vec)
+{
+    return ccl::make_float3(a_vec, a_vec, a_vec);
+}
+
+ccl::float3
+vec2f_to_float3(const GfVec2f& a_vec)
+{
+    return ccl::make_float3(a_vec[0], a_vec[1], 0.0f);
 }
 
 ccl::float3

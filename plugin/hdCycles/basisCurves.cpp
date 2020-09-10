@@ -33,6 +33,7 @@
 #include <util/util_hash.h>
 #include <util/util_math_float3.h>
 
+#include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/vec3i.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
@@ -130,6 +131,262 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
         }
     } else {
         _CreateCurves(scene);
+    }
+}
+
+void
+HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
+                                HdInterpolation interpolation)
+{
+    ccl::ustring attribName = ccl::ustring(name.GetString());
+
+    int vecSize   = 0;
+    int numColors = 0;
+
+    VtFloatArray colors1f;
+    VtVec2fArray colors2f;
+    VtVec3fArray colors3f;
+    VtVec4fArray colors4f;
+
+    if (value.IsHolding<VtArray<GfVec3f>>()) {
+        colors3f  = value.UncheckedGet<VtArray<GfVec3f>>();
+        vecSize   = 3;
+        numColors = colors3f.size();
+    } else if (value.IsHolding<VtArray<GfVec4f>>()) {
+        colors4f  = value.UncheckedGet<VtArray<GfVec4f>>();
+        vecSize   = 4;
+        numColors = colors4f.size();
+    } else if (value.IsHolding<VtArray<GfVec2f>>()) {
+        colors2f  = value.UncheckedGet<VtArray<GfVec2f>>();
+        vecSize   = 2;
+        numColors = colors2f.size();
+    } else if (value.IsHolding<VtArray<float>>()) {
+        colors1f  = value.UncheckedGet<VtArray<float>>();
+        vecSize   = 1;
+        numColors = colors1f.size();
+    }
+
+    if (vecSize == 0)
+        return;
+
+    if (interpolation == HdInterpolationUniform) {
+        if (m_cyclesHair) {
+            ccl::Attribute* attr_vcol = m_cyclesHair->attributes.add(
+                attribName, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_CURVE);
+
+            ccl::float3* fdata = attr_vcol->data_float3();
+
+            if (fdata) {
+                size_t i = 0;
+
+                for (size_t curve = 0; curve < numColors; curve++) {
+                    ccl::float3 color;
+
+                    switch (vecSize) {
+                    case 1: color = float_to_float3(colors1f[curve]); break;
+                    case 2: color = vec2f_to_float3(colors2f[curve]); break;
+                    case 3: color = vec3f_to_float3(colors3f[curve]); break;
+                    case 4: color = vec4f_to_float3(colors4f[curve]); break;
+                    }
+
+                    fdata[i++] = ccl::color_srgb_to_linear_v3(color);
+                }
+            }
+        } else {
+            // @TODO: Unhandled support for deprecated curve mesh geo
+            ccl::Attribute* attr_vcol
+                = m_cyclesMesh->attributes.add(attribName,
+                                               ccl::TypeDesc::TypeColor,
+                                               ccl::ATTR_ELEMENT_CORNER_BYTE);
+
+            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+        }
+    } else if (interpolation == HdInterpolationVertex) {
+        VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
+        if (m_cyclesHair) {
+            // Support for vertex varying attributes is not supported in Cycles hair.
+            // For now we just get the root value and apply to the whole strand...
+            ccl::Attribute* attr_vcol = m_cyclesHair->attributes.add(
+                attribName, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_CURVE);
+
+            ccl::float3* fdata = attr_vcol->data_float3();
+
+            if (fdata) {
+                int curveOffset = 0;
+                for (int i = 0; i < curveVertexCounts.size(); i++) {
+                    ccl::float3 color;
+
+                    switch (vecSize) {
+                    case 1:
+                        color = float_to_float3(colors1f[curveOffset]);
+                        break;
+                    case 2:
+                        color = vec2f_to_float3(colors2f[curveOffset]);
+                        break;
+                    case 3:
+                        color = vec3f_to_float3(colors3f[curveOffset]);
+                        break;
+                    case 4:
+                        color = vec4f_to_float3(colors4f[curveOffset]);
+                        break;
+                    }
+
+                    fdata[i] = ccl::color_srgb_to_linear_v3(color);
+
+                    curveOffset += curveVertexCounts[i];
+                }
+            }
+        } else {
+            // @TODO: Unhandled support for deprecated curve mesh geo
+            ccl::Attribute* attr_vcol
+                = m_cyclesMesh->attributes.add(attribName,
+                                               ccl::TypeDesc::TypeColor,
+                                               ccl::ATTR_ELEMENT_CORNER_BYTE);
+
+            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+        }
+    }
+}
+
+void
+HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
+                             HdInterpolation interpolation)
+{
+    ccl::ustring attribName = ccl::ustring(name.GetString());
+
+    // Add hair uvs
+    ccl::Attribute* attr_uv;
+    ccl::float2* uv;
+
+    if (interpolation == HdInterpolationUniform) {
+        if (value.IsHolding<VtArray<GfVec2f>>()) {
+            VtVec2fArray uvs;
+            uvs = value.UncheckedGet<VtArray<GfVec2f>>();
+            if (m_cyclesHair) {
+                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+                if (uv) {
+                    size_t i = 0;
+
+                    for (size_t curve = 0; curve < uvs.size(); curve++) {
+                        uv[i++] = vec2f_to_float2(uvs[curve]);
+                    }
+                }
+            } else {
+                // @TODO: Unhandled support for deprecated curve mesh geo
+                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+            }
+        } else if (value.IsHolding<VtArray<GfVec3f>>()) {
+            VtVec3fArray uvs;
+            uvs = value.UncheckedGet<VtArray<GfVec3f>>();
+            if (m_cyclesHair) {
+                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+                if (uv) {
+                    size_t i = 0;
+
+                    for (size_t curve = 0; curve < uvs.size(); curve++) {
+                        uv[i++] = vec3f_to_float2(uvs[curve]);
+                    }
+                }
+            } else {
+                // @TODO: Unhandled support for deprecated curve mesh geo
+                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+            }
+        }
+    } else if (interpolation == HdInterpolationVertex) {
+        VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
+
+        if (value.IsHolding<VtArray<GfVec2f>>()) {
+            VtVec2fArray uvs;
+            uvs = value.UncheckedGet<VtArray<GfVec2f>>();
+            if (m_cyclesHair) {
+                // Support for vertex varying attributes is not supported in Cycles hair.
+                // For now we just get the root value and apply to the whole strand...
+                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+                if (uv) {
+                    int curveOffset = 0;
+                    for (int i = 0; i < curveVertexCounts.size(); i++) {
+                        uv[i] = vec2f_to_float2(uvs[curveOffset]);
+                        curveOffset += curveVertexCounts[i];
+                    }
+                }
+            } else {
+                // @TODO: Unhandled support for deprecated curve mesh geo
+                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+            }
+        } else if (value.IsHolding<VtArray<GfVec3f>>()) {
+            VtVec3fArray uvs;
+            uvs = value.UncheckedGet<VtArray<GfVec3f>>();
+            if (m_cyclesHair) {
+                // Support for vertex varying attributes is not supported in Cycles hair.
+                // For now we just get the root value and apply to the whole strand...
+                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+                if (uv) {
+                    int curveOffset = 0;
+                    for (int i = 0; i < curveVertexCounts.size(); i++) {
+                        uv[i] = vec3f_to_float2(uvs[curveOffset]);
+                        curveOffset += curveVertexCounts[i];
+                    }
+                }
+            } else {
+                // @TODO: Unhandled support for deprecated curve mesh geo
+                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
+                                                       attribName);
+
+                uv = attr_uv->data_float2();
+            }
+        }
+    }
+}
+
+void
+HdCyclesBasisCurves::_AddGenerated()
+{
+    if (!m_cyclesObject)
+        return;
+
+    ccl::float3 loc, size;
+
+    // @TODO: The implementation of this function is broken
+    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc, size);
+
+    if (m_cyclesMesh) {
+        ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(
+            ccl::ATTR_STD_GENERATED);
+        ccl::float3* generated = attr_generated->data_float3();
+
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++)
+            generated[i] = m_cyclesMesh->verts[i] * size - loc;
+    } else {
+        ccl::Attribute* attr_generated = m_cyclesHair->attributes.add(
+            ccl::ATTR_STD_GENERATED);
+        ccl::float3* generated = attr_generated->data_float3();
+
+        for (size_t i = 0; i < m_cyclesHair->num_curves(); i++) {
+            ccl::float3 co
+                = m_cyclesHair->curve_keys[m_cyclesHair->get_curve(i).first_key];
+            generated[i] = co * size - loc;
+        }
     }
 }
 
@@ -245,9 +502,29 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             m_cyclesObject->geometry = m_cyclesGeometry;
 
             m_cyclesGeometry->compute_bounds();
+
+            _AddGenerated();
+
             m_cyclesGeometry->tag_update(scene, true);
 
             param->AddCurve(m_cyclesGeometry);
+        }
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
+        HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
+
+        for (auto& primvarDescsEntry : pdpi) {
+            for (auto& pv : primvarDescsEntry.second) {
+                if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                    VtValue value = GetPrimvar(sceneDelegate, pv.name);
+                    if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
+                        _AddUVS(pv.name, value, primvarDescsEntry.first);
+                    } else {
+                        _AddColors(pv.name, value, primvarDescsEntry.first);
+                    }
+                }
+            }
         }
     }
 
@@ -300,12 +577,10 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     ccl::Attribute* attr_intercept = NULL;
     ccl::Attribute* attr_random    = NULL;
 
-    if (m_cyclesHair->need_attribute(a_scene, ccl::ATTR_STD_CURVE_INTERCEPT))
-        attr_intercept = m_cyclesHair->attributes.add(
-            ccl::ATTR_STD_CURVE_INTERCEPT);
-    if (m_cyclesHair->need_attribute(a_scene, ccl::ATTR_STD_CURVE_RANDOM))
-        attr_random = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_RANDOM);
+    attr_intercept = m_cyclesHair->attributes.add(
+        ccl::ATTR_STD_CURVE_INTERCEPT);
 
+    attr_random = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_RANDOM);
 
     m_cyclesHair->reserve_curves(num_curves, num_keys);
 

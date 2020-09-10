@@ -121,6 +121,34 @@ protected:
      */
     HdDirtyBits _PropagateDirtyBits(HdDirtyBits bits) const override;
 
+    /**
+     * @brief Add Color and arbitrary primvar attributes to curves
+     * Specifically only uniform varying are supported with the Cycles API
+     * This means vertex varying primvars are lossy and grabbed from the root.
+     * 
+     * @param name Name of the color primvar
+     * @param value VtValue holding data (floats-float4)
+     * @param interpolation Interpolation of colors
+     */
+    void _AddColors(TfToken name, VtValue value, HdInterpolation interpolation);
+
+    /**
+     * @brief Add UV specific attributes to curves.
+     * Specifically only uniform varying are supported with the Cycles API
+     * This means vertex varying uvs are lossy and grabbed from the root.
+     * 
+     * @param name Name of the UV Set
+     * @param uvs VtValue holding uvs
+     * @param interpolation Interpolation of uvs
+     */
+    void _AddUVS(TfToken name, VtValue uvs, HdInterpolation interpolation);
+
+    /**
+     * @brief Add generated coordinate for basisCurves
+     * 
+     */
+    void _AddGenerated();
+
 protected:
     VtVec3fArray m_points;
     VtVec3fArray m_normals;
