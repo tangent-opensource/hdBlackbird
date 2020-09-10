@@ -30,6 +30,7 @@
 #include <util/util_math_float3.h>
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/replace.hpp>
 
 using namespace ccl;
 
@@ -119,7 +120,7 @@ get_socket_name(const SocketType& socket)
 std::string
 get_socket_label(const SocketType& socket)
 {
-    return socket.ui_name.string();
+    return boost::replace_all_copy(socket.ui_name.string(), " ", "_");
 }
 
 std::string
