@@ -206,6 +206,24 @@ vec2f_to_float2(const GfVec2f& a_vec)
     return ccl::make_float2(a_vec[0], a_vec[1]);
 }
 
+ccl::float2
+vec3f_to_float2(const GfVec3f& a_vec)
+{
+    return ccl::make_float2(a_vec[0], a_vec[1]);
+}
+
+ccl::float3
+float_to_float3(const float& a_vec)
+{
+    return ccl::make_float3(a_vec, a_vec, a_vec);
+}
+
+ccl::float3
+vec2f_to_float3(const GfVec2f& a_vec)
+{
+    return ccl::make_float3(a_vec[0], a_vec[1], 0.0f);
+}
+
 ccl::float3
 vec3f_to_float3(const GfVec3f& a_vec)
 {
