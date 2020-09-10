@@ -179,7 +179,6 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
             if (fdata) {
                 size_t i = 0;
 
-                /* Encode vertex color using the sRGB curve. */
                 for (size_t curve = 0; curve < numColors; curve++) {
                     ccl::float3 color;
 
@@ -361,6 +360,37 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
 }
 
 void
+HdCyclesBasisCurves::_AddGenerated()
+{
+    if (!m_cyclesObject)
+        return;
+
+    ccl::float3 loc, size;
+
+    // @TODO: The implementation of this function is broken
+    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc, size);
+
+    if (m_cyclesMesh) {
+        ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(
+            ccl::ATTR_STD_GENERATED);
+        ccl::float3* generated = attr_generated->data_float3();
+
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++)
+            generated[i] = m_cyclesMesh->verts[i] * size - loc;
+    } else {
+        ccl::Attribute* attr_generated = m_cyclesHair->attributes.add(
+            ccl::ATTR_STD_GENERATED);
+        ccl::float3* generated = attr_generated->data_float3();
+
+        for (size_t i = 0; i < m_cyclesHair->num_curves(); i++) {
+            ccl::float3 co
+                = m_cyclesHair->curve_keys[m_cyclesHair->get_curve(i).first_key];
+            generated[i] = co * size - loc;
+        }
+    }
+}
+
+void
 HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
                           HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
                           TfToken const& reprSelector)
@@ -472,6 +502,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             m_cyclesObject->geometry = m_cyclesGeometry;
 
             m_cyclesGeometry->compute_bounds();
+
+            _AddGenerated();
+
             m_cyclesGeometry->tag_update(scene, true);
 
             param->AddCurve(m_cyclesGeometry);
@@ -548,7 +581,6 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         ccl::ATTR_STD_CURVE_INTERCEPT);
 
     attr_random = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_RANDOM);
-
 
     m_cyclesHair->reserve_curves(num_curves, num_keys);
 

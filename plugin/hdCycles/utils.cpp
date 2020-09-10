@@ -87,6 +87,24 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
     }
 }
 
+void
+HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+                         ccl::float3& a_size)
+{
+    // @TODO: The implementation of this function is broken
+    a_loc  = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
+    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y, a_transform.z.z);
+
+    if (a_size.x != 0.0f)
+        a_size.x = 0.5f / a_size.x;
+    if (a_size.y != 0.0f)
+        a_size.y = 0.5f / a_size.y;
+    if (a_size.z != 0.0f)
+        a_size.z = 0.5f / a_size.z;
+
+    a_loc = a_loc * a_size - ccl::make_float3(0.5f, 0.5f, 0.5f);
+}
+
 /* ========== Material ========== */
 
 ccl::Shader*

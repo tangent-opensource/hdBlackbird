@@ -519,7 +519,7 @@ main(int argc, char* argv[])
                       + "/hda/source" + " " + cwd + "/hda/cycles_shaders.hda\"";
     system(cmd.c_str());
 
-    //boost::filesystem::remove_all(cwd + "/hda/source");
+    boost::filesystem::remove_all(cwd + "/hda/source");
 
     hda_log("Done creating nodes...");
 }

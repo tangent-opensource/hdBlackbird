@@ -61,6 +61,11 @@ HDCYCLES_API
 void
 HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles);
 
+HDCYCLES_API
+void
+HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+                         ccl::float3& a_size);
+
 /* ========== Material ========== */
 
 ccl::Shader*
@@ -126,7 +131,7 @@ vec3f_to_float2(const GfVec3f& a_vec);
  * @return Cycles float3
  */
 ccl::float3
-float_to_float3(const float &a_vec);
+float_to_float3(const float& a_vec);
 
 /**
  * @brief Convert GfVec2f to Cycles float3 representation
