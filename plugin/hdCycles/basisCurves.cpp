@@ -189,7 +189,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                     case 4: color = vec4f_to_float3(colors4f[curve]); break;
                     }
 
-                    fdata[i++] = ccl::color_srgb_to_linear_v3(color);
+                    fdata[i++] = color;
                 }
             }
         } else {
@@ -231,7 +231,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                         break;
                     }
 
-                    fdata[i] = ccl::color_srgb_to_linear_v3(color);
+                    fdata[i] = color;
 
                     curveOffset += curveVertexCounts[i];
                 }
@@ -368,7 +368,8 @@ HdCyclesBasisCurves::_AddGenerated()
     ccl::float3 loc, size;
 
     // @TODO: The implementation of this function is broken
-    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc, size);
+    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc,
+                             size);
 
     if (m_cyclesMesh) {
         ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(
@@ -609,6 +610,9 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
             float radius = 0.1f;
             if (idx < m_widths.size())
                 radius = m_widths[idx];
+            else if (m_widthsInterpolation == HdInterpolationConstant
+                     && m_widths.size() > 0)
+                radius = m_widths[0];
 
             m_cyclesHair->add_curve_key(usd_location, radius);
 

@@ -241,6 +241,7 @@ protected:
     VtVec3fArray m_points;
     VtIntArray m_faceVertexCounts;
     VtIntArray m_faceVertexIndices;
+    TfToken m_orientation;
 
     bool m_useSubdivision = false;
     bool m_subdivEnabled  = false;

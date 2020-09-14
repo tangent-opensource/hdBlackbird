@@ -319,11 +319,11 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
                 int v2 = *(idxIt + i + 1);
 
                 cdata[0] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v0])));
+                    vec3f_to_float4(colors[v0]));
                 cdata[1] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v1])));
+                    vec3f_to_float4(colors[v1]));
                 cdata[2] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v2])));
+                    vec3f_to_float4(colors[v2]));
                 cdata += 3;
             }
             idxIt += vCount;
@@ -336,8 +336,7 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
             GfVec3f pv_col  = colors[0];
             ccl::float4 col = vec3f_to_float4(pv_col);
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
+            cdata[0] = ccl::color_float4_to_uchar4(col);
             cdata += 1;
         }
     } else if (interpolation == HdInterpolationFaceVarying) {
@@ -349,8 +348,7 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
             GfVec3f pv_col  = colors[idx];
             ccl::float4 col = vec3f_to_float4(pv_col);
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
+            cdata[0] = ccl::color_float4_to_uchar4(col);
             cdata += 1;
         }
     }
@@ -420,6 +418,7 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
     }
 
     VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+    int tots                         = 0;
 
     if (a_subdivide) {
         bool smooth = true;
@@ -452,10 +451,26 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                 int v2 = *(idxIt + i + 1);
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
-                    m_cyclesMesh->add_triangle(v0, v1, v2, materialId, true);
+                    if (m_orientation == HdTokens->leftHanded) {
+                        if (i < vCount - 2) {
+                            m_cyclesMesh->add_triangle(v1, v0, v2, materialId,
+                                                       true);
+                        } else {
+                            m_cyclesMesh->add_triangle(v0, v2, v1, materialId,
+                                                       true);
+                        }
+                    } else {
+                        m_cyclesMesh->add_triangle(v0, v1, v2, materialId,
+                                                   true);
+                    }
                 }
+
+                std::cout << tots << '\n';
+                std::cout << tots + i + 0 << '\n';
+                std::cout << tots + i + 1 << '\n';
             }
             idxIt += vCount;
+            tots += vCount;
         }
     }
 }
@@ -500,7 +515,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
-    
 
     scene->mutex.lock();
 
@@ -563,6 +577,32 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_faceVertexCounts  = m_topology.GetFaceVertexCounts();
         m_faceVertexIndices = m_topology.GetFaceVertexIndices();
         m_geomSubsets       = m_topology.GetGeomSubsets();
+        m_orientation       = m_topology.GetOrientation();
+
+        if (m_orientation == HdTokens->leftHanded) {
+            std::cout << m_faceVertexIndices << '\n';
+            VtIntArray newIndices;
+            newIndices.resize(m_faceVertexIndices.size());
+            int tot = 0;
+            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                int count = m_faceVertexCounts[i];
+
+                for (int j = 0; j < count; j++) {
+                    int idx  = tot + j;
+                    int ii   = tot + ((j + (count / 2)) % count);
+                    int ridx = tot + (count - j);
+
+                    if (j == 0)
+                        newIndices[idx] = m_faceVertexIndices[idx];
+                    else
+                        newIndices[idx] = m_faceVertexIndices[ridx];
+                }
+
+                tot += count;
+            }
+            m_faceVertexIndices = newIndices;
+            std::cout << m_faceVertexIndices << '\n';
+        }
 
         m_numMeshFaces = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
@@ -757,9 +797,39 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // TODO: Add more general uv support
                     //if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                     if (value.IsHolding<VtArray<GfVec2f>>()) {
-                        VtVec2fArray uvs  = value.UncheckedGet<VtArray<GfVec2f>>();
+                        VtVec2fArray uvs
+                            = value.UncheckedGet<VtArray<GfVec2f>>();
                         if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
+                            if (m_orientation == HdTokens->leftHanded) {
+                                VtVec2fArray arr;
+                                arr.resize(uvs.size());
+                                int tot = 0;
+
+                                for (int i = 0; i < m_faceVertexCounts.size();
+                                     i++) {
+                                    int count = m_faceVertexCounts[i];
+
+                                    for (int j = 0; j < count; j++) {
+                                        int idx = tot + j;
+                                        int ii  = tot
+                                                 + ((j + (count / 2)) % count);
+                                        int ridx = tot + (count - j);
+
+                                        if (j == 0) {
+                                            arr[idx] = uvs[idx];
+                                        } else {
+                                            arr[idx] = uvs[ridx];
+                                        }
+                                    }
+
+                                    tot += count;
+                                }
+                                std::cout << uvs << '\n';
+                                std::cout << arr << '\n';
+                                uvs = arr;
+                            }
+
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                 uvs.data(), uvs.size(), HdTypeFloatVec2,
                                 &triangulated);
