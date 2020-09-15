@@ -38,6 +38,10 @@
 #include <pxr/base/gf/vec3i.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // TODO: Read these from usdCycles schema
@@ -454,19 +458,19 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
-        if (HdCyclesIsPrimvarExists(_tokens->cyclesCurveStyle, pdpi)) {
-            VtIntArray type = sceneDelegate->Get(id, _tokens->cyclesCurveStyle)
-                                  .Get<VtIntArray>();
-            if (type.size() > 0) {
-                if (type[0] == 0)
-                    m_curveStyle = CURVE_RIBBONS;
-                else
-                    m_curveStyle = CURVE_TUBE;
-            }
-        } else {
-            m_curveStyle = CURVE_TUBE;
-        }
+#ifdef USE_USD_CYCLES_SCHEMA
+        if (HdCyclesIsPrimvarExists(usdCyclesTokens->cyclesObjectCurve_style, pdpi)) {
+            VtValue _value = sceneDelegate->Get(id, usdCyclesTokens->cyclesObjectCurve_style);
 
+            TfToken curveType
+                = _HdCyclesGetVtValue<TfToken>(_value, usdCyclesTokens->ribbon);
+            if (curveType == usdCyclesTokens->ribbon) {
+                m_curveStyle = CURVE_RIBBONS;
+            } else {
+                m_curveStyle = CURVE_TUBE;
+            }
+        }
+#endif
         if (HdCyclesIsPrimvarExists(_tokens->cyclesCurveResolution, pdpi)) {
             VtIntArray resolution
                 = sceneDelegate->Get(id, _tokens->cyclesCurveResolution)
