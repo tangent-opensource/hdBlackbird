@@ -454,7 +454,7 @@ HdCyclesRenderParam::_CyclesInitialize()
         m_cyclesScene->background->transparent = true;
 
     if (m_useMotionBlur) {
-        SetShutterMotionPosition(config.shutter_motion_position);
+        //SetShutterMotionPosition(config.shutter_motion_position);
 
         m_cyclesScene->camera->shuttertime = 0.5f;
         m_cyclesScene->camera->motion.clear();

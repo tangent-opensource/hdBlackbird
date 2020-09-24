@@ -362,9 +362,9 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
         });
     }
 
-    if (integrator_updated) {
-        integrator->tag_update(m_renderParam->GetCyclesScene());
-    }
+    //if (integrator_updated) {
+   //     integrator->tag_update(m_renderParam->GetCyclesScene());
+    //}
 }
 
 void

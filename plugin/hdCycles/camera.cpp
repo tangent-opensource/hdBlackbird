@@ -138,7 +138,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         / 2.0f;
         if (m_shutterOpen == 0.0f && m_shutterClose == 0.0f)
             shutter = 0.5f;
-        m_shutterTime = shutter;
+        m_shutterTime = 0.5f;
 
         // Projection
 
@@ -262,6 +262,7 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     a_camera->farclip  = m_clippingRange.GetMax();
 
     a_camera->shuttertime = m_shutterTime;
+    a_camera->motion_position = ccl::Camera::MotionPosition::MOTION_POSITION_CENTER;
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;

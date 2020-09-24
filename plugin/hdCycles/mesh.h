@@ -208,6 +208,8 @@ protected:
      */
     void _PopulateVertices();
 
+    void _PopulateMotion();
+
     /**
      * @brief Populate faces of cycles mesh
      * 
@@ -241,6 +243,10 @@ protected:
     VtVec3fArray m_points;
     VtIntArray m_faceVertexCounts;
     VtIntArray m_faceVertexIndices;
+
+    HdCyclesSampledPrimvarType m_pointSamples;
+
+    float m_velocityScale;
 
     bool m_useSubdivision = false;
     bool m_subdivEnabled  = false;

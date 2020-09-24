@@ -20,6 +20,8 @@
 #include "utils.h"
 
 #include <render/nodes.h>
+#include <subd/subd_dice.h>
+#include <subd/subd_split.h>
 #include <util/util_path.h>
 
 #include <pxr/base/gf/vec2f.h>
@@ -92,8 +94,9 @@ HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
     // @TODO: The implementation of this function is broken
-    a_loc  = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
-    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y, a_transform.z.z);
+    a_loc = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
+    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y,
+                              a_transform.z.z);
 
     if (a_size.x != 0.0f)
         a_size.x = 0.5f / a_size.x;
@@ -142,19 +145,56 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     delegate->SampleTransform(id, &xf);
 
-    if (xf.count == 0) {
-        object->tfm = ccl::transform_identity();
-    } else {
-        // Set transform
-        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    int sampleCount = xf.count;
 
-        if (use_motion) {
-            // Set motion
+    if (sampleCount == 0) {
+        object->tfm = ccl::transform_identity();
+        return xf;
+    }
+
+    // Set transform
+    object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    return xf;
+
+    if (use_motion) {
+        // Handle mesh transform
+        if (object->geometry->type == ccl::Geometry::MESH) {
+            ccl::Mesh* mesh = (ccl::Mesh*)object->geometry;
+            if (mesh->transform_applied)
+                mesh->need_update = true;
+
+            if (mesh && mesh->subd_params) {
+                mesh->subd_params->objecttoworld = object->tfm;
+            }
+        }
+
+        // Due to restrictions of geometry motion blur
+        if (object->geometry->use_motion_blur) {
             object->motion.clear();
-            object->motion.resize(xf.count);
-            for (int i = 0; i < xf.count; i++) {
+            object->motion.resize(object->geometry->motion_steps,
+                                  ccl::transform_empty());
+            for (int i = 0; i < object->motion.size(); ++i) {
+                object->motion[i] = object->tfm;
+            }
+        } else {
+            object->motion.clear();
+        }
+
+        if (sampleCount > 1) {
+            object->motion.clear();
+            object->motion.resize(sampleCount, ccl::transform_empty());
+
+            for (int i = 0; i < sampleCount; ++i) {
+                if (xf.times.data()[i] == 0.0f) {
+                    object->tfm = mat4d_to_transform(xf.values.data()[i]);
+                }
+
                 object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
             }
+        }
+
+        if (!object->geometry->use_motion_blur) {
+            object->geometry->motion_steps = object->motion.size();
         }
     }
 

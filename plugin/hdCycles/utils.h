@@ -226,6 +226,9 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
                         HdCyclesPDPIMap const& a_primvarDescsPerInterpolation,
                         HdInterpolation* a_interpolation = nullptr);
 
+
+using HdCyclesSampledPrimvarType = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
+
 /* ======== VtValue Utils ========= */
 
 
