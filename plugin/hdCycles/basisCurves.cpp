@@ -597,7 +597,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         for (int j = 0; j < curveVertexCounts[i]; j++) {
             int idx = j + currentPointCount;
 
-            const float time = (float)j / (float)curveVertexCounts[i];
+            const float time = (float)j / (float)(curveVertexCounts[i]-1);
 
             if (idx > m_points.size()) {
                 TF_WARN("Attempted to access invalid point. Continuing");
