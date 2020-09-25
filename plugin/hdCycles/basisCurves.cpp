@@ -134,6 +134,36 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
     }
 }
 
+
+void
+HdCyclesBasisCurves::_PopulateMotion()
+{
+    m_cyclesGeometry->use_motion_blur = true;
+
+    m_cyclesGeometry->motion_steps = m_pointSamples.count + 1;
+
+    ccl::Attribute* attr_mP = m_cyclesGeometry->attributes.find(
+        ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+
+    //if(attr_mP)
+    //m_cyclesMesh->attributes.remove(attr_mP);
+
+    if (!attr_mP) {
+        attr_mP = m_cyclesGeometry->attributes.add(
+            ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    }
+
+    ccl::float3* mP = attr_mP->data_float3();
+    for (size_t i = 0; i < m_pointSamples.count; ++i) {
+        VtVec3fArray pp;
+        pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
+
+        for (size_t j = 0; j < m_points.size(); ++j, ++mP) {
+            *mP = vec3f_to_float3(pp[j]);
+        }
+    }
+}
+
 void
 HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                                 HdInterpolation interpolation)
@@ -411,6 +441,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             m_points
                 = sceneDelegate->Get(id, HdTokens->points).Get<VtVec3fArray>();
             generate_new_curve = true;
+
+            sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
         } else {
             m_points = VtVec3fArray();
         }
@@ -505,10 +537,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
             _AddGenerated();
 
-            m_cyclesGeometry->tag_update(scene, true);
-
             param->AddCurve(m_cyclesGeometry);
         }
+
+        _PopulateMotion();
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
@@ -549,8 +581,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         }
     }
 
-    if (generate_new_curve || update_curve)
+    if (generate_new_curve || update_curve) {
+        m_cyclesGeometry->tag_update(scene, true);
         param->Interrupt();
+    }
 
     *dirtyBits = HdChangeTracker::Clean;
 }

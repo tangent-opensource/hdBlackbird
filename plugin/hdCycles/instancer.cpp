@@ -18,7 +18,6 @@
 //  limitations under the License.
 
 #include "instancer.h"
-#include "hdcycles.h"
 
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/gf/quatd.h>

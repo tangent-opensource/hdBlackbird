@@ -23,6 +23,7 @@
 #include "api.h"
 
 #include "hdcycles.h"
+#include "utils.h"
 #include "renderDelegate.h"
 
 #include <util/util_transform.h>
@@ -143,6 +144,8 @@ protected:
      */
     void _AddUVS(TfToken name, VtValue uvs, HdInterpolation interpolation);
 
+    void _PopulateMotion();
+
     /**
      * @brief Add generated coordinate for basisCurves
      * 
@@ -158,6 +161,8 @@ protected:
     VtIntArray m_indices;
     GfMatrix4f m_transform;
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+
+    HdCyclesSampledPrimvarType m_pointSamples;
 
     int m_numTransformSamples;
     bool m_useMotionBlur;
