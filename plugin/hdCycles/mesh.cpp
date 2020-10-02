@@ -251,17 +251,17 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                                         : &m_cyclesMesh->attributes;
 
     m_cyclesMesh->use_motion_blur = true;
-    m_cyclesMesh->motion_steps = 3;
+    m_cyclesMesh->motion_steps    = 3;
 
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
-    attributes->remove(attr_mP);
+    if (attr_mP)
+        attributes->remove(attr_mP);
 
-    //if (!attr_mP) {
+    if (!attr_mP) {
         attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-    //}
-
+    }
     //ccl::float3* vdata = attr_mP->data_float3();
 
     /*if (interpolation == HdInterpolationVertex) {
@@ -287,19 +287,15 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
 
     ccl::float3* mP = attr_mP->data_float3();
 
-    std::cout << "motion_steps: " << m_cyclesMesh->motion_steps << '\n';
-    std::cout << "velocities: " << velocities.size() << '\n';
-    std::cout << "m_points: " << m_points.size() << '\n';
     for (size_t i = 0; i < m_cyclesMesh->motion_steps; ++i) {
         //VtVec3fArray pp;
         //pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
 
         for (size_t j = 0; j < velocities.size(); ++j, ++mP) {
-            
-            *mP = vec3f_to_float3(m_points[j] + (velocities[j] * m_velocityScale));
+            *mP = vec3f_to_float3(m_points[j]
+                                  + (velocities[j] * m_velocityScale));
         }
     }
-
 }
 
 void
@@ -390,7 +386,7 @@ HdCyclesMesh::_CreateCyclesMesh()
     mesh->clear();
 
     if (m_useMotionBlur) {
-        mesh->use_motion_blur = m_useMotionBlur;
+        mesh->use_motion_blur = true;
     }
 
     m_numMeshVerts = 0;
@@ -424,6 +420,10 @@ HdCyclesMesh::_PopulateVertices()
 void
 HdCyclesMesh::_PopulateMotion()
 {
+    if (m_pointSamples.count <= 1) {
+        return;
+    }
+
     m_cyclesMesh->use_motion_blur = true;
 
     m_cyclesMesh->motion_steps = m_pointSamples.count + 1;
@@ -431,8 +431,8 @@ HdCyclesMesh::_PopulateMotion()
     ccl::Attribute* attr_mP = m_cyclesMesh->attributes.find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
-    //if(attr_mP)
-    //m_cyclesMesh->attributes.remove(attr_mP);
+    if (attr_mP)
+        m_cyclesMesh->attributes.remove(attr_mP);
 
     if (!attr_mP) {
         attr_mP = m_cyclesMesh->attributes.add(
@@ -441,6 +441,9 @@ HdCyclesMesh::_PopulateMotion()
 
     ccl::float3* mP = attr_mP->data_float3();
     for (size_t i = 0; i < m_pointSamples.count; ++i) {
+        if (m_pointSamples.times.data()[i] == 0.0f)
+            continue;
+
         VtVec3fArray pp;
         pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
 
@@ -558,10 +561,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     bool pointsIsComputed = false;
 
+    // TODO: Check if this code is ever executed... Only seems to be for points
+    // and removing it seems to work for our tests
     auto extComputationDescs
         = sceneDelegate->GetExtComputationPrimvarDescriptors(
             id, HdInterpolationVertex);
-    /*for (auto& desc : extComputationDescs) {
+    for (auto& desc : extComputationDescs) {
         if (desc.name != HdTokens->points)
             continue;
 
@@ -582,11 +587,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             }
         }
         break;
-    }*/
+    }
 
-    if (/*!pointsIsComputed
-        && */
-        HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
         mesh_updated        = true;
         VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
         if (!pointsValue.IsEmpty()) {
@@ -692,7 +695,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_cyclesMesh->clear();
 
         _PopulateVertices();
-        _PopulateMotion();
+
+        if (m_useMotionBlur)
+            _PopulateMotion();
 
         std::vector<int> faceMaterials;
         faceMaterials.resize(m_numMeshFaces);
@@ -708,18 +713,18 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 if (subMat && subMat->GetCyclesShader()) {
                     if (m_materialMap.find(subset.materialId)
                         == m_materialMap.end()) {
-                        m_cyclesMesh->used_shaders.push_back(
-                            subMat->GetCyclesShader());
+                        m_usedShaders.push_back(subMat->GetCyclesShader());
                         subMat->GetCyclesShader()->tag_update(scene);
 
-                        m_materialMap.insert(std::pair<SdfPath, int>(
-                            subset.materialId,
-                            m_cyclesMesh->used_shaders.size()));
-                        subsetMaterialIndex = m_cyclesMesh->used_shaders.size();
+                        m_materialMap.insert(
+                            std::pair<SdfPath, int>(subset.materialId,
+                                                    m_usedShaders.size()));
+                        subsetMaterialIndex = m_usedShaders.size();
                     } else {
                         subsetMaterialIndex = m_materialMap.at(
                             subset.materialId);
                     }
+                    m_cyclesMesh->used_shaders = m_usedShaders;
                 }
             }
 
@@ -849,6 +854,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 }
             }
         }
+
+        // Apply existing shaders
+        if (m_usedShaders.size() > 0)
+            m_cyclesMesh->used_shaders = m_usedShaders;
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
@@ -879,16 +888,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                 HdPrimTypeTokens->material, m_cachedMaterialId));
 
                     if (material && material->GetCyclesShader()) {
-                        m_cyclesMesh->used_shaders.push_back(
-                            material->GetCyclesShader());
+                        m_usedShaders.push_back(material->GetCyclesShader());
 
                         material->GetCyclesShader()->tag_update(scene);
                     } else {
-                        m_cyclesMesh->used_shaders.push_back(fallbackShader);
+                        m_usedShaders.push_back(fallbackShader);
                     }
                 } else {
-                    m_cyclesMesh->used_shaders.push_back(fallbackShader);
+                    m_usedShaders.push_back(fallbackShader);
                 }
+
+                m_cyclesMesh->used_shaders = m_usedShaders;
             }
         }
     }

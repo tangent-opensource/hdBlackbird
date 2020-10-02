@@ -144,7 +144,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         bool has_projection = EvalCameraParam(&m_projectionType,
                                               UsdGeomTokens->projection,
-                                              sceneDelegate, id, TfToken());
+                                              sceneDelegate, id);
 
         // Aperture
 
@@ -200,7 +200,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         if (m_useDof && has_fStop) {
             if (has_focalLength) {
-                if (m_cyclesCamera->type == ccl::CAMERA_ORTHOGRAPHIC)
+                if (m_projectionType == UsdGeomTokens->orthographic)
                     m_apertureSize = 1.0f / (2.0f * m_fStop);
                 else
                     m_apertureSize = (m_focalLength * 1e-3f) / (2.0f * m_fStop);
@@ -262,7 +262,8 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     a_camera->farclip  = m_clippingRange.GetMax();
 
     a_camera->shuttertime = m_shutterTime;
-    a_camera->motion_position = ccl::Camera::MotionPosition::MOTION_POSITION_CENTER;
+    a_camera->motion_position
+        = ccl::Camera::MotionPosition::MOTION_POSITION_CENTER;
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
@@ -275,15 +276,23 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     if (shouldUpdate)
         m_needsUpdate = false;
 
-    return shouldUpdate;
+    /*if (m_useMotionBlur) {
+        a_camera->motion.clear();
+        a_camera->motion.resize(m_transformSamples.count, a_camera->matrix);
+        for (int i = 0; i < m_transformSamples.count; i++) {
+            int idx = a_camera->motion_step(m_transformSamples.times.data()[i]);
 
-    // TODO: This does not seem to work
-    /*a_camera->motion.clear();
-    a_camera->motion.resize(HD_CYCLES_MOTION_STEPS, a_camera->matrix);
-    for (int i = 0; i < HD_CYCLES_MOTION_STEPS; i++) {
-        a_camera->motion[i] = mat4d_to_transform(
-            m_transformSamples.values.data()[i]);
+            if (m_transformSamples.times.data()[i] == 0.0f) {
+                a_camera->matrix = mat4d_to_transform(
+                    m_transformSamples.values.data()[i]);
+            } else {
+                a_camera->motion[i] = mat4d_to_transform(
+                    m_transformSamples.values.data()[i]);
+            }
+        }
     }*/
+
+    return shouldUpdate;
 }
 
 HdDirtyBits

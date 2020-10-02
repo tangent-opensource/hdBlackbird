@@ -456,10 +456,12 @@ HdCyclesRenderParam::_CyclesInitialize()
     if (m_useMotionBlur) {
         //SetShutterMotionPosition(config.shutter_motion_position);
 
-        m_cyclesScene->camera->shuttertime = 0.5f;
+        // TODO: Do we need this here? It was causing an immediate runtime freeze
+        // that would lock down the whole system...
+        /*m_cyclesScene->camera->shuttertime = 0.5f;
         m_cyclesScene->camera->motion.clear();
         m_cyclesScene->camera->motion.resize(m_motionSteps,
-                                             m_cyclesScene->camera->matrix);
+                                             m_cyclesScene->camera->matrix);*/
 
         m_cyclesScene->integrator->motion_blur = true;
         m_cyclesScene->integrator->tag_update(m_cyclesScene);

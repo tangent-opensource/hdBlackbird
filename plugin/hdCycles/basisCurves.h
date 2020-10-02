@@ -171,6 +171,8 @@ protected:
     HdCyclesCurveStyle m_curveStyle;
     int m_curveResolution;
 
+    ccl::vector<ccl::Shader *> m_usedShaders;
+
 private:
     /**
      * @brief Create the cycles curve mesh and object representation

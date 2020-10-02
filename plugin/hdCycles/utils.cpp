@@ -134,6 +134,8 @@ HdCyclesCreateDefaultShader()
 
 /* ========= Conversion ========= */
 
+// TODO: Make this function more robust
+// Along with making point sampling more robust
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -152,49 +154,57 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         return xf;
     }
 
-    // Set transform
-    object->tfm = mat4d_to_transform(xf.values.data()[0]);
-    return xf;
+    if (sampleCount > 1) {
+        bool foundCenter = false;
+        for (int i = 0; i < sampleCount; i++) {
+            if (xf.times.data()[i] == 0.0f) {
+                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+                foundCenter = true;
+            }
+        }
+        if (!foundCenter)
+            object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    } else {
+        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    }
 
-    if (use_motion) {
-        // Handle mesh transform
+    if (!use_motion) {
+        return xf;
+    }
+
+    object->motion.clear();
+    if (object->geometry) {
+        if (object->geometry->use_motion_blur
+            && object->geometry->motion_steps != sampleCount) {
+            object->motion.resize(object->geometry->motion_steps, object->tfm);
+            return xf;
+        }
+    }
+
+    // TODO: This might still be wrong on some edge cases...
+    // The order of point sampling and transform sampling is the only reason
+    // that this works
+    if (object->geometry && object->geometry->motion_steps == sampleCount) {
+        object->geometry->use_motion_blur = true;
+
         if (object->geometry->type == ccl::Geometry::MESH) {
             ccl::Mesh* mesh = (ccl::Mesh*)object->geometry;
             if (mesh->transform_applied)
                 mesh->need_update = true;
-
-            if (mesh && mesh->subd_params) {
-                mesh->subd_params->objecttoworld = object->tfm;
-            }
         }
 
-        // Due to restrictions of geometry motion blur
-        if (object->geometry->use_motion_blur) {
-            object->motion.clear();
-            object->motion.resize(object->geometry->motion_steps,
-                                  ccl::transform_empty());
-            for (int i = 0; i < object->motion.size(); ++i) {
-                object->motion[i] = object->tfm;
+        object->motion.resize(sampleCount, ccl::transform_empty());
+
+        for (int i = 0; i < sampleCount; i++) {
+            if (xf.times.data()[i] == 0.0f) {
+                object->tfm = mat4d_to_transform(xf.values.data()[i]);
             }
-        } else {
-            object->motion.clear();
-        }
 
-        if (sampleCount > 1) {
-            object->motion.clear();
-            object->motion.resize(sampleCount, ccl::transform_empty());
+            int idx = i;
+            if (object->geometry)
+                object->geometry->motion_step(xf.times.data()[i]);
 
-            for (int i = 0; i < sampleCount; ++i) {
-                if (xf.times.data()[i] == 0.0f) {
-                    object->tfm = mat4d_to_transform(xf.values.data()[i]);
-                }
-
-                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
-            }
-        }
-
-        if (!object->geometry->use_motion_blur) {
-            object->geometry->motion_steps = object->motion.size();
+            object->motion[idx] = mat4d_to_transform(xf.values.data()[i]);
         }
     }
 
