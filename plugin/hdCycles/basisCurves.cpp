@@ -67,12 +67,6 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_useMotionBlur                     = config.enable_motion_blur;
 
-    m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
-
-    if (m_useMotionBlur) {
-        m_motionSteps = m_numTransformSamples;
-    }
-
     m_cyclesObject = _CreateObject();
     m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
 }
@@ -135,6 +129,42 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
         }
     } else {
         _CreateCurves(scene);
+    }
+
+    if (m_usedShaders.size() > 0)
+        m_cyclesGeometry->used_shaders = m_usedShaders;
+}
+
+
+void
+HdCyclesBasisCurves::_PopulateMotion()
+{
+    if (m_pointSamples.count <= 1)
+        return;
+
+    m_cyclesGeometry->use_motion_blur = true;
+
+    m_cyclesGeometry->motion_steps = m_pointSamples.count + 1;
+
+    ccl::Attribute* attr_mP = m_cyclesGeometry->attributes.find(
+        ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+
+    if (!attr_mP) {
+        attr_mP = m_cyclesGeometry->attributes.add(
+            ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    }
+
+    ccl::float3* mP = attr_mP->data_float3();
+    for (size_t i = 0; i < m_pointSamples.count; ++i) {
+        if (m_pointSamples.times.data()[i] == 0.0f) {
+            continue;
+        }
+        VtVec3fArray pp;
+        pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
+
+        for (size_t j = 0; j < m_points.size(); ++j, ++mP) {
+            *mP = vec3f_to_float3(pp[j]);
+        }
     }
 }
 
@@ -372,7 +402,8 @@ HdCyclesBasisCurves::_AddGenerated()
     ccl::float3 loc, size;
 
     // @TODO: The implementation of this function is broken
-    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc, size);
+    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc,
+                             size);
 
     if (m_cyclesMesh) {
         ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(
@@ -415,6 +446,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             m_points
                 = sceneDelegate->Get(id, HdTokens->points).Get<VtVec3fArray>();
             generate_new_curve = true;
+
+            sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
         } else {
             m_points = VtVec3fArray();
         }
@@ -492,14 +525,13 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         }
     }
 
-    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
-                                                  id, m_useMotionBlur);
-
-        generate_new_curve = true;
-    }
-
     if (generate_new_curve) {
+        if (m_cyclesGeometry) {
+            param->RemoveCurve(m_cyclesHair);
+            m_cyclesGeometry->clear();
+            delete m_cyclesGeometry;
+        }
+
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
@@ -509,10 +541,18 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
             _AddGenerated();
 
-            m_cyclesGeometry->tag_update(scene, true);
-
             param->AddCurve(m_cyclesGeometry);
         }
+
+        if (m_useMotionBlur)
+            _PopulateMotion();
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
+                                                  id, m_useMotionBlur);
+
+        update_curve = true;
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
@@ -542,19 +582,23 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
                         HdPrimTypeTokens->material, materialId));
 
             if (material && material->GetCyclesShader()) {
-                m_cyclesGeometry->used_shaders.push_back(
-                    material->GetCyclesShader());
+                m_usedShaders.push_back(material->GetCyclesShader());
+
                 material->GetCyclesShader()->tag_update(scene);
             } else {
-                m_cyclesGeometry->used_shaders.push_back(
-                    scene->default_surface);
+                m_usedShaders.push_back(scene->default_surface);
             }
-            update_curve = true;
+
+            m_cyclesGeometry->used_shaders = m_usedShaders;
+            update_curve                   = true;
         }
     }
 
-    if (generate_new_curve || update_curve)
+    if (generate_new_curve || update_curve) {
+        m_cyclesGeometry->tag_update(scene, true);
+        m_cyclesObject->tag_update(scene);
         param->Interrupt();
+    }
 
     *dirtyBits = HdChangeTracker::Clean;
 }

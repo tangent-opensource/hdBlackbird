@@ -209,7 +209,7 @@ ApplyTransform(float alpha, VtValue const& allTransformsValue0,
 
 template<typename Op, typename T>
 void
-ApplyTransform(HdTimeSampleArray<VtValue, 2> const& samples,
+ApplyTransform(HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> const& samples,
                VtIntArray const& instanceIndices, float time,
                GfMatrix4d* transforms)
 {
@@ -285,7 +285,7 @@ struct TransformOp {
 
 }  // namespace
 
-HdTimeSampleArray<VtMatrix4dArray, 2>
+HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS>
 HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
 {
     HdSceneDelegate* delegate  = GetDelegate();
@@ -294,11 +294,11 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
     VtIntArray instanceIndices = delegate->GetInstanceIndices(instancerId,
                                                               prototypeId);
 
-    HdTimeSampleArray<GfMatrix4d, 2> instancerXform;
-    HdTimeSampleArray<VtValue, 2> instanceXforms;
-    HdTimeSampleArray<VtValue, 2> translates;
-    HdTimeSampleArray<VtValue, 2> rotates;
-    HdTimeSampleArray<VtValue, 2> scales;
+    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> instancerXform;
+    HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> instanceXforms;
+    HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> translates;
+    HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> rotates;
+    HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> scales;
     delegate->SampleInstancerTransform(instancerId, &instancerXform);
     delegate->SamplePrimvar(instancerId, _tokens->instanceTransform,
                             &instanceXforms);
@@ -325,7 +325,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
     // As a simple resampling strategy, find the input with the max #
     // of samples and use its sample placement.  In practice we expect
     // them to all be the same, i.e. to not require resampling.
-    HdTimeSampleArray<VtMatrix4dArray, 2> sa;
+    HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS> sa;
     sa.Resize(0);
     AccumulateSampleTimes(instancerXform, &sa);
     AccumulateSampleTimes(instanceXforms, &sa);
@@ -425,7 +425,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
         return sa;
     }
     // Move aside previously computed child xform samples to childXf.
-    HdTimeSampleArray<VtMatrix4dArray, 2> childXf(sa);
+    HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS> childXf(sa);
     // Merge sample times, taking the densest sampling.
     AccumulateSampleTimes(parentXf, &sa);
     // Apply parent xforms to the children.

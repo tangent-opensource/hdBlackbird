@@ -21,5 +21,6 @@
 #define HD_CYCLES_H
 
 static constexpr int HD_CYCLES_MOTION_STEPS = 3;
+static constexpr int HD_CYCLES_MAX_PRIMVAR_SAMPLES = 3;
 
 #endif  // HD_CYCLES_H

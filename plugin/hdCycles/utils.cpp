@@ -20,6 +20,8 @@
 #include "utils.h"
 
 #include <render/nodes.h>
+#include <subd/subd_dice.h>
+#include <subd/subd_split.h>
 #include <util/util_path.h>
 
 #include <pxr/base/gf/vec2f.h>
@@ -92,8 +94,9 @@ HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
     // @TODO: The implementation of this function is broken
-    a_loc  = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
-    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y, a_transform.z.z);
+    a_loc = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
+    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y,
+                              a_transform.z.z);
 
     if (a_size.x != 0.0f)
         a_size.x = 0.5f / a_size.x;
@@ -131,6 +134,8 @@ HdCyclesCreateDefaultShader()
 
 /* ========= Conversion ========= */
 
+// TODO: Make this function more robust
+// Along with making point sampling more robust
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -142,19 +147,64 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     delegate->SampleTransform(id, &xf);
 
-    if (xf.count == 0) {
-        object->tfm = ccl::transform_identity();
-    } else {
-        // Set transform
-        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    int sampleCount = xf.count;
 
-        if (use_motion) {
-            // Set motion
-            object->motion.clear();
-            object->motion.resize(xf.count);
-            for (int i = 0; i < xf.count; i++) {
-                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+    if (sampleCount == 0) {
+        object->tfm = ccl::transform_identity();
+        return xf;
+    }
+
+    if (sampleCount > 1) {
+        bool foundCenter = false;
+        for (int i = 0; i < sampleCount; i++) {
+            if (xf.times.data()[i] == 0.0f) {
+                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+                foundCenter = true;
             }
+        }
+        if (!foundCenter)
+            object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    } else {
+        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    }
+
+    if (!use_motion) {
+        return xf;
+    }
+
+    object->motion.clear();
+    if (object->geometry) {
+        if (object->geometry->use_motion_blur
+            && object->geometry->motion_steps != sampleCount) {
+            object->motion.resize(object->geometry->motion_steps, object->tfm);
+            return xf;
+        }
+    }
+
+    // TODO: This might still be wrong on some edge cases...
+    // The order of point sampling and transform sampling is the only reason
+    // that this works
+    if (object->geometry && object->geometry->motion_steps == sampleCount) {
+        object->geometry->use_motion_blur = true;
+
+        if (object->geometry->type == ccl::Geometry::MESH) {
+            ccl::Mesh* mesh = (ccl::Mesh*)object->geometry;
+            if (mesh->transform_applied)
+                mesh->need_update = true;
+        }
+
+        object->motion.resize(sampleCount, ccl::transform_empty());
+
+        for (int i = 0; i < sampleCount; i++) {
+            if (xf.times.data()[i] == 0.0f) {
+                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+            }
+
+            int idx = i;
+            if (object->geometry)
+                object->geometry->motion_step(xf.times.data()[i]);
+
+            object->motion[idx] = mat4d_to_transform(xf.values.data()[i]);
         }
     }
 

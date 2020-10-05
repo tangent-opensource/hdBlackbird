@@ -20,6 +20,8 @@
 #ifndef HD_CYCLES_INSTANCER_H
 #define HD_CYCLES_INSTANCER_H
 
+#include "hdcycles.h"
+
 #include <mutex>
 
 #include <pxr/base/gf/matrix4d.h>
@@ -48,7 +50,7 @@ public:
 
     VtMatrix4dArray ComputeTransforms(SdfPath const& prototypeId);
 
-    HdTimeSampleArray<VtMatrix4dArray, 2>
+    HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS>
     SampleInstanceTransforms(SdfPath const& prototypeId);
 
 private:

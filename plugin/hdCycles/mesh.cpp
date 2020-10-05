@@ -24,6 +24,7 @@
 #include "material.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
+#include "utils.h"
 
 #include "Mikktspace/mikktspace.h"
 
@@ -78,6 +79,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_visScatter(true)
     , m_visShadow(true)
     , m_visTransmission(true)
+    , m_velocityScale(1.0f)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_subdivEnabled                     = config.enable_subdivision;
@@ -259,16 +261,21 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
+    m_cyclesMesh->use_motion_blur = true;
+    m_cyclesMesh->motion_steps    = 3;
+
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+
+    if (attr_mP)
+        attributes->remove(attr_mP);
 
     if (!attr_mP) {
         attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     }
+    //ccl::float3* vdata = attr_mP->data_float3();
 
-    ccl::float3* vdata = attr_mP->data_float3();
-
-    if (interpolation == HdInterpolationVertex) {
+    /*if (interpolation == HdInterpolationVertex) {
         VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
 
         // TODO: Add support for subd faces?
@@ -287,10 +294,17 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
             }
             idxIt += vCount;
         }
-    } else {
-        for (size_t i = 0; i < velocities.size(); i++) {
-            vdata[0] = vec3f_to_float3(velocities[i]);
-            vdata += 1;
+    } else {*/
+
+    ccl::float3* mP = attr_mP->data_float3();
+
+    for (size_t i = 0; i < m_cyclesMesh->motion_steps; ++i) {
+        //VtVec3fArray pp;
+        //pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
+
+        for (size_t j = 0; j < velocities.size(); ++j, ++mP) {
+            *mP = vec3f_to_float3(m_points[j]
+                                  + (velocities[j] * m_velocityScale));
         }
     }
 }
@@ -382,12 +396,8 @@ HdCyclesMesh::_CreateCyclesMesh()
     ccl::Mesh* mesh = new ccl::Mesh();
     mesh->clear();
 
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
-    if (config.enable_motion_blur) {
-        mesh->use_motion_blur = config.enable_motion_blur;
-        // TODO: Move this to either renderParam or to the scene?
-        mesh->motion_steps = config.motion_steps;
+    if (m_useMotionBlur) {
+        mesh->use_motion_blur = true;
     }
 
     m_numMeshVerts = 0;
@@ -415,6 +425,42 @@ HdCyclesMesh::_PopulateVertices()
     m_cyclesMesh->verts.reserve(m_numMeshVerts);
     for (int i = 0; i < m_points.size(); i++) {
         m_cyclesMesh->verts.push_back_reserved(vec3f_to_float3(m_points[i]));
+    }
+}
+
+void
+HdCyclesMesh::_PopulateMotion()
+{
+    if (m_pointSamples.count <= 1) {
+        return;
+    }
+
+    m_cyclesMesh->use_motion_blur = true;
+
+    m_cyclesMesh->motion_steps = m_pointSamples.count + 1;
+
+    ccl::Attribute* attr_mP = m_cyclesMesh->attributes.find(
+        ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+
+    if (attr_mP)
+        m_cyclesMesh->attributes.remove(attr_mP);
+
+    if (!attr_mP) {
+        attr_mP = m_cyclesMesh->attributes.add(
+            ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    }
+
+    ccl::float3* mP = attr_mP->data_float3();
+    for (size_t i = 0; i < m_pointSamples.count; ++i) {
+        if (m_pointSamples.times.data()[i] == 0.0f)
+            continue;
+
+        VtVec3fArray pp;
+        pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
+
+        for (size_t j = 0; j < m_numMeshVerts; ++j, ++mP) {
+            *mP = vec3f_to_float3(pp[j]);
+        }
     }
 }
 
@@ -511,7 +557,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
-    
+
 
     scene->mutex.lock();
 
@@ -526,6 +572,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     bool pointsIsComputed = false;
 
+    // TODO: Check if this code is ever executed... Only seems to be for points
+    // and removing it seems to work for our tests
     auto extComputationDescs
         = sceneDelegate->GetExtComputationPrimvarDescriptors(
             id, HdInterpolationVertex);
@@ -552,8 +600,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         break;
     }
 
-    if (!pointsIsComputed
-        && HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
         mesh_updated        = true;
         VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
         if (!pointsValue.IsEmpty()) {
@@ -564,7 +611,16 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 m_normalsValid = false;
                 newMesh        = true;
             }
-        }
+
+            // TODO: Should we check if time varying?
+            // TODO: can we use this for m_points too?
+            sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
+        } /*
+        size_t maxSample = 3;
+
+        HdCyclesSampledPrimvarType 4;
+        sceneDelegate->SamplePrimvar(id, HdTokens->points, &samples );
+        std::cout << "Found time sampled points "<< samples.count << '\n';*/
     }
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
@@ -651,6 +707,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         _PopulateVertices();
 
+        if (m_useMotionBlur)
+            _PopulateMotion();
+
         std::vector<int> faceMaterials;
         faceMaterials.resize(m_numMeshFaces);
 
@@ -665,18 +724,18 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 if (subMat && subMat->GetCyclesShader()) {
                     if (m_materialMap.find(subset.materialId)
                         == m_materialMap.end()) {
-                        m_cyclesMesh->used_shaders.push_back(
-                            subMat->GetCyclesShader());
+                        m_usedShaders.push_back(subMat->GetCyclesShader());
                         subMat->GetCyclesShader()->tag_update(scene);
 
-                        m_materialMap.insert(std::pair<SdfPath, int>(
-                            subset.materialId,
-                            m_cyclesMesh->used_shaders.size()));
-                        subsetMaterialIndex = m_cyclesMesh->used_shaders.size();
+                        m_materialMap.insert(
+                            std::pair<SdfPath, int>(subset.materialId,
+                                                    m_usedShaders.size()));
+                        subsetMaterialIndex = m_usedShaders.size();
                     } else {
                         subsetMaterialIndex = m_materialMap.at(
                             subset.materialId);
                     }
+                    m_cyclesMesh->used_shaders = m_usedShaders;
                 }
             }
 
@@ -799,18 +858,36 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     }
 
                     // TODO: Properly implement
-                    /*VtValue triangulatedVal;
+                    VtValue triangulatedVal;
                     if (pv.name == HdTokens->velocities) {
-                        VtVec3fArray vels;
-                        vels = value.UncheckedGet<VtArray<GfVec3f>>();
+                        if (value.IsHolding<VtArray<GfVec3f>>()) {
+                            VtVec3fArray vels;
+                            vels = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                        meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+                            /*meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                             vels.data(), vels.size(), HdTypeFloatVec3,
                             &triangulatedVal);
                         VtVec3fArray m_vels_tri
                             = triangulatedVal.Get<VtVec3fArray>();
-                        _AddVelocities(m_vels_tri, primvarDescsEntry.first);
-                    }*/
+                        _AddVelocities(m_vels_tri, primvarDescsEntry.first);*/
+
+
+                            if (primvarDescsEntry.first
+                                == HdInterpolationFaceVarying) {
+                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+                                    vels.data(), vels.size(), HdTypeFloatVec3,
+                                    &triangulated);
+
+                                VtVec3fArray triangulatedVels
+                                    = triangulated.Get<VtVec3fArray>();
+
+                                //_AddVelocities(triangulatedVels,
+                                //               primvarDescsEntry.first);
+                            } else {
+                                //_AddVelocities(vels, primvarDescsEntry.first);
+                            }
+                        }
+                    }
 
                     if (pv.role == HdPrimvarRoleTokens->color) {
                         m_hasVertexColors = true;
@@ -838,7 +915,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // TODO: Add more general uv support
                     //if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                     if (value.IsHolding<VtArray<GfVec2f>>()) {
-                        VtVec2fArray uvs  = value.UncheckedGet<VtArray<GfVec2f>>();
+                        VtVec2fArray uvs
+                            = value.UncheckedGet<VtArray<GfVec2f>>();
                         if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
@@ -857,6 +935,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 }
             }
         }
+
+        // Apply existing shaders
+        if (m_usedShaders.size() > 0)
+            m_cyclesMesh->used_shaders = m_usedShaders;
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
@@ -887,16 +969,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                 HdPrimTypeTokens->material, m_cachedMaterialId));
 
                     if (material && material->GetCyclesShader()) {
-                        m_cyclesMesh->used_shaders.push_back(
-                            material->GetCyclesShader());
+                        m_usedShaders.push_back(material->GetCyclesShader());
 
                         material->GetCyclesShader()->tag_update(scene);
                     } else {
-                        m_cyclesMesh->used_shaders.push_back(fallbackShader);
+                        m_usedShaders.push_back(fallbackShader);
                     }
                 } else {
-                    m_cyclesMesh->used_shaders.push_back(fallbackShader);
+                    m_usedShaders.push_back(fallbackShader);
                 }
+
+                m_cyclesMesh->used_shaders = m_usedShaders;
             }
         }
     }
@@ -967,7 +1050,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     instanceObj->geometry = m_cyclesMesh;
 
                     // TODO: Implement motion blur for point instanced objects
-                    /*if (m_useMotionBlur) {
+                    if (m_useMotionBlur) {
                         m_cyclesMesh->motion_steps    = m_motionSteps;
                         m_cyclesMesh->use_motion_blur = m_useMotionBlur;
 
@@ -977,7 +1060,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             instanceObj->motion[j] = mat4d_to_transform(
                                 combinedTransforms[j].data()[j]);
                         }
-                    }*/
+                    }
 
                     m_cyclesInstances.push_back(instanceObj);
 
@@ -1003,6 +1086,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_cyclesObject->visibility = m_visibilityFlags;
         std::cout << "Vis:" << m_cyclesObject->visibility << '\n';
         std::cout << " -" << m_visibilityFlags << '\n';
+        m_cyclesMesh->tag_update(scene, false);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }

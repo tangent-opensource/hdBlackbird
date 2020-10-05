@@ -69,6 +69,10 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     HdCyclesCamera* hdCam = const_cast<HdCyclesCamera*>(
         dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
 
+    ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
+
+    bool shouldUpdate = false;
+
     if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
         m_projMtx = projMtx;
         m_viewMtx = viewMtx;
@@ -79,13 +83,25 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
         //hdCam->SetTransform(m_projMtx);
 
-        bool shouldUpdate = hdCam->ApplyCameraSettings(
-            renderParam->GetCyclesSession()->scene->camera);
+        shouldUpdate += true;
+    }
 
-        if (shouldUpdate)
-            renderParam->Interrupt();
-        else
-            renderParam->DirectReset();
+    shouldUpdate += hdCam->IsDirty();
+
+    if (shouldUpdate) {
+        hdCam->ApplyCameraSettings(active_camera);
+
+        // Needed for now, as houdini looks through a generated camera
+        // and doesn't copy the projection type (as of 18.0.532)
+        bool is_ortho = round(m_projMtx[3][3]) == 1.0;
+
+        if (is_ortho) {
+            active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+        } else
+            active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+
+        active_camera->tag_update();
+        renderParam->Interrupt();
     }
 
     ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;

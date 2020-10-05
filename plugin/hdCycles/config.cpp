@@ -31,7 +31,7 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
                       "Enable HdCycles Logging");
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_MOTION_BLUR, false,
+TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_MOTION_BLUR, true,
                       "Enable HdCycles motion blur support");
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_MOTION_STEPS, 3,
