@@ -59,7 +59,6 @@ HdCyclesRenderParam::_InitializeDefaults()
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_deviceName                        = config.device_name;
-    m_useMotionBlur                     = config.enable_motion_blur;
 }
 
 float
@@ -372,6 +371,11 @@ HdCyclesRenderParam::GetShutterMotionPosition()
     return m_cyclesScene->camera->motion_position;
 }
 
+bool HdCyclesRenderParam::GetUseMotionBlur()
+{
+    return (m_cyclesScene && m_cyclesScene->integrator) ? m_cyclesScene->integrator->motion_blur : false;
+}
+
 /* ====== HdCycles Settings ====== */
 
 /* ====== Cycles Lifecycle ====== */
@@ -453,7 +457,7 @@ HdCyclesRenderParam::_CyclesInitialize()
     if (config.enable_transparent_background)
         m_cyclesScene->background->transparent = true;
 
-    if (m_useMotionBlur) {
+    if (config.enable_motion_blur) {
         //SetShutterMotionPosition(config.shutter_motion_position);
 
         // TODO: Do we need this here? It was causing an immediate runtime freeze

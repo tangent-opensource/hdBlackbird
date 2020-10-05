@@ -270,7 +270,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         // rolling shutter type
         TfToken rollingShutterType = _HdCyclesGetParam<TfToken>(
-            sceneDelegate, id, usdCyclesTokens->cyclesCameraRolling_shutterType,
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraRolling_shutter_type,
             usdCyclesTokens->none);
 
         if (m_rollingShutterType
@@ -300,12 +300,12 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // Others
 
         m_shutterTime = _HdCyclesGetCameraParam<float>(
-            sceneDelegate, id, usdCyclesTokens->cyclesCameraShutterTime,
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraShutter_time,
             m_shutterTime);
 
         m_rollingShutterTime = _HdCyclesGetCameraParam<float>(
             sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraRolling_shutterDuration,
+            usdCyclesTokens->cyclesCameraRolling_shutter_duration,
             m_rollingShutterTime);
 
 #endif

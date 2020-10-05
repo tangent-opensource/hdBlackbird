@@ -42,6 +42,7 @@
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/mesh.h>
+#include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
@@ -342,6 +343,22 @@ _HdCyclesGetMeshParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
     if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
         VtValue v;
         v = a_mesh->GetPrimvar(a_scene, a_token);
+        return _HdCyclesGetVtValue<T>(v, a_default);
+    }
+    return a_default;
+}
+
+// Get curve param
+
+template<typename T>
+T
+_HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                      HdBasisCurves* a_curves, HdSceneDelegate* a_scene, TfToken a_token,
+                      T a_default)
+{
+    if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
+        VtValue v;
+        v = a_curves->GetPrimvar(a_scene, a_token);
         return _HdCyclesGetVtValue<T>(v, a_default);
     }
     return a_default;

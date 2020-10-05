@@ -264,13 +264,13 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
 
     // -- Integrator Settings
 
-    if (key == usdCyclesTokens->cyclesIntegratorMin_bounces) {
+    if (key == usdCyclesTokens->cyclesIntegratorMin_bounce) {
         integrator->min_bounce
             = _HdCyclesGetVtValue<int>(_value, integrator->min_bounce,
                                        &integrator_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesIntegratorMax_bounces) {
+    if (key == usdCyclesTokens->cyclesIntegratorMax_bounce) {
         integrator->max_bounce
             = _HdCyclesGetVtValue<int>(_value, integrator->max_bounce,
                                        &integrator_updated);
@@ -453,7 +453,7 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
     }
 
     // Filter
-    if (key == usdCyclesTokens->cyclesFilmFilter) {
+    if (key == usdCyclesTokens->cyclesFilmFilter_type) {
         TfToken filter = _HdCyclesGetVtValue<TfToken>(_value,
                                                       usdCyclesTokens->box,
                                                       &film_updated);
@@ -465,22 +465,22 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
             film->filter_type = ccl::FilterType::FILTER_BLACKMAN_HARRIS;
         }
     }
-    if (key == usdCyclesTokens->cyclesFilmFilterWidth) {
+    if (key == usdCyclesTokens->cyclesFilmFilter_width) {
         film->filter_width = _HdCyclesGetVtValue<float>(_value,
                                                         film->filter_width,
                                                         &film_updated, false);
     }
 
     // Mist
-    if (key == usdCyclesTokens->cyclesFilmMistStart) {
+    if (key == usdCyclesTokens->cyclesFilmMist_start) {
         film->mist_start = _HdCyclesGetVtValue<float>(_value, film->mist_start,
                                                       &film_updated, false);
     }
-    if (key == usdCyclesTokens->cyclesFilmMistDepth) {
+    if (key == usdCyclesTokens->cyclesFilmMist_depth) {
         film->mist_depth = _HdCyclesGetVtValue<float>(_value, film->mist_depth,
                                                       &film_updated, false);
     }
-    if (key == usdCyclesTokens->cyclesFilmMistFalloff) {
+    if (key == usdCyclesTokens->cyclesFilmMist_falloff) {
         film->mist_falloff = _HdCyclesGetVtValue<float>(_value,
                                                         film->mist_falloff,
                                                         &film_updated, false);

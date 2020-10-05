@@ -168,11 +168,12 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         object->tfm = mat4d_to_transform(xf.values.data()[0]);
     }
 
+    object->motion.clear();
+
     if (!use_motion) {
         return xf;
     }
 
-    object->motion.clear();
     if (object->geometry) {
         if (object->geometry->use_motion_blur
             && object->geometry->motion_steps != sampleCount) {

@@ -63,6 +63,7 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_curveStyle(CURVE_TUBE)
     , m_curveResolution(5)
     , m_renderDelegate(a_renderDelegate)
+    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_useMotionBlur                     = config.enable_motion_blur;
@@ -491,9 +492,17 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
+
 #ifdef USE_USD_CYCLES_SCHEMA
-        if (HdCyclesIsPrimvarExists(usdCyclesTokens->cyclesObjectCurve_style, pdpi)) {
-            VtValue _value = sceneDelegate->Get(id, usdCyclesTokens->cyclesObjectCurve_style);
+
+        m_useMotionBlur = (bool)_HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
+
+        if (HdCyclesIsPrimvarExists(
+                usdCyclesTokens->primvarsCyclesObjectCurve_style, pdpi)) {
+            VtValue _value = sceneDelegate->Get(
+                id, usdCyclesTokens->primvarsCyclesObjectCurve_style);
 
             TfToken curveType
                 = _HdCyclesGetVtValue<TfToken>(_value, usdCyclesTokens->ribbon);
@@ -503,6 +512,44 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
                 m_curveStyle = CURVE_TUBE;
             }
         }
+
+        // Visibility
+
+        m_visibilityFlags = 0;
+
+        m_visCamera = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, m_visCamera);
+
+        m_visDiffuse = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
+            m_visDiffuse);
+
+        m_visGlossy = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, m_visGlossy);
+
+        m_visScatter = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
+            m_visScatter);
+
+        m_visShadow = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, m_visShadow);
+
+        m_visTransmission = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
+            m_visTransmission);
+
+        m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
+        m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
+        m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
+        m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
+        m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
+        m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
 #endif
         if (HdCyclesIsPrimvarExists(_tokens->cyclesCurveResolution, pdpi)) {
             VtIntArray resolution
@@ -518,10 +565,14 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         update_curve = true;
-        if (sceneDelegate->GetVisible(id)) {
+        /*if (sceneDelegate->GetVisible(id)) {
             m_cyclesObject->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
         } else {
             m_cyclesObject->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+        }*/
+        _sharedData.visible = sceneDelegate->GetVisible(id);
+        if (!_sharedData.visible) {
+            m_visibilityFlags = 0;  //~ccl::PATH_RAY_ALL_VISIBILITY;
         }
     }
 
@@ -595,6 +646,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (generate_new_curve || update_curve) {
+        m_cyclesObject->visibility = m_visibilityFlags;
         m_cyclesGeometry->tag_update(scene, true);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
@@ -645,7 +697,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         for (int j = 0; j < curveVertexCounts[i]; j++) {
             int idx = j + currentPointCount;
 
-            const float time = (float)j / (float)(curveVertexCounts[i]-1);
+            const float time = (float)j / (float)(curveVertexCounts[i] - 1);
 
             if (idx > m_points.size()) {
                 TF_WARN("Attempted to access invalid point. Continuing");

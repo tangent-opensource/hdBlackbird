@@ -168,6 +168,15 @@ protected:
     bool m_useMotionBlur;
     int m_motionSteps;
 
+    unsigned int m_visibilityFlags;
+
+    bool m_visCamera;
+    bool m_visDiffuse;
+    bool m_visGlossy;
+    bool m_visScatter;
+    bool m_visShadow;
+    bool m_visTransmission;
+
     HdCyclesCurveStyle m_curveStyle;
     int m_curveResolution;
 

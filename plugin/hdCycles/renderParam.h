@@ -350,34 +350,6 @@ public:
     /* ====== HdCycles Settings ====== */
 
     /**
-     * @brief Set should use motion blur
-     * 
-     * @param a_value Should use motion blur
-     */
-    void SetUseMotionBlur(const bool& a_value) { m_useMotionBlur = a_value; }
-
-    /**
-     * @brief Get if should use motion blur
-     * 
-     * @return Return true if motion blur should be used
-     */
-    const bool& GetUseMotionBlur() { return m_useMotionBlur; }
-
-    /**
-     * @brief Set the Motion Steps
-     * 
-     * @param a_value Motion Steps
-     */
-    void SetMotionSteps(const int& a_value) { m_motionSteps = a_value; }
-
-    /**
-     * @brief Get Motion Steps
-     * 
-     * @return const int& Motion Steps
-     */
-    const int& GetMotionSteps() { return m_motionSteps; }
-
-    /**
      * @brief Get the Width of render
      * 
      * @return Width in pixels
@@ -468,6 +440,9 @@ public:
      */
     void RemoveObject(ccl::Object* a_object);
 
+public:
+    bool GetUseMotionBlur();
+
 private:
     /**
      * @brief Initialize member values based on config
@@ -480,11 +455,6 @@ private:
                     ccl::SessionParams& params);
 
     ccl::BufferParams m_bufferParams;
-
-    // These values are not explicitly defined in cycles api
-    // They are stored here to allow for easy retrieval
-    bool m_useMotionBlur;
-    int m_motionSteps;
 
     ccl::DeviceType m_deviceType;
     std::string m_deviceName;
