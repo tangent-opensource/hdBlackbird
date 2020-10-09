@@ -54,6 +54,7 @@ pxr_plugin(${PXR_PACKAGE}
     ${OPENEXR_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIR}
     ${OPENGL_INCLUDE_DIR}
+    ${TBB_INCLUDE_DIRS}
 
   PUBLIC_CLASSES
     discovery
