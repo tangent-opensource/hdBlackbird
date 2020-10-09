@@ -45,6 +45,7 @@ find_path(CYCLES_LIBRARY_DIR
     ${CYCLES_LIB_PREFIX}extern_clew${CMAKE_STATIC_LIBRARY_SUFFIX}
     ${CYCLES_LIB_PREFIX}extern_cuew${CMAKE_STATIC_LIBRARY_SUFFIX}
     ${CYCLES_LIB_PREFIX}extern_numaapi${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${CYCLES_LIB_PREFIX}extern_sky${CMAKE_STATIC_LIBRARY_SUFFIX}
 
     HINTS
     ${CYCLES_ROOT}/lib
@@ -52,7 +53,7 @@ find_path(CYCLES_LIBRARY_DIR
 
     DOC "Cycles Libraries directory")
 
-set(CYCLES_LIBS cycles_device;cycles_kernel;cycles_render;cycles_bvh;cycles_subd;cycles_graph;cycles_util;extern_clew;extern_cuew;extern_numaapi)
+set(CYCLES_LIBS cycles_device;cycles_kernel;cycles_render;cycles_bvh;cycles_subd;cycles_graph;cycles_util;extern_clew;extern_cuew;extern_numaapi;extern_sky)
 
 foreach (lib ${CYCLES_LIBS})
     find_library(${lib}_LIBRARY
@@ -87,7 +88,6 @@ find_path(ATOMIC_INCLUDE_DIRS "atomic_ops.h"
     $ENV{CYCLES_ROOT}/third_party/atomic
     DOC "Atomic Include directory")
 
-list(APPEND CYCLES_INCLUDE_DIRS ${ATOMIC_INCLUDE_DIRS})
 
 include(FindPackageHandleStandardArgs)
 

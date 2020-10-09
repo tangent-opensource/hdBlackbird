@@ -476,71 +476,6 @@ HdCyclesRenderParam::_CyclesInitialize()
     default_vcol_surface->tag_update(m_cyclesScene);
     m_cyclesScene->shaders.push_back(default_vcol_surface);
 
-    // -- Setup curve system manager
-
-    ccl::CurveSystemManager* curve_system_manager
-        = m_cyclesScene->curve_system_manager;
-
-    curve_system_manager->use_curves     = !config.use_old_curves;
-    curve_system_manager->resolution     = config.curve_resolution;
-    curve_system_manager->subdivisions   = config.curve_subdivisions;
-    curve_system_manager->use_backfacing = config.curve_use_backfaces;
-    curve_system_manager->use_tangent_normal_geometry
-        = config.curve_use_tangent_normal_geometry;
-    curve_system_manager->use_encasing = config.curve_use_encasing;
-
-    if (ccl::string_iequals(config.curve_shape.c_str(), "CURVE_RIBBON")) {
-        curve_system_manager->curve_shape = ccl::CURVE_RIBBON;
-    } else {
-        curve_system_manager->curve_shape = ccl::CURVE_THICK;
-    }
-
-    if (ccl::string_iequals(config.curve_primitive.c_str(), "CURVE_TRIANGLES")) {
-        curve_system_manager->primitive = ccl::CURVE_TRIANGLES;
-    } else if (ccl::string_iequals(config.curve_primitive.c_str(),
-                                   "CURVE_LINE_SEGMENTS")) {
-        curve_system_manager->primitive = ccl::CURVE_LINE_SEGMENTS;
-    } else if (ccl::string_iequals(config.curve_primitive.c_str(),
-                                   "CURVE_SEGMENTS")) {
-        curve_system_manager->primitive = ccl::CURVE_SEGMENTS;
-    } else {
-        curve_system_manager->primitive = ccl::CURVE_RIBBONS;
-    }
-
-    if (curve_system_manager->primitive == ccl::CURVE_TRIANGLES) {
-        /* camera facing planes */
-        if (curve_system_manager->curve_shape == ccl::CURVE_RIBBON) {
-            curve_system_manager->triangle_method = ccl::CURVE_CAMERA_TRIANGLES;
-            curve_system_manager->resolution      = 1;
-        } else if (curve_system_manager->curve_shape == ccl::CURVE_THICK) {
-            curve_system_manager->triangle_method
-                = ccl::CURVE_TESSELATED_TRIANGLES;
-        }
-    }
-    /* Line Segments */
-    else if (curve_system_manager->primitive == ccl::CURVE_LINE_SEGMENTS) {
-        if (curve_system_manager->curve_shape == ccl::CURVE_RIBBON) {
-            /* tangent shading */
-            curve_system_manager->line_method    = ccl::CURVE_UNCORRECTED;
-            curve_system_manager->use_encasing   = true;
-            curve_system_manager->use_backfacing = false;
-            curve_system_manager->use_tangent_normal_geometry = true;
-        } else if (curve_system_manager->curve_shape == ccl::CURVE_THICK) {
-            curve_system_manager->line_method  = ccl::CURVE_ACCURATE;
-            curve_system_manager->use_encasing = false;
-            curve_system_manager->use_tangent_normal_geometry = false;
-        }
-    }
-    /* Curve Segments */
-    else if (curve_system_manager->primitive == ccl::CURVE_SEGMENTS) {
-        if (curve_system_manager->curve_shape == ccl::CURVE_RIBBON) {
-            curve_system_manager->primitive      = ccl::CURVE_RIBBONS;
-            curve_system_manager->use_backfacing = false;
-        }
-    }
-
-    curve_system_manager->tag_update(m_cyclesScene);
-
     SetBackgroundShader(nullptr);
 
     m_cyclesSession->reset(m_bufferParams, params.samples);
@@ -592,7 +527,6 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     }
 
     if (m_curveUpdated) {
-        m_cyclesScene->curve_system_manager->tag_update(m_cyclesScene);
         m_curveUpdated = false;
     }
 
@@ -606,7 +540,6 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     }
 
     if (a_forceUpdate) {
-        m_cyclesScene->curve_system_manager->tag_update(m_cyclesScene);
         m_cyclesScene->integrator->tag_update(m_cyclesScene);
         m_cyclesScene->background->tag_update(m_cyclesScene);
         m_cyclesScene->film->tag_update(m_cyclesScene);
