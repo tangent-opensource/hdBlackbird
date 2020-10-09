@@ -394,10 +394,6 @@ HdCyclesRenderParam::_CyclesInitialize()
     /* Use progressive rendering */
 
     params.progressive            = true;
-    params.run_denoising          = false;
-    params.write_denoising_passes = false;
-    params.full_denoising         = false;
-    params.optix_denoising        = false;
 
     params.start_resolution = config.start_resolution;
 
