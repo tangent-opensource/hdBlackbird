@@ -41,8 +41,8 @@
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/vt/value.h>
-#include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/basisCurves.h>
+#include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
@@ -229,7 +229,8 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
                         HdInterpolation* a_interpolation = nullptr);
 
 
-using HdCyclesSampledPrimvarType = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
+using HdCyclesSampledPrimvarType
+    = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
 
 /* ======== VtValue Utils ========= */
 
@@ -328,7 +329,10 @@ T
 _HdCyclesGetParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
                   T a_default)
 {
-    VtValue val = a_scene->Get(a_id, a_token);
+    // TODO: This is not Get() Because of the reasons listed here:
+    // https://groups.google.com/g/usd-interest/c/k-N05Ac7SRk/m/RtK5HvglAQAJ
+    // We may need to fix this in newer versions of USD
+    VtValue val = a_scene->GetLightParamValue(a_id, a_token);
     return _HdCyclesGetVtValue<T>(val, a_default);
 }
 
@@ -336,14 +340,17 @@ _HdCyclesGetParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
 
 template<typename T>
 T
-_HdCyclesGetMeshParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+_HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd,
+                      HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
                       HdMesh* a_mesh, HdSceneDelegate* a_scene, TfToken a_token,
                       T a_default)
 {
-    if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
-        VtValue v;
-        v = a_mesh->GetPrimvar(a_scene, a_token);
-        return _HdCyclesGetVtValue<T>(v, a_default);
+    if (a_pvd.name == a_token) {
+        if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
+            VtValue v;
+            v = a_mesh->GetPrimvar(a_scene, a_token);
+            return _HdCyclesGetVtValue<T>(v, a_default);
+        }
     }
     return a_default;
 }
@@ -353,8 +360,8 @@ _HdCyclesGetMeshParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
 template<typename T>
 T
 _HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
-                      HdBasisCurves* a_curves, HdSceneDelegate* a_scene, TfToken a_token,
-                      T a_default)
+                       HdBasisCurves* a_curves, HdSceneDelegate* a_scene,
+                       TfToken a_token, T a_default)
 {
     if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
         VtValue v;

@@ -260,7 +260,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 #ifdef USE_USD_CYCLES_SCHEMA
 
         // Motion Position
-        TfToken motionPosition = _HdCyclesGetParam<TfToken>(
+        TfToken motionPosition = _HdCyclesGetCameraParam<TfToken>(
             sceneDelegate, id, usdCyclesTokens->cyclesCameraMotion_position,
             usdCyclesTokens->center);
 
@@ -269,7 +269,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         // rolling shutter type
-        TfToken rollingShutterType = _HdCyclesGetParam<TfToken>(
+        TfToken rollingShutterType = _HdCyclesGetCameraParam<TfToken>(
             sceneDelegate, id, usdCyclesTokens->cyclesCameraRolling_shutter_type,
             usdCyclesTokens->none);
 
@@ -280,7 +280,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         // panorama type
-        TfToken panoramaType = _HdCyclesGetParam<TfToken>(
+        TfToken panoramaType = _HdCyclesGetCameraParam<TfToken>(
             sceneDelegate, id, usdCyclesTokens->cyclesCameraPanorama_type,
             usdCyclesTokens->equirectangular);
 
@@ -289,7 +289,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         // stereo eye
-        TfToken stereoEye = _HdCyclesGetParam<TfToken>(
+        TfToken stereoEye = _HdCyclesGetCameraParam<TfToken>(
             sceneDelegate, id, usdCyclesTokens->cyclesCameraStereo_eye,
             usdCyclesTokens->none);
 
