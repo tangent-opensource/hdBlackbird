@@ -2,10 +2,10 @@
 
 name = 'hdcycles'
 
-version = '0.7.6'
+version = '0.7.7'
 
 authors = [
-    'benjamin.skinner'
+    'benjamin.skinner',
 ]
 
 requires = [
