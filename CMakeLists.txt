@@ -61,33 +61,37 @@ add_definitions(
   -DCCL_NAMESPACE_END=}
 )
 
-if($ENV{USD_HOUDINI})
+set(USD_BUILD_VARIANT "USD_PIXAR")
+
+find_package(Houdini)
+if(${Houdini_FOUND})
   option(USE_USD_HOUDINI "Use Houdini" ON)
   add_definitions(-DUSE_USD_HOUDINI)
 
   set(CMAKE_SHARED_LIBRARY_PREFIX "libpxr_")
-  find_package(Houdini)
 
   set(HBoost_NO_SYSTEM_PATHS true)
   set(HBoost_USE_STATIC_LIBS OFF CACHE BOOL "use static libs")
 
   add_definitions(-DHBOOST_ALL_NO_LIB)
   add_definitions(-DHBOOST_ALL_DYN_LINK)
-else()
-  file(TO_CMAKE_PATH $ENV{BOOST_ROOT} BOOST_ROOT)
-  file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
-  file(TO_CMAKE_PATH $ENV{BOOST_LIBRARY_DIR} BOOST_LIBRARYDIR)
 
-  file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
-  file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
-  file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
+  set(USD_BUILD_VARIANT "USD_HOUDINI")
 endif()
+
+file(TO_CMAKE_PATH $ENV{BOOST_ROOT} BOOST_ROOT)
+file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
+file(TO_CMAKE_PATH $ENV{BOOST_LIBRARY_DIR} BOOST_LIBRARYDIR)
+
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
 
 # -- External Packages
 
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
 find_package(PyOpenGL REQUIRED)
-find_package(PySide REQUIRED)
+#find_package(PySide REQUIRED)
 
 
 # Boost python libraries in some cases do not have a trailing version.
@@ -104,23 +108,28 @@ if(NOT ${Boost_${boost_python_component_upper}_FOUND})
   find_package(Boost COMPONENTS python thread program_options filesystem REQUIRED)
 endif()
 
-find_package(GLEW REQUIRED)
-find_package(OpenEXR REQUIRED)
-find_package(OpenGL REQUIRED)
-find_package(OpenJPEG REQUIRED)
-find_package(TBB REQUIRED)
-find_package(ZLIB REQUIRED)
+if(${USD_BUILD_VARIANT} STREQUAL "USD_PIXAR")
+  find_package(OpenImageIO REQUIRED)
+  find_package(GLEW REQUIRED)
+  find_package(OpenEXR REQUIRED)
+  find_package(TBB REQUIRED)
+  find_package(JPEG REQUIRED)
+  find_package(TIFF REQUIRED)
+  find_package(OpenJPEG REQUIRED)
+endif()
 
-find_package(JPEG REQUIRED)
+find_package(OpenGL REQUIRED)
+
 find_package(PNG REQUIRED)
-find_package(TIFF REQUIRED)
-find_package(OpenImageIO REQUIRED)
+
+#find_package(Embree)
 
 find_package(OpenSubdiv)
-find_package(OpenVDB)
-
-find_package(Embree)
 find_package(OpenColorIO)
+#find_package(OpenVDB)
+
+find_package(ZLIB REQUIRED)
+
 
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)
@@ -146,4 +155,4 @@ endif()
 # -- Source
 
 add_subdirectory(plugin)
-add_subdirectory(tools)
+#add_subdirectory(tools)

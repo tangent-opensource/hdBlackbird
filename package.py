@@ -2,7 +2,7 @@
 
 name = 'hdcycles'
 
-version = '0.7.7'
+version = '0.7.8'
 
 authors = [
     'benjamin.skinner',
@@ -10,13 +10,13 @@ authors = [
 
 requires = [
     'usdcycles',
-    'cycles',
+    'cycles-1.13.0-ta.1.2.0',
 ]
 
 
 variants = [
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05'],
-    #['platform-windows', 'arch-x64', 'os-windows-10', 'usd-houdini-18.0'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2.0'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11', 'houdini-18.0'],
 ]
 
 build_system = "cmake"
