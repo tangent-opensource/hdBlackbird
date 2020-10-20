@@ -186,6 +186,7 @@ HdCyclesMesh::_InitRepr(TfToken const& reprToken, HdDirtyBits* dirtyBits)
 void
 HdCyclesMesh::_ComputeTangents(bool needsign)
 {
+    // This is likely deprecated now
     const ccl::AttributeSet& attributes = (m_useSubdivision && m_subdivEnabled)
                                               ? m_cyclesMesh->subd_attributes
                                               : m_cyclesMesh->attributes;
@@ -198,7 +199,7 @@ HdCyclesMesh::_ComputeTangents(bool needsign)
 }
 
 void
-HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs,
+HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                         HdInterpolation interpolation)
 {
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
@@ -206,8 +207,19 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs,
                                         : &m_cyclesMesh->attributes;
     bool subdivide_uvs = false;
 
-    ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV,
-                                           ccl::ustring(name.GetString()));
+    ccl::ustring uv_name      = ccl::ustring(name.GetString());
+    ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
+
+    bool need_uv = m_cyclesMesh->need_attribute(scene, uv_name)
+                   || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV);
+    bool need_tangent
+        = m_cyclesMesh->need_attribute(scene, tangent_name)
+          || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+
+    // Forced true for now... Should be based on shader compilation needs
+    need_tangent = true;
+
+    ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV, uv_name);
     ccl::float2* fdata   = attr->data_float2();
 
     if (m_useSubdivision && subdivide_uvs && m_subdivEnabled)
@@ -237,6 +249,21 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs,
             fdata[0] = vec2f_to_float2(uvs[i]);
             fdata += 1;
         }
+    }
+
+    if (need_tangent) {
+        ccl::ustring sign_name = ccl::ustring(name.GetString()
+                                              + ".tangent_sign");
+        bool need_sign
+            = m_cyclesMesh->need_attribute(scene, sign_name)
+              || m_cyclesMesh->need_attribute(scene,
+                                              ccl::ATTR_STD_UV_TANGENT_SIGN);
+
+
+        // Forced for now
+        need_sign = true;
+        mikk_compute_tangents(name.GetString().c_str(), m_cyclesMesh, need_sign,
+                              true);
     }
 }
 
@@ -480,7 +507,9 @@ HdCyclesMesh::_PopulateCreases()
 void
 HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
 {
-    _ComputeTangents(true);
+    // Deprecated in favour of adding when uv's are added
+    // This should no longer be necessary
+    //_ComputeTangents(true);
 
     if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
         ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
@@ -500,7 +529,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
-    
+
 
     scene->mutex.lock();
 
@@ -757,7 +786,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // TODO: Add more general uv support
                     //if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                     if (value.IsHolding<VtArray<GfVec2f>>()) {
-                        VtVec2fArray uvs  = value.UncheckedGet<VtArray<GfVec2f>>();
+                        VtVec2fArray uvs
+                            = value.UncheckedGet<VtArray<GfVec2f>>();
                         if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
@@ -767,10 +797,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             VtVec2fArray triangulatedUvs
                                 = triangulated.Get<VtVec2fArray>();
 
-                            _AddUVSet(pv.name, triangulatedUvs,
+                            _AddUVSet(pv.name, triangulatedUvs, scene,
                                       primvarDescsEntry.first);
                         } else {
-                            _AddUVSet(pv.name, uvs, primvarDescsEntry.first);
+                            _AddUVSet(pv.name, uvs, scene,
+                                      primvarDescsEntry.first);
                         }
                     }
                 }
