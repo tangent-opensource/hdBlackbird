@@ -372,10 +372,55 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
 void
 HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 {
-    m_cyclesMesh->add_face_normals();
-    m_cyclesMesh->add_vertex_normals();
+    ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
-    //TODO: Implement
+    if (interpolation == HdInterpolationUniform) {
+        ccl::Attribute* attr_fN = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
+        ccl::float3* fN         = attr_fN->data_float3();
+
+        int idx = 0;
+        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+            const int vCount = m_faceVertexCounts[i];
+
+            // This needs to be checked
+            for (int j = 1; j < vCount - 1; ++idx) {
+                fN[idx] = vec3f_to_float3(normals[idx]);
+                std::cout << "idx: " << idx << '\n';
+            }
+        }
+
+    } else if (interpolation == HdInterpolationVertex) {
+        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::float3* cdata   = attr->data_float3();
+
+        memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
+            ccl::float3 n = vec3f_to_float3(normals[i]);
+            cdata[i]      = n;
+        }
+
+    } else if (interpolation == HdInterpolationFaceVarying) {
+        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::float3* cdata   = attr->data_float3();
+
+        memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+
+        // Although looping through all faces, normals are averaged per
+        // vertex. This seems to be a limitation of cycles. Not allowing
+        // face varying/loop normals/etc natively. This may however
+        // be a misunderstanding
+        for (size_t i = 0; i < m_numMeshFaces; i++) {
+            for (size_t j = 0; j < 3; j++) {
+                ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
+                cdata[m_cyclesMesh->get_triangle(i).v[j]] += n;
+            }
+        }
+
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
+            cdata[i] = ccl::normalize(cdata[i]);
+        }
+    }
 }
 
 ccl::Mesh*
@@ -834,15 +879,14 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         VtVec3fArray normals;
                         normals = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                        // TODO: Properly implement
-                        /*if (primvarDescsEntry.first
+                        if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
                             // Triangulate primvar normals
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                 normals.data(), normals.size(), HdTypeFloatVec3,
                                 &triangulated);
                             normals = triangulated.Get<VtVec3fArray>();
-                        }*/
+                        }
 
                         _AddNormals(normals, primvarDescsEntry.first);
                     }
