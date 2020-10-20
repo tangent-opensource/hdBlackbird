@@ -128,7 +128,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(TfToken name, VtVec2fArray& uvs,
+    void _AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                    HdInterpolation interpolation);
 
     /**
