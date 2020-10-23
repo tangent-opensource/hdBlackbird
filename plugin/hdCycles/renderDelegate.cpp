@@ -500,7 +500,6 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
 
     if (film_updated) {
         film->tag_update(m_renderParam->GetCyclesScene());
-        std::cout << "Updating film\n";
     }
 }
 
