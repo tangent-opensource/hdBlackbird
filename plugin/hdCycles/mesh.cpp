@@ -481,7 +481,7 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                         m_cyclesMesh->add_triangle(v0, v1, v2, materialId,
                                                    true);
                     } else {
-                        m_cyclesMesh->add_triangle(v2, v1, v0, materialId,
+                        m_cyclesMesh->add_triangle(v0, v2, v1, materialId,
                                                    true);
                     }
                 }
