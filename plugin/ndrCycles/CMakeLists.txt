@@ -22,12 +22,6 @@ set(PXR_PACKAGE ndrCycles)
 
 add_custom_target(shared_libs)
 
-if(USE_USD_HOUDINI)
-  include_directories(${HOUDINI_INCLUDE_DIRS})
-  link_directories(${HOUDINI_LIB_DIRS})
-  link_libraries(${HOUDINI_LIBRARIES_DEPS})
-endif()
-
 pxr_plugin(${PXR_PACKAGE}
   LIBRARIES
     ${USD_LIBRARIES}

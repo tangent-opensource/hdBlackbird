@@ -10,13 +10,13 @@ authors = [
 
 requires = [
     'usdcycles',
-    'cycles-1.13.0-ta.1.2.0',
+    'cycles',
 ]
 
 
 variants = [
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2.0'],
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11', 'houdini-18.0'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
 ]
 
 build_system = "cmake"

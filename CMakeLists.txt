@@ -21,7 +21,8 @@ project(hdCycles)
 
 cmake_minimum_required(VERSION 3.12)
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/defaults
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
+                      ${CMAKE_SOURCE_DIR}/cmake/defaults
                       ${CMAKE_SOURCE_DIR}/cmake/modules
                       ${CMAKE_SOURCE_DIR}/cmake/macros)
 
@@ -63,20 +64,8 @@ add_definitions(
 
 set(USD_BUILD_VARIANT "USD_PIXAR")
 
-find_package(Houdini)
-if(${Houdini_FOUND})
-  option(USE_USD_HOUDINI "Use Houdini" ON)
-  add_definitions(-DUSE_USD_HOUDINI)
-
-  set(CMAKE_SHARED_LIBRARY_PREFIX "libpxr_")
-
-  set(HBoost_NO_SYSTEM_PATHS true)
-  set(HBoost_USE_STATIC_LIBS OFF CACHE BOOL "use static libs")
-
-  add_definitions(-DHBOOST_ALL_NO_LIB)
-  add_definitions(-DHBOOST_ALL_DYN_LINK)
-
-  set(USD_BUILD_VARIANT "USD_HOUDINI")
+if(DEFINED ENV{USD_BUILD_VARIANT})
+  file(TO_CMAKE_PATH $ENV{USD_BUILD_VARIANT} USD_BUILD_VARIANT)
 endif()
 
 file(TO_CMAKE_PATH $ENV{BOOST_ROOT} BOOST_ROOT)
@@ -91,8 +80,6 @@ file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
 
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
 find_package(PyOpenGL REQUIRED)
-#find_package(PySide REQUIRED)
-
 
 # Boost python libraries in some cases do not have a trailing version.
 # Try the versioned library first and fall back to a non-versioned library.
@@ -108,28 +95,40 @@ if(NOT ${Boost_${boost_python_component_upper}_FOUND})
   find_package(Boost COMPONENTS python thread program_options filesystem REQUIRED)
 endif()
 
-if(${USD_BUILD_VARIANT} STREQUAL "USD_PIXAR")
-  find_package(OpenImageIO REQUIRED)
-  find_package(GLEW REQUIRED)
-  find_package(OpenEXR REQUIRED)
-  find_package(TBB REQUIRED)
-  find_package(JPEG REQUIRED)
-  find_package(TIFF REQUIRED)
-  find_package(OpenJPEG REQUIRED)
+if(${USD_BUILD_VARIANT} STREQUAL "USD_HOUDINI")
+  option(USE_USD_HOUDINI "Use Houdini" ON)
+  add_definitions(-DUSE_USD_HOUDINI)
+
+  find_package(Boost)
+
+  set(CMAKE_SHARED_LIBRARY_PREFIX "libpxr_")
+
+  set(HBoost_NO_SYSTEM_PATHS true)
+  set(HBoost_USE_STATIC_LIBS OFF CACHE BOOL "use static libs")
+
+  add_definitions(-DHBOOST_ALL_NO_LIB)
+  add_definitions(-DHBOOST_ALL_DYN_LINK)
 endif()
+
+find_package(PNG REQUIRED)
+find_package(JPEG REQUIRED)
+find_package(TIFF REQUIRED)
+find_package(OpenJPEG REQUIRED)
+
+find_package(TBB REQUIRED)
+find_package(OpenImageIO REQUIRED)
+find_package(OpenEXR REQUIRED)
+find_package(GLEW REQUIRED)
 
 find_package(OpenGL REQUIRED)
 
-find_package(PNG REQUIRED)
-
 #find_package(Embree)
+#find_package(OpenVDB)
 
 find_package(OpenSubdiv)
 find_package(OpenColorIO)
-#find_package(OpenVDB)
 
 find_package(ZLIB REQUIRED)
-
 
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)
