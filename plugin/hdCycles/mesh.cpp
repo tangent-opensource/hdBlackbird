@@ -1115,7 +1115,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     instanceObj->geometry = m_cyclesMesh;
 
                     // TODO: Implement motion blur for point instanced objects
-                    if (m_useMotionBlur) {
+                    /*if (m_useMotionBlur) {
                         m_cyclesMesh->motion_steps    = m_motionSteps;
                         m_cyclesMesh->use_motion_blur = m_useMotionBlur;
 
@@ -1125,7 +1125,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             instanceObj->motion[j] = mat4d_to_transform(
                                 combinedTransforms[j].data()[j]);
                         }
-                    }
+                    }*/
 
                     m_cyclesInstances.push_back(instanceObj);
 
