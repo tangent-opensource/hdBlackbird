@@ -243,6 +243,7 @@ protected:
     VtVec3fArray m_points;
     VtIntArray m_faceVertexCounts;
     VtIntArray m_faceVertexIndices;
+    TfToken m_orientation;
 
     HdCyclesSampledPrimvarType m_pointSamples;
 
