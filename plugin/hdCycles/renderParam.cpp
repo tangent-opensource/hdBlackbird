@@ -77,11 +77,16 @@ HdCyclesRenderParam::_SessionPrintStatus()
     float progress = m_cyclesSession->progress.get_progress();
     m_cyclesSession->progress.get_status(status, substatus);
 
-    if (substatus != "")
-        status += ": " + substatus;
+    if (HdCyclesConfig::GetInstance().enable_progress) {
+        std::cout << "Progress: " << (int)(round(progress * 100)) << "%\n";
+    }
 
-    if (HdCyclesConfig::GetInstance().enable_logging)
+    if (HdCyclesConfig::GetInstance().enable_logging) {
+        if (substatus != "")
+            status += ": " + substatus;
+
         std::cout << "cycles: " << progress << " : " << status << '\n';
+    }
 }
 
 bool
@@ -393,7 +398,7 @@ HdCyclesRenderParam::_CyclesInitialize()
 
     /* Use progressive rendering */
 
-    params.progressive            = true;
+    params.progressive = true;
 
     params.start_resolution = config.start_resolution;
 
@@ -413,7 +418,8 @@ HdCyclesRenderParam::_CyclesInitialize()
 
     m_cyclesSession = new ccl::Session(params);
 
-    if (HdCyclesConfig::GetInstance().enable_logging)
+    if (HdCyclesConfig::GetInstance().enable_logging
+        || HdCyclesConfig::GetInstance().enable_progress)
         m_cyclesSession->progress.set_update_callback(
             std::bind(&HdCyclesRenderParam::_SessionPrintStatus, this));
 
