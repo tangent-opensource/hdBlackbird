@@ -238,6 +238,12 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                 int v1 = *(idxIt + i + 0);
                 int v2 = *(idxIt + i + 1);
 
+                if (m_orientation == HdTokens->leftHanded) {
+                    int temp = v2;
+                    v2       = v0;
+                    v0       = temp;
+                }
+
                 fdata[0] = vec2f_to_float2(uvs[v0]);
                 fdata[1] = vec2f_to_float2(uvs[v1]);
                 fdata[2] = vec2f_to_float2(uvs[v2]);
@@ -302,6 +308,12 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                 int v1 = *(idxIt + i + 0);
                 int v2 = *(idxIt + i + 1);
 
+                if (m_orientation == HdTokens->leftHanded) {
+                    int temp = v2;
+                    v2       = v0;
+                    v0       = temp;
+                }
+
                 vdata[0] = vec3f_to_float3(velocities[v0]);
                 vdata[1] = vec3f_to_float3(velocities[v1]);
                 vdata[2] = vec3f_to_float3(velocities[v2]);
@@ -357,6 +369,12 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
                 int v0 = *idxIt;
                 int v1 = *(idxIt + i + 0);
                 int v2 = *(idxIt + i + 1);
+
+                if (m_orientation == HdTokens->leftHanded) {
+                    int temp = v2;
+                    v2       = v0;
+                    v0       = temp;
+                }
 
                 cdata[0] = ccl::color_float4_to_uchar4(
                     ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v0])));
@@ -546,9 +564,16 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
 
             vi.resize(vCount);
 
-            for (int i = 0; i < vCount; ++i) {
-                vi[i] = *(idxIt + i);
+            if (m_orientation == HdTokens->rightHanded) {
+                for (int i = 0; i < vCount; ++i) {
+                    vi[i] = *(idxIt + i);
+                }
+            } else {
+                for (int i = vCount; i > 0; i--) {
+                    vi[i] = *(idxIt + i);
+                }
             }
+
             idxIt += vCount;
 
             m_cyclesMesh->add_subd_face(&vi[0], vCount, materialId, true);
@@ -568,12 +593,12 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                 int v2 = *(idxIt + i + 1);
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
-
                     if (m_orientation == HdTokens->rightHanded) {
-                        m_cyclesMesh->add_triangle(v0, v1, v2, materialId, true);
-
+                        m_cyclesMesh->add_triangle(v0, v1, v2, materialId,
+                                                   true);
                     } else {
-                        m_cyclesMesh->add_triangle(v2, v1, v0, materialId, true);
+                        m_cyclesMesh->add_triangle(v2, v1, v0, materialId,
+                                                   true);
                     }
                 }
             }
