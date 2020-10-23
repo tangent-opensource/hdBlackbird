@@ -2,7 +2,7 @@
 
 name = 'hdcycles'
 
-version = '0.7.8'
+version = '0.7.9'
 
 authors = [
     'benjamin.skinner',
@@ -15,7 +15,7 @@ requires = [
 
 
 variants = [
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2.0'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
 ]
 
