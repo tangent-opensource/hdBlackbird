@@ -31,6 +31,9 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
                       "Enable HdCycles Logging");
 
+TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
+                      "Enable HdCycles progress reporting");
+
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_MOTION_BLUR, false,
                       "Enable HdCycles motion blur support");
 
@@ -161,6 +164,7 @@ HdCyclesConfig::HdCyclesConfig()
 {
     // -- HdCycles Settings
     enable_logging          = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);
+    enable_progress         = TfGetEnvSetting(HD_CYCLES_ENABLE_PROGRESS);
     enable_motion_blur      = TfGetEnvSetting(HD_CYCLES_ENABLE_MOTION_BLUR);
     motion_steps            = TfGetEnvSetting(HD_CYCLES_MOTION_STEPS);
     enable_subdivision      = TfGetEnvSetting(HD_CYCLES_ENABLE_SUBDIVISION);
