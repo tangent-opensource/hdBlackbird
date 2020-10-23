@@ -452,7 +452,13 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                 int v2 = *(idxIt + i + 1);
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
-                    m_cyclesMesh->add_triangle(v0, v1, v2, materialId, true);
+
+                    if (m_orientation == HdTokens->rightHanded) {
+                        m_cyclesMesh->add_triangle(v0, v1, v2, materialId, true);
+
+                    } else {
+                        m_cyclesMesh->add_triangle(v2, v1, v0, materialId, true);
+                    }
                 }
             }
             idxIt += vCount;
@@ -500,7 +506,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
-    
+
 
     scene->mutex.lock();
 
@@ -563,6 +569,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_faceVertexCounts  = m_topology.GetFaceVertexCounts();
         m_faceVertexIndices = m_topology.GetFaceVertexIndices();
         m_geomSubsets       = m_topology.GetGeomSubsets();
+        m_orientation       = m_topology.GetOrientation();
 
         m_numMeshFaces = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
@@ -757,7 +764,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // TODO: Add more general uv support
                     //if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                     if (value.IsHolding<VtArray<GfVec2f>>()) {
-                        VtVec2fArray uvs  = value.UncheckedGet<VtArray<GfVec2f>>();
+                        VtVec2fArray uvs
+                            = value.UncheckedGet<VtArray<GfVec2f>>();
                         if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
