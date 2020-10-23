@@ -372,7 +372,6 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
             // This needs to be checked
             for (int j = 1; j < vCount - 1; ++idx) {
                 fN[idx] = vec3f_to_float3(normals[idx]);
-                std::cout << "idx: " << idx << '\n';
             }
         }
 
@@ -395,8 +394,10 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         // Although looping through all faces, normals are averaged per
         // vertex. This seems to be a limitation of cycles. Not allowing
-        // face varying/loop normals/etc natively. This may however
-        // be a misunderstanding
+        // face varying/loop_normals/corner_normals natively.
+
+        // For now, we add all corner normals and normalize separately.
+        // TODO: Update when Cycles supports corner_normals
         for (size_t i = 0; i < m_numMeshFaces; i++) {
             for (size_t j = 0; j < 3; j++) {
                 ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
