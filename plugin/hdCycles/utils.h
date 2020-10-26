@@ -345,7 +345,11 @@ _HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd,
                       HdMesh* a_mesh, HdSceneDelegate* a_scene, TfToken a_token,
                       T a_default)
 {
-    if (a_pvd.name == a_token) {
+    // Needed because our current schema stores tokens with primvars: prefix
+    // however the HdPrimvarDescriptor omits this.
+    // Solution could be to remove from usdCycles schema and add in all settings
+    // providers (houdini_cycles, blender exporter)
+    if ("primvars:" + a_pvd.name.GetString() == a_token.GetString()) {
         if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
             VtValue v;
             v = a_mesh->GetPrimvar(a_scene, a_token);
