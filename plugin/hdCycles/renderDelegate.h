@@ -104,6 +104,7 @@ public:
      * 
      */
     HDCYCLES_API HdCyclesRenderDelegate();
+    HDCYCLES_API HdCyclesRenderDelegate(HdRenderSettingsMap const& settingsMap);
     HDCYCLES_API ~HdCyclesRenderDelegate() override;
 
     HDCYCLES_API HdRenderParam* GetRenderParam() const override;
@@ -129,6 +130,8 @@ public:
 
     HDCYCLES_API HdRenderSettingDescriptorList
     GetRenderSettingDescriptors() const override;
+
+    HDCYCLES_API virtual HdRenderSettingsMap GetRenderSettingsMap() const;
 
     HDCYCLES_API virtual HdResourceRegistrySharedPtr
     GetResourceRegistry() const override;
