@@ -32,8 +32,8 @@
 #include "renderPass.h"
 #include "utils.h"
 
-#include <render/integrator.h>
 #include <render/film.h>
+#include <render/integrator.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -84,9 +84,23 @@ const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_BPRIM_TYPES = {
 // clang-format on
 
 HdCyclesRenderDelegate::HdCyclesRenderDelegate()
-    : m_hasStarted(false)
+    : HdRenderDelegate()
+    , m_hasStarted(false)
 {
     _Initialize();
+}
+
+HdCyclesRenderDelegate::HdCyclesRenderDelegate(
+    HdRenderSettingsMap const& settingsMap)
+    : HdRenderDelegate(settingsMap)
+    , m_hasStarted(false)
+{
+    _Initialize();
+
+    // Set initial render settings from settings map
+    for (auto& entry : settingsMap) {
+        _SetRenderSetting(entry.first, entry.second);
+    }
 }
 
 void
@@ -149,6 +163,11 @@ HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
     m_settingDescriptors.push_back({ std::string("Exposure"),
                                      usdCyclesTokens->cyclesFilmExposure,
                                      VtValue(m_renderParam->GetExposure()) });
+
+
+    m_settingDescriptors.push_back({ std::string("Samples"),
+                                     usdCyclesTokens->cyclesSamples,
+                                     VtValue(m_renderParam->GetMaxSamples()) });
 
 #endif
 
@@ -260,7 +279,19 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
     ccl::Film* film   = m_renderParam->GetCyclesScene()->film;
     bool film_updated = false;
 
+    ccl::SessionParams* session_params
+        = &m_renderParam->GetCyclesSession()->params;
+    bool session_updated = false;
+
 #ifdef USE_USD_CYCLES_SCHEMA
+
+    // -- Session Settings
+
+    if (key == usdCyclesTokens->cyclesSamples) {
+        session_params->samples
+            = _HdCyclesGetVtValue<int>(_value, session_params->samples,
+                                       &session_updated);
+    }
 
     // -- Integrator Settings
 
@@ -501,6 +532,10 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
     if (film_updated) {
         film->tag_update(m_renderParam->GetCyclesScene());
     }
+
+    if (session_updated) {
+        m_renderParam->Interrupt();
+    }
 }
 
 void
@@ -516,6 +551,12 @@ HdRenderSettingDescriptorList
 HdCyclesRenderDelegate::GetRenderSettingDescriptors() const
 {
     return m_settingDescriptors;
+}
+
+HdRenderSettingsMap
+HdCyclesRenderDelegate::GetRenderSettingsMap() const
+{
+    return _settingsMap;
 }
 
 HdResourceRegistrySharedPtr
