@@ -283,15 +283,83 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
         = &m_renderParam->GetCyclesSession()->params;
     bool session_updated = false;
 
+    ccl::Background* background = &m_renderParam->GetCyclesScene()->background;
+    bool background_updated     = false;
+
 #ifdef USE_USD_CYCLES_SCHEMA
 
     // -- Session Settings
+    if (key == usdCyclesTokens->cyclesBackground) {
+        session_params->background
+            = _HdCyclesGetVtValue<bool>(_value, session_params->background,
+                                        &session_updated);
+    }
+    if (key == usdCyclesTokens->cyclesProgressive_refine) {
+        session_params->progressive_refine = _HdCyclesGetVtValue<bool>(
+            _value, session_params->progressive_refine, &session_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesProgressive) {
+        session_params->progressive
+            = _HdCyclesGetVtValue<bool>(_value, session_params->progressive,
+                                        &session_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesExperimental) {
+        session_params->experimental
+            = _HdCyclesGetVtValue<bool>(_value, session_params->experimental,
+                                        &session_updated);
+    }
 
     if (key == usdCyclesTokens->cyclesSamples) {
         session_params->samples
             = _HdCyclesGetVtValue<int>(_value, session_params->samples,
                                        &session_updated);
     }
+
+    if (key == usdCyclesTokens->cyclesTile_Size) {
+        session_params->tile_size
+            = _HdCyclesGetVtValue<GfVec2i>(_value, session_params->tile_size,
+                                           &session_updated);
+    }
+
+    //TileOrder tile_order;
+
+    if (key == usdCyclesTokens->cyclesStart_resolution) {
+        session_params->start_resolution
+            = _HdCyclesGetVtValue<int>(_value, session_params->start_resolution,
+                                       &session_updated);
+    }
+    if (key == usdCyclesTokens->cyclesDenoising_start_sample) {
+        session_params->denoising_start_sample = _HdCyclesGetVtValue<int>(
+            _value, session_params->denoising_start_sample, &session_updated);
+    }
+    if (key == usdCyclesTokens->cyclesPixel_size) {
+        session_params->pixel_size
+            = _HdCyclesGetVtValue<int>(_value, session_params->pixel_size,
+                                       &session_updated);
+    }
+    if (key == usdCyclesTokens->cyclesThreads) {
+        session_params->threads
+            = _HdCyclesGetVtValue<int>(_value, session_params->threads,
+                                       &session_updated);
+    }
+    if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
+        session_params->adaptive_sampling = _HdCyclesGetVtValue<bool>(
+            _value, session_params->adaptive_sampling, &session_updated);
+    }
+    if (key == usdCyclesTokens->cyclesUse_profiling) {
+        session_params->use_profiling
+            = _HdCyclesGetVtValue<bool>(_value, session_params->use_profiling,
+                                        &session_updated);
+    }
+    if (key == usdCyclesTokens->cyclesDisplay_buffer_linear) {
+        session_params->display_buffer_linear = _HdCyclesGetVtValue<bool>(
+            _value, session_params->display_buffer_linear, &session_updated);
+    }
+
+    //DenoiseParams denoising;
+    //ShadingSystem shadingsystem;
 
     // -- Integrator Settings
 
@@ -523,6 +591,55 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
             = _HdCyclesGetVtValue<bool>(_value, film->use_light_visibility,
                                         &film_updated, false);
     }
+
+    // -- Background
+
+    if (key == usdCyclesTokens->cyclesBackgroundAo_factor) {
+        background->ao_factor
+            = _HdCyclesGetVtValue<float>(_value, background->ao_factor,
+                                        &background_updated);
+    }
+    if (key == usdCyclesTokens->cyclesBackgroundAo_distance) {
+        background->ao_distance
+            = _HdCyclesGetVtValue<float>(_value, background->ao_distance,
+                                        &background_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesBackgroundUse_shader) {
+        background->use_shader
+            = _HdCyclesGetVtValue<bool>(_value, background->use_shader,
+                                        &background_updated);
+    }
+    if (key == usdCyclesTokens->cyclesBackgroundUse_ao) {
+        background->use_ao
+            = _HdCyclesGetVtValue<bool>(_value, background->use_ao,
+                                        &background_updated);
+    }
+
+
+    //uint visibility;
+
+    if (key == usdCyclesTokens->cyclesBackgroundTransparent) {
+        background->transparent
+            = _HdCyclesGetVtValue<bool>(_value, background->transparent,
+                                        &background_updated);
+    }
+    if (key == usdCyclesTokens->cyclesBackgroundTransparent_glass) {
+        background->transparent_glass
+            = _HdCyclesGetVtValue<bool>(_value, background->transparent_glass,
+                                        &background_updated);
+    }
+    if (key == usdCyclesTokens->cyclesBackgroundTransparent_roughness_threshold) {
+        background->transparent_roughness_threshold
+            = _HdCyclesGetVtValue<float>(_value, background->transparent_roughness_threshold,
+                                        &background_updated);
+    }
+    if (key == usdCyclesTokens->cyclesBackgroundVolume_step_size) {
+        background->volume_step_size
+            = _HdCyclesGetVtValue<float>(_value, background->volume_step_size,
+                                        &background_updated);
+    }
+
 #endif
 
     if (integrator_updated) {
@@ -531,6 +648,10 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
 
     if (film_updated) {
         film->tag_update(m_renderParam->GetCyclesScene());
+    }
+
+    if (background_updated) {
+        background->tag_update(m_renderParam->GetCyclesScene());
     }
 
     if (session_updated) {
