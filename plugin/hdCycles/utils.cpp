@@ -269,6 +269,12 @@ mat4f_to_transform(const GfMatrix4f& mat)
     return outTransform;
 }
 
+ccl::int2
+vec2i_to_int2(const GfVec2i& a_vec)
+{
+    return ccl::make_int2(a_vec[0], a_vec[1]);
+}
+
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec)
 {
