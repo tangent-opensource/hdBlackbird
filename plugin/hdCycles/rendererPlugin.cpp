@@ -36,6 +36,13 @@ HdCyclesRendererPlugin::CreateRenderDelegate()
     return new HdCyclesRenderDelegate();
 }
 
+HdRenderDelegate*
+HdCyclesRendererPlugin::CreateRenderDelegate(
+    HdRenderSettingsMap const& settingsMap)
+{
+    return new HdCyclesRenderDelegate(settingsMap);
+}
+
 void
 HdCyclesRendererPlugin::DeleteRenderDelegate(HdRenderDelegate* renderDelegate)
 {
