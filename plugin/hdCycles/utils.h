@@ -109,6 +109,15 @@ ccl::Transform
 mat4f_to_transform(const GfMatrix4f& mat);
 
 /**
+ * @brief Convert GfVec2i to Cycles int2 representation
+ *
+ * @param a_vec
+ * @return Cycles int2
+ */
+ccl::int2
+vec2i_to_int2(const GfVec2i& a_vec);
+
+/**
  * @brief Convert GfVec2f to Cycles float2 representation
  *
  * @param a_vec

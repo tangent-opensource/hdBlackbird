@@ -32,6 +32,7 @@
 #include "renderPass.h"
 #include "utils.h"
 
+#include <render/background.h>
 #include <render/film.h>
 #include <render/integrator.h>
 
@@ -283,7 +284,7 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
         = &m_renderParam->GetCyclesSession()->params;
     bool session_updated = false;
 
-    ccl::Background* background = &m_renderParam->GetCyclesScene()->background;
+    ccl::Background* background = m_renderParam->GetCyclesScene()->background;
     bool background_updated     = false;
 
 #ifdef USE_USD_CYCLES_SCHEMA
@@ -317,10 +318,10 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
                                        &session_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesTile_Size) {
-        session_params->tile_size
-            = _HdCyclesGetVtValue<GfVec2i>(_value, session_params->tile_size,
-                                           &session_updated);
+    if (key == usdCyclesTokens->cyclesTile_size) {
+        session_params->tile_size = vec2i_to_int2(
+            _HdCyclesGetVtValue<GfVec2i>(_value, session_params->tile_size,
+                                         &session_updated));
     }
 
     //TileOrder tile_order;
@@ -597,12 +598,12 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
     if (key == usdCyclesTokens->cyclesBackgroundAo_factor) {
         background->ao_factor
             = _HdCyclesGetVtValue<float>(_value, background->ao_factor,
-                                        &background_updated);
+                                         &background_updated);
     }
     if (key == usdCyclesTokens->cyclesBackgroundAo_distance) {
         background->ao_distance
             = _HdCyclesGetVtValue<float>(_value, background->ao_distance,
-                                        &background_updated);
+                                         &background_updated);
     }
 
     if (key == usdCyclesTokens->cyclesBackgroundUse_shader) {
@@ -611,9 +612,9 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
                                         &background_updated);
     }
     if (key == usdCyclesTokens->cyclesBackgroundUse_ao) {
-        background->use_ao
-            = _HdCyclesGetVtValue<bool>(_value, background->use_ao,
-                                        &background_updated);
+        background->use_ao = _HdCyclesGetVtValue<bool>(_value,
+                                                       background->use_ao,
+                                                       &background_updated);
     }
 
 
@@ -629,15 +630,16 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
             = _HdCyclesGetVtValue<bool>(_value, background->transparent_glass,
                                         &background_updated);
     }
-    if (key == usdCyclesTokens->cyclesBackgroundTransparent_roughness_threshold) {
-        background->transparent_roughness_threshold
-            = _HdCyclesGetVtValue<float>(_value, background->transparent_roughness_threshold,
-                                        &background_updated);
+    if (key
+        == usdCyclesTokens->cyclesBackgroundTransparent_roughness_threshold) {
+        background->transparent_roughness_threshold = _HdCyclesGetVtValue<float>(
+            _value, background->transparent_roughness_threshold,
+            &background_updated);
     }
     if (key == usdCyclesTokens->cyclesBackgroundVolume_step_size) {
         background->volume_step_size
             = _HdCyclesGetVtValue<float>(_value, background->volume_step_size,
-                                        &background_updated);
+                                         &background_updated);
     }
 
 #endif
