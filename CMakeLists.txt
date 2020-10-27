@@ -122,7 +122,7 @@ find_package(GLEW REQUIRED)
 
 find_package(OpenGL REQUIRED)
 
-#find_package(Embree)
+find_package(Embree)
 #find_package(OpenVDB)
 
 find_package(OpenSubdiv)
