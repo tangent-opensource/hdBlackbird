@@ -64,6 +64,12 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_curveResolution(5)
     , m_renderDelegate(a_renderDelegate)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
+    , m_visCamera(true)
+    , m_visDiffuse(true)
+    , m_visGlossy(true)
+    , m_visScatter(true)
+    , m_visShadow(true)
+    , m_visTransmission(true)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_useMotionBlur                     = config.enable_motion_blur;
