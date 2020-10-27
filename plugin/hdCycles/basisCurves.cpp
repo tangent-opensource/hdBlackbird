@@ -513,6 +513,21 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             }
         }
 
+        m_cyclesObject->is_shadow_catcher = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
+            m_cyclesObject->is_shadow_catcher);
+
+        m_cyclesObject->pass_id = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectPass_id,
+            m_cyclesObject->pass_id);
+
+        m_cyclesObject->use_holdout = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+            m_cyclesObject->use_holdout);
+
         // Visibility
 
         m_visibilityFlags = 0;
@@ -565,15 +580,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         update_curve = true;
-        /*if (sceneDelegate->GetVisible(id)) {
-            m_cyclesObject->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
-        } else {
-            m_cyclesObject->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
-        }*/
         _sharedData.visible = sceneDelegate->GetVisible(id);
-        if (!_sharedData.visible) {
-            m_visibilityFlags = 0;  //~ccl::PATH_RAY_ALL_VISIBILITY;
-        }
+
+        m_hydraVisibility = _sharedData.visible;
     }
 
     if (generate_new_curve) {
@@ -647,6 +656,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (generate_new_curve || update_curve) {
         m_cyclesObject->visibility = m_visibilityFlags;
+        if (!m_hydraVisibility)
+            m_cyclesObject->visibility = 0;
+
         m_cyclesGeometry->tag_update(scene, true);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
