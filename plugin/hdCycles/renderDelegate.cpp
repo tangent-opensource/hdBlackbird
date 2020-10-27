@@ -318,11 +318,11 @@ HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
                                        &session_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesTile_size) {
+    /*if (key == usdCyclesTokens->cyclesTile_size) {
         session_params->tile_size = vec2i_to_int2(
             _HdCyclesGetVtValue<GfVec2i>(_value, session_params->tile_size,
                                          &session_updated));
-    }
+    }*/
 
     //TileOrder tile_order;
 
