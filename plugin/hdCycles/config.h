@@ -48,6 +48,12 @@ public:
     bool enable_logging;
 
     /**
+     * @brief If enabled, HdCycles stdout progress in a format of 'Progres: 0%'
+     *
+     */
+    bool enable_progress;
+
+    /**
      * @brief If enabled, HdCycles will populate object's motion and enable motion blur
      *
      */
