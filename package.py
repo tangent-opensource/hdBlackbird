@@ -2,7 +2,7 @@
 
 name = 'hdcycles'
 
-version = '0.7.12'
+version = '0.7.13'
 
 authors = [
     'benjamin.skinner',
