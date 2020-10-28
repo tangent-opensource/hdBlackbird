@@ -39,6 +39,7 @@ pxr_plugin(${PXR_PACKAGE}
     ${USD_LIBRARIES}
     ${TBB_LIBRARIES}
     ${Boost_LIBRARIES}
+    ${HBoost_LIBRARIES}
     ${Python_LIBRARIES}
     ${CYCLES_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
@@ -61,6 +62,7 @@ pxr_plugin(${PXR_PACKAGE}
   INCLUDE_DIRS
     ${USD_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
+    ${HBoost_INCLUDE_DIRS}
     ${TBB_INCLUDE_DIRS}
     ${Python_INCLUDE_DIRS}
     ${CYCLES_INCLUDE_DIRS}

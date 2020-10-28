@@ -68,38 +68,38 @@ if(DEFINED ENV{USD_BUILD_VARIANT})
   file(TO_CMAKE_PATH $ENV{USD_BUILD_VARIANT} USD_BUILD_VARIANT)
 endif()
 
-file(TO_CMAKE_PATH $ENV{BOOST_ROOT} BOOST_ROOT)
-file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
-file(TO_CMAKE_PATH $ENV{BOOST_LIBRARY_DIR} BOOST_LIBRARYDIR)
-
-file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
-file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
-file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
-
 # -- External Packages
 
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
 find_package(PyOpenGL REQUIRED)
 
-# Boost python libraries in some cases do not have a trailing version.
-# Try the versioned library first and fall back to a non-versioned library.
 
-set(boost_python_component python${Python_VERSION_MAJOR}${Python_VERSION_MINOR})
-string(TOUPPER ${boost_python_component} boost_python_component_upper)
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
 
-find_package(Boost COMPONENTS ${boost_python_component} thread program_options filesystem) # Not required
+if(${USD_BUILD_VARIANT} STREQUAL "USD_PIXAR")
+  file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
 
-if(NOT ${Boost_${boost_python_component_upper}_FOUND})
-  # We need to unset this or the new find_package won't overwrite it.
-  unset(Boost_LIBRARIES)
-  find_package(Boost COMPONENTS python thread program_options filesystem REQUIRED)
+  # Boost python libraries in some cases do not have a trailing version.
+  # Try the versioned library first and fall back to a non-versioned library.
+
+  set(boost_python_component python${Python_VERSION_MAJOR}${Python_VERSION_MINOR})
+  string(TOUPPER ${boost_python_component} boost_python_component_upper)
+
+  find_package(Boost COMPONENTS ${boost_python_component} thread program_options filesystem) # Not required
+
+  if(NOT ${Boost_${boost_python_component_upper}_FOUND})
+    # We need to unset this or the new find_package won't overwrite it.
+    unset(Boost_LIBRARIES)
+    find_package(Boost COMPONENTS python thread program_options filesystem REQUIRED)
+  endif()
+
+  add_definitions(-DBOOST_NS=boost)
 endif()
 
 if(${USD_BUILD_VARIANT} STREQUAL "USD_HOUDINI")
-  option(USE_USD_HOUDINI "Use Houdini" ON)
-  add_definitions(-DUSE_USD_HOUDINI)
-
-  find_package(Boost)
+  find_package(HBoost)
 
   set(CMAKE_SHARED_LIBRARY_PREFIX "libpxr_")
 
