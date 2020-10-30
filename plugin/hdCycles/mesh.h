@@ -214,10 +214,8 @@ protected:
      * @brief Populate faces of cycles mesh
      * 
      * @param a_faceMaterials pregenerated array of subset materials
-     * @param a_subdivide should faces be subdivided
      */
-    void _PopulateFaces(const std::vector<int>& a_faceMaterials,
-                        bool a_subdivide);
+    void _PopulateFaces(const std::vector<int>& a_faceMaterials);
 
     /**
      * @brief Populate subdiv creases
