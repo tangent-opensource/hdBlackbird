@@ -24,6 +24,7 @@
 #include "material.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
+#include "utils.h"
 
 #include "Mikktspace/mikktspace.h"
 
@@ -187,7 +188,7 @@ void
 HdCyclesMesh::_ComputeTangents(bool needsign)
 {
     // This is likely deprecated now
-    const ccl::AttributeSet& attributes = (m_useSubdivision && m_subdivEnabled)
+    const ccl::AttributeSet& attributes = (m_useSubdivision)
                                               ? m_cyclesMesh->subd_attributes
                                               : m_cyclesMesh->attributes;
 
@@ -202,7 +203,7 @@ void
 HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                         HdInterpolation interpolation)
 {
-    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+    ccl::AttributeSet* attributes = (m_useSubdivision)
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
     bool subdivide_uvs = false;
@@ -222,7 +223,7 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
     ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV, uv_name);
     ccl::float2* fdata   = attr->data_float2();
 
-    if (m_useSubdivision && subdivide_uvs && m_subdivEnabled)
+    if (m_useSubdivision && subdivide_uvs)
         attr->flags |= ccl::ATTR_SUBDIVIDED;
 
     if (interpolation == HdInterpolationVertex) {
@@ -250,10 +251,30 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
             }
             idxIt += vCount;
         }
-    } else {
-        for (size_t i = 0; i < uvs.size(); i++) {
-            fdata[0] = vec2f_to_float2(uvs[i]);
-            fdata += 1;
+    } else if (interpolation == HdInterpolationFaceVarying) {
+        VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+
+        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+            const int vCount = m_faceVertexCounts[i];
+
+            for (int i = 1; i < vCount - 1; ++i) {
+                int v0 = *idxIt;
+                int v1 = *(idxIt + i + 0);
+                int v2 = *(idxIt + i + 1);
+
+                if (m_orientation == HdTokens->leftHanded)
+                    v1 = *(idxIt + ((vCount - 1) - i) + 0);
+                if (m_orientation == HdTokens->leftHanded)
+                    v2 = *(idxIt + ((vCount - 1) - i) + 1);
+
+                if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
+                    && v2 < m_numMeshVerts) {
+                    fdata[0] = vec2f_to_float2(uvs[i]);
+                    fdata += 1;
+                    //m_cyclesMesh->add_triangle(v0, v1, v2, materialId, true);
+                }
+            }
+            idxIt += vCount;
         }
     }
 
@@ -277,7 +298,7 @@ void
 HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                              HdInterpolation interpolation)
 {
-    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+    ccl::AttributeSet* attributes = (m_useSubdivision)
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
@@ -330,7 +351,7 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
     if (colors.size() <= 0)
         return;
 
-    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+    ccl::AttributeSet* attributes = (m_useSubdivision)
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
@@ -352,51 +373,152 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
-
-                if (m_orientation == HdTokens->leftHanded) {
-                    int temp = v2;
-                    v2       = v0;
-                    v0       = temp;
+            if (m_useSubdivision) {
+                for (int j = 0; j < vCount; ++j) {
+                    if (m_orientation == HdTokens->rightHanded) {
+                        cdata[0] = ccl::color_float4_to_uchar4(
+                            ccl::color_srgb_to_linear_v4(
+                                vec3f_to_float4(colors[*(idxIt + j)])));
+                    } else {
+                        cdata[0] = ccl::color_float4_to_uchar4(
+                            ccl::color_srgb_to_linear_v4(vec3f_to_float4(
+                                colors[*(idxIt + (vCount - j - 1))])));
+                    }
+                    cdata++;
                 }
+            } else {
+                for (int i = 1; i < vCount - 1; ++i) {
+                    int v0 = *idxIt;
+                    int v1 = *(idxIt + i + 0);
+                    int v2 = *(idxIt + i + 1);
 
-                cdata[0] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v0])));
-                cdata[1] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v1])));
-                cdata[2] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v2])));
-                cdata += 3;
+                    if (m_orientation == HdTokens->leftHanded) {
+                        int temp = v2;
+                        v2       = v0;
+                        v0       = temp;
+                    }
+
+                    cdata[0] = ccl::color_float4_to_uchar4(
+                        ccl::color_srgb_to_linear_v4(
+                            vec3f_to_float4(colors[v0])));
+                    cdata[1] = ccl::color_float4_to_uchar4(
+                        ccl::color_srgb_to_linear_v4(
+                            vec3f_to_float4(colors[v1])));
+                    cdata[2] = ccl::color_float4_to_uchar4(
+                        ccl::color_srgb_to_linear_v4(
+                            vec3f_to_float4(colors[v2])));
+                    cdata += 3;
+                }
             }
             idxIt += vCount;
         }
 
-    } else if (interpolation == HdInterpolationVarying
-               || interpolation == HdInterpolationConstant
-               || interpolation == HdInterpolationUniform) {
-        for (size_t i = 0; i < m_numMeshFaces * 3; i++) {
-            GfVec3f pv_col  = colors[0];
-            ccl::float4 col = vec3f_to_float4(pv_col);
+    } else if (interpolation == HdInterpolationUniform) {
+        if (m_useSubdivision) {
+            for (size_t i = 0; i < m_numMeshFaces; i++) {
+                GfVec3f pv_col  = colors[i];
+                ccl::float4 col = vec3f_to_float4(pv_col);
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
-            cdata += 1;
+                cdata[0] = ccl::color_float4_to_uchar4(
+                    ccl::color_srgb_to_linear_v4(col));
+                cdata += 1;
+            }
+        } else {
+            for (size_t i = 0; i < m_numMeshFaces * 2; i++) {
+                GfVec3f pv_col  = colors[floor(i / 2)];
+                ccl::float4 col = vec3f_to_float4(pv_col);
+
+                cdata[0] = ccl::color_float4_to_uchar4(
+                    ccl::color_srgb_to_linear_v4(col));
+                cdata += 1;
+            }
+        }
+    } else if (interpolation == HdInterpolationConstant) {
+        if (m_useSubdivision) {
+            for (size_t i = 0; i < m_numMeshFaces * 3; i++) {
+                GfVec3f pv_col  = colors[0];
+                ccl::float4 col = vec3f_to_float4(pv_col);
+
+                cdata[0] = ccl::color_float4_to_uchar4(
+                    ccl::color_srgb_to_linear_v4(col));
+                cdata += 1;
+            }
+        } else {
+            for (size_t i = 0; i < m_numMeshFaces * 3; i++) {
+                GfVec3f pv_col  = colors[0];
+                ccl::float4 col = vec3f_to_float4(pv_col);
+
+                cdata[0] = ccl::color_float4_to_uchar4(
+                    ccl::color_srgb_to_linear_v4(col));
+                cdata += 1;
+            }
         }
     } else if (interpolation == HdInterpolationFaceVarying) {
-        for (size_t i = 0; i < m_numMeshFaces * 3; i++) {
-            int idx = i;
-            if (idx > colors.size())
-                idx = colors.size() - 1;
+        if (m_useSubdivision) {
+            int idx = 0;
+            if (m_orientation == HdTokens->rightHanded) {
+                for (int i = m_faceVertexCounts.size(); i > 0; i--) {
+                    const int vCount = m_faceVertexCounts[i - 1];
 
-            GfVec3f pv_col  = colors[idx];
-            ccl::float4 col = vec3f_to_float4(pv_col);
+                    for (int j = 0; j < vCount; ++j) {
+                        GfVec3f pv_col = colors[idx + j];
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
-            cdata += 1;
+                        ccl::float4 col = vec3f_to_float4(pv_col);
+
+                        cdata[0] = ccl::color_float4_to_uchar4(
+                            ccl::color_srgb_to_linear_v4(col));
+                        cdata += 1;
+                    }
+                    idx += vCount;
+                }
+            } else {
+                for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                    const int vCount = m_faceVertexCounts[i];
+
+                    for (int j = vCount; j > 0; --j) {
+                        int ii         = idx + (j - 1);
+                        GfVec3f pv_col = colors[ii];
+
+                        ccl::float4 col = vec3f_to_float4(pv_col);
+
+                        cdata[0] = ccl::color_float4_to_uchar4(
+                            ccl::color_srgb_to_linear_v4(col));
+                        cdata += 1;
+                    }
+                    idx += vCount;
+                }
+            }
+        } else {
+            VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+
+            int idx = 0;
+            // TODO: Add support for subd faces?
+            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                const int vCount = m_faceVertexCounts[i];
+                int faceidx      = 0;
+                if (m_orientation == HdTokens->rightHanded) {
+                    for (int j = 1; j < vCount - 1; ++j) {
+                        int v0 = idx;
+                        int v1 = idx + 1;
+                        int v2 = idx + 2;
+
+                        cdata[0] = ccl::color_float4_to_uchar4(
+                            ccl::color_srgb_to_linear_v4(
+                                vec3f_to_float4(colors[v0])));
+                        cdata[1] = ccl::color_float4_to_uchar4(
+                            ccl::color_srgb_to_linear_v4(
+                                vec3f_to_float4(colors[v1])));
+                        cdata[2] = ccl::color_float4_to_uchar4(
+                            ccl::color_srgb_to_linear_v4(
+                                vec3f_to_float4(colors[v2])));
+                        cdata += 3;
+
+                        //faceidx+=3;
+                        idx += 3;
+                    }
+                }
+                idx += faceidx;
+            }
         }
     }
 }
@@ -499,10 +621,9 @@ HdCyclesMesh::_PopulateVertices()
 }
 
 void
-HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
-                             bool a_subdivide)
+HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials)
 {
-    if (a_subdivide) {
+    if (m_useSubdivision) {
         m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
         m_cyclesMesh->reserve_subd_faces(m_numMeshFaces, m_numNgons,
                                          m_numCorners);
@@ -512,8 +633,7 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
 
     VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
 
-    if (a_subdivide) {
-        bool smooth = true;
+    if (m_useSubdivision) {
         std::vector<int> vi;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
@@ -521,13 +641,11 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
 
             vi.resize(vCount);
 
-            if (m_orientation == HdTokens->rightHanded) {
-                for (int i = 0; i < vCount; ++i) {
+            for (int i = 0; i < vCount; ++i) {
+                if (m_orientation == HdTokens->rightHanded) {
                     vi[i] = *(idxIt + i);
-                }
-            } else {
-                for (int i = vCount; i > 0; i--) {
-                    vi[i] = *(idxIt + i);
+                } else {
+                    vi[i] = *(idxIt + (vCount - i - 1));
                 }
             }
 
@@ -548,15 +666,15 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                 int v0 = *idxIt;
                 int v1 = *(idxIt + i + 0);
                 int v2 = *(idxIt + i + 1);
+
+                if (m_orientation == HdTokens->leftHanded)
+                    v1 = *(idxIt + ((vCount - 1) - i) + 0);
+                if (m_orientation == HdTokens->leftHanded)
+                    v2 = *(idxIt + ((vCount - 1) - i) + 1);
+
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
-                    if (m_orientation == HdTokens->rightHanded) {
-                        m_cyclesMesh->add_triangle(v0, v1, v2, materialId,
-                                                   true);
-                    } else {
-                        m_cyclesMesh->add_triangle(v0, v2, v1, materialId,
-                                                   true);
-                    }
+                    m_cyclesMesh->add_triangle(v0, v1, v2, materialId, true);
                 }
             }
             idxIt += vCount;
@@ -589,7 +707,7 @@ HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
     //_ComputeTangents(true);
 
     if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
-        ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+        ccl::AttributeSet* attributes = (m_useSubdivision)
                                             ? &m_cyclesMesh->subd_attributes
                                             : &m_cyclesMesh->attributes;
         ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
@@ -690,6 +808,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (m_subdivEnabled) {
             m_useSubdivision = m_topology.GetScheme()
                                == PxOsdOpenSubdivTokens->catmullClark;
+        } else {
+            m_useSubdivision = false;
         }
 
         newMesh = true;
@@ -781,9 +901,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             }
         }
 
-        _PopulateFaces(faceMaterials, (m_useSubdivision && m_subdivEnabled));
+        _PopulateFaces(faceMaterials);
 
-        if (m_useSubdivision && m_subdivEnabled) {
+        if (m_useSubdivision) {
             _PopulateCreases();
 
             if (!m_cyclesMesh->subd_params) {
@@ -806,21 +926,22 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     auto value = GetPrimvar(sceneDelegate, pv.name);
                     VtValue triangulated;
 
+                    if (!m_useSubdivision) {
+                        if (pv.name == HdTokens->normals) {
+                            VtVec3fArray normals;
+                            normals = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                    if (pv.name == HdTokens->normals) {
-                        VtVec3fArray normals;
-                        normals = value.UncheckedGet<VtArray<GfVec3f>>();
+                            if (primvarDescsEntry.first
+                                == HdInterpolationFaceVarying) {
+                                // Triangulate primvar normals
+                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+                                    normals.data(), normals.size(),
+                                    HdTypeFloatVec3, &triangulated);
+                                normals = triangulated.Get<VtVec3fArray>();
+                            }
 
-                        if (primvarDescsEntry.first
-                            == HdInterpolationFaceVarying) {
-                            // Triangulate primvar normals
-                            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                normals.data(), normals.size(), HdTypeFloatVec3,
-                                &triangulated);
-                            normals = triangulated.Get<VtVec3fArray>();
+                            _AddNormals(normals, primvarDescsEntry.first);
                         }
-
-                        _AddNormals(normals, primvarDescsEntry.first);
                     }
 
                     // TODO: Properly implement
@@ -845,13 +966,16 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             VtVec3fArray colors;
                             colors = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                            if (primvarDescsEntry.first
-                                == HdInterpolationFaceVarying) {
-                                // Triangulate primvar colors
-                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                    colors.data(), colors.size(),
-                                    HdTypeFloatVec3, &triangulated);
-                                colors = triangulated.Get<VtVec3fArray>();
+                            if ((!m_useSubdivision)) {
+                                if (primvarDescsEntry.first
+                                    == HdInterpolationFaceVarying) {
+                                    // Triangulate primvar colors
+                                    meshUtil
+                                        .ComputeTriangulatedFaceVaryingPrimvar(
+                                            colors.data(), colors.size(),
+                                            HdTypeFloatVec3, &triangulated);
+                                    colors = triangulated.Get<VtVec3fArray>();
+                                }
                             }
 
                             // Add colors to attribute
@@ -866,7 +990,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         VtVec2fArray uvs
                             = value.UncheckedGet<VtArray<GfVec2f>>();
                         if (primvarDescsEntry.first
-                            == HdInterpolationFaceVarying) {
+                                == HdInterpolationFaceVarying
+                            && !m_useSubdivision) {
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                 uvs.data(), uvs.size(), HdTypeFloatVec2,
                                 &triangulated);
