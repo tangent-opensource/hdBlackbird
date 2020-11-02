@@ -233,48 +233,97 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
-
-                if (m_orientation == HdTokens->leftHanded) {
-                    int temp = v2;
-                    v2       = v0;
-                    v0       = temp;
+            if (m_useSubdivision) {
+                for (int j = 0; j < vCount; ++j) {
+                    if (m_orientation == HdTokens->rightHanded) {
+                        fdata[0] = vec2f_to_float2(uvs[*(idxIt + j)]);
+                    } else {
+                        fdata[0] = vec2f_to_float2(
+                            uvs[*(idxIt + (vCount - j - 1))]);
+                    }
+                    fdata++;
                 }
+            } else {
+                for (int j = 1; j < vCount - 1; ++j) {
+                    int v0 = *idxIt;
+                    int v1 = *(idxIt + j + 0);
+                    int v2 = *(idxIt + j + 1);
 
-                fdata[0] = vec2f_to_float2(uvs[v0]);
-                fdata[1] = vec2f_to_float2(uvs[v1]);
-                fdata[2] = vec2f_to_float2(uvs[v2]);
-                fdata += 3;
+
+                    if (m_orientation == HdTokens->leftHanded)
+                        v1 = *(idxIt + ((vCount - 1) - j) + 0);
+                    if (m_orientation == HdTokens->leftHanded)
+                        v2 = *(idxIt + ((vCount - 1) - j) + 1);
+
+                    fdata[0] = vec2f_to_float2(uvs[v0]);
+                    fdata[1] = vec2f_to_float2(uvs[v1]);
+                    fdata[2] = vec2f_to_float2(uvs[v2]);
+                    fdata += 3;
+                }
             }
             idxIt += vCount;
         }
     } else if (interpolation == HdInterpolationFaceVarying) {
-        VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+        if (m_useSubdivision) {
+            int idx = 0;
+            if (m_orientation == HdTokens->rightHanded) {
+                for (int i = m_faceVertexCounts.size(); i > 0; i--) {
+                    const int vCount = m_faceVertexCounts[i - 1];
 
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
+                    for (int j = 0; j < vCount; ++j) {
+                        fdata[0] = vec2f_to_float2(uvs[idx + j]);
+                        fdata += 1;
+                    }
+                    idx += vCount;
+                }
+            } else {
+                for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                    const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                    for (int j = vCount; j > 0; --j) {
+                        int ii = idx + (j - 1);
 
-                if (m_orientation == HdTokens->leftHanded)
-                    v1 = *(idxIt + ((vCount - 1) - i) + 0);
-                if (m_orientation == HdTokens->leftHanded)
-                    v2 = *(idxIt + ((vCount - 1) - i) + 1);
-
-                if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
-                    && v2 < m_numMeshVerts) {
-                    fdata[0] = vec2f_to_float2(uvs[i]);
-                    fdata += 1;
-                    //m_cyclesMesh->add_triangle(v0, v1, v2, materialId, true);
+                        fdata[0] = vec2f_to_float2(uvs[ii]);
+                        fdata += 1;
+                    }
+                    idx += vCount;
                 }
             }
-            idxIt += vCount;
+        } else {
+            VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+
+            int idx = 0;
+            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                const int vCount = m_faceVertexCounts[i];
+                int faceidx      = 0;
+
+                for (int j = 1; j < vCount - 1; ++j) {
+                    int iter = 3 * (j - 1);
+                    if (m_orientation == HdTokens->leftHanded)
+                        iter = (vCount - 1) - (j - 1);
+                    iter += idx;
+                    int v0 = iter + 0;
+                    int v1 = iter + 1;
+                    int v2 = iter + 2;
+
+                    // TODO: Currently faceVarying left handed is broken
+                    if (m_orientation == HdTokens->leftHanded) {
+                        //if((j-1) %  )
+                        //v1 = *(idxIt + ((vCount - 1) - j) + 0);
+
+                        //v2 = *(idxIt + ((vCount - 1) - j) + 1);
+                    }
+
+                    fdata[0] = vec2f_to_float2(uvs[v0]);
+                    fdata[1] = vec2f_to_float2(uvs[v1]);
+                    fdata[2] = vec2f_to_float2(uvs[v2]);
+                    fdata += 3;
+
+                    faceidx += 3;
+                }
+                //}
+                idx += faceidx;
+            }
         }
     }
 
@@ -387,10 +436,10 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
                     cdata++;
                 }
             } else {
-                for (int i = 1; i < vCount - 1; ++i) {
+                for (int j = 1; j < vCount - 1; ++j) {
                     int v0 = *idxIt;
-                    int v1 = *(idxIt + i + 0);
-                    int v2 = *(idxIt + i + 1);
+                    int v1 = *(idxIt + j + 0);
+                    int v2 = *(idxIt + j + 1);
 
                     if (m_orientation == HdTokens->leftHanded) {
                         int temp = v2;
@@ -492,32 +541,33 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
             VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
 
             int idx = 0;
-            // TODO: Add support for subd faces?
+            // Currently faceVarying leftHanded orientation is broken
             for (int i = 0; i < m_faceVertexCounts.size(); i++) {
                 const int vCount = m_faceVertexCounts[i];
                 int faceidx      = 0;
-                if (m_orientation == HdTokens->rightHanded) {
-                    for (int j = 1; j < vCount - 1; ++j) {
-                        int v0 = idx;
-                        int v1 = idx + 1;
-                        int v2 = idx + 2;
+                for (int j = 1; j < vCount - 1; ++j) {
+                    int v0 = idx;
+                    int v1 = idx + 1;
+                    int v2 = idx + 2;
 
-                        cdata[0] = ccl::color_float4_to_uchar4(
-                            ccl::color_srgb_to_linear_v4(
-                                vec3f_to_float4(colors[v0])));
-                        cdata[1] = ccl::color_float4_to_uchar4(
-                            ccl::color_srgb_to_linear_v4(
-                                vec3f_to_float4(colors[v1])));
-                        cdata[2] = ccl::color_float4_to_uchar4(
-                            ccl::color_srgb_to_linear_v4(
-                                vec3f_to_float4(colors[v2])));
-                        cdata += 3;
+                    if (m_orientation == HdTokens->leftHanded)
+                        v1 = *(idxIt + ((vCount - 1) - j) + 0);
+                    if (m_orientation == HdTokens->leftHanded)
+                        v2 = *(idxIt + ((vCount - 1) - j) + 1);
 
-                        //faceidx+=3;
-                        idx += 3;
-                    }
+                    cdata[0] = ccl::color_float4_to_uchar4(
+                        ccl::color_srgb_to_linear_v4(
+                            vec3f_to_float4(colors[v0])));
+                    cdata[1] = ccl::color_float4_to_uchar4(
+                        ccl::color_srgb_to_linear_v4(
+                            vec3f_to_float4(colors[v1])));
+                    cdata[2] = ccl::color_float4_to_uchar4(
+                        ccl::color_srgb_to_linear_v4(
+                            vec3f_to_float4(colors[v2])));
+                    cdata += 3;
+
+                    idx += 3;
                 }
-                idx += faceidx;
             }
         }
     }
@@ -662,15 +712,15 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials)
                 materialId = a_faceMaterials[i];
             }
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
 
                 if (m_orientation == HdTokens->leftHanded)
-                    v1 = *(idxIt + ((vCount - 1) - i) + 0);
+                    v1 = *(idxIt + ((vCount - 1) - j) + 0);
                 if (m_orientation == HdTokens->leftHanded)
-                    v2 = *(idxIt + ((vCount - 1) - i) + 1);
+                    v2 = *(idxIt + ((vCount - 1) - j) + 1);
 
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
@@ -966,6 +1016,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             VtVec3fArray colors;
                             colors = value.UncheckedGet<VtArray<GfVec3f>>();
 
+                            // Only triangulate if not subdivision and faceVarying
                             if ((!m_useSubdivision)) {
                                 if (primvarDescsEntry.first
                                     == HdInterpolationFaceVarying) {
@@ -989,22 +1040,20 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     if (value.IsHolding<VtArray<GfVec2f>>()) {
                         VtVec2fArray uvs
                             = value.UncheckedGet<VtArray<GfVec2f>>();
-                        if (primvarDescsEntry.first
-                                == HdInterpolationFaceVarying
-                            && !m_useSubdivision) {
-                            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                uvs.data(), uvs.size(), HdTypeFloatVec2,
-                                &triangulated);
 
-                            VtVec2fArray triangulatedUvs
-                                = triangulated.Get<VtVec2fArray>();
+                        // Only triangulate if not subdivision and faceVarying
+                        if ((!m_useSubdivision)) {
+                            if (primvarDescsEntry.first
+                                == HdInterpolationFaceVarying) {
+                                // Triangulate primvar uvs
+                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+                                    uvs.data(), uvs.size(), HdTypeFloatVec2,
+                                    &triangulated);
 
-                            _AddUVSet(pv.name, triangulatedUvs, scene,
-                                      primvarDescsEntry.first);
-                        } else {
-                            _AddUVSet(pv.name, uvs, scene,
-                                      primvarDescsEntry.first);
+                                uvs = triangulated.Get<VtVec2fArray>();
+                            }
                         }
+                        _AddUVSet(pv.name, uvs, scene, primvarDescsEntry.first);
                     }
                 }
             }
