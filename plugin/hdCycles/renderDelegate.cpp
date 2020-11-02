@@ -41,6 +41,7 @@
 #include <pxr/base/tf/getenv.h>
 #include <pxr/base/vt/api.h>
 #include <pxr/imaging/hd/camera.h>
+#include <pxr/imaging/hd/extComputation.h>
 #include <pxr/imaging/hd/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -70,6 +71,7 @@ const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_SPRIM_TYPES = {
     HdPrimTypeTokens->domeLight,
     HdPrimTypeTokens->rectLight,
     HdPrimTypeTokens->sphereLight,
+    HdPrimTypeTokens->extComputation,
 };
 
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_BPRIM_TYPES = { 
@@ -452,6 +454,9 @@ HdCyclesRenderDelegate::CreateSprim(TfToken const& typeId,
         || typeId == HdPrimTypeTokens->sphereLight) {
         return new HdCyclesLight(sprimId, typeId, this);
     }
+    if (typeId == HdPrimTypeTokens->extComputation) {
+        return new HdExtComputation(sprimId);
+    }
     TF_CODING_ERROR("Unknown Sprim type=%s id=%s", typeId.GetText(),
                     sprimId.GetText());
     return nullptr;
@@ -471,6 +476,8 @@ HdCyclesRenderDelegate::CreateFallbackSprim(TfToken const& typeId)
                || typeId == HdPrimTypeTokens->cylinderLight
                || typeId == HdPrimTypeTokens->sphereLight) {
         return new HdCyclesLight(SdfPath::EmptyPath(), typeId, this);
+    }else if (typeId == HdPrimTypeTokens->extComputation) {
+        return new HdExtComputation(SdfPath::EmptyPath());
     }
     TF_CODING_ERROR("Creating unknown fallback sprim type=%s",
                     typeId.GetText());
