@@ -384,7 +384,8 @@ HdCyclesMesh::_CreateCyclesMesh()
     ccl::Mesh* mesh = new ccl::Mesh();
     mesh->clear();
 
-    mesh->use_motion_blur += m_useMotionBlur;
+    if (m_useMotionBlur)
+        mesh->use_motion_blur = true;
 
     m_numMeshVerts = 0;
     m_numMeshFaces = 0;
