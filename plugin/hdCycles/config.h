@@ -39,6 +39,20 @@ public:
     HDCYCLES_API
     static const HdCyclesConfig& GetInstance();
 
+    /* ====== Cycles Settings ====== */
+
+    /**
+     * @brief If enabled, Cycles will log 
+     *
+     */
+    bool cycles_enable_logging;
+
+    /**
+     * @brief Severity of Cycles logging
+     *
+     */
+    int cycles_logging_severity;
+
     /* ====== HdCycles Settings ====== */
 
     /**

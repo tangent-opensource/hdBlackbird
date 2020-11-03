@@ -124,6 +124,16 @@ if(${usdCycles_FOUND})
   add_definitions(-DUSE_USD_CYCLES_SCHEMA)
 endif()
 
+# Enable Cycles Logging
+if(DEFINED ENV{REZ_GLOG_BASE} AND DEFINED ENV{REZ_GFLAGS_BASE})
+  find_package(Glog)
+  find_package(Gflags)
+
+  add_definitions(-DWITH_CYCLES_LOGGING)
+  add_definitions(${GLOG_DEFINES})
+  add_definitions(-DCYCLES_GFLAGS_NAMESPACE=${GFLAGS_NAMESPACE})
+endif()
+
 # -- Build Flags
 
 if("${USD_MINOR_VERSION}" STRGREATER_EQUAL "20")
