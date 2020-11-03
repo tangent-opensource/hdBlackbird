@@ -188,11 +188,11 @@ void
 HdCyclesMesh::_ComputeTangents(bool needsign)
 {
     // This is likely deprecated now
-    const ccl::AttributeSet& attributes = (m_useSubdivision)
-                                              ? m_cyclesMesh->subd_attributes
-                                              : m_cyclesMesh->attributes;
+    ccl::AttributeSet* attributes = (m_useSubdivision)
+                                        ? &m_cyclesMesh->subd_attributes
+                                        : &m_cyclesMesh->attributes;
 
-    ccl::Attribute* attr = attributes.find(ccl::ATTR_STD_UV);
+    ccl::Attribute* attr = attributes->find(ccl::ATTR_STD_UV);
     if (attr) {
         mikk_compute_tangents(attr->standard_name(ccl::ATTR_STD_UV),
                               m_cyclesMesh, needsign, true);
@@ -357,8 +357,6 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
     if (!attr_mP) {
         attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     }
-
-    ccl::float3* vdata = attr_mP->data_float3();
 
     if (interpolation == HdInterpolationVertex) {
         VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
@@ -576,10 +574,12 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
 void
 HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 {
-    ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
+    ccl::AttributeSet* attributes = (m_useSubdivision)
+                                        ? &m_cyclesMesh->subd_attributes
+                                        : &m_cyclesMesh->attributes;
 
     if (interpolation == HdInterpolationUniform) {
-        ccl::Attribute* attr_fN = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
+        ccl::Attribute* attr_fN = attributes->add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* fN         = attr_fN->data_float3();
 
         int idx = 0;
@@ -593,7 +593,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         }
 
     } else if (interpolation == HdInterpolationVertex) {
-        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* cdata   = attr->data_float3();
 
         memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
@@ -604,7 +604,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
-        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* cdata   = attr->data_float3();
 
         memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
@@ -675,6 +675,9 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials)
 {
     if (m_useSubdivision) {
         m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
+
+        // Unknown if this is 100% necessary for subdiv
+        m_cyclesMesh->reserve_mesh(m_numMeshVerts, m_numMeshFaces);
         m_cyclesMesh->reserve_subd_faces(m_numMeshFaces, m_numNgons,
                                          m_numCorners);
     } else {
@@ -684,24 +687,28 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials)
     VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
 
     if (m_useSubdivision) {
-        std::vector<int> vi;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+        for (int i = 0; i < m_numMeshFaces; i++) {
+            std::vector<int> vi;
             const int vCount = m_faceVertexCounts[i];
             int materialId   = 0;
 
+            if (i < a_faceMaterials.size()) {
+                materialId = a_faceMaterials[i];
+            }
+
             vi.resize(vCount);
 
-            for (int i = 0; i < vCount; ++i) {
+            for (int j = 0; j < vCount; ++j) {
                 if (m_orientation == HdTokens->rightHanded) {
-                    vi[i] = *(idxIt + i);
+                    vi[j] = *(idxIt + j);
                 } else {
-                    vi[i] = *(idxIt + (vCount - i - 1));
+                    vi[j] = *(idxIt + (vCount - j - 1));
                 }
             }
 
-            idxIt += vCount;
-
             m_cyclesMesh->add_subd_face(&vi[0], vCount, materialId, true);
+
+            idxIt += vCount;
         }
     } else {
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
@@ -840,26 +847,32 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_orientation       = m_topology.GetOrientation();
 
         m_numMeshFaces = 0;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            m_numMeshFaces += m_faceVertexCounts[i] - 2;
-        }
 
         m_numNgons   = 0;
         m_numCorners = 0;
 
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            // TODO: This seems wrong, but works for now
-            m_numNgons += 1;  // (m_faceVertexCounts[i] == 4) ? 0 : 1;
-            m_numCorners += m_faceVertexCounts[i];
-        }
-
         m_adjacencyValid = false;
         m_normalsValid   = false;
+
         if (m_subdivEnabled) {
             m_useSubdivision = m_topology.GetScheme()
                                == PxOsdOpenSubdivTokens->catmullClark;
         } else {
             m_useSubdivision = false;
+        }
+
+        if (m_useSubdivision) {
+            m_numMeshFaces = m_faceVertexCounts.size();
+
+            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                m_numNgons += (m_faceVertexCounts[i] == 4) ? 0 : 1;
+                m_numCorners += m_faceVertexCounts[i];
+            }
+
+        } else {
+            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                m_numMeshFaces += m_faceVertexCounts[i] - 2;
+            }
         }
 
         newMesh = true;
@@ -981,8 +994,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             VtVec3fArray normals;
                             normals = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                            if (primvarDescsEntry.first
-                                == HdInterpolationFaceVarying) {
+                            if (m_useSubdivision
+                                && primvarDescsEntry.first
+                                       == HdInterpolationFaceVarying) {
                                 // Triangulate primvar normals
                                 meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                     normals.data(), normals.size(),
@@ -1203,6 +1217,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (mesh_updated || newMesh) {
+        m_cyclesMesh->tag_update(scene, true);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
