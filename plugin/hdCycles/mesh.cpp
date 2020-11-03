@@ -424,19 +424,22 @@ HdCyclesMesh::_PopulateMotion()
         return;
     }
 
+    ccl::AttributeSet* attributes = (m_useSubdivision)
+                                        ? &m_cyclesMesh->subd_attributes
+                                        : &m_cyclesMesh->attributes;
+
     m_cyclesMesh->use_motion_blur = true;
 
     m_cyclesMesh->motion_steps = m_pointSamples.count + 1;
 
-    ccl::Attribute* attr_mP = m_cyclesMesh->attributes.find(
+    ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
     if (attr_mP)
-        m_cyclesMesh->attributes.remove(attr_mP);
+        attributes->remove(attr_mP);
 
     if (!attr_mP) {
-        attr_mP = m_cyclesMesh->attributes.add(
-            ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+        attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     }
 
     ccl::float3* mP = attr_mP->data_float3();
