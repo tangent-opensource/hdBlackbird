@@ -39,6 +39,10 @@
 #include <render/scene.h>
 #include <render/session.h>
 
+#ifdef WITH_CYCLES_LOGGING
+#    include <util/util_logging.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 double
@@ -60,6 +64,13 @@ HdCyclesRenderParam::_InitializeDefaults()
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_deviceName                        = config.device_name;
     m_useMotionBlur                     = config.enable_motion_blur;
+
+#ifdef WITH_CYCLES_LOGGING
+    if (config.cycles_enable_logging) {
+        ccl::util_logging_start();
+        ccl::util_logging_verbosity_set(config.cycles_logging_severity);
+    }
+#endif
 }
 
 float
