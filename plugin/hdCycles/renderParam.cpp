@@ -63,7 +63,6 @@ HdCyclesRenderParam::_InitializeDefaults()
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_deviceName                        = config.device_name;
-    m_useMotionBlur                     = config.enable_motion_blur;
 
 #ifdef WITH_CYCLES_LOGGING
     if (config.cycles_enable_logging) {
