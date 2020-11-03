@@ -49,6 +49,9 @@ pxr_plugin(${PXR_PACKAGE}
     ${EMBREE_LIBRARIES}
     ${OPENVDB_LIBRARY}
     ${OCIO_LIBRARIES}
+        
+    ${GLOG_LIBRARY}
+    ${GFLAGS_LIBRARY}
     
   CPPFILES
     "Mikktspace/mikktspace.c"
@@ -67,6 +70,9 @@ pxr_plugin(${PXR_PACKAGE}
     ${OPENVDB_INCLUDE_DIR}
     ${EMBREE_INCLUDE_DIRS}
     ${OCIO_INCLUDE_DIRS}
+
+    ${GFLAGS_INCLUDE_DIR}
+    ${GLOG_INCLUDE_DIR}
 
   PUBLIC_CLASSES
     basisCurves
