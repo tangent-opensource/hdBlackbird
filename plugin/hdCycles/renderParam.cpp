@@ -54,6 +54,7 @@ clamp(double d, double min, double max)
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
+    , m_useSquareSamples(false)
 {
     _InitializeDefaults();
 }
@@ -387,68 +388,142 @@ HdCyclesRenderParam::GetShutterMotionPosition()
     return m_cyclesScene->camera->motion_position;
 }
 
-bool HdCyclesRenderParam::GetUseMotionBlur()
+bool
+HdCyclesRenderParam::GetUseMotionBlur()
 {
-    return (m_cyclesScene && m_cyclesScene->integrator) ? m_cyclesScene->integrator->motion_blur : false;
+    return (m_cyclesScene && m_cyclesScene->integrator)
+               ? m_cyclesScene->integrator->motion_blur
+               : false;
 }
 
 /* ====== HdCycles Settings ====== */
 
 /* ====== Cycles Lifecycle ====== */
 
-bool
-HdCyclesRenderParam::_CyclesInitialize()
+void
+HdCyclesRenderParam::_InitHdCyclesConfig()
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-    ccl::SessionParams params;
-    params.display_buffer_linear = config.display_buffer_linear;
+    m_useSquareSamples = config.use_square_samples;
+}
 
-    params.shadingsystem = ccl::SHADINGSYSTEM_SVM;
+void
+HdCyclesRenderParam::_InitSessionConfig()
+{
+    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
+    m_sessionParams.experimental          = config.enable_experimental;
+    m_sessionParams.display_buffer_linear = config.display_buffer_linear;
+
+    m_sessionParams.shadingsystem = ccl::SHADINGSYSTEM_SVM;
     if (config.shading_system == "OSL"
         || config.shading_system == "SHADINGSYSTEM_OSL")
-        params.shadingsystem = ccl::SHADINGSYSTEM_OSL;
+        m_sessionParams.shadingsystem = ccl::SHADINGSYSTEM_OSL;
 
-    params.background = false;
+    m_sessionParams.background = false;
 
     /* Use progressive rendering */
 
-    params.progressive = true;
+    m_sessionParams.progressive = true;
 
-    params.start_resolution = config.start_resolution;
+    m_sessionParams.start_resolution = config.start_resolution;
 
-    params.progressive_refine         = false;
-    params.progressive_update_timeout = 0.1;
-    params.pixel_size                 = config.pixel_size;
-    params.tile_size.x                = config.tile_size[0];
-    params.tile_size.y                = config.tile_size[1];
-    params.samples                    = config.max_samples;
+    m_sessionParams.progressive_refine         = false;
+    m_sessionParams.progressive_update_timeout = 0.1;
+    m_sessionParams.pixel_size                 = config.pixel_size;
+    m_sessionParams.tile_size.x                = config.tile_size[0];
+    m_sessionParams.tile_size.y                = config.tile_size[1];
+    //m_sessionParams.samples                    =
+    config.max_samples.eval(m_sessionParams.samples);
+    std::cout << "Max Samples: " << m_sessionParams.samples << '\n';
+}
 
+void
+HdCyclesRenderParam::_InitSceneConfig()
+{
+    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
+    // -- Scene init
+    m_sceneParams.shadingsystem = m_sessionParams.shadingsystem;
+
+    m_sceneParams.bvh_type = ccl::SceneParams::BVH_DYNAMIC;
+    if (config.bvh_type == "STATIC")
+        m_sceneParams.bvh_type = ccl::SceneParams::BVH_STATIC;
+
+    m_sceneParams.persistent_data = true;
+}
+
+void
+HdCyclesRenderParam::_InitIntegratorConfig()
+{
+    if (!m_cyclesScene)
+        return;
+
+    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
+    ccl::Integrator* integrator = m_cyclesScene->integrator;
+
+    if (config.integrator_method == "PATH") {
+        integrator->method = ccl::Integrator::PATH;
+    } else {
+        integrator->method = ccl::Integrator::BRANCHED_PATH;
+    }
+
+    int glossy_samples       = config.glossy_samples;
+    int transmission_samples = config.transmission_samples;
+    int ao_samples           = config.ao_samples;
+    int mesh_light_samples   = config.mesh_light_samples;
+    int subsurface_samples   = config.subsurface_samples;
+    int volume_samples       = config.volume_samples;
+
+    if (m_useSquareSamples) {
+        integrator->diffuse_samples      = diffuse_samples * diffuse_samples;
+        integrator->glossy_samples       = glossy_samples * glossy_samples;
+        integrator->transmission_samples = transmission_samples
+                                           * transmission_samples;
+        integrator->ao_samples         = ao_samples * ao_samples;
+        integrator->mesh_light_samples = mesh_light_samples
+                                         * mesh_light_samples;
+        integrator->subsurface_samples = subsurface_samples
+                                         * subsurface_samples;
+        integrator->volume_samples = volume_samples * volume_samples;
+        integrator->adaptive_min_samples
+            = min(integrator->adaptive_min_samples
+                      * integrator->adaptive_min_samples,
+                  INT_MAX);
+    } else {
+        integrator->diffuse_samples      = diffuse_samples;
+        integrator->glossy_samples       = glossy_samples;
+        integrator->transmission_samples = transmission_samples;
+        integrator->ao_samples           = ao_samples;
+        integrator->mesh_light_samples   = mesh_light_samples;
+        integrator->subsurface_samples   = subsurface_samples;
+        integrator->volume_samples       = volume_samples;
+    }
+}
+
+bool
+HdCyclesRenderParam::_CyclesInitialize()
+{
     /* find matching device */
-
-    bool foundDevice = SetDeviceType(m_deviceName, params);
+    _InitHdCyclesConfig();
+    _InitSessionConfig();
+    bool foundDevice = SetDeviceType(m_deviceName, m_sessionParams);
 
     if (!foundDevice)
         return false;
 
-    m_cyclesSession = new ccl::Session(params);
+    m_cyclesSession = new ccl::Session(m_sessionParams);
 
     if (HdCyclesConfig::GetInstance().enable_logging
         || HdCyclesConfig::GetInstance().enable_progress)
         m_cyclesSession->progress.set_update_callback(
             std::bind(&HdCyclesRenderParam::_SessionPrintStatus, this));
 
-    // -- Scene init
-    ccl::SceneParams sceneParams;
-    sceneParams.shadingsystem = params.shadingsystem;
+    _InitSceneConfig();
 
-    sceneParams.bvh_type = ccl::SceneParams::BVH_DYNAMIC;
-    if (config.bvh_type == "STATIC")
-        sceneParams.bvh_type = ccl::SceneParams::BVH_STATIC;
-
-    sceneParams.persistent_data = true;
-
-    m_cyclesScene = new ccl::Scene(sceneParams, m_cyclesSession->device);
+    m_cyclesScene = new ccl::Scene(m_sceneParams, m_cyclesSession->device);
 
     m_width  = config.render_width;
     m_height = config.render_height;
@@ -491,7 +566,9 @@ HdCyclesRenderParam::_CyclesInitialize()
 
     SetBackgroundShader(nullptr);
 
-    m_cyclesSession->reset(m_bufferParams, params.samples);
+    _InitIntegratorConfig();
+
+    m_cyclesSession->reset(m_bufferParams, m_sessionParams.samples);
 
 
     return true;

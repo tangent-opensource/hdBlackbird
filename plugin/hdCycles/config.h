@@ -28,6 +28,22 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+template<typename T> struct HdCyclesValue {
+    HdCyclesValue(T a_value, T a_default)
+    {
+        value       = a_value;
+        hasOverride = a_vale != a_default;
+    }
+    T value;
+    bool hasOverride;
+
+    T eval(T& a_previous)
+    {
+        if (hasOverride)
+            a_previous = value;
+    }
+};
+
 /**
  * @brief Main singleton that loads and stores mutable, global variables for the lifetime of the
  * cycles render delegate.
@@ -128,6 +144,12 @@ public:
     bool enable_transparent_background;
 
     /**
+     * @brief Square sampling values for easier artist control
+     * 
+     */
+    bool use_square_samples;
+
+    /**
      * @brief Default style of HdPoints. Overridable by primvars
      * 0: Discs, 1: Spheres
      * 
@@ -176,7 +198,7 @@ public:
      * @brief Number of samples to render
      *
      */
-    int max_samples;
+    HdCyclesValue<int> max_samples;
 
     /**
      * @brief Number of threads to use for cycles render
