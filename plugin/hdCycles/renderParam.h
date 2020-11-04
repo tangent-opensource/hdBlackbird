@@ -444,6 +444,12 @@ public:
     bool GetUseMotionBlur();
 
 private:
+
+    void _InitHdCyclesConfig();
+    void _InitSessionConfig();
+    void _InitSceneConfig();
+    void _InitIntegratorConfig();
+
     /**
      * @brief Initialize member values based on config
      * TODO: Refactor this
@@ -453,6 +459,8 @@ private:
 
     bool _SetDevice(const ccl::DeviceType& a_deviceType,
                     ccl::SessionParams& params);
+
+    ccl::SessionParams m_sessionParams;
 
     ccl::BufferParams m_bufferParams;
 
@@ -472,6 +480,8 @@ private:
     bool m_shouldUpdate;
 
     bool m_hasDomeLight;
+
+    bool m_useSquareSamples;
 
 public:
     void CommitResources();

@@ -67,6 +67,9 @@ TF_DEFINE_ENV_SETTING(
     HD_CYCLES_USE_TRANSPARENT_BACKGROUND, false,
     "If enabled, the background will be transparent in renders");
 
+TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_SQUARE_SAMPLES, false,
+                      "Square sampling values for easier artist control");
+
 /* ======= Cycles Settings ======= */
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_EXPERIMENTAL, false,
@@ -83,8 +86,8 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_SHADING_SYSTEM, "SVM",
 TF_DEFINE_ENV_SETTING(HD_CYCLES_DISPLAY_BUFFER_LINEAR, true,
                       "Format of display buffer. False: byte. True: half.");
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_MAX_SAMPLES, 512,
-                      "Number of samples to render per pixel");
+//TF_DEFINE_ENV_SETTING(HD_CYCLES_MAX_SAMPLES, 512,
+                      //"Number of samples to render per pixel");
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_NUM_THREADS, 0, "Number of threads to use");
 
@@ -177,6 +180,7 @@ HdCyclesConfig::HdCyclesConfig()
     use_old_curves                = TfGetEnvSetting(HD_CYCLES_USE_OLD_CURVES);
     enable_transparent_background = TfGetEnvSetting(
         HD_CYCLES_USE_TRANSPARENT_BACKGROUND);
+    use_square_samples = TfGetEnvSetting(HD_CYCLES_USE_SQUARE_SAMPLES);
 
     // -- Cycles Settings
     enable_experimental   = TfGetEnvSetting(HD_CYCLES_ENABLE_EXPERIMENTAL);
@@ -184,7 +188,9 @@ HdCyclesConfig::HdCyclesConfig()
     device_name           = TfGetEnvSetting(HD_CYCLES_DEVICE_NAME);
     shading_system        = TfGetEnvSetting(HD_CYCLES_SHADING_SYSTEM);
     display_buffer_linear = TfGetEnvSetting(HD_CYCLES_DISPLAY_BUFFER_LINEAR);
-    max_samples           = TfGetEnvSetting(HD_CYCLES_MAX_SAMPLES);
+    
+    max_samples           = HdCyclesValue(TfGetenvInt("HD_CYCLES_MAX_SAMPLES"), 512);
+    
     num_threads           = TfGetEnvSetting(HD_CYCLES_NUM_THREADS);
     pixel_size            = TfGetEnvSetting(HD_CYCLES_PIXEL_SIZE);
     tile_size             = pxr::GfVec2i(TfGetEnvSetting(HD_CYCLES_TILE_SIZE_X),
@@ -218,7 +224,7 @@ HdCyclesConfig::HdCyclesConfig()
     // -- Integrator Settings
     integrator_method = TfGetEnvSetting(HD_CYCLES_INTEGRATOR_METHOD);
 
-    diffuse_samples      = TfGetEnvSetting(HD_CYCLES_DIFFUSE_SAMPLES);
+    diffuse_samples      = TfGetenvInt("HD_CYCLES_DIFFUSE_SAMPLES", 1);
     glossy_samples       = TfGetEnvSetting(HD_CYCLES_GLOSSY_SAMPLES);
     transmission_samples = TfGetEnvSetting(HD_CYCLES_TRANSMISSION_SAMPLES);
     ao_samples           = TfGetEnvSetting(HD_CYCLES_AO_SAMPLES);
