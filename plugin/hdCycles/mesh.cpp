@@ -82,10 +82,10 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_velocityScale(1.0f)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_subdivEnabled                     = config.enable_subdivision;
-    m_dicingRate                        = config.subdivision_dicing_rate;
-    m_maxSubdivision                    = config.max_subdivision;
-    m_useMotionBlur                     = config.enable_motion_blur;
+    config.enable_subdivision.eval(m_subdivEnabled, true);
+    config.subdivision_dicing_rate.eval(m_dicingRate, true);
+    config.max_subdivision.eval(m_maxSubdivision, true);
+    config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateCyclesObject();
 

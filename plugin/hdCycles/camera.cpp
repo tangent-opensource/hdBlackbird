@@ -124,8 +124,8 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
         = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->camera;
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_useDof                            = config.enable_dof;
-    m_useMotionBlur                     = config.enable_motion_blur;
+    config.enable_dof.eval(m_useDof, true);
+    config.enable_motion_blur.eval(m_useMotionBlur, true);
 }
 
 HdCyclesCamera::~HdCyclesCamera() {}

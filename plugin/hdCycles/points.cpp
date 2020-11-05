@@ -53,13 +53,13 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
     , m_transform(ccl::transform_identity())
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_useMotionBlur                     = config.enable_motion_blur;
+    config.enable_motion_blur.eval(m_useMotionBlur, true);
 
-    m_pointStyle      = config.default_point_style;
-    m_pointResolution = config.default_point_resolution;
+    config.default_point_style.eval(m_pointStyle, true);
+    config.default_point_resolution.eval(m_pointResolution, true);
 
     if (m_useMotionBlur) {
-        m_motionSteps = config.motion_steps;
+        config.motion_steps.eval(m_motionSteps, true);
     }
 }
 

@@ -72,7 +72,7 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_visTransmission(true)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_useMotionBlur                     = config.enable_motion_blur;
+    config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
     m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
@@ -128,7 +128,11 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-    if (config.use_old_curves) {
+    // TODO: Consolidate this for schema
+    bool use_old_curves;
+    config.use_old_curves.eval(use_old_curves, true);
+
+    if (use_old_curves) {
         if (m_curveStyle == CURVE_RIBBONS) {
             _CreateRibbons(scene->camera);
         } else {
