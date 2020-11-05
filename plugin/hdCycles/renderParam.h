@@ -77,6 +77,7 @@ public:
 
     /**
      * @brief Completely restart a cycles render
+     * Currently unused, likely broken
      *  
      */
     HDCYCLES_API
@@ -91,9 +92,9 @@ public:
 
     /**
      * @brief Initialize cycles renderer
-     * 
+     * Core first time initialization of HdCycles
      */
-    bool Initialize();
+    bool Initialize(HdRenderSettingsMap const& settingsMap);
 
     /**
      * @brief Pause cycles render session
@@ -118,16 +119,21 @@ public:
      * TODO: Refactor this
      * 
      */
-    void CyclesStart();
+    void _CyclesStart();
+
+    /**
+     * @brief Key access point to set a HdCycles render setting via key and value
+     * Handles SessionParams, SceneParams, Integrator, Film, and Background intelligently.
+     * TODO: Might make sense to split up
+     * 
+     * @param key 
+     * @param value 
+     * @return true 
+     * @return false 
+     */
+    bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
 protected:
-    /**
-     * @brief Main initialization logic of cycles render
-     * 
-     * @return Returns true if successful 
-     */
-    bool _CyclesInitialize();
-
     /**
      * @brief Main exit logic of cycles render
      * 
@@ -444,6 +450,34 @@ public:
     bool GetUseMotionBlur();
 
 private:
+    bool _CreateSession();
+    bool _CreateScene();
+
+    void _UpdateSessionFromConfig(bool a_forceInit = false);
+    void
+    _UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleSessionRenderSetting(const TfToken& key, const VtValue& value);
+
+    void _UpdateSceneFromConfig(bool a_forceInit = false);
+    void _UpdateSceneFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleSceneRenderSetting(const TfToken& key, const VtValue& value);
+
+    void _UpdateFilmFromConfig(bool a_forceInit = false);
+    void _UpdateFilmFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleFilmRenderSetting(const TfToken& key, const VtValue& value);
+
+    void _UpdateIntegratorFromConfig(bool a_forceInit = false);
+    void
+    _UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleIntegratorRenderSetting(const TfToken& key,
+                                        const VtValue& value);
+
+    void _UpdateBackgroundFromConfig(bool a_forceInit = false);
+    void
+    _UpdateBackgroundFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleBackgroundRenderSetting(const TfToken& key,
+                                        const VtValue& value);
+
     /**
      * @brief Initialize member values based on config
      * TODO: Refactor this
@@ -453,6 +487,9 @@ private:
 
     bool _SetDevice(const ccl::DeviceType& a_deviceType,
                     ccl::SessionParams& params);
+
+    ccl::SessionParams m_sessionParams;
+    ccl::SceneParams m_sceneParams;
 
     ccl::BufferParams m_bufferParams;
 
@@ -472,6 +509,8 @@ private:
     bool m_shouldUpdate;
 
     bool m_hasDomeLight;
+
+    bool m_useSquareSamples;
 
 public:
     void CommitResources();

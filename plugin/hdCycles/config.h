@@ -28,6 +28,32 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+template<typename T> struct HdCyclesEnvValue {
+    HdCyclesEnvValue() = default;
+
+    HdCyclesEnvValue(const char* a_envName, T a_default) {}
+
+    T value;
+    bool hasOverride;
+    std::string envName;
+
+    bool eval(T& a_previous, bool a_forceInit = false) const
+    {
+        if (a_forceInit) {
+            a_previous = value;
+            return true;
+        }
+
+        if (hasOverride) {
+            a_previous = value;
+            std::cout << "[" << envName << "] has been set: " << a_previous
+                      << '\n';
+        }
+
+        return hasOverride;
+    }
+};
+
 /**
  * @brief Main singleton that loads and stores mutable, global variables for the lifetime of the
  * cycles render delegate.
@@ -71,74 +97,80 @@ public:
      * @brief If enabled, HdCycles will populate object's motion and enable motion blur
      *
      */
-    bool enable_motion_blur;
+    HdCyclesEnvValue<bool> enable_motion_blur;
 
     /**
      * @brief Number of frames to populate motion for
      *
      */
-    int motion_steps;
+    HdCyclesEnvValue<int> motion_steps;
 
     /**
      * @brief If enabled, subdiv meshes will be subdivided
      * 
      */
-    bool enable_subdivision;
+    HdCyclesEnvValue<bool> enable_subdivision;
 
     /**
      * @brief Dicing rate of mesh subdivision
      * 
      */
-    float subdivision_dicing_rate;
+    HdCyclesEnvValue<float> subdivision_dicing_rate;
 
     /**
      * @brief Maximum amount of subdivisions
      * 
      */
-    int max_subdivision;
+    HdCyclesEnvValue<int> max_subdivision;
 
     /**
      * @brief Enable dpeth of field for cycles
      * 
      */
-    bool enable_dof;
+    HdCyclesEnvValue<bool> enable_dof;
 
     /**
      * @brief Width of non interactive render output
      *
      */
-    int render_width;
+    HdCyclesEnvValue<int> render_width;
 
     /**
      * @brief Height of non interactive render output
      *
      */
-    int render_height;
+    HdCyclesEnvValue<int> render_height;
 
     /**
      * @brief Disabled by default, if enabled, curves will be generated through mesh geometry.
      * 
      */
-    bool use_old_curves;
+    HdCyclesEnvValue<bool> use_old_curves;
 
     /**
      * @brief Manual override of transparent background for renders
      * 
      */
-    bool enable_transparent_background;
+    HdCyclesEnvValue<bool> enable_transparent_background;
+
+    /**
+     * @brief Square sampling values for easier artist control
+     * 
+     */
+    HdCyclesEnvValue<bool> use_square_samples;
 
     /**
      * @brief Default style of HdPoints. Overridable by primvars
      * 0: Discs, 1: Spheres
      * 
      */
-    int default_point_style;
+    HdCyclesEnvValue<int> default_point_style;
 
     /**
      * @brief Default resolution of point mesh. Overridable by primvars
      * 
      */
-    int default_point_resolution;
+    HdCyclesEnvValue<int> default_point_resolution;
 
     /* ======= Cycles Settings ======= */
 
@@ -146,49 +178,50 @@ public:
      * @brief Should cycles run in experimental mode
      *
      */
-    bool enable_experimental;
+    //bool enable_experimental;
+    HdCyclesEnvValue<bool> enable_experimental;
 
     /**
      * @brief Cycles BVH Type. Use Dynamic for any interactive viewport. (DYNAMIC, STATIC)
      * 
      */
-    std::string bvh_type;
+    HdCyclesEnvValue<std::string> bvh_type;
 
     /**
      * @brief Name of cycles render device. (CPU, GPU, etc.)
      *
      */
-    std::string device_name;
+    HdCyclesEnvValue<std::string> device_name;
 
     /**
      * @brief Shading system (SVM, OSL)
      * 
      */
-    std::string shading_system;
+    HdCyclesEnvValue<std::string> shading_system;
 
     /**
      * @brief If false, bytes will be used, if true, half's
      * 
      */
-    bool display_buffer_linear;
+    HdCyclesEnvValue<bool> display_buffer_linear;
 
     /**
      * @brief Number of samples to render
      *
      */
-    int max_samples;
+    HdCyclesEnvValue<int> max_samples;
 
     /**
      * @brief Number of threads to use for cycles render
      *
      */
-    int num_threads;
+    HdCyclesEnvValue<int> num_threads;
 
     /**
      * @brief Size of pixel
      *
      */
-    int pixel_size;
+    HdCyclesEnvValue<int> pixel_size;
 
     /**
      * @brief Size of individual render tile
@@ -200,13 +233,13 @@ public:
      * @brief Start Resolution of render
      *
      */
-    int start_resolution;
+    HdCyclesEnvValue<int> start_resolution;
 
     /**
      * @brief Exposure of cycles film
      *
      */
-    float exposure;
+    HdCyclesEnvValue<float> exposure;
 
     /**
      * @brief Position of shutter motion position.
@@ -215,7 +248,7 @@ public:
      *        2: End
      *
      */
-    int shutter_motion_position;
+    HdCyclesEnvValue<int> shutter_motion_position;
 
     /* ===== Curve Settings ===== */
 
@@ -223,55 +256,55 @@ public:
      * @brief Resolution of curve
      * 
      */
-    int curve_resolution;
+    HdCyclesEnvValue<int> curve_resolution;
 
     /**
      * @brief Curve subdvisions
      * 
      */
-    int curve_subdivisions;
+    HdCyclesEnvValue<int> curve_subdivisions;
 
     /**
      * @brief Should curve geometry have backfaces
      * 
      */
-    bool curve_use_backfaces;
+    HdCyclesEnvValue<bool> curve_use_backfaces;
 
     /**
      * @brief Should curve be encased
      * 
      */
-    bool curve_use_encasing;
+    HdCyclesEnvValue<bool> curve_use_encasing;
 
     /**
      * @brief 
      * 
      */
-    bool curve_use_tangent_normal_geometry;
+    HdCyclesEnvValue<bool> curve_use_tangent_normal_geometry;
 
     /**
      * @brief Shape of curves CURVE_RIBBON, CURVE_THICK
      * 
      */
-    std::string curve_shape;
+    HdCyclesEnvValue<std::string> curve_shape;
 
     /**
      * @brief Curve primitive CURVE_LINE_SEGMENTS, CURVE_TRIANGLES
      * 
      */
-    std::string curve_primitive;
+    HdCyclesEnvValue<std::string> curve_primitive;
 
     /**
      * @brief Curve triangle method: CURVE_CAMERA_TRIANGLES, CURVE_TESSELATED_TRIANGLES
      * 
      */
-    std::string curve_triangle_method;
+    HdCyclesEnvValue<std::string> curve_triangle_method;
 
     /**
      * @brief  Curve line method: CURVE_ACCURATE, CURVE_UNCORRECTED
      * 
      */
-    std::string curve_line_method;
+    HdCyclesEnvValue<std::string> curve_line_method;
 
     /* ===== Integrator Settings ===== */
 
@@ -279,49 +312,55 @@ public:
      * @brief Method of path tracing. (PATH, BRANCHED_PATH)
      *
      */
-    std::string integrator_method;
+    HdCyclesEnvValue<std::string> integrator_method;
 
     /**
      * @brief Number of diffuse samples for cycles integrator
      *
      */
-    int diffuse_samples;
+    HdCyclesEnvValue<int> diffuse_samples;
 
     /**
      * @brief Number of glossy samples for cycles integrator
      *
      */
-    int glossy_samples;
+    HdCyclesEnvValue<int> glossy_samples;
 
     /**
      * @brief Number of transmission samples for cycles integrator
      *
      */
-    int transmission_samples;
+    HdCyclesEnvValue<int> transmission_samples;
 
     /**
      * @brief Number of ao samples for cycles integrator
      *
      */
-    int ao_samples;
+    HdCyclesEnvValue<int> ao_samples;
 
     /**
      * @brief Number of mesh light samples for cycles integrator
      *
      */
-    int mesh_light_samples;
+    HdCyclesEnvValue<int> mesh_light_samples;
 
     /**
      * @brief Number of subsurface samples for cycles integrator
      *
      */
-    int subsurface_samples;
+    HdCyclesEnvValue<int> subsurface_samples;
 
     /**
      * @brief Number of volume samples for cycles integrator
      *
      */
-    int volume_samples;
+    HdCyclesEnvValue<int> volume_samples;
+
+    /**
+     * @brief Number of adaptive min samples
+     *
+     */
+    HdCyclesEnvValue<int> adaptive_min_samples;
 
 private:
     /**
