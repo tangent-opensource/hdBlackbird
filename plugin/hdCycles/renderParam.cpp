@@ -41,6 +41,7 @@
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
+#endif
 #ifdef USE_USD_CYCLES_SCHEMA
 #    include <usdCycles/tokens.h>
 #endif
