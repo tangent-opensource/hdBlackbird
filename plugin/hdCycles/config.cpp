@@ -73,6 +73,12 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 
 /* ====== HdCycles Settings ====== */
 
+
+TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging");
+
+TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1,
+                      "Enable HdCycles progress reporting");
+
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
                       "Enable HdCycles Logging");
 
@@ -82,6 +88,10 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
 // HdCycles Constructor
 HdCyclesConfig::HdCyclesConfig()
 {
+    // -- Cycles Settings
+    cycles_enable_logging   = TfGetEnvSetting(CYCLES_ENABLE_LOGGING);
+    cycles_logging_severity = TfGetEnvSetting(CYCLES_LOGGING_SEVERITY);
+
     // -- HdCycles Settings
     enable_logging  = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);
     enable_progress = TfGetEnvSetting(HD_CYCLES_ENABLE_PROGRESS);
