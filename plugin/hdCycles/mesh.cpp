@@ -428,12 +428,21 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
             ccl::float3 n = vec3f_to_float3(normals[i]);
-            cdata[i]      = n;
+            if (m_orientation == HdTokens->leftHanded)
+                n = -n;
+            cdata[i] = n;
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
         ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* cdata   = attr->data_float3();
+
+        // TODO: For now, this method produces very wrong results. Some other solution will be needed
+
+        m_cyclesMesh->add_vertex_normals();
+        m_cyclesMesh->add_face_normals();
+
+        return;
 
         memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
 
