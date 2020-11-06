@@ -73,6 +73,12 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 
 /* ====== HdCycles Settings ====== */
 
+
+TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging");
+
+TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1,
+                      "Enable HdCycles progress reporting");
+
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
                       "Enable HdCycles Logging");
 
