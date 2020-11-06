@@ -68,7 +68,7 @@ public:
     /* ====== Cycles Settings ====== */
 
     /**
-     * @brief If enabled, Cycles will log 
+     * @brief If enabled, Cycles will log every step
      *
      */
     bool cycles_enable_logging;
