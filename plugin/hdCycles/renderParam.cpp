@@ -236,8 +236,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         m_sessionParams.samples
             = _HdCyclesGetVtValue<int>(value, m_sessionParams.samples,
                                        &session_updated);
-        std::cout << "Set samples with schema: " << m_sessionParams.samples
-                  << '\n';
     }
 
     /*if (key == usdCyclesTokens->cyclesTile_size) {
@@ -892,7 +890,6 @@ HdCyclesRenderParam::_CreateScene()
 
     SetBackgroundShader(nullptr);
 
-    std::cout << "SAMPLES reset: " << m_sessionParams.samples << '\n';
     m_cyclesSession->reset(m_bufferParams, m_sessionParams.samples);
 
     return true;
