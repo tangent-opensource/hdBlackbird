@@ -434,8 +434,8 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
-        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        ccl::float3* cdata   = attr->data_float3();
+        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        //ccl::float3* cdata   = attr->data_float3();
 
         // TODO: For now, this method produces very wrong results. Some other solution will be needed
 
@@ -444,7 +444,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         return;
 
-        memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+        //memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
 
         // Although looping through all faces, normals are averaged per
         // vertex. This seems to be a limitation of cycles. Not allowing
@@ -452,7 +452,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         // For now, we add all corner normals and normalize separately.
         // TODO: Update when Cycles supports corner_normals
-        for (size_t i = 0; i < m_numMeshFaces; i++) {
+        /*for (size_t i = 0; i < m_numMeshFaces; i++) {
             for (size_t j = 0; j < 3; j++) {
                 ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
                 cdata[m_cyclesMesh->get_triangle(i).v[j]] += n;
@@ -461,7 +461,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
             cdata[i] = ccl::normalize(cdata[i]);
-        }
+        }*/
     }
 }
 
