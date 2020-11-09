@@ -439,8 +439,8 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         // TODO: For now, this method produces very wrong results. Some other solution will be needed
 
-        m_cyclesMesh->add_vertex_normals();
         m_cyclesMesh->add_face_normals();
+        m_cyclesMesh->add_vertex_normals();
 
         return;
 
