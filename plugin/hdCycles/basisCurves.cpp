@@ -60,7 +60,7 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_cyclesMesh(nullptr)
     , m_cyclesGeometry(nullptr)
     , m_cyclesHair(nullptr)
-    , m_curveStyle(CURVE_TUBE)
+    , m_curveShape(ccl::CURVE_THICK)
     , m_curveResolution(5)
     , m_renderDelegate(a_renderDelegate)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
@@ -133,7 +133,7 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
     config.use_old_curves.eval(use_old_curves, true);
 
     if (use_old_curves) {
-        if (m_curveStyle == CURVE_RIBBONS) {
+        if (m_curveShape == ccl::CURVE_RIBBON) {
             _CreateRibbons(scene->camera);
         } else {
             _CreateTubeMesh();
@@ -509,17 +509,25 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             dirtyBits, id, this, sceneDelegate,
             usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
 
-        if (HdCyclesIsPrimvarExists(
-                usdCyclesTokens->primvarsCyclesObjectCurve_style, pdpi)) {
-            VtValue _value = sceneDelegate->Get(
-                id, usdCyclesTokens->primvarsCyclesObjectCurve_style);
+        // This needs a big change
+        for (auto& entry : pdpi) {
+            for (auto& pv : entry.second) {
+                if ("primvars:" + pv.name.GetString()
+                    == usdCyclesTokens->primvarsCyclesCurveShape.GetString()) {
+                    TfToken curveShape = usdCyclesTokens->thick;
 
-            TfToken curveType
-                = _HdCyclesGetVtValue<TfToken>(_value, usdCyclesTokens->ribbon);
-            if (curveType == usdCyclesTokens->ribbon) {
-                m_curveStyle = CURVE_RIBBONS;
-            } else {
-                m_curveStyle = CURVE_TUBE;
+                    curveShape = _HdCyclesGetCurvePrimvar<TfToken>(
+                        pv, dirtyBits, id, this, sceneDelegate,
+                        usdCyclesTokens->primvarsCyclesCurveShape, curveShape);
+
+                    if (curveShape == usdCyclesTokens->ribbon) {
+                        m_curveShape = ccl::CURVE_RIBBON;
+                        update_curve = true;
+                    } else {
+                        m_curveShape = ccl::CURVE_THICK;
+                        update_curve = true;
+                    }
+                }
             }
         }
 
@@ -589,7 +597,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-        update_curve = true;
+        update_curve        = true;
         _sharedData.visible = sceneDelegate->GetVisible(id);
 
         m_hydraVisibility = _sharedData.visible;
@@ -665,6 +673,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (generate_new_curve || update_curve) {
+        m_cyclesHair->curve_shape = m_curveShape;
+
         m_cyclesObject->visibility = m_visibilityFlags;
         if (!m_hydraVisibility)
             m_cyclesObject->visibility = 0;
@@ -704,6 +714,8 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 
     attr_random = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_RANDOM);
 
+    // We have patched the Cycles API to allow shape to be set per curve
+    m_cyclesHair->curve_shape = m_curveShape;
     m_cyclesHair->reserve_curves(num_curves, num_keys);
 
     num_curves = 0;

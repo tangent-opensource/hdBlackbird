@@ -253,58 +253,10 @@ public:
     /* ===== Curve Settings ===== */
 
     /**
-     * @brief Resolution of curve
-     * 
-     */
-    HdCyclesEnvValue<int> curve_resolution;
-
-    /**
      * @brief Curve subdvisions
      * 
      */
     HdCyclesEnvValue<int> curve_subdivisions;
-
-    /**
-     * @brief Should curve geometry have backfaces
-     * 
-     */
-    HdCyclesEnvValue<bool> curve_use_backfaces;
-
-    /**
-     * @brief Should curve be encased
-     * 
-     */
-    HdCyclesEnvValue<bool> curve_use_encasing;
-
-    /**
-     * @brief 
-     * 
-     */
-    HdCyclesEnvValue<bool> curve_use_tangent_normal_geometry;
-
-    /**
-     * @brief Shape of curves CURVE_RIBBON, CURVE_THICK
-     * 
-     */
-    HdCyclesEnvValue<std::string> curve_shape;
-
-    /**
-     * @brief Curve primitive CURVE_LINE_SEGMENTS, CURVE_TRIANGLES
-     * 
-     */
-    HdCyclesEnvValue<std::string> curve_primitive;
-
-    /**
-     * @brief Curve triangle method: CURVE_CAMERA_TRIANGLES, CURVE_TESSELATED_TRIANGLES
-     * 
-     */
-    HdCyclesEnvValue<std::string> curve_triangle_method;
-
-    /**
-     * @brief  Curve line method: CURVE_ACCURATE, CURVE_UNCORRECTED
-     * 
-     */
-    HdCyclesEnvValue<std::string> curve_line_method;
 
     /* ===== Integrator Settings ===== */
 
