@@ -307,6 +307,9 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
         m_sceneParams.bvh_type = ccl::SceneParams::BVH_STATIC;
 
     m_sceneParams.persistent_data = true;
+
+    config.curve_subdivisions.eval(m_sceneParams.hair_subdivisions,
+                                   a_forceInit);
 }
 
 void
@@ -327,6 +330,11 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key,
 #ifdef USE_USD_CYCLES_SCHEMA
     // -- Scene
 
+    ccl::SceneParams* sceneParams = &m_sceneParams;
+
+    if (m_cyclesScene)
+        sceneParams = &m_cyclesScene->params;
+
     bool scene_updated = false;
 
     if (key == usdCyclesTokens->cyclesShading_system) {
@@ -334,9 +342,9 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key,
             = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->svm,
                                            &scene_updated);
         if (shading_system == usdCyclesTokens->svm) {
-            m_sceneParams.shadingsystem = ccl::SHADINGSYSTEM_SVM;
+            sceneParams->shadingsystem = ccl::SHADINGSYSTEM_SVM;
         } else if (shading_system == usdCyclesTokens->osl) {
-            m_sceneParams.shadingsystem = ccl::SHADINGSYSTEM_OSL;
+            sceneParams->shadingsystem = ccl::SHADINGSYSTEM_OSL;
         }
     }
 
@@ -345,15 +353,22 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key,
             = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->bvh_dynamic,
                                            &scene_updated);
         if (bvh_type == usdCyclesTokens->bvh_dynamic) {
-            m_sceneParams.bvh_type = ccl::SceneParams::BVH_DYNAMIC;
+            sceneParams->bvh_type = ccl::SceneParams::BVH_DYNAMIC;
         } else if (bvh_type == usdCyclesTokens->bvh_static) {
-            m_sceneParams.bvh_type = ccl::SceneParams::BVH_STATIC;
+            sceneParams->bvh_type = ccl::SceneParams::BVH_STATIC;
         }
+    }
+
+    if (key == usdCyclesTokens->cyclesCurve_subdivisions) {
+        sceneParams->hair_subdivisions
+            = _HdCyclesGetVtValue<int>(value, sceneParams->hair_subdivisions,
+                                       &scene_updated);
     }
 
     if (scene_updated) {
         // Although this is called, it does not correctly reset session in IPR
-        //Interrupt();
+        if (m_cyclesSession && m_cyclesScene)
+            Interrupt(true);
         return true;
     }
 

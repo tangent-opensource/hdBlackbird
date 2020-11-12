@@ -143,28 +143,8 @@ HdCyclesConfig::HdCyclesConfig()
 
     // -- Curve Settings
 
-    curve_resolution   = HdCyclesEnvValue<int>("HD_CYCLES_CURVE_RESOLUTION", 3);
     curve_subdivisions = HdCyclesEnvValue<int>("HD_CYCLES_CURVE_SUBDIVISIONS",
                                                3);
-
-    curve_use_backfaces
-        = HdCyclesEnvValue<bool>("HD_CYCLES_CURVE_USE_BACKFACES", false);
-    curve_use_encasing = HdCyclesEnvValue<bool>("HD_CYCLES_CURVE_USE_ENCASING",
-                                                true);
-    curve_use_tangent_normal_geometry
-        = HdCyclesEnvValue<bool>("HD_CYCLES_CURVE_USE_TANGENT_NORMAL_GEO",
-                                 false);
-
-    curve_shape     = HdCyclesEnvValue<std::string>("HD_CYCLES_CURVE_SHAPE",
-                                                "CURVE_THICK");
-    curve_primitive = HdCyclesEnvValue<std::string>("HD_CYCLES_CURVE_PRIMITIVE",
-                                                    "CURVE_SEGMENTS");
-    curve_triangle_method
-        = HdCyclesEnvValue<std::string>("HD_CYCLES_CURVE_TRIANGLE_METHOD",
-                                        "CURVE_TESSELATED_TRIANGLES");
-    curve_line_method
-        = HdCyclesEnvValue<std::string>("HD_CYCLES_CURVE_LINE_METHOD",
-                                        "CURVE_ACCURATE");
 
     // -- Film
     exposure = HdCyclesEnvValue<float>("HD_CYCLES_EXPOSURE", 1.0);
