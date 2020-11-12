@@ -372,6 +372,29 @@ _HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd,
 
 template<typename T>
 T
+_HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd,
+                         HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                         HdCurve* a_curve, HdSceneDelegate* a_scene,
+                         TfToken a_token, T a_default)
+{
+    // Needed because our current schema stores tokens with primvars: prefix
+    // however the HdPrimvarDescriptor omits this.
+    // Solution could be to remove from usdCycles schema and add in all settings
+    // providers (houdini_cycles, blender exporter)
+    if ("primvars:" + a_pvd.name.GetString() == a_token.GetString()) {
+        VtValue v;
+        v = a_curve->GetPrimvar(a_scene, a_token);
+        if
+            return _HdCyclesGetVtValue<T>(v, a_default);
+    }
+    return a_default;
+}
+
+// Get curve param
+
+// This needs to be refactored.
+template<typename T>
+T
 _HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
                        HdBasisCurves* a_curves, HdSceneDelegate* a_scene,
                        TfToken a_token, T a_default)
@@ -379,7 +402,11 @@ _HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
     if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
         VtValue v;
         v = a_curves->GetPrimvar(a_scene, a_token);
-        return _HdCyclesGetVtValue<T>(v, a_default);
+        if (a_value.IsHolding<T>()) {
+            T val = a_value.UncheckedGet<T>();
+        } else {
+            return a_default;
+        }
     }
     return a_default;
 }
