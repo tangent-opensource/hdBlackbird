@@ -374,7 +374,7 @@ template<typename T>
 T
 _HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd,
                          HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
-                         HdBasisCurve* a_curve, HdSceneDelegate* a_scene,
+                         HdBasisCurves* a_curve, HdSceneDelegate* a_scene,
                          TfToken a_token, T a_default)
 {
     // Needed because our current schema stores tokens with primvars: prefix
@@ -402,8 +402,8 @@ _HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
     if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
         VtValue v;
         v = a_curves->GetPrimvar(a_scene, a_token);
-        if (a_value.IsHolding<T>()) {
-            T val = a_value.UncheckedGet<T>();
+        if (v.IsHolding<T>()) {
+            T val = v.UncheckedGet<T>();
         } else {
             return a_default;
         }
