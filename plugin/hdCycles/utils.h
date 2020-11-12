@@ -374,7 +374,7 @@ template<typename T>
 T
 _HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd,
                          HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
-                         HdCurve* a_curve, HdSceneDelegate* a_scene,
+                         HdBasisCurve* a_curve, HdSceneDelegate* a_scene,
                          TfToken a_token, T a_default)
 {
     // Needed because our current schema stores tokens with primvars: prefix
