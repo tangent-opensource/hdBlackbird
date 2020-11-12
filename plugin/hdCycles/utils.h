@@ -370,6 +370,7 @@ _HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd,
 
 // Get curve param
 
+// This needs to be refactored.
 template<typename T>
 T
 _HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd,
@@ -384,15 +385,17 @@ _HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd,
     if ("primvars:" + a_pvd.name.GetString() == a_token.GetString()) {
         VtValue v;
         v = a_curve->GetPrimvar(a_scene, a_token);
-        if
-            return _HdCyclesGetVtValue<T>(v, a_default);
+        if (v.IsHolding<T>()) {
+            return v.UncheckedGet<T>();
+        } else {
+            return a_default;
+        }
     }
     return a_default;
 }
 
 // Get curve param
 
-// This needs to be refactored.
 template<typename T>
 T
 _HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
@@ -402,11 +405,7 @@ _HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
     if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
         VtValue v;
         v = a_curves->GetPrimvar(a_scene, a_token);
-        if (v.IsHolding<T>()) {
-            T val = v.UncheckedGet<T>();
-        } else {
-            return a_default;
-        }
+        return _HdCyclesGetVtValue<T>(v, a_default);
     }
     return a_default;
 }
