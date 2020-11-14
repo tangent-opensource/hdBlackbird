@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_POINTS_H
-#define HD_CYCLES_POINTS_H
+#ifndef HD_CYCLES_VOLUME_H
+#define HD_CYCLES_VOLUME_H
 
 #include "api.h"
 
@@ -27,13 +27,18 @@
 
 #include <util/util_transform.h>
 
-#include <pxr/imaging/hd/points.h>
+#include <pxr/base/gf/matrix4f.h>
+#include <pxr/imaging/hd/volume.h>
 #include <pxr/pxr.h>
 
+
+#include <openvdb/openvdb.h>
+
 namespace ccl {
-class Object;
 class Mesh;
 class Scene;
+class Object;
+class Geometry;
 }  // namespace ccl
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -41,32 +46,26 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdSceneDelegate;
 class HdCyclesRenderDelegate;
 
-enum HdCyclesPointStyle {
-    POINT_DISCS,
-    POINT_SPHERES,
-};
-
 /**
- * @brief An intermediate solution for HdPoints as Cycles doesn't
- * natively support point clouds.
+ * @brief Cycles Basis Curve Rprim mapped to Cycles Basis Curve
  * 
  */
-class HdCyclesPoints final : public HdPoints {
+class HdCyclesVolume final : public HdVolume {
 public:
     /**
-     * @brief Construct a new HdCycles Point object
+     * @brief Construct a new HdCycles Basis Curve object
      * 
-     * @param id Path to the Point Primitive
+     * @param id Path to the Basis Curve Primitive
      * @param instancerId If specified the HdInstancer at this id uses this curve
      * as a prototype
      */
-    HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
+    HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId,
                    HdCyclesRenderDelegate* a_renderDelegate);
     /**
-     * @brief Destroy the HdCycles Points object
+     * @brief Destroy the HdCycles Basis Curves object
      * 
      */
-    virtual ~HdCyclesPoints();
+    virtual ~HdCyclesVolume();
 
     /**
      * @brief Pull invalidated material data and prepare/update the core Cycles 
@@ -74,7 +73,7 @@ public:
      * 
      * This must be thread safe.
      * 
-     * @param sceneDelegate The data source for the Point
+     * @param sceneDelegate The data source for the basis curve
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
@@ -85,7 +84,7 @@ public:
      * @brief Inform the scene graph which state needs to be downloaded in
      * the first Sync() call
      * 
-     * @return The initial dirty state this Point wants to query
+     * @return The initial dirty state this basis curve wants to query
      */
     HdDirtyBits GetInitialDirtyBitsMask() const override;
 
@@ -117,56 +116,38 @@ protected:
      */
     HdDirtyBits _PropagateDirtyBits(HdDirtyBits bits) const override;
 
+protected:
+    GfMatrix4f m_transform;
+
+    bool m_useMotionBlur;
+
 private:
     /**
-     * @brief Create the cycles points as discs mesh and object representation
+     * @brief Create the cycles curve mesh and object representation
      * 
-     * @param resolution Resolution of the disc geometry
      * @return New allocated pointer to ccl::Mesh
      */
-    ccl::Mesh* _CreateDiscMesh();
+    ccl::Object* _CreateObject();
+
+    ccl::Mesh* _CreateVolume();
 
     /**
-     * @brief Create the cycles points as spheres mesh and object representation
-     * 
-     * @param scene Cycles scene to add mesh to
-     * @param transform Initial transform for object
-     * @return New allocated pointer to ccl::Mesh
+     * @brief Populate the Cycles mesh representation from delegate's data
      */
-    ccl::Mesh* _CreateSphereMesh();
+    void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
+                         ccl::Scene* scene);
 
-    /**
-     * @brief Create the cycles object for an individual point
-     * 
-     * @param transform Transform of the point
-     * @param mesh Mesh to populate the point with
-     * @return ccl::Object* 
-     */
-    ccl::Object* _CreatePointsObject(const ccl::Transform& transform,
-                                     ccl::Mesh* mesh);
+    ccl::Object* m_cyclesObject;
 
-    ccl::Mesh* m_cyclesMesh;
-
-    std::vector<ccl::Object*> m_cyclesObjects;
+    ccl::Mesh* m_cyclesVolume;
 
     HdCyclesRenderDelegate* m_renderDelegate;
 
-    ccl::Transform m_transform;
-
-    int m_pointStyle;
-    int m_pointResolution;
-
-    //SdfPath m_cachedMaterialId;
-    //ccl::vector<ccl::Shader *> m_usedShaders;
-
-    // -- Currently unused
-
-    bool m_useMotionBlur;
-    int m_motionSteps;
-
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+
+    //openvdb::VolumeGridVector* grids;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_POINTS_H
+#endif  // HD_CYCLES_VOLUME_H

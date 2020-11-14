@@ -15,9 +15,9 @@ requires = [
 
 
 variants = [
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2', 'openvdb-7.0.0'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini', 'openvdb-7.1.0'],
 ]
 
 build_system = "cmake"

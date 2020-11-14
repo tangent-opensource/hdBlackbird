@@ -259,6 +259,32 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
+    /*if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
+        if (m_cyclesMesh) {
+            m_cachedMaterialId = sceneDelegate->GetMaterialId(id);
+            if (m_faceVertexCounts.size() > 0) {
+                if (!m_cachedMaterialId.IsEmpty()) {
+                    const HdCyclesMaterial* material
+                        = static_cast<const HdCyclesMaterial*>(
+                            sceneDelegate->GetRenderIndex().GetSprim(
+                                HdPrimTypeTokens->material, m_cachedMaterialId));
+
+                    if (material && material->GetCyclesShader()) {
+                        m_usedShaders.push_back(material->GetCyclesShader());
+
+                        material->GetCyclesShader()->tag_update(scene);
+                    } else {
+                        m_usedShaders.push_back(fallbackShader);
+                    }
+                } else {
+                    m_usedShaders.push_back(fallbackShader);
+                }
+
+                m_cyclesMesh->used_shaders = m_usedShaders;
+            }
+        }
+    }*/
+
     if (needs_update)
         param->Interrupt();
 

@@ -45,6 +45,7 @@ pxr_plugin(${PXR_PACKAGE}
     ${USD_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
     ${HBoost_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIR}
     ${Python_INCLUDE_DIRS}
     ${CYCLES_INCLUDE_DIRS}
     ${OIIO_INCLUDE_DIRS}

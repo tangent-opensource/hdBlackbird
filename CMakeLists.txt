@@ -78,7 +78,7 @@ file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
 file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
 file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
 
-if(${USD_BUILD_VARIANT} STREQUAL "USD_PIXAR")
+#if(${USD_BUILD_VARIANT} STREQUAL "USD_PIXAR")
   file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
 
   # Boost python libraries in some cases do not have a trailing version.
@@ -96,7 +96,7 @@ if(${USD_BUILD_VARIANT} STREQUAL "USD_PIXAR")
   endif()
 
   add_definitions(-DBOOST_NS=boost)
-endif()
+#endif()
 
 if(${USD_BUILD_VARIANT} STREQUAL "USD_HOUDINI")
   find_package(HBoost)
@@ -121,6 +121,15 @@ find_package(OpenEXR REQUIRED)
 find_package(GLEW REQUIRED)
 
 find_package(OpenGL REQUIRED)
+find_package(OpenSubdiv)
+
+#if(DEFINED ENV{REZ_OPENVDB_BASE})
+  message("REZ WITH OPENVDB")
+  set(WITH_OPENVDB ON)
+  set(OPENVDB_DEFINITIONS -DNOMINMAX -D_USE_MATH_DEFINES)
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
+  find_package(OpenVDB)
+#endif()
 
 find_package(Embree)
 #find_package(OpenVDB)

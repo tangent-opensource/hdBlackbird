@@ -66,6 +66,7 @@ pxr_plugin(${PXR_PACKAGE}
     ${USD_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
     ${HBoost_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIR}
     ${TBB_INCLUDE_DIRS}
     ${Python_INCLUDE_DIRS}
     ${CYCLES_INCLUDE_DIRS}
@@ -89,6 +90,9 @@ pxr_plugin(${PXR_PACKAGE}
     material
     mesh
     points
+  
+    volume
+    openvdb_asset
 
     renderDelegate
     rendererPlugin
