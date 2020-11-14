@@ -569,7 +569,11 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
     ccl::Attribute* attr;
     ccl::ustring name;
 
-    name = ccl::ustring((std::string(layer_name) + ".tangent").c_str());
+    if (layer_name != NULL) {
+        name = ccl::ustring((std::string(layer_name) + ".tangent").c_str());
+    } else {
+        name = ccl::ustring("orco.tangent");
+    }
 
     if (active_render) {
         attr = attributes.add(ccl::ATTR_STD_UV_TANGENT, name);
@@ -582,8 +586,13 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
     float* tangent_sign = NULL;
     if (need_sign) {
         ccl::Attribute* attr_sign;
-        ccl::ustring name_sign = ccl::ustring(
-            (std::string(layer_name) + ".tangent_sign").c_str());
+        ccl::ustring name_sign;
+
+        if (layer_name != NULL) {
+            name_sign = ccl::ustring((std::string(layer_name) + ".tangent_sign").c_str());
+        } else {
+            name_sign = ccl::ustring("orco.tangent_sign");
+        }
 
         if (active_render) {
             attr_sign = attributes.add(ccl::ATTR_STD_UV_TANGENT_SIGN,
