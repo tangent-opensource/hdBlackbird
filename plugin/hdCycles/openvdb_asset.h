@@ -30,12 +30,14 @@
 #include <mutex>
 #include <unordered_set>
 
-#include <render/image_vdb.h>
-
-#  include <openvdb/openvdb.h>
+#ifdef WITH_OPENVDB
+#    include <render/image_vdb.h>
+#    include <openvdb/openvdb.h>
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+#ifdef WITH_OPENVDB
 // Very temporary. Apparently Cycles has code to do this but it isnt in the head cycles standalone repo
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
@@ -54,6 +56,7 @@ public:
         }
     }
 };
+#endif
 
 
 /// Utility class for translating Hydra Openvdb Asset to Arnold Volume.

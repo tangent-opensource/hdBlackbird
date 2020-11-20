@@ -130,8 +130,10 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id,
     , m_renderDelegate(a_renderDelegate)
 {
     m_shader        = new ccl::Shader();
+    m_shader->name  = id.GetString();
     m_shaderGraph   = new ccl::ShaderGraph();
     m_shader->graph = m_shaderGraph;
+
     if (m_renderDelegate)
         m_renderDelegate->GetCyclesRenderParam()->AddShader(m_shader);
 }
@@ -445,6 +447,11 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
         // Early out for already linked displacement graph
         if (graph->output()->input("Displacement")->link)
             return false;
+    } else if (terminal == HdCyclesMaterialTerminalTokens->volume) {
+        // Early out for already linked volume graph
+        if (graph->output()->input("Volume")->link) {
+            return false;
+        }
     }
 
     for (std::pair<TfToken, HdMaterialNetwork> net : networkMap.map) {
@@ -496,6 +503,12 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
                             graph->connect(cycles_node->output("Displacement"),
                                            graph->output()->input(
                                                "Displacement"));
+                        }
+                    }
+                    if (terminal == HdCyclesMaterialTerminalTokens->volume) {
+                        if (cycles_node->output("Volume") != NULL) {
+                            graph->connect(cycles_node->output("Volume"),
+                                           graph->output()->input("Volume"));
                         }
                     }
                 }
@@ -606,8 +619,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
 
     const SdfPath& id = GetId();
 
-    param->GetCyclesScene()->mutex.lock();
-
     HdDirtyBits bits = *dirtyBits;
 
     bool material_updated = false;
@@ -617,7 +628,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
 
         if (vtMat.IsHolding<HdMaterialNetworkMap>()) {
             if (m_shaderGraph) {
-                delete m_shaderGraph;
                 m_shaderGraph = new ccl::ShaderGraph();
             }
 
@@ -625,6 +635,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
 
             HdMaterialNetwork const* surface      = nullptr;
             HdMaterialNetwork const* displacement = nullptr;
+            HdMaterialNetwork const* volume       = nullptr;
 
             bool foundNetwork = false;
 
@@ -646,9 +657,16 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
                 }
             }
 
-            if (material_updated) {
-                m_shader->graph = m_shaderGraph;
-            } else {
+            if (GetMaterialNetwork(HdCyclesMaterialTerminalTokens->volume,
+                                   sceneDelegate, networkMap,
+                                   *cyclesRenderParam, &volume,
+                                   m_shaderGraph)) {
+                if (m_shader && m_shaderGraph) {
+                    material_updated = true;
+                }
+            }
+
+            if (!material_updated) {
                 TF_CODING_WARNING("Material type not supported");
             }
         }
@@ -719,14 +737,13 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (material_updated) {
-        m_shader->graph = m_shaderGraph;
+        if (m_shader->graph != m_shaderGraph)
+            m_shader->set_graph(m_shaderGraph);
 
         m_shader->tag_update(param->GetCyclesScene());
         m_shader->tag_used(param->GetCyclesScene());
         param->Interrupt();
     }
-
-    param->GetCyclesScene()->mutex.unlock();
 
     *dirtyBits = Clean;
 }
