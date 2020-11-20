@@ -22,6 +22,7 @@
 
 #include "api.h"
 
+#include "utils.h"
 #include "hdcycles.h"
 #include "renderDelegate.h"
 
@@ -31,8 +32,9 @@
 #include <pxr/imaging/hd/volume.h>
 #include <pxr/pxr.h>
 
-
+#ifdef WITH_OPENVDB
 #include <openvdb/openvdb.h>
+#endif
 
 namespace ccl {
 class Mesh;
@@ -144,6 +146,8 @@ private:
     HdCyclesRenderDelegate* m_renderDelegate;
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+
+    ccl::vector<ccl::Shader *> m_usedShaders;
 
     //openvdb::VolumeGridVector* grids;
 };
