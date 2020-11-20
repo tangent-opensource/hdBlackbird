@@ -121,6 +121,10 @@ HdCyclesVolume::_CreateVolume()
     // Create container object
     ccl::Mesh* volume = new ccl::Mesh();
 
+    volume->volume_clipping     = 0.001f;
+    volume->volume_step_size    = 0.0f;
+    volume->volume_object_space = true;
+
     return volume;
 }
 
@@ -128,6 +132,7 @@ void
 HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
                                 ccl::Scene* scene)
 {
+#ifdef WITH_OPENVDB
     std::unordered_map<std::string, std::vector<TfToken>> openvdbs;
     std::unordered_map<std::string, std::vector<TfToken>> houVdbs;
 
@@ -141,8 +146,6 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
             continue;
         }
 
-        openvdbAsset->TrackVolumePrimitive(id);
-
         const auto vv = delegate->Get(field.fieldId, _tokens->filePath);
 
         if (vv.IsHolding<SdfAssetPath>()) {
@@ -152,14 +155,6 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
                 path = assetPath.GetAssetPath();
             }
 
-            /*if (TfStringStartsWith(path, "op:")) {
-                auto& fields = houVdbs[path];
-                if (std::find(fields.begin(), fields.end(), field.fieldName)
-                    == fields.end()) {
-                    fields.push_back(field.fieldName);
-                }
-                continue;
-            }*/
             auto& fields = openvdbs[path];
             if (std::find(fields.begin(), fields.end(), field.fieldName)
                 == fields.end()) {
@@ -196,28 +191,37 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
                     std = ccl::ATTR_STD_VOLUME_VELOCITY;
                 }
 
-                if (std != ccl::ATTR_STD_NONE/*
-                     && m_cyclesVolume->need_attribute(scene, std))
-                    || m_cyclesVolume->need_attribute(scene, name)*/) {
-                    ccl::Attribute* attr
-                        = (std != ccl::ATTR_STD_NONE)
-                              ? m_cyclesVolume->attributes.add(std)
-                              : m_cyclesVolume->attributes.add(
-                                  name, ccl::TypeDesc::TypeFloat,
-                                  ccl::ATTR_ELEMENT_VOXEL);
+                ccl::Attribute* attr = (std != ccl::ATTR_STD_NONE)
+                                           ? m_cyclesVolume->attributes.add(std)
+                                           : m_cyclesVolume->attributes.add(
+                                               name, ccl::TypeDesc::TypeFloat,
+                                               ccl::ATTR_ELEMENT_VOXEL);
 
-                    ccl::ImageLoader* loader
-                        = new HdCyclesVolumeLoader(filepath.c_str(),
-                                                   name.c_str());
-                    ccl::ImageParams params;
+                ccl::ImageLoader* loader
+                    = new HdCyclesVolumeLoader(filepath.c_str(), name.c_str());
+                ccl::ImageParams params;
+                params.frame = 0.0f;
 
-                    attr->data_voxel() = scene->image_manager->add_image(loader,
-                                                                         params,
-                                                                         false);
-                }
+                attr->data_voxel() = scene->image_manager->add_image(loader,
+                                                                     params);
             }
         }
     }
+#endif
+}
+
+/* If the voxel attributes change, we need to rebuild the bounding mesh. */
+static ccl::vector<int>
+get_voxel_image_slots(ccl::Mesh* mesh)
+{
+    ccl::vector<int> slots;
+    for (const ccl::Attribute& attr : mesh->attributes.attributes) {
+        if (attr.element == ccl::ATTR_ELEMENT_VOXEL) {
+            slots.push_back(attr.data_voxel().svm_slot());
+        }
+    }
+
+    return slots;
 }
 
 void
@@ -234,8 +238,10 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     bool generate_new_curve = false;
     bool update_volumes     = false;
 
+    ccl::vector<int> old_voxel_slots = get_voxel_image_slots(m_cyclesVolume);
+
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
-        param->Interrupt();
+        m_cyclesVolume->clear();
         _PopulateVolume(id, sceneDelegate, scene);
         update_volumes = true;
     }
@@ -279,22 +285,24 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         HdPrimTypeTokens->material, materialId));
 
             if (material && material->GetCyclesShader()) {
-                m_cyclesVolume->used_shaders.push_back(
-                    material->GetCyclesShader());
+                m_usedShaders.push_back(material->GetCyclesShader());
                 material->GetCyclesShader()->tag_update(scene);
             } else {
-                m_cyclesVolume->used_shaders.push_back(
-                    scene->default_volume);
+                m_usedShaders.push_back(scene->default_volume);
             }
-            update_volumes = true;
+            m_cyclesVolume->used_shaders = m_usedShaders;
+            update_volumes               = true;
         }
     }
 
     if (update_volumes) {
+        bool rebuild = (old_voxel_slots
+                        != get_voxel_image_slots(m_cyclesVolume));
+
+        m_cyclesVolume->tag_update(scene, rebuild);
+        m_cyclesObject->tag_update(scene);
+
         param->Interrupt();
-        m_cyclesVolume->used_shaders.push_back(
-                    scene->default_volume);
-        m_cyclesVolume->tag_update(scene, true);
     }
 
     *dirtyBits = HdChangeTracker::Clean;

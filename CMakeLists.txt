@@ -110,10 +110,14 @@ find_package(OpenImageIO REQUIRED)
 
 find_package(OpenSubdiv)
 
-set(WITH_OPENVDB ON)
-set(OPENVDB_DEFINITIONS -DNOMINMAX -D_USE_MATH_DEFINES)
-add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
-find_package(OpenVDB)
+if(DEFINED ENV{REZ_OPENVDB_BASE})
+  message("REZ WITH OPENVDB")
+  set(WITH_OPENVDB ON)
+  set(OPENVDB_DEFINITIONS -DNOMINMAX -D_USE_MATH_DEFINES)
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
+  #add_definitions( -DWITH_OPENVDB=1 -DWITH_OPENVDB_BLOSC=1 )
+  find_package(OpenVDB)
+endif()
 
 find_package(Embree)
 find_package(OpenColorIO)
