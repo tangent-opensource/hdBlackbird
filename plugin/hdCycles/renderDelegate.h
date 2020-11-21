@@ -169,6 +169,8 @@ public:
     HDCYCLES_API TfToken GetMaterialNetworkSelector() const override;
     HDCYCLES_API virtual TfToken GetMaterialBindingPurpose() const override;
 
+    HDCYCLES_API virtual VtDictionary GetRenderStats() const override;
+
 protected:
     static const TfTokenVector SUPPORTED_RPRIM_TYPES;
     static const TfTokenVector SUPPORTED_SPRIM_TYPES;

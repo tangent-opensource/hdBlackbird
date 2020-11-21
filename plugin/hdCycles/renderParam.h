@@ -493,6 +493,8 @@ private:
 
     ccl::BufferParams m_bufferParams;
 
+    int m_renderProgress;
+
     ccl::DeviceType m_deviceType;
     std::string m_deviceName;
 
