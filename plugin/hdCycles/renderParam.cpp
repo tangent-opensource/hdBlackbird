@@ -38,6 +38,7 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/session.h>
+#include <render/stats.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -50,6 +51,7 @@ clamp(double d, double min, double max)
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
+    , m_renderProgress(0)
 {
     _InitializeDefaults();
 }
@@ -77,8 +79,13 @@ HdCyclesRenderParam::_SessionPrintStatus()
     float progress = m_cyclesSession->progress.get_progress();
     m_cyclesSession->progress.get_status(status, substatus);
 
-    if (HdCyclesConfig::GetInstance().enable_progress) {
-        std::cout << "Progress: " << (int)(round(progress * 100)) << "%\n";
+    int newProgress = (int)(round(progress * 100));
+    if (newProgress != m_renderProgress) {
+        m_renderProgress = newProgress;
+
+        if (HdCyclesConfig::GetInstance().enable_progress) {
+            std::cout << "Progress: " << m_renderProgress << "%\n";
+        }
     }
 
     if (HdCyclesConfig::GetInstance().enable_logging) {
@@ -104,6 +111,9 @@ HdCyclesRenderParam::StartRender()
 void
 HdCyclesRenderParam::StopRender()
 {
+    ccl::RenderStats stats;
+    m_cyclesSession->collect_statistics(&stats);
+    std::cout << "Render statistics:\n" << stats.full_report().c_str() << '\n';
     _CyclesExit();
 }
 

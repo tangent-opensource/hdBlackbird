@@ -486,6 +486,8 @@ private:
     bool m_useMotionBlur;
     int m_motionSteps;
 
+    int m_renderProgress;
+
     ccl::DeviceType m_deviceType;
     std::string m_deviceName;
 
