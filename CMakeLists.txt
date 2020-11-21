@@ -111,6 +111,9 @@ find_package(OpenImageIO REQUIRED)
 find_package(OpenSubdiv)
 find_package(OpenVDB)
 
+find_package(Embree)
+find_package(OpenColorIO)
+
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)
 

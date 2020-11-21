@@ -128,7 +128,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(TfToken name, VtVec2fArray& uvs,
+    void _AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                    HdInterpolation interpolation);
 
     /**
@@ -243,6 +243,7 @@ protected:
     VtVec3fArray m_points;
     VtIntArray m_faceVertexCounts;
     VtIntArray m_faceVertexIndices;
+    TfToken m_orientation;
 
     HdCyclesSampledPrimvarType m_pointSamples;
 

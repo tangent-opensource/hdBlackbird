@@ -282,8 +282,6 @@ convertCyclesNode(HdMaterialNode& usd_node,
             }
 
             case ccl::SocketType::FLOAT_ARRAY: {
-                cyclesNode->set(socket, params.second.Get<float>());
-
                 if (params.second.IsHolding<VtFloatArray>()) {
                     ccl::array<float> val;
                     VtFloatArray floatArray = params.second.Get<VtFloatArray>();
