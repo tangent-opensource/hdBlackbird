@@ -537,6 +537,8 @@ public:
      */
     ccl::Shader* default_vcol_surface;
 
+    VtDictionary GetRenderStats() const;
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
