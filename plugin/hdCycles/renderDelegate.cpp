@@ -222,7 +222,6 @@ HdCyclesRenderDelegate::CreateRprim(TfToken const& typeId,
     } else if (typeId == HdPrimTypeTokens->points) {
         return new HdCyclesPoints(rprimId, instancerId, this);
     } else if (typeId == HdPrimTypeTokens->volume) {
-        std::cout << "CREATE RPRIM: HdCyclesVolume\n";
         return new HdCyclesVolume(rprimId, instancerId, this);
     } else {
         TF_CODING_ERROR("Unknown Rprim type=%s id=%s", typeId.GetText(),
@@ -301,7 +300,6 @@ HdCyclesRenderDelegate::CreateBprim(TfToken const& typeId,
         return new HdCyclesRenderBuffer(bprimId);
     }
     if (typeId == _tokens->openvdbAsset) {
-        std::cout << "HdCyclesOpenvdbAsset\n"; 
         return new HdCyclesOpenvdbAsset(this, bprimId);
     }
     TF_CODING_ERROR("Unknown Bprim type=%s id=%s", typeId.GetText(),

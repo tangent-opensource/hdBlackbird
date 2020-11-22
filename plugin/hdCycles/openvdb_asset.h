@@ -44,7 +44,6 @@ public:
     HdCyclesVolumeLoader(const char* filepath, const char* grid_name)
         : ccl::VDBImageLoader(grid_name)
     {
-        std::cout << "Loading volume\n";
         openvdb::io::File file(filepath);
 
         try {

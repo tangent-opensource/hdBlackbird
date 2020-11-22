@@ -63,7 +63,6 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId,
     , m_cyclesVolume(nullptr)
     , m_renderDelegate(a_renderDelegate)
 {
-    std::cout << "HdCyclesVolume()\n";
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_useMotionBlur                     = false;
 
