@@ -38,6 +38,13 @@ def private_build_requires():
     else:
         return ['gcc-7']
 
+def pre_build_commands():
+    env.HDCYCLES_BUILD_VERSION_MAJOR.set(this.version.major)
+    env.HDCYCLES_BUILD_VERSION_MINOR.set(this.version.minor)
+    env.HDCYCLES_BUILD_VERSION_PATCH.set(this.version.patch)
+
+    env.HDCYCLES_BUILD_VERSION.set(str(this.version))
+
 def commands():        
     env.HDCYCLES_ROOT.set('{root}')
     env.HDCYCLES_PLUGIN_ROOT.set('{root}/plugin')
