@@ -38,7 +38,6 @@
 #include <render/background.h>
 #include <render/film.h>
 #include <render/integrator.h>
-#include <render/stats.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -391,11 +390,7 @@ HdCyclesRenderDelegate::GetMaterialBindingPurpose() const
 VtDictionary
 HdCyclesRenderDelegate::GetRenderStats() const
 {
-    //ccl::RenderStats stats;
-    //m_renderParam->GetCyclesSession()->collect_statistics(&stats);
-    //printf("Render statistics:\n%s\n", stats.full_report().c_str());
-    
-    return VtDictionary();
+    return m_renderParam->GetRenderStats();
 }
 
 bool
