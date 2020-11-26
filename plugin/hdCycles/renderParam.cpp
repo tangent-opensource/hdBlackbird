@@ -485,6 +485,11 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
     ccl::Integrator* integrator = m_cyclesScene->integrator;
     bool integrator_updated     = false;
 
+    if (key == usdCyclesTokens->cyclesIntegratorSeed) {
+        integrator->seed = _HdCyclesGetVtValue<int>(value, integrator->seed,
+                                                    &integrator_updated);
+    }
+
     if (key == usdCyclesTokens->cyclesIntegratorMin_bounce) {
         integrator->min_bounce
             = _HdCyclesGetVtValue<int>(value, integrator->min_bounce,
@@ -1434,13 +1439,18 @@ HdCyclesRenderParam::GetRenderStats() const
 {
     ccl::RenderStats stats;
     m_cyclesSession->collect_statistics(&stats);
-    
+
     return {
-        {"hdcycles:version", VtValue(HD_CYCLES_VERSION)},
-        {"hdcycles:geometry:total_memory", VtValue(ccl::string_human_readable_size(stats.mesh.geometry.total_size).c_str())},
-        {"hdcycles:textures:total_memory", VtValue(ccl::string_human_readable_size(stats.image.textures.total_size).c_str())},
-        {"hdcycles:scene:num_objects", VtValue(m_cyclesScene->objects.size())},
-        {"hdcycles:scene:num_shaders", VtValue(m_cyclesScene->shaders.size())},
+        { "hdcycles:version", VtValue(HD_CYCLES_VERSION) },
+        { "hdcycles:geometry:total_memory",
+          VtValue(ccl::string_human_readable_size(stats.mesh.geometry.total_size)
+                      .c_str()) },
+        /*{ "hdcycles:textures:total_memory",
+          VtValue(
+              ccl::string_human_readable_size(stats.image.textures.total_size)
+                  .c_str()) },*/
+        { "hdcycles:scene:num_objects", VtValue(m_cyclesScene->objects.size()) },
+        { "hdcycles:scene:num_shaders", VtValue(m_cyclesScene->shaders.size()) },
     };
 }
 
