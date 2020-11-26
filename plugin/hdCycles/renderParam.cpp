@@ -205,78 +205,80 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
 {
 #ifdef USE_USD_CYCLES_SCHEMA
 
-    if (!m_cyclesSession)
-        return false;
+    ccl::SessionParams* sessionParams = &m_sessionParams;
+
+    if (m_cyclesSession)
+        sessionParams = &m_cyclesSession->params;
 
     bool session_updated = false;
 
     if (key == usdCyclesTokens->cyclesBackground) {
-        m_sessionParams.background
-            = _HdCyclesGetVtValue<bool>(value, m_sessionParams.background,
+        sessionParams->background
+            = _HdCyclesGetVtValue<bool>(value, sessionParams->background,
                                         &session_updated);
     }
     if (key == usdCyclesTokens->cyclesProgressive_refine) {
-        m_sessionParams.progressive_refine = _HdCyclesGetVtValue<bool>(
-            value, m_sessionParams.progressive_refine, &session_updated);
+        sessionParams->progressive_refine = _HdCyclesGetVtValue<bool>(
+            value, sessionParams->progressive_refine, &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesProgressive) {
-        m_sessionParams.progressive
-            = _HdCyclesGetVtValue<bool>(value, m_sessionParams.progressive,
+        sessionParams->progressive
+            = _HdCyclesGetVtValue<bool>(value, sessionParams->progressive,
                                         &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesExperimental) {
-        m_sessionParams.experimental
-            = _HdCyclesGetVtValue<bool>(value, m_sessionParams.experimental,
+        sessionParams->experimental
+            = _HdCyclesGetVtValue<bool>(value, sessionParams->experimental,
                                         &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesSamples) {
-        m_sessionParams.samples
-            = _HdCyclesGetVtValue<int>(value, m_sessionParams.samples,
+        sessionParams->samples
+            = _HdCyclesGetVtValue<int>(value, sessionParams->samples,
                                        &session_updated);
     }
 
     /*if (key == usdCyclesTokens->cyclesTile_size) {
-        m_sessionParams.tile_size = vec2i_to_int2(
-            _HdCyclesGetVtValue<GfVec2i>(value, m_sessionParams.tile_size,
+        sessionParams->tile_size = vec2i_to_int2(
+            _HdCyclesGetVtValue<GfVec2i>(value, sessionParams->tile_size,
                                          &session_updated));
     }*/
 
     //TileOrder tile_order;
 
     if (key == usdCyclesTokens->cyclesStart_resolution) {
-        m_sessionParams.start_resolution
-            = _HdCyclesGetVtValue<int>(value, m_sessionParams.start_resolution,
+        sessionParams->start_resolution
+            = _HdCyclesGetVtValue<int>(value, sessionParams->start_resolution,
                                        &session_updated);
     }
     if (key == usdCyclesTokens->cyclesDenoising_start_sample) {
-        m_sessionParams.denoising_start_sample = _HdCyclesGetVtValue<int>(
-            value, m_sessionParams.denoising_start_sample, &session_updated);
+        sessionParams->denoising_start_sample = _HdCyclesGetVtValue<int>(
+            value, sessionParams->denoising_start_sample, &session_updated);
     }
     if (key == usdCyclesTokens->cyclesPixel_size) {
-        m_sessionParams.pixel_size
-            = _HdCyclesGetVtValue<int>(value, m_sessionParams.pixel_size,
+        sessionParams->pixel_size
+            = _HdCyclesGetVtValue<int>(value, sessionParams->pixel_size,
                                        &session_updated);
     }
     if (key == usdCyclesTokens->cyclesThreads) {
-        m_sessionParams.threads
-            = _HdCyclesGetVtValue<int>(value, m_sessionParams.threads,
+        sessionParams->threads
+            = _HdCyclesGetVtValue<int>(value, sessionParams->threads,
                                        &session_updated);
     }
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
-        m_sessionParams.adaptive_sampling = _HdCyclesGetVtValue<bool>(
-            value, m_sessionParams.adaptive_sampling, &session_updated);
+        sessionParams->adaptive_sampling = _HdCyclesGetVtValue<bool>(
+            value, sessionParams->adaptive_sampling, &session_updated);
     }
     if (key == usdCyclesTokens->cyclesUse_profiling) {
-        m_sessionParams.use_profiling
-            = _HdCyclesGetVtValue<bool>(value, m_sessionParams.use_profiling,
+        sessionParams->use_profiling
+            = _HdCyclesGetVtValue<bool>(value, sessionParams->use_profiling,
                                         &session_updated);
     }
     if (key == usdCyclesTokens->cyclesDisplay_buffer_linear) {
-        m_sessionParams.display_buffer_linear = _HdCyclesGetVtValue<bool>(
-            value, m_sessionParams.display_buffer_linear, &session_updated);
+        sessionParams->display_buffer_linear = _HdCyclesGetVtValue<bool>(
+            value, sessionParams->display_buffer_linear, &session_updated);
     }
 
     //DenoiseParams denoising;
