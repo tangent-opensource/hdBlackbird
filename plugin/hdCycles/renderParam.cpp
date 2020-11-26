@@ -485,6 +485,11 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
     ccl::Integrator* integrator = m_cyclesScene->integrator;
     bool integrator_updated     = false;
 
+    if (key == usdCyclesTokens->cyclesIntegratorSeed) {
+        integrator->seed = _HdCyclesGetVtValue<int>(value, integrator->seed,
+                                                    &integrator_updated);
+    }
+
     if (key == usdCyclesTokens->cyclesIntegratorMin_bounce) {
         integrator->min_bounce
             = _HdCyclesGetVtValue<int>(value, integrator->min_bounce,
