@@ -31,6 +31,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 class HdCyclesRenderParam;
 class HdCyclesRenderPass;
+class HdCyclesRenderDelegate;
 
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
@@ -87,6 +88,26 @@ TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens, 
     HDCYCLES_API,
     HDCYCLES_INTEGRATOR_TOKENS
+);
+
+
+#define HDCYCLES_AOV_TOKENS \
+    (Vector)                \
+    (IndexMA)               \
+                            \
+    (DiffDir)               \
+    (GlossDir)              \
+    (TransDir)              \
+    (VolumeDir)             \
+                            \
+    (Emit)                  \
+    (Env)                   \
+    (AO)                    \
+    (Shadow)
+
+TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens, 
+    HDCYCLES_API, 
+    HDCYCLES_AOV_TOKENS
 );
 
 // clang-format on

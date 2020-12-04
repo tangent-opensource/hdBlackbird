@@ -113,6 +113,9 @@ public:
     HDCYCLES_API
     float GetProgress();
 
+    HDCYCLES_API
+    bool IsConverged();
+
     /**
      * @brief Start a cycles render
      * TODO: Refactor this
@@ -139,6 +142,9 @@ protected:
      * 
      */
     void _SessionPrintStatus();
+
+    void _WriteRenderTile(ccl::RenderTile& rtile);
+    void _UpdateRenderTile(ccl::RenderTile& rtile, bool highlight);
 
 public:
     /**
@@ -489,6 +495,8 @@ private:
     ccl::DeviceType m_deviceType;
     std::string m_deviceName;
 
+    bool m_useTiledRendering;
+
     int m_width;
     int m_height;
 
@@ -504,6 +512,8 @@ private:
     bool m_hasDomeLight;
 
 public:
+    const bool& IsTiledRender() const { return m_useTiledRendering; }
+
     void CommitResources();
     /**
      * @brief Get the active Cycles Session 
@@ -529,6 +539,20 @@ public:
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
+
+
+    HdRenderPassAovBindingVector m_aovs;
+
+public:
+    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
+    {
+        m_aovs = a_aovs;
+    }
+
+    HdRenderPassAovBindingVector GetAovBindings() const
+    {
+        return m_aovs;
+    }
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
