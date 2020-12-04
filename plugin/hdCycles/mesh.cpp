@@ -591,22 +591,52 @@ HdCyclesMesh::_PopulateCreases()
 }
 
 void
+HdCyclesMesh::_MeshTextureSpace(ccl::float3& loc, ccl::float3& size)
+{
+    // m_cyclesMesh->compute_bounds must be called before this
+    loc  = (m_cyclesMesh->bounds.max + m_cyclesMesh->bounds.min) / 2.0f;
+    size = (m_cyclesMesh->bounds.max - m_cyclesMesh->bounds.min) / 2.0f;
+
+    if (size.x != 0.0f)
+        size.x = 0.5f / size.x;
+    if (size.y != 0.0f)
+        size.y = 0.5f / size.y;
+    if (size.z != 0.0f)
+        size.z = 0.5f / size.z;
+
+    loc = loc * size - ccl::make_float3(0.5f, 0.5f, 0.5f);
+}
+
+void
+HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
+{
+    if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
+        ccl::float3 loc, size;
+        _MeshTextureSpace(loc, size);
+
+        ccl::AttributeSet* attributes = (m_useSubdivision)
+                                            ? &m_cyclesMesh->subd_attributes
+                                            : &m_cyclesMesh->attributes;
+        ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
+
+        ccl::float3* generated = attr->data_float3();
+        for (int i = 0; i < m_cyclesMesh->verts.size(); i++) {
+            generated[i] = m_cyclesMesh->verts[i] * size - loc;
+        }
+    }
+}
+
+void
 HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
 {
     // Deprecated in favour of adding when uv's are added
     // This should no longer be necessary
     //_ComputeTangents(true);
 
-    if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
-        ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
-                                            ? &m_cyclesMesh->subd_attributes
-                                            : &m_cyclesMesh->attributes;
-        ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
-        memcpy(attr->data_float3(), m_cyclesMesh->verts.data(),
-               sizeof(ccl::float3) * m_cyclesMesh->verts.size());
-    }
-
+    // This must be done first, because _MeshTextureSpace requires computed min/max
     m_cyclesMesh->compute_bounds();
+
+    _PopulateGenerated(scene);
 }
 
 void
