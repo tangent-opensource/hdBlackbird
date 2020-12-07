@@ -54,6 +54,14 @@ clamp(double d, double min, double max)
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
+    , m_cyclesScene(nullptr)
+    , m_cyclesSession(nullptr)
+    , m_objectsUpdated(false)
+    , m_geometryUpdated(false)
+    , m_curveUpdated(false)
+    , m_meshUpdated(false)
+    , m_lightsUpdated(false)
+    , m_shadersUpdated(false)
 {
     _InitializeDefaults();
 }
@@ -149,13 +157,6 @@ void
 HdCyclesRenderParam::CommitResources()
 {
     if (m_shouldUpdate) {
-        if (m_cyclesScene->lights.size() > 0) {
-            if (!m_hasDomeLight)
-                SetBackgroundShader(nullptr, false);
-        } else {
-            SetBackgroundShader(nullptr, true);
-        }
-
         CyclesReset(false);
         m_shouldUpdate = false;
         ResumeRender();
@@ -540,6 +541,7 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     if (m_objectsUpdated || m_shadersUpdated) {
         m_cyclesScene->object_manager->tag_update(m_cyclesScene);
         m_objectsUpdated = false;
+        m_shadersUpdated = false;
     }
     if (m_lightsUpdated) {
         m_cyclesScene->light_manager->tag_update(m_cyclesScene);
@@ -726,6 +728,13 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         } else {
             ++it;
         }
+    }
+
+    if (m_cyclesScene->lights.size() > 0) {
+        if (!m_hasDomeLight)
+            SetBackgroundShader(nullptr, false);
+    } else {
+        SetBackgroundShader(nullptr, true);
     }
 
     if (m_lightsUpdated)

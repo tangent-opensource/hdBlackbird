@@ -364,11 +364,11 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
                 }
 
                 cdata[0] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v0])));
+                    vec3f_to_float4(colors[v0]));
                 cdata[1] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v1])));
+                    vec3f_to_float4(colors[v1]));
                 cdata[2] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v2])));
+                    vec3f_to_float4(colors[v2]));
                 cdata += 3;
             }
             idxIt += vCount;
@@ -381,8 +381,7 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
             GfVec3f pv_col  = colors[0];
             ccl::float4 col = vec3f_to_float4(pv_col);
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
+            cdata[0] = ccl::color_float4_to_uchar4(col);
             cdata += 1;
         }
     } else if (interpolation == HdInterpolationFaceVarying) {
@@ -394,8 +393,7 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
             GfVec3f pv_col  = colors[idx];
             ccl::float4 col = vec3f_to_float4(pv_col);
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
+            cdata[0] = ccl::color_float4_to_uchar4(col);
             cdata += 1;
         }
     }
@@ -428,14 +426,23 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
             ccl::float3 n = vec3f_to_float3(normals[i]);
-            cdata[i]      = n;
+            if (m_orientation == HdTokens->leftHanded)
+                n = -n;
+            cdata[i] = n;
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
-        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        ccl::float3* cdata   = attr->data_float3();
+        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        //ccl::float3* cdata   = attr->data_float3();
 
-        memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+        // TODO: For now, this method produces very wrong results. Some other solution will be needed
+
+        m_cyclesMesh->add_face_normals();
+        m_cyclesMesh->add_vertex_normals();
+
+        return;
+
+        //memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
 
         // Although looping through all faces, normals are averaged per
         // vertex. This seems to be a limitation of cycles. Not allowing
@@ -443,7 +450,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         // For now, we add all corner normals and normalize separately.
         // TODO: Update when Cycles supports corner_normals
-        for (size_t i = 0; i < m_numMeshFaces; i++) {
+        /*for (size_t i = 0; i < m_numMeshFaces; i++) {
             for (size_t j = 0; j < 3; j++) {
                 ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
                 cdata[m_cyclesMesh->get_triangle(i).v[j]] += n;
@@ -452,7 +459,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
             cdata[i] = ccl::normalize(cdata[i]);
-        }
+        }*/
     }
 }
 
@@ -582,22 +589,35 @@ HdCyclesMesh::_PopulateCreases()
 }
 
 void
+HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
+{
+    if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
+        ccl::float3 loc, size;
+        HdCyclesMeshTextureSpace(m_cyclesMesh, loc, size);
+
+        ccl::AttributeSet* attributes = (m_useSubdivision)
+                                            ? &m_cyclesMesh->subd_attributes
+                                            : &m_cyclesMesh->attributes;
+        ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
+
+        ccl::float3* generated = attr->data_float3();
+        for (int i = 0; i < m_cyclesMesh->verts.size(); i++) {
+            generated[i] = m_cyclesMesh->verts[i] * size - loc;
+        }
+    }
+}
+
+void
 HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
 {
     // Deprecated in favour of adding when uv's are added
     // This should no longer be necessary
     //_ComputeTangents(true);
 
-    if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
-        ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
-                                            ? &m_cyclesMesh->subd_attributes
-                                            : &m_cyclesMesh->attributes;
-        ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
-        memcpy(attr->data_float3(), m_cyclesMesh->verts.data(),
-               sizeof(ccl::float3) * m_cyclesMesh->verts.size());
-    }
-
+    // This must be done first, because HdCyclesMeshTextureSpace requires computed min/max
     m_cyclesMesh->compute_bounds();
+
+    _PopulateGenerated(scene);
 }
 
 void
@@ -606,7 +626,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
-
 
     scene->mutex.lock();
 

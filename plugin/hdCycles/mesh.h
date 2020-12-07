@@ -223,6 +223,12 @@ protected:
      */
     void _PopulateCreases();
 
+    /**
+     * @brief Populate generated coordinates attribute
+     * 
+     */
+    void _PopulateGenerated(ccl::Scene* scene);
+
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
     std::vector<ccl::Object*> m_cyclesInstances;
