@@ -70,6 +70,7 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_visScatter(true)
     , m_visShadow(true)
     , m_visTransmission(true)
+    , m_hydraVisibility(true)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_motion_blur.eval(m_useMotionBlur, true);

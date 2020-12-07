@@ -224,10 +224,16 @@ public:
     HdCyclesEnvValue<int> pixel_size;
 
     /**
-     * @brief Size of individual render tile
+     * @brief Size of individual render tile x axis
      *
      */
-    pxr::GfVec2i tile_size;
+    HdCyclesEnvValue<int> tile_size_x;
+
+    /**
+     * @brief Size of individual render tile y axis
+     *
+     */
+    HdCyclesEnvValue<int> tile_size_y;
 
     /**
      * @brief Start Resolution of render

@@ -119,6 +119,11 @@ HdCyclesRenderParam::_SessionPrintStatus()
 bool
 HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
 {
+    // -- Delegate
+    _UpdateDelegateFromConfig(true);
+    _UpdateDelegateFromRenderSettings(settingsMap);
+    _UpdateDelegateFromConfig();
+
     // -- Session
     _UpdateSessionFromConfig(true);
     _UpdateSessionFromRenderSettings(settingsMap);
@@ -159,6 +164,56 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     return true;
 }
 
+
+// -- HdCycles Misc Delegate Settings
+
+void
+HdCyclesRenderParam::_UpdateDelegateFromConfig(bool a_forceInit)
+{
+    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
+    ccl::SessionParams* sessionParams = &m_sessionParams;
+
+    if (m_cyclesSession)
+        sessionParams = &m_cyclesSession->params;
+}
+
+void
+HdCyclesRenderParam::_UpdateDelegateFromRenderSettings(
+    HdRenderSettingsMap const& settingsMap)
+{
+    for (auto& entry : settingsMap) {
+        TfToken key   = entry.first;
+        VtValue value = entry.second;
+        _HandleDelegateRenderSetting(key, value);
+    }
+}
+
+bool
+HdCyclesRenderParam::_HandleDelegateRenderSetting(const TfToken& key,
+                                                  const VtValue& value)
+{
+#ifdef USE_USD_CYCLES_SCHEMA
+
+    bool delegate_updated = false;
+
+    if (key == usdCyclesTokens->cyclesUse_square_samples) {
+        m_useSquareSamples = _HdCyclesGetVtValue<bool>(value,
+                                                       m_useSquareSamples,
+                                                       &delegate_updated);
+    }
+
+    if (delegate_updated) {
+        // Although this is called, it does not correctly reset session in IPR
+        //Interrupt();
+        return true;
+    }
+
+#endif
+
+    return false;
+}
+
 // -- Session
 
 void
@@ -166,32 +221,33 @@ HdCyclesRenderParam::_UpdateSessionFromConfig(bool a_forceInit)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-    //m_sessionParams.experimental          = config.enable_experimental;
-    config.enable_experimental.eval(m_sessionParams.experimental, a_forceInit);
+    ccl::SessionParams* sessionParams = &m_sessionParams;
 
-    config.display_buffer_linear.eval(m_sessionParams.display_buffer_linear,
+    if (m_cyclesSession)
+        sessionParams = &m_cyclesSession->params;
+
+    config.enable_experimental.eval(sessionParams->experimental, a_forceInit);
+
+    config.display_buffer_linear.eval(sessionParams->display_buffer_linear,
                                       a_forceInit);
 
-    m_sessionParams.shadingsystem = ccl::SHADINGSYSTEM_SVM;
+    sessionParams->shadingsystem = ccl::SHADINGSYSTEM_SVM;
     if (config.shading_system.value == "OSL"
         || config.shading_system.value == "SHADINGSYSTEM_OSL")
-        m_sessionParams.shadingsystem = ccl::SHADINGSYSTEM_OSL;
+        sessionParams->shadingsystem = ccl::SHADINGSYSTEM_OSL;
 
-    m_sessionParams.background = false;
+    sessionParams->background = false;
 
-    /* Use progressive rendering */
+    config.start_resolution.eval(sessionParams->start_resolution, a_forceInit);
 
-    m_sessionParams.progressive = true;
+    sessionParams->progressive        = true;
+    sessionParams->progressive_refine = false;
 
-    config.start_resolution.eval(m_sessionParams.start_resolution, a_forceInit);
+    config.pixel_size.eval(sessionParams->pixel_size, a_forceInit);
+    config.tile_size_x.eval(sessionParams->tile_size.x, a_forceInit);
+    config.tile_size_y.eval(sessionParams->tile_size.y, a_forceInit);
 
-    m_sessionParams.progressive_refine         = false;
-    m_sessionParams.progressive_update_timeout = 0.1;
-    config.pixel_size.eval(m_sessionParams.pixel_size, a_forceInit);
-    //m_sessionParams.tile_size.x                = config.tile_size[0];64
-    //m_sessionParams.tile_size.y                = config.tile_size[1];64
-
-    config.max_samples.eval(m_sessionParams.samples, a_forceInit);
+    config.max_samples.eval(sessionParams->samples, a_forceInit);
 }
 
 void
@@ -218,11 +274,13 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
 
     bool session_updated = false;
 
-    if (key == usdCyclesTokens->cyclesBackground) {
+    // This is now handled by HdCycles depending on tiled or not tiled rendering...
+    /*if (key == usdCyclesTokens->cyclesBackground) {
         sessionParams->background
             = _HdCyclesGetVtValue<bool>(value, sessionParams->background,
                                         &session_updated);
-    }
+    }*/
+
     if (key == usdCyclesTokens->cyclesProgressive_refine) {
         sessionParams->progressive_refine = _HdCyclesGetVtValue<bool>(
             value, sessionParams->progressive_refine, &session_updated);
@@ -232,6 +290,12 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         sessionParams->progressive
             = _HdCyclesGetVtValue<bool>(value, sessionParams->progressive,
                                         &session_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesProgressive) {
+        sessionParams->progressive_update_timeout = _HdCyclesGetVtValue<float>(
+            value, sessionParams->cyclesProgressive_update_timeout,
+            &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesExperimental) {
@@ -246,49 +310,128 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
                                        &session_updated);
     }
 
-    /*if (key == usdCyclesTokens->cyclesTile_size) {
+    // Tiles
+
+    if (key == usdCyclesTokens->cyclesTile_size) {
         sessionParams->tile_size = vec2i_to_int2(
             _HdCyclesGetVtValue<GfVec2i>(value, sessionParams->tile_size,
                                          &session_updated));
-    }*/
+    }
 
-    //TileOrder tile_order;
+    TfToken tileOrder;
+    if (key == usdCyclesTokens->cyclesTile_order) {
+        tileOrder = _HdCyclesGetVtValue<TfToken>(value, tileOrder,
+                                                 &session_updated);
+
+        if (tileOrder == usdCyclesTokens->hilbert_spiral) {
+            sessionParams->tile_order = ccl::TILE_HILBERT_SPIRAL;
+        } else if (tileOrder == usdCyclesTokens->center) {
+            sessionParams->tile_order = ccl::TILE_CENTER;
+        } else if (tileOrder == usdCyclesTokens->right_to_left) {
+            sessionParams->tile_order = ccl::TILE_RIGHT_TO_LEFT;
+        } else if (tileOrder == usdCyclesTokens->left_to_right) {
+            sessionParams->tile_order = ccl::TILE_LEFT_TO_RIGHT;
+        } else if (tileOrder == usdCyclesTokens->top_to_bottom) {
+            sessionParams->tile_order = ccl::TILE_TOP_TO_BOTTOM;
+        } else if (tileOrder == usdCyclesTokens->bottom_to_top) {
+            sessionParams->tile_order = ccl::TILE_BOTTOM_TO_TOP;
+        }
+    }
 
     if (key == usdCyclesTokens->cyclesStart_resolution) {
         sessionParams->start_resolution
             = _HdCyclesGetVtValue<int>(value, sessionParams->start_resolution,
                                        &session_updated);
     }
-    if (key == usdCyclesTokens->cyclesDenoising_start_sample) {
-        sessionParams->denoising_start_sample = _HdCyclesGetVtValue<int>(
-            value, sessionParams->denoising_start_sample, &session_updated);
-    }
+
     if (key == usdCyclesTokens->cyclesPixel_size) {
         sessionParams->pixel_size
             = _HdCyclesGetVtValue<int>(value, sessionParams->pixel_size,
                                        &session_updated);
     }
+
     if (key == usdCyclesTokens->cyclesThreads) {
         sessionParams->threads
             = _HdCyclesGetVtValue<int>(value, sessionParams->threads,
                                        &session_updated);
     }
+
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
-        sessionParams->adaptive_sampling = _HdCyclesGetVtValue<bool>(
-            value, sessionParams->adaptive_sampling, &session_updated);
+        sessionParams->adaptive_sampling
+            = _HdCyclesGetVtValue<bool>(value, sessionParams->adaptive_sampling,
+                                        &session_updated);
     }
+
     if (key == usdCyclesTokens->cyclesUse_profiling) {
         sessionParams->use_profiling
             = _HdCyclesGetVtValue<bool>(value, sessionParams->use_profiling,
                                         &session_updated);
     }
+
     if (key == usdCyclesTokens->cyclesDisplay_buffer_linear) {
         sessionParams->display_buffer_linear = _HdCyclesGetVtValue<bool>(
             value, sessionParams->display_buffer_linear, &session_updated);
     }
 
     //DenoiseParams denoising;
-    //ShadingSystem shadingsystem;
+
+    TfToken shadingSystem;
+    if (key == usdCyclesTokens->cyclesShading_system) {
+        shadingSystem = _HdCyclesGetVtValue<bool>(value, shadingSystem,
+                                                  &session_updated);
+
+        if (shadingSystem == usdCyclesTokens->osl) {
+            sessionParams->shadingsystem = ccl::SHADINGSYSTEM_OSL;
+        } else {
+            sessionParams->shadingsystem = ccl::SHADINGSYSTEM_SVM;
+        }
+    }
+
+    if (key == usdCyclesTokens->cyclesUse_profiling) {
+        sessionParams->use_profiling
+            = _HdCyclesGetVtValue<bool>(value, sessionParams->use_profiling,
+                                        &session_updated);
+    }
+
+    // Session BVH
+
+    if (key == usdCyclesTokens->cyclesUse_bvh_spatial_split) {
+        sessionParams->use_bvh_spatial_split = _HdCyclesGetVtValue<bool>(
+            value, sessionParams->use_bvh_spatial_split, &session_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesUse_bvh_unaligned_nodes) {
+        sessionParams->use_bvh_unaligned_nodes = _HdCyclesGetVtValue<bool>(
+            value, sessionParams->use_bvh_unaligned_nodes, &session_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesNum_bvh_time_steps) {
+        sessionParams->num_bvh_time_steps
+            = _HdCyclesGetVtValue<int>(value, sessionParams->num_bvh_time_steps,
+                                       &session_updated);
+    }
+
+    // Denoising
+
+    bool denoising_updated = false;
+    DenoiseParams denoisingParams;
+
+    if (key == usdCyclesTokens->cyclesRun_denoising) {
+        denoising.use = _HdCyclesGetVtValue<int>(value, denoising.use,
+                                                 &denoising_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesDenoising_start_sample) {
+        sessionParams->denoising_start_sample = _HdCyclesGetVtValue<int>(
+            value, sessionParams->denoising_start_sample, &denoising_updated);
+    }
+
+    if (denoising_updated) {
+        sessionParams->denoising = denoisingParams;
+        session_updated          = true;
+    }
+
+    // Final
 
     if (session_updated) {
         // Although this is called, it does not correctly reset session in IPR
@@ -296,8 +439,8 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         return true;
     }
 
-
 #endif
+    return false;
 }
 
 // -- Scene
@@ -307,17 +450,26 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
+    ccl::SceneParams* sceneParams = &m_sceneParams;
+
+    if (m_cyclesScene)
+        sceneParams = &m_cyclesScene->params;
+
+    ccl::SessionParams* sessionParams = &m_sessionParams;
+
+    if (m_cyclesSession)
+        sessionParams = &m_cyclesSession->params;
+
     // -- Scene init
-    m_sceneParams.shadingsystem = m_sessionParams.shadingsystem;
+    sceneParams->shadingsystem = sessionParams->shadingsystem;
 
-    m_sceneParams.bvh_type = ccl::SceneParams::BVH_DYNAMIC;
+    sceneParams->bvh_type = ccl::SceneParams::BVH_DYNAMIC;
     if (config.bvh_type.value == "STATIC")
-        m_sceneParams.bvh_type = ccl::SceneParams::BVH_STATIC;
+        sceneParams->bvh_type = ccl::SceneParams::BVH_STATIC;
 
-    m_sceneParams.persistent_data = true;
+    sceneParams->persistent_data = true;
 
-    config.curve_subdivisions.eval(m_sceneParams.hair_subdivisions,
-                                   a_forceInit);
+    config.curve_subdivisions.eval(sceneParams->hair_subdivisions, a_forceInit);
 }
 
 void
@@ -373,6 +525,13 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key,
                                        &scene_updated);
     }
 
+    // TODO: Unsure how we will handle this if the camera hasn't been created yet/at all...
+    /*if (key == usdCyclesTokens->cyclesDicing_camera) {
+        scene->dicing_camera
+            = _HdCyclesGetVtValue<std::string>(value, scene->dicing_camera,
+                                       &scene_updated);
+    }*/
+
     if (scene_updated) {
         // Although this is called, it does not correctly reset session in IPR
         if (m_cyclesSession && m_cyclesScene)
@@ -381,6 +540,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key,
     }
 
 #endif
+    return false;
 }
 
 // -- Config
@@ -493,6 +653,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
             = _HdCyclesGetVtValue<int>(value, integrator->max_bounce,
                                        &integrator_updated);
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorMethod) {
         TfToken integratorMethod
             = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->path,
@@ -503,6 +664,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
             integrator->method = ccl::Integrator::BRANCHED_PATH;
         }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorSampling_method) {
         TfToken samplingMethod
             = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->sobol,
@@ -515,12 +677,13 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
             integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
         }
     }
-    //uniform token cycles:integrator:sampling_method = "sobol" (
+
     if (key == usdCyclesTokens->cyclesIntegratorMax_diffuse_bounce) {
         integrator->max_diffuse_bounce
             = _HdCyclesGetVtValue<int>(value, integrator->max_diffuse_bounce,
                                        &integrator_updated);
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorMax_glossy_bounce) {
         integrator->max_glossy_bounce
             = _HdCyclesGetVtValue<int>(value, integrator->max_glossy_bounce,
@@ -530,6 +693,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
         integrator->max_transmission_bounce = _HdCyclesGetVtValue<int>(
             value, integrator->max_transmission_bounce, &integrator_updated);
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorMax_volume_bounce) {
         integrator->max_volume_bounce
             = _HdCyclesGetVtValue<int>(value, integrator->max_volume_bounce,
@@ -539,6 +703,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
         integrator->transparent_min_bounce = _HdCyclesGetVtValue<int>(
             value, integrator->transparent_min_bounce, &integrator_updated);
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorTransparent_max_bounce) {
         integrator->transparent_max_bounce = _HdCyclesGetVtValue<int>(
             value, integrator->transparent_max_bounce, &integrator_updated);
@@ -549,58 +714,167 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
             = _HdCyclesGetVtValue<int>(value, integrator->ao_bounces,
                                        &integrator_updated);
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorVolume_max_steps) {
         integrator->volume_max_steps
             = _HdCyclesGetVtValue<int>(value, integrator->volume_max_steps,
                                        &integrator_updated);
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorVolume_step_size) {
         integrator->volume_step_rate
             = _HdCyclesGetVtValue<float>(value, integrator->volume_step_rate,
                                          &integrator_updated);
     }
 
+    if (key == usdCyclesTokens->cyclesIntegratorAdaptive_threshold) {
+        integrator->adaptive_threshold
+            = _HdCyclesGetVtValue<float>(value, integrator->adaptive_threshold,
+                                         &integrator_updated);
+    }
+
     // Samples
+
     if (key == usdCyclesTokens->cyclesIntegratorAa_samples) {
+        bool sample_updated = false;
         integrator->aa_samples
             = _HdCyclesGetVtValue<int>(value, integrator->aa_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->aa_samples = integrator->aa_samples
+                                         * integrator->aa_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
+    if (key == usdCyclesTokens->cyclesIntegratorAdaptive_min_samples) {
+        bool sample_updated = false;
+        integrator->adaptive_min_samples
+            = _HdCyclesGetVtValue<int>(value, integrator->adaptive_min_samples,
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->adaptive_min_samples
+                    = min(integrator->adaptive_min_samples
+                              * integrator->adaptive_min_samples,
+                          INT_MAX);
+            }
+            integrator_updated = true;
+        }
+    }
+
     if (key == usdCyclesTokens->cyclesIntegratorDiffuse_samples) {
+        bool sample_updated = false;
         integrator->diffuse_samples
             = _HdCyclesGetVtValue<int>(value, integrator->diffuse_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->diffuse_samples = integrator->diffuse_samples
+                                              * integrator->diffuse_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorGlossy_samples) {
+        bool sample_updated = false;
         integrator->glossy_samples
             = _HdCyclesGetVtValue<int>(value, integrator->glossy_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->glossy_samples = integrator->glossy_samples
+                                             * integrator->glossy_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorTransmission_samples) {
+        bool sample_updated = false;
         integrator->transmission_samples
             = _HdCyclesGetVtValue<int>(value, integrator->transmission_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->transmission_samples
+                    = integrator->transmission_samples
+                      * integrator->transmission_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorAo_samples) {
+        bool sample_updated = false;
         integrator->ao_samples
             = _HdCyclesGetVtValue<int>(value, integrator->ao_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->ao_samples = integrator->ao_samples
+                                         * integrator->ao_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorMesh_light_samples) {
+        bool sample_updated = false;
         integrator->mesh_light_samples
             = _HdCyclesGetVtValue<int>(value, integrator->mesh_light_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->mesh_light_samples
+                    = integrator->mesh_light_samples
+                      * integrator->mesh_light_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorSubsurface_samples) {
+        bool sample_updated = false;
         integrator->subsurface_samples
             = _HdCyclesGetVtValue<int>(value, integrator->subsurface_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->subsurface_samples
+                    = integrator->subsurface_samples
+                      * integrator->subsurface_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorVolume_samples) {
+        bool sample_updated = false;
         integrator->volume_samples
             = _HdCyclesGetVtValue<int>(value, integrator->volume_samples,
-                                       &integrator_updated);
+                                       &sample_updated);
+
+        if (sample_updated) {
+            if (m_useSquareSamples) {
+                integrator->volume_samples = integrator->volume_samples
+                                             * integrator->volume_samples;
+            }
+            integrator_updated = true;
+        }
     }
+
     if (key == usdCyclesTokens->cyclesIntegratorStart_sample) {
         integrator->start_sample
             = _HdCyclesGetVtValue<int>(value, integrator->start_sample,
@@ -608,6 +882,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
     }
 
     // Caustics
+
     if (key == usdCyclesTokens->cyclesIntegratorCaustics_reflective) {
         integrator->caustics_reflective
             = _HdCyclesGetVtValue<bool>(value, integrator->caustics_reflective,
@@ -620,6 +895,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
     }
 
     // Filter
+
     if (key == usdCyclesTokens->cyclesIntegratorFilter_glossy) {
         integrator->filter_glossy
             = _HdCyclesGetVtValue<float>(value, integrator->filter_glossy,
@@ -661,8 +937,8 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
         return true;
     }
 
-
 #endif
+    return false;
 }
 
 // -- Film
@@ -716,6 +992,7 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
     }
 
     // Filter
+
     if (key == usdCyclesTokens->cyclesFilmFilter_type) {
         TfToken filter = _HdCyclesGetVtValue<TfToken>(value,
                                                       usdCyclesTokens->box,
@@ -728,6 +1005,7 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
             film->filter_type = ccl::FilterType::FILTER_BLACKMAN_HARRIS;
         }
     }
+
     if (key == usdCyclesTokens->cyclesFilmFilter_width) {
         film->filter_width = _HdCyclesGetVtValue<float>(value,
                                                         film->filter_width,
@@ -735,14 +1013,17 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
     }
 
     // Mist
+
     if (key == usdCyclesTokens->cyclesFilmMist_start) {
         film->mist_start = _HdCyclesGetVtValue<float>(value, film->mist_start,
                                                       &film_updated, false);
     }
+
     if (key == usdCyclesTokens->cyclesFilmMist_depth) {
         film->mist_depth = _HdCyclesGetVtValue<float>(value, film->mist_depth,
                                                       &film_updated, false);
     }
+
     if (key == usdCyclesTokens->cyclesFilmMist_falloff) {
         film->mist_falloff = _HdCyclesGetVtValue<float>(value,
                                                         film->mist_falloff,
@@ -750,9 +1031,19 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
     }
 
     // Light
+
     if (key == usdCyclesTokens->cyclesFilmUse_light_visibility) {
         film->use_light_visibility
             = _HdCyclesGetVtValue<bool>(value, film->use_light_visibility,
+                                        &film_updated, false);
+    }
+
+    // Sampling
+
+    // TODO: Check if cycles actually uses this, doesnt appear to...
+    if (key == usdCyclesTokens->cyclesFilmUse_adaptive_sampling) {
+        film->use_adaptive_sampling
+            = _HdCyclesGetVtValue<bool>(value, film->use_adaptive_sampling,
                                         &film_updated, false);
     }
 
@@ -762,6 +1053,7 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
     }
 
 #endif
+    return false;
 }
 
 void
@@ -825,24 +1117,69 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key,
                                                        &background_updated);
     }
 
-    //uint visibility;
+    // Visibility
+
+    bool visCamera, visDiffuse, visGlossy, visTransmission, visScatter;
+    visCamera = visDiffuse = visGlossy = visTransmission = visScatter = true;
+
+    uint visFlags = 0;
+
+    if (key == usdCyclesTokens->cyclesBackgroundVisibilityCamera) {
+        visCamera = _HdCyclesGetVtValue<bool>(value, visCamera,
+                                              &background_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesBackgroundVisibilityDiffuse) {
+        visDiffuse = _HdCyclesGetVtValue<bool>(value, visDiffuse,
+                                               &background_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesBackgroundVisibilityGlossy) {
+        visGlossy = _HdCyclesGetVtValue<bool>(value, visGlossy,
+                                              &background_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesBackgroundVisibilityTransmission) {
+        visTransmission = _HdCyclesGetVtValue<bool>(value, visTransmission,
+                                                    &background_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesBackgroundVisibilityScatter) {
+        visScatter = _HdCyclesGetVtValue<bool>(value, visScatter,
+                                               &background_updated);
+    }
+
+    visFlags |= visCamera ? ccl::PATH_RAY_CAMERA : 0;
+    visFlags |= visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
+    visFlags |= visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
+    visFlags |= visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
+    visFlags |= visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
+
+    background->visibility = visFlags;
+
+    // Glass
 
     if (key == usdCyclesTokens->cyclesBackgroundTransparent) {
         background->transparent
             = _HdCyclesGetVtValue<bool>(value, background->transparent,
                                         &background_updated);
     }
+
     if (key == usdCyclesTokens->cyclesBackgroundTransparent_glass) {
         background->transparent_glass
             = _HdCyclesGetVtValue<bool>(value, background->transparent_glass,
                                         &background_updated);
     }
+
     if (key
         == usdCyclesTokens->cyclesBackgroundTransparent_roughness_threshold) {
         background->transparent_roughness_threshold = _HdCyclesGetVtValue<float>(
             value, background->transparent_roughness_threshold,
             &background_updated);
     }
+
+    // Volume
+
     if (key == usdCyclesTokens->cyclesBackgroundVolume_step_size) {
         background->volume_step_size
             = _HdCyclesGetVtValue<float>(value, background->volume_step_size,
@@ -855,6 +1192,7 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key,
     }
 
 #endif
+    return false;
 }
 
 bool

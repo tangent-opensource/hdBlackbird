@@ -436,6 +436,11 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                        usdCyclesTokens->cyclesLightIs_portal,
                                        m_cyclesLight->is_portal);
 
+    m_cyclesLight->samples
+        = _HdCyclesGetLightParam<int>(id, sceneDelegate,
+                                      usdCyclesTokens->cyclesLightSamples,
+                                      m_cyclesLight->samples);
+
     m_cyclesLight->max_bounces
         = _HdCyclesGetLightParam<int>(id, sceneDelegate,
                                       usdCyclesTokens->cyclesLightMax_bounces,

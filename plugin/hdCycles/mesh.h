@@ -280,6 +280,8 @@ protected:
 
     TfToken m_normalInterpolation;
 
+    bool m_hydraVisibility;
+
     VtVec2fArray m_uvs;
     VtIntArray m_uvIndices;
 
@@ -288,6 +290,7 @@ protected:
     bool m_doubleSided = false;
 
     bool m_useMotionBlur;
+    bool m_useDeformMotionBlur;
     int m_motionSteps;
 
     unsigned int m_visibilityFlags;

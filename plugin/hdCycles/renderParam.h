@@ -453,6 +453,11 @@ private:
     bool _CreateSession();
     bool _CreateScene();
 
+    void _UpdateDelegateFromConfig(bool a_forceInit = false);
+    void
+    _UpdateDelegateFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleDelegateRenderSetting(const TfToken& key, const VtValue& value);
+
     void _UpdateSessionFromConfig(bool a_forceInit = false);
     void
     _UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap);

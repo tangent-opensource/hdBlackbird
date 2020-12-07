@@ -127,10 +127,10 @@ HdCyclesConfig::HdCyclesConfig()
 
     max_samples = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SAMPLES", 512);
 
-    num_threads = HdCyclesEnvValue<int>("HD_CYCLES_NUM_THREADS", 0);
-    pixel_size  = HdCyclesEnvValue<int>("HD_CYCLES_PIXEL_SIZE", 1);
-    //tile_size        = pxr::GfVec2i(TfGetEnvSetting(HD_CYCLES_TILE_SIZE_X),
-    //                       TfGetEnvSetting(HD_CYCLES_TILE_SIZE_Y));
+    num_threads      = HdCyclesEnvValue<int>("HD_CYCLES_NUM_THREADS", 0);
+    pixel_size       = HdCyclesEnvValue<int>("HD_CYCLES_PIXEL_SIZE", 1);
+    tile_size_x      = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_X", 64);
+    tile_size_y      = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_Y", 64);
     start_resolution = HdCyclesEnvValue<int>("HD_CYCLES_START_RESOLUTION", 8);
     shutter_motion_position
         = HdCyclesEnvValue<int>("HD_CYCLES_SHUTTER_MOTION_POSITION", 1);

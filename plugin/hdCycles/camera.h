@@ -220,6 +220,19 @@ private:
     int m_rollingShutterType;
     int m_panoramaType;
     int m_stereoEye;
+    float m_offscreenDicingScale;
+
+    ccl::vector<float> m_shutterCurve;
+
+    float m_fisheyeFov;
+    float m_fisheyeLens;
+    float m_latMin, m_latMax, m_longMin, m_longMax;
+    bool m_useSphericalStereo;
+    
+    float m_interocularDistance;
+    float m_convergenceDistance;
+    bool m_usePoleMerge;
+    float m_poleMergeAngleFrom, m_poleMergeAngleTo;
 
     bool m_useDof;
 

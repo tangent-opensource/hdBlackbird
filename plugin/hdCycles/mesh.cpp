@@ -80,6 +80,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_visShadow(true)
     , m_visTransmission(true)
     , m_velocityScale(1.0f)
+    , m_hydraVisibility(true)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_subdivision.eval(m_subdivEnabled, true);
@@ -814,15 +815,47 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 #ifdef USE_USD_CYCLES_SCHEMA
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
-            // Apply custom schema
+            // Mesh Specific
 
             m_useMotionBlur = _HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
 
+            m_useDeformMotionBlur = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblurDeform,
+                m_useDeformMotionBlur);
+
             m_motionSteps = _HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectMblurSteps, m_motionSteps);
+
+            TfToken subdivisionType = usdCyclesTokens->catmull_clark;
+
+            subdivisionType = _HdCyclesGetMeshParam<TfToken>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesMeshSubdivision_type,
+                subdivisionType);
+
+            if (subdivisionType == usdCyclesTokens->catmull_clark) {
+                m_cyclesMesh->subdivision_type
+                    = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
+            } else if (subdivisionType == usdCyclesTokens->linear) {
+                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_LINEAR;
+            } else {
+                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+            }
+
+            m_dicingRate = _HdCyclesGetMeshParam<float>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesMeshDicingRate, m_dicingRate);
+
+            m_maxSubdivision = _HdCyclesGetMeshParam<int>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level,
+                m_maxSubdivision);
+
+            // Object Generic
 
             m_cyclesObject->is_shadow_catcher = _HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
@@ -895,7 +928,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         m_cyclesMesh->use_motion_blur = m_useMotionBlur;
 
-        if (m_useMotionBlur)
+        if (m_useMotionBlur && m_useDeformMotionBlur)
             _PopulateMotion();
 
         std::vector<int> faceMaterials;
@@ -943,9 +976,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
             ccl::SubdParams& subd_params = *m_cyclesMesh->subd_params;
 
-            subd_params.dicing_rate = m_dicingRate
-                                      / ((m_refineLevel + 1) * 2.0f);
-            subd_params.max_level = m_maxSubdivision;
+            subd_params.dicing_rate = m_dicingRate;
+            subd_params.max_level   = m_maxSubdivision;
+
+            // This allows us to dice based on USD refine level (low, medium, high, etc)
+            // However it is unclear if we want to support this, or if we want it off by default
+            // Disabled for now...
+            if (false) {
+                // Note: This math is abitrary and possible wrong
+                subd_params.dicing_rate = subd_params.dicing_rate
+                                          / ((m_refineLevel + 1) * 2.0f);
+            }
 
             subd_params.objecttoworld = ccl::transform_identity();
         }
@@ -1104,9 +1145,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         mesh_updated        = true;
         _sharedData.visible = sceneDelegate->GetVisible(id);
-        if (!_sharedData.visible) {
-            m_visibilityFlags = 0;  //~ccl::PATH_RAY_ALL_VISIBILITY;
-        }
+
+        m_hydraVisibility = _sharedData.visible;
     }
 
     // -------------------------------------
@@ -1201,6 +1241,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (mesh_updated || newMesh) {
         m_cyclesObject->visibility = m_visibilityFlags;
+        if (!m_hydraVisibility)
+            m_cyclesObject->visibility = 0;
+
         m_cyclesMesh->tag_update(scene, false);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
