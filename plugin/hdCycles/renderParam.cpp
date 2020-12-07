@@ -611,6 +611,18 @@ HdCyclesRenderParam::_CyclesInitialize()
     default_vcol_surface->tag_update(m_cyclesScene);
     m_cyclesScene->shaders.push_back(default_vcol_surface);
 
+    m_bufferParams.passes.clear();
+
+    if(m_useTiledRendering) {
+        for(HdCyclesDefaultAov& aov : DefaultAovs) {
+            ccl::Pass::add( aov.type, m_bufferParams.passes, aov.name.c_str() );
+        }
+    } else {
+        ccl::Pass::add( ccl::PASS_COMBINED, m_bufferParams.passes, "Combined" );
+    }
+
+    m_cyclesScene->film->tag_passes_update( m_cyclesScene, m_bufferParams.passes );
+
     SetBackgroundShader(nullptr);
 
     m_cyclesSession->reset(m_bufferParams, params.samples);
@@ -652,7 +664,7 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
     //m_cyclesScene->mutex.lock();
 
-    m_cyclesSession->progress.reset();
+    //m_cyclesSession->progress.reset();
 
     if (m_curveUpdated || m_meshUpdated || m_geometryUpdated
         || m_shadersUpdated) {
@@ -683,7 +695,7 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 
     //m_cyclesScene->shaders->tag_update( m_cyclesScene );
     m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
-    m_cyclesScene->mutex.unlock();
+    //m_cyclesScene->mutex.unlock();
 }
 
 void
