@@ -189,7 +189,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                     case 4: color = vec4f_to_float3(colors4f[curve]); break;
                     }
 
-                    fdata[i++] = ccl::color_srgb_to_linear_v3(color);
+                    fdata[i++] = color;
                 }
             }
         } else {
@@ -231,7 +231,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                         break;
                     }
 
-                    fdata[i] = ccl::color_srgb_to_linear_v3(color);
+                    fdata[i] = color;
 
                     curveOffset += curveVertexCounts[i];
                 }

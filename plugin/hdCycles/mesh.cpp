@@ -364,11 +364,11 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
                 }
 
                 cdata[0] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v0])));
+                    vec3f_to_float4(colors[v0]));
                 cdata[1] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v1])));
+                    vec3f_to_float4(colors[v1]));
                 cdata[2] = ccl::color_float4_to_uchar4(
-                    ccl::color_srgb_to_linear_v4(vec3f_to_float4(colors[v2])));
+                    vec3f_to_float4(colors[v2]));
                 cdata += 3;
             }
             idxIt += vCount;
@@ -381,8 +381,7 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
             GfVec3f pv_col  = colors[0];
             ccl::float4 col = vec3f_to_float4(pv_col);
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
+            cdata[0] = ccl::color_float4_to_uchar4(col);
             cdata += 1;
         }
     } else if (interpolation == HdInterpolationFaceVarying) {
@@ -394,8 +393,7 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
             GfVec3f pv_col  = colors[idx];
             ccl::float4 col = vec3f_to_float4(pv_col);
 
-            cdata[0] = ccl::color_float4_to_uchar4(
-                ccl::color_srgb_to_linear_v4(col));
+            cdata[0] = ccl::color_float4_to_uchar4(col);
             cdata += 1;
         }
     }
@@ -628,7 +626,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
-
 
     scene->mutex.lock();
 
