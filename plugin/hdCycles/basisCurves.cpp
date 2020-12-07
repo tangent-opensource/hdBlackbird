@@ -596,7 +596,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         for (int j = 0; j < curveVertexCounts[i]; j++) {
             int idx = j + currentPointCount;
 
-            const float time = (float)j / (float)(curveVertexCounts[i]-1);
+            const float time = (float)j / (float)(curveVertexCounts[i] - 1);
 
             if (idx > m_points.size()) {
                 TF_WARN("Attempted to access invalid point. Continuing");
@@ -605,9 +605,10 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 
             ccl::float3 usd_location = vec3f_to_float3(m_points[idx]);
 
+            // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
             if (idx < m_widths.size())
-                radius = m_widths[idx];
+                radius = m_widths[idx] / 2.0f;
 
             m_cyclesHair->add_curve_key(usd_location, radius);
 
@@ -686,9 +687,10 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
         ccl::float3 ickey_loc = vec3f_to_float3(m_points[0]);
 
+        // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
         if (m_widths.size() > 0)
-            radius = m_widths[0];
+            radius = m_widths[0] / 2.0f;
 
         v1 = vec3f_to_float3(m_points[1] - m_points[0]);
         if (isCameraOriented) {
@@ -724,10 +726,10 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
                 v1 = vec3f_to_float3(m_points[idx + 1] - m_points[idx - 1]);
             }
 
-
+            // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
             if (idx < m_widths.size())
-                radius = m_widths[idx];
+                radius = m_widths[idx] / 2.0f;
 
             if (isCameraOriented) {
                 if (is_ortho)
@@ -857,9 +859,11 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             }
 
             // Add vertex in circle
+
+            // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
             if (idx < m_widths.size())
-                radius = m_widths[idx];
+                radius = m_widths[idx] / 2.0f;
 
             float angle = M_2PI_F / (float)m_curveResolution;
 

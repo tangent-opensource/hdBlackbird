@@ -67,6 +67,9 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
     temp_nodes.push_back("mix_closure");
     temp_nodes.push_back("add_closure");
     temp_nodes.push_back("hair_bsdf");
+    temp_nodes.push_back("principled_volume");
+    temp_nodes.push_back("scatter_volume");
+    temp_nodes.push_back("absorption_volume");
 
     for (const std::string& n : temp_nodes) {
         std::string cycles_id = std::string("cycles_" + n);
