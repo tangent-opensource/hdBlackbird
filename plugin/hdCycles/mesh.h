@@ -128,7 +128,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(TfToken name, VtVec2fArray& uvs,
+    void _AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                    HdInterpolation interpolation);
 
     /**
@@ -225,6 +225,12 @@ protected:
      */
     void _PopulateCreases();
 
+    /**
+     * @brief Populate generated coordinates attribute
+     * 
+     */
+    void _PopulateGenerated(ccl::Scene* scene);
+
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
     std::vector<ccl::Object*> m_cyclesInstances;
@@ -243,6 +249,7 @@ protected:
     VtVec3fArray m_points;
     VtIntArray m_faceVertexCounts;
     VtIntArray m_faceVertexIndices;
+    TfToken m_orientation;
 
     HdCyclesSampledPrimvarType m_pointSamples;
 

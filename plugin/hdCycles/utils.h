@@ -63,9 +63,17 @@ HDCYCLES_API
 void
 HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles);
 
+/**
+ * @brief Cycles specific conversion required to get generated coord offsets
+ * 
+ * @param a_transform 
+ * @param a_loc 
+ * @param a_size 
+ * @return * Cycles 
+ */
 HDCYCLES_API
 void
-HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size);
 
 /* ========== Material ========== */

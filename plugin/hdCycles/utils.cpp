@@ -90,13 +90,12 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 }
 
 void
-HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
-    // @TODO: The implementation of this function is broken
-    a_loc = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
-    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y,
-                              a_transform.z.z);
+    // m_cyclesMesh->compute_bounds must be called before this
+    a_loc  = (a_geom->bounds.max + a_geom->bounds.min) / 2.0f;
+    a_size = (a_geom->bounds.max - a_geom->bounds.min) / 2.0f;
 
     if (a_size.x != 0.0f)
         a_size.x = 0.5f / a_size.x;
@@ -626,7 +625,11 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
     ccl::Attribute* attr;
     ccl::ustring name;
 
-    name = ccl::ustring((std::string(layer_name) + ".tangent").c_str());
+    if (layer_name != NULL) {
+        name = ccl::ustring((std::string(layer_name) + ".tangent").c_str());
+    } else {
+        name = ccl::ustring("orco.tangent");
+    }
 
     if (active_render) {
         attr = attributes.add(ccl::ATTR_STD_UV_TANGENT, name);
@@ -639,8 +642,14 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
     float* tangent_sign = NULL;
     if (need_sign) {
         ccl::Attribute* attr_sign;
-        ccl::ustring name_sign = ccl::ustring(
-            (std::string(layer_name) + ".tangent_sign").c_str());
+        ccl::ustring name_sign;
+
+        if (layer_name != NULL) {
+            name_sign = ccl::ustring(
+                (std::string(layer_name) + ".tangent_sign").c_str());
+        } else {
+            name_sign = ccl::ustring("orco.tangent_sign");
+        }
 
         if (active_render) {
             attr_sign = attributes.add(ccl::ATTR_STD_UV_TANGENT_SIGN,

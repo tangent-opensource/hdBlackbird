@@ -234,7 +234,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                     case 4: color = vec4f_to_float3(colors4f[curve]); break;
                     }
 
-                    fdata[i++] = ccl::color_srgb_to_linear_v3(color);
+                    fdata[i++] = color;
                 }
             }
         } else {
@@ -276,7 +276,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                         break;
                     }
 
-                    fdata[i] = ccl::color_srgb_to_linear_v3(color);
+                    fdata[i] = color;
 
                     curveOffset += curveVertexCounts[i];
                 }
@@ -405,18 +405,15 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
 }
 
 void
-HdCyclesBasisCurves::_AddGenerated()
+HdCyclesBasisCurves::_PopulateGenerated()
 {
     if (!m_cyclesObject)
         return;
 
     ccl::float3 loc, size;
 
-    // @TODO: The implementation of this function is broken
-    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc,
-                             size);
-
     if (m_cyclesMesh) {
+        HdCyclesMeshTextureSpace(m_cyclesMesh, loc, size);
         ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(
             ccl::ATTR_STD_GENERATED);
         ccl::float3* generated = attr_generated->data_float3();
@@ -424,6 +421,7 @@ HdCyclesBasisCurves::_AddGenerated()
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++)
             generated[i] = m_cyclesMesh->verts[i] * size - loc;
     } else {
+        HdCyclesMeshTextureSpace(m_cyclesHair, loc, size);
         ccl::Attribute* attr_generated = m_cyclesHair->attributes.add(
             ccl::ATTR_STD_GENERATED);
         ccl::float3* generated = attr_generated->data_float3();
@@ -617,7 +615,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
             m_cyclesGeometry->compute_bounds();
 
-            _AddGenerated();
+            _PopulateGenerated();
 
             param->AddCurve(m_cyclesGeometry);
         }
@@ -740,9 +738,10 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 
             ccl::float3 usd_location = vec3f_to_float3(m_points[idx]);
 
+            // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
             if (idx < m_widths.size())
-                radius = m_widths[idx];
+                radius = m_widths[idx] / 2.0f;
 
             m_cyclesHair->add_curve_key(usd_location, radius);
 
@@ -821,9 +820,10 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
         ccl::float3 ickey_loc = vec3f_to_float3(m_points[0]);
 
+        // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
         if (m_widths.size() > 0)
-            radius = m_widths[0];
+            radius = m_widths[0] / 2.0f;
 
         v1 = vec3f_to_float3(m_points[1] - m_points[0]);
         if (isCameraOriented) {
@@ -859,10 +859,10 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
                 v1 = vec3f_to_float3(m_points[idx + 1] - m_points[idx - 1]);
             }
 
-
+            // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
             if (idx < m_widths.size())
-                radius = m_widths[idx];
+                radius = m_widths[idx] / 2.0f;
 
             if (isCameraOriented) {
                 if (is_ortho)
@@ -992,9 +992,11 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             }
 
             // Add vertex in circle
+
+            // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
             if (idx < m_widths.size())
-                radius = m_widths[idx];
+                radius = m_widths[idx] / 2.0f;
 
             float angle = M_2PI_F / (float)m_curveResolution;
 
