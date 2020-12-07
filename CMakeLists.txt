@@ -109,7 +109,17 @@ find_package(TIFF REQUIRED)
 find_package(OpenImageIO REQUIRED)
 
 find_package(OpenSubdiv)
+
 find_package(OpenVDB)
+if(${OpenVDB_FOUND})
+  set(WITH_OPENVDB ON)
+  set(OPENVDB_DEFINITIONS -DNOMINMAX -D_USE_MATH_DEFINES)
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
+  message("[HDCYCLES] Configured with OpenVDB")
+endif()
+
+find_package(Embree)
+find_package(OpenColorIO)
 
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)

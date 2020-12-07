@@ -186,6 +186,7 @@ HdCyclesMesh::_InitRepr(TfToken const& reprToken, HdDirtyBits* dirtyBits)
 void
 HdCyclesMesh::_ComputeTangents(bool needsign)
 {
+    // This is likely deprecated now
     const ccl::AttributeSet& attributes = (m_useSubdivision && m_subdivEnabled)
                                               ? m_cyclesMesh->subd_attributes
                                               : m_cyclesMesh->attributes;
@@ -198,7 +199,7 @@ HdCyclesMesh::_ComputeTangents(bool needsign)
 }
 
 void
-HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs,
+HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                         HdInterpolation interpolation)
 {
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
@@ -206,8 +207,19 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs,
                                         : &m_cyclesMesh->attributes;
     bool subdivide_uvs = false;
 
-    ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV,
-                                           ccl::ustring(name.GetString()));
+    ccl::ustring uv_name      = ccl::ustring(name.GetString());
+    ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
+
+    bool need_uv = m_cyclesMesh->need_attribute(scene, uv_name)
+                   || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV);
+    bool need_tangent
+        = m_cyclesMesh->need_attribute(scene, tangent_name)
+          || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+
+    // Forced true for now... Should be based on shader compilation needs
+    need_tangent = true;
+
+    ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV, uv_name);
     ccl::float2* fdata   = attr->data_float2();
 
     if (m_useSubdivision && subdivide_uvs && m_subdivEnabled)
@@ -225,6 +237,12 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs,
                 int v1 = *(idxIt + i + 0);
                 int v2 = *(idxIt + i + 1);
 
+                if (m_orientation == HdTokens->leftHanded) {
+                    int temp = v2;
+                    v2       = v0;
+                    v0       = temp;
+                }
+
                 fdata[0] = vec2f_to_float2(uvs[v0]);
                 fdata[1] = vec2f_to_float2(uvs[v1]);
                 fdata[2] = vec2f_to_float2(uvs[v2]);
@@ -237,6 +255,21 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs,
             fdata[0] = vec2f_to_float2(uvs[i]);
             fdata += 1;
         }
+    }
+
+    if (need_tangent) {
+        ccl::ustring sign_name = ccl::ustring(name.GetString()
+                                              + ".tangent_sign");
+        bool need_sign
+            = m_cyclesMesh->need_attribute(scene, sign_name)
+              || m_cyclesMesh->need_attribute(scene,
+                                              ccl::ATTR_STD_UV_TANGENT_SIGN);
+
+
+        // Forced for now
+        need_sign = true;
+        mikk_compute_tangents(name.GetString().c_str(), m_cyclesMesh, need_sign,
+                              true);
     }
 }
 
@@ -268,6 +301,12 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                 int v0 = *idxIt;
                 int v1 = *(idxIt + i + 0);
                 int v2 = *(idxIt + i + 1);
+
+                if (m_orientation == HdTokens->leftHanded) {
+                    int temp = v2;
+                    v2       = v0;
+                    v0       = temp;
+                }
 
                 vdata[0] = vec3f_to_float3(velocities[v0]);
                 vdata[1] = vec3f_to_float3(velocities[v1]);
@@ -318,6 +357,12 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
                 int v1 = *(idxIt + i + 0);
                 int v2 = *(idxIt + i + 1);
 
+                if (m_orientation == HdTokens->leftHanded) {
+                    int temp = v2;
+                    v2       = v0;
+                    v0       = temp;
+                }
+
                 cdata[0] = ccl::color_float4_to_uchar4(
                     vec3f_to_float4(colors[v0]));
                 cdata[1] = ccl::color_float4_to_uchar4(
@@ -357,10 +402,65 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
 void
 HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 {
-    m_cyclesMesh->add_face_normals();
-    m_cyclesMesh->add_vertex_normals();
+    ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
-    //TODO: Implement
+    if (interpolation == HdInterpolationUniform) {
+        ccl::Attribute* attr_fN = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
+        ccl::float3* fN         = attr_fN->data_float3();
+
+        int idx = 0;
+        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+            const int vCount = m_faceVertexCounts[i];
+
+            // This needs to be checked
+            for (int j = 1; j < vCount - 1; ++idx) {
+                fN[idx] = vec3f_to_float3(normals[idx]);
+            }
+        }
+
+    } else if (interpolation == HdInterpolationVertex) {
+        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::float3* cdata   = attr->data_float3();
+
+        memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
+            ccl::float3 n = vec3f_to_float3(normals[i]);
+            if (m_orientation == HdTokens->leftHanded)
+                n = -n;
+            cdata[i] = n;
+        }
+
+    } else if (interpolation == HdInterpolationFaceVarying) {
+        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        //ccl::float3* cdata   = attr->data_float3();
+
+        // TODO: For now, this method produces very wrong results. Some other solution will be needed
+
+        m_cyclesMesh->add_face_normals();
+        m_cyclesMesh->add_vertex_normals();
+
+        return;
+
+        //memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+
+        // Although looping through all faces, normals are averaged per
+        // vertex. This seems to be a limitation of cycles. Not allowing
+        // face varying/loop_normals/corner_normals natively.
+
+        // For now, we add all corner normals and normalize separately.
+        // TODO: Update when Cycles supports corner_normals
+        /*for (size_t i = 0; i < m_numMeshFaces; i++) {
+            for (size_t j = 0; j < 3; j++) {
+                ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
+                cdata[m_cyclesMesh->get_triangle(i).v[j]] += n;
+            }
+        }
+
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
+            cdata[i] = ccl::normalize(cdata[i]);
+        }*/
+    }
 }
 
 ccl::Mesh*
@@ -429,9 +529,16 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
 
             vi.resize(vCount);
 
-            for (int i = 0; i < vCount; ++i) {
-                vi[i] = *(idxIt + i);
+            if (m_orientation == HdTokens->rightHanded) {
+                for (int i = 0; i < vCount; ++i) {
+                    vi[i] = *(idxIt + i);
+                }
+            } else {
+                for (int i = vCount; i > 0; i--) {
+                    vi[i] = *(idxIt + i);
+                }
             }
+
             idxIt += vCount;
 
             m_cyclesMesh->add_subd_face(&vi[0], vCount, materialId, true);
@@ -451,16 +558,11 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                 int v2 = *(idxIt + i + 1);
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
-                    if (m_orientation == HdTokens->leftHanded) {
-                        if (i < vCount - 2) {
-                            m_cyclesMesh->add_triangle(v1, v0, v2, materialId,
-                                                       true);
-                        } else {
-                            m_cyclesMesh->add_triangle(v0, v2, v1, materialId,
-                                                       true);
-                        }
-                    } else {
+                    if (m_orientation == HdTokens->rightHanded) {
                         m_cyclesMesh->add_triangle(v0, v1, v2, materialId,
+                                                   true);
+                    } else {
+                        m_cyclesMesh->add_triangle(v0, v2, v1, materialId,
                                                    true);
                     }
                 }
@@ -493,20 +595,35 @@ HdCyclesMesh::_PopulateCreases()
 }
 
 void
-HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
+HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
 {
-    _ComputeTangents(true);
-
     if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
-        ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+        ccl::float3 loc, size;
+        HdCyclesMeshTextureSpace(m_cyclesMesh, loc, size);
+
+        ccl::AttributeSet* attributes = (m_useSubdivision)
                                             ? &m_cyclesMesh->subd_attributes
                                             : &m_cyclesMesh->attributes;
         ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
-        memcpy(attr->data_float3(), m_cyclesMesh->verts.data(),
-               sizeof(ccl::float3) * m_cyclesMesh->verts.size());
-    }
 
+        ccl::float3* generated = attr->data_float3();
+        for (int i = 0; i < m_cyclesMesh->verts.size(); i++) {
+            generated[i] = m_cyclesMesh->verts[i] * size - loc;
+        }
+    }
+}
+
+void
+HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
+{
+    // Deprecated in favour of adding when uv's are added
+    // This should no longer be necessary
+    //_ComputeTangents(true);
+
+    // This must be done first, because HdCyclesMeshTextureSpace requires computed min/max
     m_cyclesMesh->compute_bounds();
+
+    _PopulateGenerated(scene);
 }
 
 void
@@ -578,31 +695,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_faceVertexIndices = m_topology.GetFaceVertexIndices();
         m_geomSubsets       = m_topology.GetGeomSubsets();
         m_orientation       = m_topology.GetOrientation();
-
-        if (m_orientation == HdTokens->leftHanded) {
-            std::cout << m_faceVertexIndices << '\n';
-            VtIntArray newIndices;
-            newIndices.resize(m_faceVertexIndices.size());
-            int tot = 0;
-            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-                int count = m_faceVertexCounts[i];
-
-                for (int j = 0; j < count; j++) {
-                    int idx  = tot + j;
-                    int ii   = tot + ((j + (count / 2)) % count);
-                    int ridx = tot + (count - j);
-
-                    if (j == 0)
-                        newIndices[idx] = m_faceVertexIndices[idx];
-                    else
-                        newIndices[idx] = m_faceVertexIndices[ridx];
-                }
-
-                tot += count;
-            }
-            m_faceVertexIndices = newIndices;
-            std::cout << m_faceVertexIndices << '\n';
-        }
 
         m_numMeshFaces = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
@@ -744,15 +836,14 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         VtVec3fArray normals;
                         normals = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                        // TODO: Properly implement
-                        /*if (primvarDescsEntry.first
+                        if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
                             // Triangulate primvar normals
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                 normals.data(), normals.size(), HdTypeFloatVec3,
                                 &triangulated);
                             normals = triangulated.Get<VtVec3fArray>();
-                        }*/
+                        }
 
                         _AddNormals(normals, primvarDescsEntry.first);
                     }
@@ -837,10 +928,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             VtVec2fArray triangulatedUvs
                                 = triangulated.Get<VtVec2fArray>();
 
-                            _AddUVSet(pv.name, triangulatedUvs,
+                            _AddUVSet(pv.name, triangulatedUvs, scene,
                                       primvarDescsEntry.first);
                         } else {
-                            _AddUVSet(pv.name, uvs, primvarDescsEntry.first);
+                            _AddUVSet(pv.name, uvs, scene,
+                                      primvarDescsEntry.first);
                         }
                     }
                 }

@@ -17,27 +17,29 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_BASIS_CURVES_H
-#define HD_CYCLES_BASIS_CURVES_H
+#ifndef HD_CYCLES_VOLUME_H
+#define HD_CYCLES_VOLUME_H
 
 #include "api.h"
 
+#include "utils.h"
 #include "hdcycles.h"
 #include "renderDelegate.h"
 
 #include <util/util_transform.h>
 
 #include <pxr/base/gf/matrix4f.h>
-#include <pxr/imaging/hd/basisCurves.h>
+#include <pxr/imaging/hd/volume.h>
 #include <pxr/pxr.h>
 
+#ifdef WITH_OPENVDB
+#include <openvdb/openvdb.h>
+#endif
 
 namespace ccl {
 class Mesh;
 class Scene;
 class Object;
-class Camera;
-class Hair;
 class Geometry;
 }  // namespace ccl
 
@@ -46,16 +48,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdSceneDelegate;
 class HdCyclesRenderDelegate;
 
-enum HdCyclesCurveStyle {
-    CURVE_RIBBONS,
-    CURVE_TUBE,
-};
-
 /**
  * @brief Cycles Basis Curve Rprim mapped to Cycles Basis Curve
  * 
  */
-class HdCyclesBasisCurves final : public HdBasisCurves {
+class HdCyclesVolume final : public HdVolume {
 public:
     /**
      * @brief Construct a new HdCycles Basis Curve object
@@ -64,13 +61,13 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this curve
      * as a prototype
      */
-    HdCyclesBasisCurves(SdfPath const& id, SdfPath const& instancerId,
-                        HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId,
+                   HdCyclesRenderDelegate* a_renderDelegate);
     /**
      * @brief Destroy the HdCycles Basis Curves object
      * 
      */
-    virtual ~HdCyclesBasisCurves();
+    virtual ~HdCyclesVolume();
 
     /**
      * @brief Pull invalidated material data and prepare/update the core Cycles 
@@ -121,50 +118,10 @@ protected:
      */
     HdDirtyBits _PropagateDirtyBits(HdDirtyBits bits) const override;
 
-    /**
-     * @brief Add Color and arbitrary primvar attributes to curves
-     * Specifically only uniform varying are supported with the Cycles API
-     * This means vertex varying primvars are lossy and grabbed from the root.
-     * 
-     * @param name Name of the color primvar
-     * @param value VtValue holding data (floats-float4)
-     * @param interpolation Interpolation of colors
-     */
-    void _AddColors(TfToken name, VtValue value, HdInterpolation interpolation);
-
-    /**
-     * @brief Add UV specific attributes to curves.
-     * Specifically only uniform varying are supported with the Cycles API
-     * This means vertex varying uvs are lossy and grabbed from the root.
-     * 
-     * @param name Name of the UV Set
-     * @param uvs VtValue holding uvs
-     * @param interpolation Interpolation of uvs
-     */
-    void _AddUVS(TfToken name, VtValue uvs, HdInterpolation interpolation);
-
-    /**
-     * @brief Populate generated coordinates for basisCurves
-     * 
-     */
-    void _PopulateGenerated();
-
 protected:
-    VtVec3fArray m_points;
-    VtVec3fArray m_normals;
-    VtFloatArray m_widths;
-    HdBasisCurvesTopology m_topology;
-    HdInterpolation m_widthsInterpolation;
-    VtIntArray m_indices;
     GfMatrix4f m_transform;
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    int m_numTransformSamples;
     bool m_useMotionBlur;
-    int m_motionSteps;
-
-    HdCyclesCurveStyle m_curveStyle;
-    int m_curveResolution;
 
 private:
     /**
@@ -174,39 +131,27 @@ private:
      */
     ccl::Object* _CreateObject();
 
+    ccl::Mesh* _CreateVolume();
+
     /**
      * @brief Populate the Cycles mesh representation from delegate's data
      */
-    void _PopulateCurveMesh(HdRenderParam* renderParam);
-
-    /**
-     * @brief Manually create ribbon geometry for curves
-     * 
-     * @param a_camera Optional camera to orient towards
-     */
-    void _CreateRibbons(ccl::Camera* a_camera = nullptr);
-
-    /**
-     * @brief Manually create tube/bevelled geometry for curves
-     * 
-     */
-    void _CreateTubeMesh();
-
-    /**
-     * @brief Properly populate native cycles curves with curve data
-     * 
-     * @param a_scene Scene to add to
-     */
-    void _CreateCurves(ccl::Scene* a_scene);
+    void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
+                         ccl::Scene* scene);
 
     ccl::Object* m_cyclesObject;
-    ccl::Mesh* m_cyclesMesh;
-    ccl::Hair* m_cyclesHair;
-    ccl::Geometry* m_cyclesGeometry;
+
+    ccl::Mesh* m_cyclesVolume;
 
     HdCyclesRenderDelegate* m_renderDelegate;
+
+    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+
+    ccl::vector<ccl::Shader *> m_usedShaders;
+
+    //openvdb::VolumeGridVector* grids;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_BASIS_CURVES_H
+#endif  // HD_CYCLES_VOLUME_H

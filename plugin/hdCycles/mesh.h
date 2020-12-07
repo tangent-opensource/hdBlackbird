@@ -128,7 +128,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(TfToken name, VtVec2fArray& uvs,
+    void _AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
                    HdInterpolation interpolation);
 
     /**
@@ -222,6 +222,12 @@ protected:
      * 
      */
     void _PopulateCreases();
+
+    /**
+     * @brief Populate generated coordinates attribute
+     * 
+     */
+    void _PopulateGenerated(ccl::Scene* scene);
 
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
