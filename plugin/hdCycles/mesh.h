@@ -224,14 +224,6 @@ protected:
     void _PopulateCreases();
 
     /**
-     * @brief Cycles specific conversion required to get generated coord offsets
-     * 
-     * @param loc 
-     * @param size 
-     */
-    void _MeshTextureSpace(ccl::float3& loc, ccl::float3& size);
-
-    /**
      * @brief Populate generated coordinates attribute
      * 
      */
