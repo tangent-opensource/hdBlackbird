@@ -88,7 +88,7 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 }
 
 void
-HdCyclesMeshTextureSpace(ccl::Geometry& a_geom, ccl::float3& a_loc,
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
     // m_cyclesMesh->compute_bounds must be called before this
