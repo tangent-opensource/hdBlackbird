@@ -144,10 +144,10 @@ protected:
     void _AddUVS(TfToken name, VtValue uvs, HdInterpolation interpolation);
 
     /**
-     * @brief Add generated coordinate for basisCurves
+     * @brief Populate generated coordinates for basisCurves
      * 
      */
-    void _AddGenerated();
+    void _PopulateGenerated();
 
 protected:
     VtVec3fArray m_points;

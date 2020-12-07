@@ -88,21 +88,21 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 }
 
 void
-HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+HdCyclesMeshTextureSpace(ccl::Geometry& a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
-    // @TODO: The implementation of this function is broken
-    a_loc  = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
-    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y, a_transform.z.z);
+    // m_cyclesMesh->compute_bounds must be called before this
+    loc  = (a_geom->bounds.max + a_geom->bounds.min) / 2.0f;
+    size = (a_geom->bounds.max - a_geom->bounds.min) / 2.0f;
 
-    if (a_size.x != 0.0f)
-        a_size.x = 0.5f / a_size.x;
-    if (a_size.y != 0.0f)
-        a_size.y = 0.5f / a_size.y;
-    if (a_size.z != 0.0f)
-        a_size.z = 0.5f / a_size.z;
+    if (size.x != 0.0f)
+        size.x = 0.5f / size.x;
+    if (size.y != 0.0f)
+        size.y = 0.5f / size.y;
+    if (size.z != 0.0f)
+        size.z = 0.5f / size.z;
 
-    a_loc = a_loc * a_size - ccl::make_float3(0.5f, 0.5f, 0.5f);
+    loc = loc * size - ccl::make_float3(0.5f, 0.5f, 0.5f);
 }
 
 /* ========== Material ========== */

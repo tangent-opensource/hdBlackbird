@@ -360,17 +360,15 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
 }
 
 void
-HdCyclesBasisCurves::_AddGenerated()
+HdCyclesBasisCurves::_PopulateGenerated()
 {
     if (!m_cyclesObject)
         return;
 
     ccl::float3 loc, size;
 
-    // @TODO: The implementation of this function is broken
-    HdCyclesMeshTextureSpace(ccl::transform_inverse(m_cyclesObject->tfm), loc, size);
-
     if (m_cyclesMesh) {
+        HdCyclesMeshTextureSpace(m_cyclesMesh, loc, size);
         ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(
             ccl::ATTR_STD_GENERATED);
         ccl::float3* generated = attr_generated->data_float3();
@@ -378,6 +376,7 @@ HdCyclesBasisCurves::_AddGenerated()
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++)
             generated[i] = m_cyclesMesh->verts[i] * size - loc;
     } else {
+        HdCyclesMeshTextureSpace(m_cyclesHair, loc, size);
         ccl::Attribute* attr_generated = m_cyclesHair->attributes.add(
             ccl::ATTR_STD_GENERATED);
         ccl::float3* generated = attr_generated->data_float3();
@@ -503,7 +502,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
             m_cyclesGeometry->compute_bounds();
 
-            _AddGenerated();
+            _PopulateGenerated();
 
             m_cyclesGeometry->tag_update(scene, true);
 
