@@ -518,7 +518,6 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
     }
 
     VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
-    int tots                         = 0;
 
     if (a_subdivide) {
         bool smooth = true;
@@ -566,13 +565,8 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                                                    true);
                     }
                 }
-
-                std::cout << tots << '\n';
-                std::cout << tots + i + 0 << '\n';
-                std::cout << tots + i + 1 << '\n';
             }
             idxIt += vCount;
-            tots += vCount;
         }
     }
 }
@@ -892,35 +886,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             = value.UncheckedGet<VtArray<GfVec2f>>();
                         if (primvarDescsEntry.first
                             == HdInterpolationFaceVarying) {
-                            if (m_orientation == HdTokens->leftHanded) {
-                                VtVec2fArray arr;
-                                arr.resize(uvs.size());
-                                int tot = 0;
-
-                                for (int i = 0; i < m_faceVertexCounts.size();
-                                     i++) {
-                                    int count = m_faceVertexCounts[i];
-
-                                    for (int j = 0; j < count; j++) {
-                                        int idx = tot + j;
-                                        int ii  = tot
-                                                 + ((j + (count / 2)) % count);
-                                        int ridx = tot + (count - j);
-
-                                        if (j == 0) {
-                                            arr[idx] = uvs[idx];
-                                        } else {
-                                            arr[idx] = uvs[ridx];
-                                        }
-                                    }
-
-                                    tot += count;
-                                }
-                                std::cout << uvs << '\n';
-                                std::cout << arr << '\n';
-                                uvs = arr;
-                            }
-
                             meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                 uvs.data(), uvs.size(), HdTypeFloatVec2,
                                 &triangulated);
