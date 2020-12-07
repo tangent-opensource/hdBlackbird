@@ -92,17 +92,17 @@ HdCyclesMeshTextureSpace(ccl::Geometry& a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
     // m_cyclesMesh->compute_bounds must be called before this
-    loc  = (a_geom->bounds.max + a_geom->bounds.min) / 2.0f;
-    size = (a_geom->bounds.max - a_geom->bounds.min) / 2.0f;
+    a_loc  = (a_geom->bounds.max + a_geom->bounds.min) / 2.0f;
+    a_size = (a_geom->bounds.max - a_geom->bounds.min) / 2.0f;
 
-    if (size.x != 0.0f)
-        size.x = 0.5f / size.x;
-    if (size.y != 0.0f)
-        size.y = 0.5f / size.y;
-    if (size.z != 0.0f)
-        size.z = 0.5f / size.z;
+    if (a_size.x != 0.0f)
+        a_size.x = 0.5f / a_size.x;
+    if (a_size.y != 0.0f)
+        a_size.y = 0.5f / a_size.y;
+    if (a_size.z != 0.0f)
+        a_size.z = 0.5f / a_size.z;
 
-    loc = loc * size - ccl::make_float3(0.5f, 0.5f, 0.5f);
+    a_loc = a_loc * a_size - ccl::make_float3(0.5f, 0.5f, 0.5f);
 }
 
 /* ========== Material ========== */
@@ -589,7 +589,8 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
         ccl::ustring name_sign;
 
         if (layer_name != NULL) {
-            name_sign = ccl::ustring((std::string(layer_name) + ".tangent_sign").c_str());
+            name_sign = ccl::ustring(
+                (std::string(layer_name) + ".tangent_sign").c_str());
         } else {
             name_sign = ccl::ustring("orco.tangent_sign");
         }
