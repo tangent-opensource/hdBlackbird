@@ -124,6 +124,21 @@ find_package(OpenColorIO)
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)
 
+# -- Cycles Logging
+find_package(Glog)
+if(${Glog_FOUND})
+  add_definitions(${GLOG_DEFINES})
+endif()
+
+find_package(Gflags)
+if(${Gflags_FOUND})
+  add_definitions(-DCYCLES_GFLAGS_NAMESPACE=${GFLAGS_NAMESPACE})
+endif()
+
+if(${Glog_FOUND} AND ${Gflags_FOUND})
+  add_definitions(-DWITH_CYCLES_LOGGING)
+endif()
+
 # -- Build Flags
 
 if("${USD_MINOR_VERSION}" STRGREATER_EQUAL "20")
