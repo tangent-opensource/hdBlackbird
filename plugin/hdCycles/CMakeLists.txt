@@ -49,13 +49,16 @@ pxr_plugin(${PXR_PACKAGE}
     ${EMBREE_LIBRARIES}
     ${OPENVDB_LIBRARY}
     ${OCIO_LIBRARIES}
+        
+    ${GLOG_LIBRARY}
+    ${GFLAGS_LIBRARY}
     
   CPPFILES
     "Mikktspace/mikktspace.c"
 
   INCLUDE_DIRS
     ${USD_INCLUDE_DIR}
-    ${Boost_INCLUDE_DIRS}
+    ${Boost_INCLUDE_DIR}
     ${TBB_INCLUDE_DIRS}
     ${Python_INCLUDE_DIRS}
     ${CYCLES_INCLUDE_DIRS}
@@ -68,6 +71,9 @@ pxr_plugin(${PXR_PACKAGE}
     ${EMBREE_INCLUDE_DIRS}
     ${OCIO_INCLUDE_DIRS}
 
+    ${GFLAGS_INCLUDE_DIR}
+    ${GLOG_INCLUDE_DIR}
+
   PUBLIC_CLASSES
     basisCurves
     camera
@@ -76,6 +82,9 @@ pxr_plugin(${PXR_PACKAGE}
     material
     mesh
     points
+  
+    volume
+    openvdb_asset
 
     renderDelegate
     rendererPlugin
