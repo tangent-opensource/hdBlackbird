@@ -614,9 +614,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 
     m_objectsUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->objects.push_back(a_object);
-    m_cyclesScene->mutex.unlock();
 
     Interrupt();
 }

@@ -1007,6 +1007,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
+        // It's likely that this breaks geom subset materials,
+        // but they should also get tagged as dirty at the same time...
+        m_usedShaders.clear();
+
         if (m_cyclesMesh) {
             m_cachedMaterialId = sceneDelegate->GetMaterialId(id);
             if (m_faceVertexCounts.size() > 0) {
