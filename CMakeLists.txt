@@ -21,7 +21,8 @@ project(hdCycles)
 
 cmake_minimum_required(VERSION 3.12)
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/defaults
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
+                      ${CMAKE_SOURCE_DIR}/cmake/defaults
                       ${CMAKE_SOURCE_DIR}/cmake/modules
                       ${CMAKE_SOURCE_DIR}/cmake/macros)
 
@@ -49,8 +50,6 @@ set(CMAKE_CXX_STANDARD 14)
 
 # -- HdCycles Definitions
 
-add_definitions(-DWITH_OPENSUBDIV)
-
 add_definitions(
   ${BOOST_DEFINITIONS}
   ${OPENIMAGEIO_DEFINITIONS}
@@ -61,26 +60,24 @@ add_definitions(
   -DCCL_NAMESPACE_END=}
 )
 
-if($ENV{USD_HOUDINI})
-  option(USE_USD_HOUDINI "Use Houdini" ON)
-  add_definitions(-DUSE_USD_HOUDINI)
+# Default variant USD Pixar
+set(USD_BUILD_VARIANT "USD_PIXAR")
 
-  set(CMAKE_SHARED_LIBRARY_PREFIX "libpxr_")
-  find_package(Houdini)
-
-  set(HBoost_NO_SYSTEM_PATHS true)
-  set(HBoost_USE_STATIC_LIBS OFF CACHE BOOL "use static libs")
-
-  add_definitions(-DHBOOST_ALL_NO_LIB)
-  add_definitions(-DHBOOST_ALL_DYN_LINK)
+if(DEFINED ENV{USD_BUILD_VARIANT})
+  file(TO_CMAKE_PATH $ENV{USD_BUILD_VARIANT} USD_BUILD_VARIANT)
 endif()
 
 # -- External Packages
 
+# - Python
+
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
 find_package(PyOpenGL REQUIRED)
-find_package(PySide REQUIRED)
+find_package(PySide)
 
+# - Boost
+
+file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
 
 # Boost python libraries in some cases do not have a trailing version.
 # Try the versioned library first and fall back to a non-versioned library.
@@ -96,19 +93,64 @@ if(NOT ${Boost_${boost_python_component_upper}_FOUND})
   find_package(Boost COMPONENTS python thread program_options filesystem REQUIRED)
 endif()
 
+add_definitions(-DBOOST_NS=boost)
+
+# -- Houdini Deps
+
+# - Legacy Houdini find path
+
+find_package(Houdini)
+if(${Houdini_FOUND})
+  # This code path is only used by third party building, our internal builds
+  # set USD_BUILD_VARIANT. It's likely that this path will be removed...
+  set(USD_BUILD_VARIANT "USD_HOUDINI")
+
+  add_definitions(-DUSE_LEGACY_HOUDINI)
+endif()
+
+# - Proper USD_HOUDINI CMake/rez path
+
+if(${USD_BUILD_VARIANT} STREQUAL "USD_HOUDINI")
+  # HBoost has been manually extracted and rezified to allow this Find command
+  find_package(HBoost)
+
+  set(CMAKE_SHARED_LIBRARY_PREFIX "libpxr_")
+
+  set(HBoost_NO_SYSTEM_PATHS true)
+  set(HBoost_USE_STATIC_LIBS OFF CACHE BOOL "use static libs")
+
+  add_definitions(-DHBOOST_ALL_NO_LIB)
+  add_definitions(-DHBOOST_ALL_DYN_LINK)
+
+  # We set these via rez, but are useful to expose here
+  add_definitions(-DUSE_HBOOST)
+  add_definitions(-DBOOST_NS=hboost)
+endif()
+
+# -- External Deps
+
 find_package(GLEW REQUIRED)
 find_package(OpenEXR REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(OpenJPEG REQUIRED)
 find_package(TBB REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(OpenImageIO REQUIRED)
+find_package(OpenColorIO)
 
+# TODO: These are unfornate. We should move these elsewhere...
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
+file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
+
+find_package(OpenJPEG REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
-find_package(OpenImageIO REQUIRED)
 
 find_package(OpenSubdiv)
+if(${OpenSubdiv_FOUND})
+  add_definitions(-DWITH_OPENSUBDIV)
+endif()
 
 find_package(OpenVDB)
 if(${OpenVDB_FOUND})
@@ -119,12 +161,18 @@ if(${OpenVDB_FOUND})
 endif()
 
 find_package(Embree)
-find_package(OpenColorIO)
+if(${Embree_FOUND})
+  set(WITH_EMBREE ON)
+  add_definitions(-DWITH_EMBREE)
+  add_definitions(-DEMBREE_STATIC_LIB)
+  message("[HDCYCLES] Configured with Embree")
+endif()
 
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)
 
-# -- Cycles Logging
+# - Cycles Logging
+
 find_package(Glog)
 if(${Glog_FOUND})
   add_definitions(${GLOG_DEFINES})
@@ -142,7 +190,7 @@ endif()
 # -- Build Flags
 
 if("${USD_MINOR_VERSION}" STRGREATER_EQUAL "20")
-add_definitions(-DUSD_HAS_NEW_SDR_NODE_CONSTRUCTOR)
+  add_definitions(-DUSD_HAS_NEW_SDR_NODE_CONSTRUCTOR)
 endif()
 
 if("${USD_MINOR_VERSION}" STRGREATER_EQUAL "20" AND 

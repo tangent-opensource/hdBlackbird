@@ -17,6 +17,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-if(USE_USD_HOUDINI)
+if(USE_LEGACY_HOUDINI)
     add_subdirectory(houdini)
 endif()
