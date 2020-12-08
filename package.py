@@ -13,7 +13,6 @@ requires = [
     'cycles-1.13',
 ]
 
-
 variants = [
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
@@ -22,7 +21,8 @@ variants = [
 
 build_system = "cmake"
 
-# Release this as an internal package
+# At Tangent rez-release is external by default, 
+# this forces a rez-release as an internal package
 with scope("config") as c:
     import sys
     if 'win' in str(sys.platform):
@@ -30,6 +30,8 @@ with scope("config") as c:
     else:
         c.release_packages_path = "/r/int"
 
+# At Tangent we have a visual studio package which 
+# exposes the visual studio compiler for rez.
 @early()
 def private_build_requires():
     import sys
@@ -38,6 +40,7 @@ def private_build_requires():
     else:
         return ['gcc-7']
 
+# Pass along rez version to cmake build
 def pre_build_commands():
     env.HDCYCLES_BUILD_VERSION_MAJOR.set(this.version.major)
     env.HDCYCLES_BUILD_VERSION_MINOR.set(this.version.minor)
@@ -45,6 +48,7 @@ def pre_build_commands():
 
     env.HDCYCLES_BUILD_VERSION.set(str(this.version))
 
+# Main commands for rez build and environment
 def commands():        
     env.HDCYCLES_ROOT.set('{root}')
     env.HDCYCLES_PLUGIN_ROOT.set('{root}/plugin')
