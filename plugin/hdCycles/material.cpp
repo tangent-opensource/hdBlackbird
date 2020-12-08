@@ -588,6 +588,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
     auto cyclesRenderParam     = static_cast<HdCyclesRenderParam*>(renderParam);
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
+    bool material_updated = false;
 
     HdDirtyBits bits = *dirtyBits;
 
@@ -605,14 +606,12 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
             HdMaterialNetwork const* displacement = nullptr;
             HdMaterialNetwork const* volume       = nullptr;
 
-            bool foundNetwork = false;
-
             if (GetMaterialNetwork(HdCyclesMaterialTerminalTokens->surface,
                                    sceneDelegate, networkMap,
                                    *cyclesRenderParam, &surface,
                                    m_shaderGraph)) {
                 if (m_shader && m_shaderGraph) {
-                    foundNetwork = true;
+                    material_updated = true;
                 }
             }
 
@@ -621,7 +620,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
                                    *cyclesRenderParam, &displacement,
                                    m_shaderGraph)) {
                 if (m_shader && m_shaderGraph) {
-                    foundNetwork = true;
+                    material_updated = true;
                 }
             }
 
