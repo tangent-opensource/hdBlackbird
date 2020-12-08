@@ -40,6 +40,10 @@
 #include <render/scene.h>
 #include <render/session.h>
 
+#ifdef WITH_CYCLES_LOGGING
+#    include <util/util_logging.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 double
@@ -52,6 +56,14 @@ clamp(double d, double min, double max)
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
     , m_useTiledRendering(false)
+    , m_cyclesScene(nullptr)
+    , m_cyclesSession(nullptr)
+    , m_objectsUpdated(false)
+    , m_geometryUpdated(false)
+    , m_curveUpdated(false)
+    , m_meshUpdated(false)
+    , m_lightsUpdated(false)
+    , m_shadersUpdated(false)
 {
     _InitializeDefaults();
 }
@@ -63,6 +75,13 @@ HdCyclesRenderParam::_InitializeDefaults()
     m_deviceName                        = config.device_name;
     m_useMotionBlur                     = config.enable_motion_blur;
     m_useTiledRendering                 = config.use_tiled_rendering;
+
+#ifdef WITH_CYCLES_LOGGING
+    if (config.cycles_enable_logging) {
+        ccl::util_logging_start();
+        ccl::util_logging_verbosity_set(config.cycles_logging_severity);
+    }
+#endif
 }
 
 float
@@ -260,13 +279,6 @@ void
 HdCyclesRenderParam::CommitResources()
 {
     if (m_shouldUpdate) {
-        if (m_cyclesScene->lights.size() > 0) {
-            if (!m_hasDomeLight)
-                SetBackgroundShader(nullptr, false);
-        } else {
-            SetBackgroundShader(nullptr, true);
-        }
-
         CyclesReset(false);
         m_shouldUpdate = false;
         ResumeRender();
@@ -680,6 +692,7 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     if (m_objectsUpdated || m_shadersUpdated) {
         m_cyclesScene->object_manager->tag_update(m_cyclesScene);
         m_objectsUpdated = false;
+        m_shadersUpdated = false;
     }
     if (m_lightsUpdated) {
         m_cyclesScene->light_manager->tag_update(m_cyclesScene);
@@ -866,6 +879,13 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         } else {
             ++it;
         }
+    }
+
+    if (m_cyclesScene->lights.size() > 0) {
+        if (!m_hasDomeLight)
+            SetBackgroundShader(nullptr, false);
+    } else {
+        SetBackgroundShader(nullptr, true);
     }
 
     if (m_lightsUpdated)

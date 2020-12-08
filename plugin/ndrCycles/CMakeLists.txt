@@ -22,8 +22,9 @@ set(PXR_PACKAGE ndrCycles)
 
 add_custom_target(shared_libs)
 
-if(USE_USD_HOUDINI)
-  link_directories(${HOUDINI_LIB_DIRS})  
+if(USE_LEGACY_HOUDINI)
+  include_directories(${HOUDINI_INCLUDE_DIRS})
+  link_directories(${HOUDINI_LIB_DIRS})
   link_libraries(${HOUDINI_LIBRARIES_DEPS})
 endif()
 
@@ -32,6 +33,7 @@ pxr_plugin(${PXR_PACKAGE}
     ${USD_LIBRARIES}
     ${TBB_LIBRARIES}
     ${Boost_LIBRARIES}
+    ${HBoost_LIBRARIES}
     ${Python_LIBRARIES}            
     ${CYCLES_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
@@ -48,6 +50,7 @@ pxr_plugin(${PXR_PACKAGE}
   INCLUDE_DIRS
     ${USD_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
+    ${HBoost_INCLUDE_DIRS}
     ${Python_INCLUDE_DIRS}
     ${CYCLES_INCLUDE_DIRS}
     ${OIIO_INCLUDE_DIRS}

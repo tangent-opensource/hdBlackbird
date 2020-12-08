@@ -131,11 +131,25 @@ foreach(HOUDINI_LIB
 endforeach()
 
 foreach(HOUDINI_LIB_DEP
+    OpenColorIO_sidefx
     OpenImageIO_sidefx
     OpenImageIO_Util_sidefx
     hboost_python-mt
     hboost_filesystem-mt
     hboost_system-mt
+    openvdb_sesi
+    tbb
+    tiff
+    embree_sidefx
+    glew
+    Iex_sidefx
+    IexMath_sidefx
+    IlmImf_sidefx
+    IlmImfUtil_sidefx
+    IlmThread_sidefx
+    Imath_sidefx
+    jpeg
+    Half
     )
     find_library(HOUDINI_${HOUDINI_LIB_DEP}_LIBRARY
             ${HOUDINI_LIB_DEP}

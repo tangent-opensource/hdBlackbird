@@ -26,6 +26,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 
+/* ====== Cycles Settings ====== */
+
+TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable Cycles Logging");
+TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1, "Severity of Cycles logging");
+
 /* ====== HdCycles Settings ====== */
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
@@ -168,6 +173,10 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_VOLUME_SAMPLES, 1,
 // HdCycles Constructor
 HdCyclesConfig::HdCyclesConfig()
 {
+    // -- Cycles Settings
+    cycles_enable_logging   = TfGetEnvSetting(CYCLES_ENABLE_LOGGING);
+    cycles_logging_severity = TfGetEnvSetting(CYCLES_LOGGING_SEVERITY);
+
     // -- HdCycles Settings
     use_tiled_rendering     = TfGetEnvSetting(HD_CYCLES_USE_TILED_RENDERING);
     enable_logging          = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);

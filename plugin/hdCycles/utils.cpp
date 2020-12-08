@@ -27,12 +27,10 @@
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/usd/sdf/assetPath.h>
 
-#ifdef USE_USD_HOUDINI
+#ifdef USE_HBOOST
 #    include <hboost/filesystem.hpp>
-#    define BOOST_LIB_NAME hboost
 #else
 #    include <boost/filesystem.hpp>
-#    define BOOST_LIB_NAME boost
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -44,7 +42,7 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath)
 {
 #ifndef USD_HAS_UDIM_RESOLVE_FIX
     // Added precheck to ensure no UDIM is accepted with relative path
-    BOOST_LIB_NAME::filesystem::path filepath(a_filepath);
+    BOOST_NS::filesystem::path filepath(a_filepath);
     if (filepath.is_relative())
         return false;
 #endif
@@ -59,19 +57,19 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath)
 void
 HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 {
-    BOOST_LIB_NAME::filesystem::path filepath(a_filepath);
+    BOOST_NS::filesystem::path filepath(a_filepath);
 
     size_t offset            = filepath.stem().string().find("<UDIM>");
     std::string baseFileName = filepath.stem().string().substr(0, offset);
 
     std::vector<std::string> files;
 
-    BOOST_LIB_NAME::filesystem::path path(ccl::path_dirname(a_filepath));
-    for (BOOST_LIB_NAME::filesystem::directory_iterator it(path);
-         it != BOOST_LIB_NAME::filesystem::directory_iterator(); ++it) {
-        if (BOOST_LIB_NAME::filesystem::is_regular_file(it->status())
-            || BOOST_LIB_NAME::filesystem::is_symlink(it->status())) {
-            std::string foundFile = BOOST_LIB_NAME::filesystem::basename(
+    BOOST_NS::filesystem::path path(ccl::path_dirname(a_filepath));
+    for (BOOST_NS::filesystem::directory_iterator it(path);
+         it != BOOST_NS::filesystem::directory_iterator(); ++it) {
+        if (BOOST_NS::filesystem::is_regular_file(it->status())
+            || BOOST_NS::filesystem::is_symlink(it->status())) {
+            std::string foundFile = BOOST_NS::filesystem::basename(
                 it->path().filename());
 
             if (baseFileName == (foundFile.substr(0, offset))) {
@@ -88,12 +86,12 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 }
 
 void
-HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
-    // @TODO: The implementation of this function is broken
-    a_loc  = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
-    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y, a_transform.z.z);
+    // m_cyclesMesh->compute_bounds must be called before this
+    a_loc  = (a_geom->bounds.max + a_geom->bounds.min) / 2.0f;
+    a_size = (a_geom->bounds.max - a_geom->bounds.min) / 2.0f;
 
     if (a_size.x != 0.0f)
         a_size.x = 0.5f / a_size.x;
@@ -589,7 +587,8 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
         ccl::ustring name_sign;
 
         if (layer_name != NULL) {
-            name_sign = ccl::ustring((std::string(layer_name) + ".tangent_sign").c_str());
+            name_sign = ccl::ustring(
+                (std::string(layer_name) + ".tangent_sign").c_str());
         } else {
             name_sign = ccl::ustring("orco.tangent_sign");
         }

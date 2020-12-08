@@ -22,10 +22,20 @@ set(PXR_PACKAGE hdCycles)
 
 add_custom_target(python ALL)
 
-if(USE_USD_HOUDINI)
+if(USE_LEGACY_HOUDINI)
   include_directories(${HOUDINI_INCLUDE_DIRS})
   link_directories(${HOUDINI_LIB_DIRS})
   link_libraries(${HOUDINI_LIBRARIES_DEPS})
+endif()
+
+if(WITH_OPENVDB)
+  include_directories(${OPENVDB_INCLUDE_DIR})
+  link_libraries(${OPENVDB_LIBRARY})
+endif()
+
+if(WITH_EMBREE)
+  include_directories(${EMBREE_INCLUDE_DIRS})
+  link_libraries(${EMBREE_LIBRARIES})
 endif()
 
 pxr_plugin(${PXR_PACKAGE}
@@ -34,6 +44,7 @@ pxr_plugin(${PXR_PACKAGE}
     ${USD_LIBRARIES}
     ${TBB_LIBRARIES}
     ${Boost_LIBRARIES}
+    ${HBoost_LIBRARIES}
     ${Python_LIBRARIES}
     ${CYCLES_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
@@ -46,9 +57,10 @@ pxr_plugin(${PXR_PACKAGE}
     ${OPENEXR_LIBRARIES}
     ${OPENSUBDIV_LIBRARIES}
     ${OIIO_LIBRARIES}
-    ${EMBREE_LIBRARIES}
-    ${OPENVDB_LIBRARY}
     ${OCIO_LIBRARIES}
+        
+    ${GLOG_LIBRARY}
+    ${GFLAGS_LIBRARY}
     
   CPPFILES
     "Mikktspace/mikktspace.c"
@@ -56,6 +68,7 @@ pxr_plugin(${PXR_PACKAGE}
   INCLUDE_DIRS
     ${USD_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
+    ${HBoost_INCLUDE_DIRS}
     ${TBB_INCLUDE_DIRS}
     ${Python_INCLUDE_DIRS}
     ${CYCLES_INCLUDE_DIRS}
@@ -64,9 +77,10 @@ pxr_plugin(${PXR_PACKAGE}
     ${GLEW_INCLUDE_DIR}
     ${OPENGL_INCLUDE_DIR}
     ${OPENSUBDIV_INCLUDE_DIR}
-    ${OPENVDB_INCLUDE_DIR}
-    ${EMBREE_INCLUDE_DIRS}
     ${OCIO_INCLUDE_DIRS}
+
+    ${GFLAGS_INCLUDE_DIR}
+    ${GLOG_INCLUDE_DIR}
 
   PUBLIC_CLASSES
     basisCurves
@@ -76,6 +90,9 @@ pxr_plugin(${PXR_PACKAGE}
     material
     mesh
     points
+  
+    volume
+    openvdb_asset
 
     renderDelegate
     rendererPlugin

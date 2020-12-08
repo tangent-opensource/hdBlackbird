@@ -28,6 +28,9 @@
 #include "mesh.h"
 #include "openvdb_asset.h"
 #include "points.h"
+#include "volume.h"
+#include "openvdb_asset.h"
+
 #include "renderBuffer.h"
 #include "renderParam.h"
 #include "renderPass.h"
@@ -61,6 +64,7 @@ const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_RPRIM_TYPES = {
     HdPrimTypeTokens->mesh,
     HdPrimTypeTokens->basisCurves,
     HdPrimTypeTokens->points,
+    HdPrimTypeTokens->volume,
 };
 
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_SPRIM_TYPES = {
@@ -75,7 +79,8 @@ const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_SPRIM_TYPES = {
 };
 
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_BPRIM_TYPES = { 
-    HdPrimTypeTokens->renderBuffer
+    HdPrimTypeTokens->renderBuffer,
+    _tokens->openvdbAsset,
 };
 
 // clang-format on
@@ -422,6 +427,8 @@ HdCyclesRenderDelegate::CreateRprim(TfToken const& typeId,
         return new HdCyclesBasisCurves(rprimId, instancerId, this);
     } else if (typeId == HdPrimTypeTokens->points) {
         return new HdCyclesPoints(rprimId, instancerId, this);
+    } else if (typeId == HdPrimTypeTokens->volume) {
+        return new HdCyclesVolume(rprimId, instancerId, this);
     } else {
         TF_CODING_ERROR("Unknown Rprim type=%s id=%s", typeId.GetText(),
                         rprimId.GetText());
@@ -493,6 +500,9 @@ HdCyclesRenderDelegate::CreateBprim(TfToken const& typeId,
     if (typeId == HdPrimTypeTokens->renderBuffer) {
         return new HdCyclesRenderBuffer(this, bprimId);
     }
+    if (typeId == _tokens->openvdbAsset) {
+        return new HdCyclesOpenvdbAsset(this, bprimId);
+    }
     TF_CODING_ERROR("Unknown Bprim type=%s id=%s", typeId.GetText(),
                     bprimId.GetText());
     return nullptr;
@@ -504,7 +514,9 @@ HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
     if (typeId == HdPrimTypeTokens->renderBuffer) {
         return new HdCyclesRenderBuffer(this, SdfPath());
     }
-
+    if (typeId == _tokens->openvdbAsset) {
+        return new HdCyclesOpenvdbAsset(this, SdfPath());
+    }
     TF_CODING_ERROR("Creating unknown fallback bprim type=%s",
                     typeId.GetText());
     return nullptr;
