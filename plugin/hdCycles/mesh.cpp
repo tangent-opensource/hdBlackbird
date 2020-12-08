@@ -910,7 +910,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
         // Something in this is the culprit for excessive deform motion blur render times
         m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
-                                                   id, m_useMotionBlur);
+                                                  id, m_useMotionBlur);
 
         if (m_cyclesMesh && m_cyclesMesh->subd_params) {
             m_cyclesMesh->subd_params->objecttoworld = m_cyclesObject->tfm;

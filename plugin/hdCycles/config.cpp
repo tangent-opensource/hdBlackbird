@@ -66,9 +66,6 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_RENDER_HEIGHT, 720,
 TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
                       "Use Tiled Rendering (Experimental)");
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
-                      "Enable HdCycles Logging");
-
 TF_DEFINE_ENV_SETTING(
     HD_CYCLES_USE_OLD_CURVES, false,
     "If enabled, curves will be created manually with regular mesh geometry");

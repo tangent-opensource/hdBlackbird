@@ -549,7 +549,7 @@ public:
         m_aovs = a_aovs;
     }
 
-    HdRenderPassAovBindingVector GetAovBindings() const
+    HdRenderPassAovBindingVector const& GetAovBindings() const
     {
         return m_aovs;
     }

@@ -29,7 +29,6 @@
 #include "openvdb_asset.h"
 #include "points.h"
 #include "volume.h"
-#include "openvdb_asset.h"
 
 #include "renderBuffer.h"
 #include "renderParam.h"
@@ -558,20 +557,21 @@ HdCyclesRenderDelegate::GetCyclesRenderParam() const
 HdAovDescriptor
 HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
 {
+    bool use_tiles  = GetCyclesRenderParam()->IsTiledRender();
     bool use_linear = GetCyclesRenderParam()
                           ->GetCyclesSession()
                           ->params.display_buffer_linear;
 
     HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4
                                       : HdFormatUNorm8Vec4;
-    if (GetCyclesRenderParam()->IsTiledRender()) {
+    if (use_tiles) {
         colorFormat = HdFormatFloat32Vec4;
     }
 
     if (name == HdAovTokens->color) {
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->normal) {
-        if (GetCyclesRenderParam()->IsTiledRender()) {
+        if (use_tiles) {
             colorFormat = HdFormatFloat32Vec3;
         }
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));

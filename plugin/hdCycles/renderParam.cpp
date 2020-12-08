@@ -151,8 +151,6 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
     const int w = rtile.w;
     const int h = rtile.h;
 
-    //std::cout << "tile x: " << x << " | y: " << y << " | w: " << w << " | h: " << h << '\n';
-
     ccl::RenderBuffers* buffers = rtile.buffers;
 
     // copy data from device
@@ -212,17 +210,13 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             }
         }
     }
-
-    //if(IsConverged() && IsTiledRender()) {
-    //  StopRender();
-    //}
 }
 
 void
 HdCyclesRenderParam::_UpdateRenderTile(ccl::RenderTile& rtile, bool highlight)
 {
-    //if (m_cyclesSession->params.progressive_refine)
-    //_WriteRenderTile(rtile);
+    if (m_cyclesSession->params.progressive_refine)
+        _WriteRenderTile(rtile);
 }
 
 /*
@@ -542,16 +536,12 @@ HdCyclesRenderParam::_CyclesInitialize()
     params.tile_size.x                = config.tile_size[0];
     params.tile_size.y                = config.tile_size[1];
     params.samples                    = config.max_samples;
-    
-    // Hardcoded tempoarily
-    params.tile_size.x = 64;
-    params.tile_size.y = 64;
 
+    // Hardcoded tempoarily
     if (m_useTiledRendering) {
         params.start_resolution   = INT_MAX;
         params.progressive        = false;
         params.progressive_refine = false;
-        params.tile_order         = ccl::TILE_HILBERT_SPIRAL;
     }
 
     /* find matching device */
@@ -625,15 +615,16 @@ HdCyclesRenderParam::_CyclesInitialize()
 
     m_bufferParams.passes.clear();
 
-    if(m_useTiledRendering) {
-        for(HdCyclesDefaultAov& aov : DefaultAovs) {
-            ccl::Pass::add( aov.type, m_bufferParams.passes, aov.name.c_str() );
+    if (m_useTiledRendering) {
+        for (HdCyclesDefaultAov& aov : DefaultAovs) {
+            ccl::Pass::add(aov.type, m_bufferParams.passes, aov.name.c_str());
         }
     } else {
-        ccl::Pass::add( ccl::PASS_COMBINED, m_bufferParams.passes, "Combined" );
+        ccl::Pass::add(ccl::PASS_COMBINED, m_bufferParams.passes, "Combined");
     }
 
-    m_cyclesScene->film->tag_passes_update( m_cyclesScene, m_bufferParams.passes );
+    m_cyclesScene->film->tag_passes_update(m_cyclesScene,
+                                           m_bufferParams.passes);
 
     SetBackgroundShader(nullptr);
 
@@ -674,9 +665,9 @@ HdCyclesRenderParam::_CyclesExit()
 void
 HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
-    //m_cyclesScene->mutex.lock();
+    m_cyclesScene->mutex.lock();
 
-    //m_cyclesSession->progress.reset();
+    m_cyclesSession->progress.reset();
 
     if (m_curveUpdated || m_meshUpdated || m_geometryUpdated
         || m_shadersUpdated) {
@@ -705,10 +696,8 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
         m_cyclesScene->film->tag_update(m_cyclesScene);
     }
 
-
-    //m_cyclesScene->shaders->tag_update( m_cyclesScene );
     m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
-    //m_cyclesScene->mutex.unlock();
+    m_cyclesScene->mutex.unlock();
 }
 
 void
