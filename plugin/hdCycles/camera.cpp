@@ -134,10 +134,11 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         EvalCameraParam(&m_shutterClose, HdCameraTokens->shutterClose,
                         sceneDelegate, id);
 
-        float shutter = (std::abs(m_shutterOpen) + std::abs(m_shutterClose))
-                        / 2.0f;
-        if (m_shutterOpen == 0.0f && m_shutterClose == 0.0f)
-            shutter = 0.5f;
+        // TODO: Shutter time is somewhat undefined, the usdCycles schema can directly set this
+        //float shutter = (std::abs(m_shutterOpen) + std::abs(m_shutterClose))
+        //                / 2.0f;
+        //if (m_shutterOpen == 0.0f && m_shutterClose == 0.0f)
+        //    shutter = 0.5f;
         m_shutterTime = 0.5f;
 
         // Projection
