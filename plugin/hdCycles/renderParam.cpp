@@ -958,8 +958,10 @@ HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
 VtDictionary
 HdCyclesRenderParam::GetRenderStats() const
 {
-    // Removed because of access exception on image manager...
-    // Must not be doing images 100% correctly...
+    // Currently, collect_statistics errors seemingly during render,
+    // we probably need to only access these when the render is complete
+    // however this codeflow is currently undefined...
+
     //ccl::RenderStats stats;
     //m_cyclesSession->collect_statistics(&stats);
 
