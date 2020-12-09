@@ -44,6 +44,7 @@
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/vec3i.h>
+#include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/meshUtil.h>
@@ -135,7 +136,7 @@ HdCyclesMesh::GetInitialDirtyBitsMask() const
            | HdChangeTracker::DirtyTransform | HdChangeTracker::DirtyPrimvar
            | HdChangeTracker::DirtyTopology | HdChangeTracker::DirtyVisibility
            | HdChangeTracker::DirtyMaterialId | HdChangeTracker::DirtySubdivTags
-           | HdChangeTracker::DirtyDisplayStyle
+           | HdChangeTracker::DirtyPrimID | HdChangeTracker::DirtyDisplayStyle
            | HdChangeTracker::DirtyDoubleSided;
 }
 template<typename T>
@@ -506,7 +507,8 @@ HdCyclesMesh::_CreateCyclesObject()
 {
     ccl::Object* object = new ccl::Object();
 
-    object->tfm = ccl::transform_identity();
+    object->tfm     = ccl::transform_identity();
+    object->pass_id = -1;
 
     object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
 
@@ -1008,6 +1010,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (m_hasVertexColors) {
         fallbackShader = param->default_vcol_surface;
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
+        // Offset of 1 added because Cycles primId pass needs to be shifted down to -1
+        m_cyclesObject->pass_id = this->GetPrimId() + 1;
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {

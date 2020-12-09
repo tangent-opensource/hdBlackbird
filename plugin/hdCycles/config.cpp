@@ -63,6 +63,9 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_RENDER_WIDTH, 1280,
 TF_DEFINE_ENV_SETTING(HD_CYCLES_RENDER_HEIGHT, 720,
                       "Width of a non interactive HdCycles render");
 
+TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
+                      "Use Tiled Rendering (Experimental)");
+
 TF_DEFINE_ENV_SETTING(
     HD_CYCLES_USE_OLD_CURVES, false,
     "If enabled, curves will be created manually with regular mesh geometry");
@@ -172,6 +175,7 @@ HdCyclesConfig::HdCyclesConfig()
     cycles_logging_severity = TfGetEnvSetting(CYCLES_LOGGING_SEVERITY);
 
     // -- HdCycles Settings
+    use_tiled_rendering     = TfGetEnvSetting(HD_CYCLES_USE_TILED_RENDERING);
     enable_logging          = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);
     enable_progress         = TfGetEnvSetting(HD_CYCLES_ENABLE_PROGRESS);
     enable_motion_blur      = TfGetEnvSetting(HD_CYCLES_ENABLE_MOTION_BLUR);
