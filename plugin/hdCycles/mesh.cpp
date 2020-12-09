@@ -69,6 +69,8 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_cyclesObject(nullptr)
     , m_hasVertexColors(false)
     , m_velocityScale(1.0f)
+    , m_useMotionBlur(false)
+    , m_useDeformMotionBlur(false)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_subdivEnabled                     = config.enable_subdivision;
@@ -83,13 +85,18 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
 
     if (m_useMotionBlur) {
+        // Motion steps are currently a static const compile time
+        // variable... This is likely an issue...
         // TODO: Get this from usdCycles schema
         //m_motionSteps = config.motion_steps;
         m_motionSteps = m_numTransformSamples;
 
+        // Hardcoded for now until schema PR
+        m_useDeformMotionBlur = true;
+
         // TODO: Needed when we properly handle motion_verts
-        //m_cyclesMesh->motion_steps    = m_motionSteps;
-        //m_cyclesMesh->use_motion_blur = m_useMotionBlur;
+        m_cyclesMesh->motion_steps    = m_motionSteps;
+        m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
     }
 
     m_cyclesObject->geometry = m_cyclesMesh;
@@ -483,7 +490,7 @@ HdCyclesMesh::_CreateCyclesMesh()
     ccl::Mesh* mesh = new ccl::Mesh();
     mesh->clear();
 
-    if (m_useMotionBlur) {
+    if (m_useMotionBlur && m_useDeformMotionBlur) {
         mesh->use_motion_blur = true;
     }
 
@@ -689,8 +696,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     bool pointsIsComputed = false;
 
-    // TODO: Check if this code is ever executed... Only seems to be for points
-    // and removing it seems to work for our tests
+    // This is needed for USD Skel, however is currently buggy...
     auto extComputationDescs
         = sceneDelegate->GetExtComputationPrimvarDescriptors(
             id, HdInterpolationVertex);
@@ -717,7 +723,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         break;
     }
 
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
+    if (!pointsIsComputed
+        && HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
         mesh_updated        = true;
         VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
         if (!pointsValue.IsEmpty()) {
@@ -732,12 +739,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             // TODO: Should we check if time varying?
             // TODO: can we use this for m_points too?
             sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
-        } /*
-        size_t maxSample = 3;
-
-        HdCyclesSampledPrimvarType 4;
-        sceneDelegate->SamplePrimvar(id, HdTokens->points, &samples );
-        std::cout << "Found time sampled points "<< samples.count << '\n';*/
+        }
     }
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
@@ -825,7 +827,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         _PopulateVertices();
 
-        if (m_useMotionBlur)
+        if (m_useMotionBlur && m_useDeformMotionBlur)
             _PopulateMotion();
 
         std::vector<int> faceMaterials;
@@ -990,6 +992,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+        // This causes a known slowdown to deforming motion blur renders
+        // This will be addressed in an upcoming PR
         m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
                                                   id, m_useMotionBlur);
 

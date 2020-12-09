@@ -133,6 +133,9 @@ HdCyclesCreateDefaultShader()
 
 // TODO: Make this function more robust
 // Along with making point sampling more robust
+// UPDATE:
+// This causes a known slowdown to deforming motion blur renders
+// This will be addressed in an upcoming PR
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)

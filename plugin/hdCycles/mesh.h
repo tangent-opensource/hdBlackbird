@@ -288,6 +288,7 @@ protected:
     bool m_doubleSided = false;
 
     bool m_useMotionBlur;
+    bool m_useDeformMotionBlur;
     int m_motionSteps;
 
     bool m_hasVertexColors;
