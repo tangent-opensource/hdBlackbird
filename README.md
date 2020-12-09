@@ -118,7 +118,7 @@ Currently supported features:
 | **Volumes**     | VDB Support           | ❌    | (Likely will go with foundations implementation)  |
 | **Cameras**     | Basic Support         | ✅    |                                                   |
 |                 | Depth of Field        | ✅    |                                                   |
-|                 | Motion Blur           | ❌    |                                                   |
+|                 | Motion Blur           | ✅    |                                                   |
 |                 | usdCycles Schema Support| ❌  |                                                   |
 | **Curves**      | BasisCurves           | ✅    |                                                   |
 |                 | NURBs                 | ❌    |                                                   |

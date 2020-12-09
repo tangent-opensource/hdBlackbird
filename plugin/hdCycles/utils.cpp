@@ -222,6 +222,18 @@ HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id)
     return mat4d_to_transform(xf.values[0]);
 }
 
+GfMatrix4d
+ConvertCameraTransform(const GfMatrix4d& a_cameraTransform)
+{
+    GfMatrix4d viewToWorldCorrectionMatrix(1.0);
+
+    GfMatrix4d flipZ(1.0);
+    flipZ[2][2]                 = -1.0;
+    viewToWorldCorrectionMatrix = flipZ * viewToWorldCorrectionMatrix;
+
+    return viewToWorldCorrectionMatrix * a_cameraTransform;
+}
+
 ccl::Transform
 mat4d_to_transform(const GfMatrix4d& mat)
 {

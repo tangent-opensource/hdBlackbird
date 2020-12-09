@@ -97,6 +97,14 @@ ccl::Transform
 HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id);
 
 /**
+ * @brief Convert USD Camera space to Cycles camera space
+ * 
+ * @param a_cameraTransform 
+ * @return GfMatrix4d 
+ */
+GfMatrix4d ConvertCameraTransform(const GfMatrix4d& a_cameraTransform);
+
+/**
  * @brief Convert GfMatrix4d to Cycles Transform representation
  *
  * @param mat
