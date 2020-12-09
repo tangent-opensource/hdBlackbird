@@ -468,13 +468,6 @@ HdCyclesRenderParam::_CyclesInitialize()
         m_cyclesScene->background->transparent = true;
 
     if (m_useMotionBlur) {
-        SetShutterMotionPosition(config.shutter_motion_position);
-
-        m_cyclesScene->camera->shuttertime = 0.5f;
-        m_cyclesScene->camera->motion.clear();
-        m_cyclesScene->camera->motion.resize(m_motionSteps,
-                                             m_cyclesScene->camera->matrix);
-
         m_cyclesScene->integrator->motion_blur = true;
         m_cyclesScene->integrator->tag_update(m_cyclesScene);
     }
@@ -612,9 +605,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 
     m_objectsUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->objects.push_back(a_object);
-    m_cyclesScene->mutex.unlock();
 
     Interrupt();
 }

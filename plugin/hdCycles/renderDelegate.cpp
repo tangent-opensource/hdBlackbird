@@ -26,9 +26,9 @@
 #include "light.h"
 #include "material.h"
 #include "mesh.h"
+#include "openvdb_asset.h"
 #include "points.h"
 #include "volume.h"
-#include "openvdb_asset.h"
 
 #include "renderBuffer.h"
 #include "renderParam.h"

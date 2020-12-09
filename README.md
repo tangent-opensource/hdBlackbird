@@ -106,8 +106,8 @@ Currently supported features:
 |                 | Tangents              | ✅    |                                                   |
 |                 | Point Instances       | ✅    |                                                   |
 |                 | usdCycles Schema Support| ❌  |                                                   |
-|                 | Motion Blur (Transform) | ✅  | Still buggy. Disabled by default.                 |
-|                 | Motion Blur (Deforming) | ❌  |                                                   |
+|                 | Motion Blur (Transform) | ✅  |                                                   |
+|                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
 |                 | Motion Blur (Velocity)  | ❌  |                                                   |
 |                 | Motion Blur (Instances) | ❌  |                                                   |
 | **Materials**   | Cycles Material Graph | ✅    | Ongoing support                                   |
@@ -118,13 +118,13 @@ Currently supported features:
 | **Volumes**     | VDB Support           | ❌    | (Likely will go with foundations implementation)  |
 | **Cameras**     | Basic Support         | ✅    |                                                   |
 |                 | Depth of Field        | ✅    |                                                   |
-|                 | Motion Blur           | ❌    |                                                   |
+|                 | Motion Blur           | ✅    |                                                   |
 |                 | usdCycles Schema Support| ❌  |                                                   |
 | **Curves**      | BasisCurves           | ✅    |                                                   |
 |                 | NURBs                 | ❌    |                                                   |
 |                 | Point Instancing      | ❌    |                                                   |
-|                 | Motion Blur (Transform) | ✅  | Still buggy. Disabled by default.                 |
-|                 | Motion Blur (Deforming) | ❌  |                                                   |
+|                 | Motion Blur (Transform) | ✅  |                                                   |
+|                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
 |                 | Motion Blur (Velocity)  | ❌  |                                                   |
 |                 | Motion Blur (Instances) | ❌  |                                                   |
 |                 | usdCycles Schema Support| ❌  |                                                   |
