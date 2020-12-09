@@ -138,10 +138,10 @@ protected:
     void _CyclesExit();
 
     /**
-     * @brief Debug callback to print the status of cycles
+     * @brief Callback when cycles session updated
      * 
      */
-    void _SessionPrintStatus();
+    void _SessionUpdateCallback();
 
     void _WriteRenderTile(ccl::RenderTile& rtile);
     void _UpdateRenderTile(ccl::RenderTile& rtile, bool highlight);

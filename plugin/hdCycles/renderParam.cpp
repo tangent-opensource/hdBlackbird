@@ -99,15 +99,13 @@ HdCyclesRenderParam::IsConverged()
 }
 
 void
-HdCyclesRenderParam::_SessionPrintStatus()
+HdCyclesRenderParam::_SessionUpdateCallback()
 {
-    std::string status, substatus;
+    // - Get Session progress integer amount
 
-    /* get status */
     float progress = m_cyclesSession->progress.get_progress();
-    m_cyclesSession->progress.get_status(status, substatus);
 
-    int newProgress = (int)(round(progress * 100));
+    int newProgress = (int)(floor(progress * 100));
     if (newProgress != m_renderProgress) {
         m_renderProgress = newProgress;
 
@@ -116,7 +114,11 @@ HdCyclesRenderParam::_SessionPrintStatus()
         }
     }
 
+    // - Handle Session status logging
+
     if (HdCyclesConfig::GetInstance().enable_logging) {
+        std::string status, substatus;
+        m_cyclesSession->progress.get_status(status, substatus);
         if (substatus != "")
             status += ": " + substatus;
 
@@ -569,7 +571,7 @@ HdCyclesRenderParam::_CyclesInitialize()
     if (HdCyclesConfig::GetInstance().enable_logging
         || HdCyclesConfig::GetInstance().enable_progress)
         m_cyclesSession->progress.set_update_callback(
-            std::bind(&HdCyclesRenderParam::_SessionPrintStatus, this));
+            std::bind(&HdCyclesRenderParam::_SessionUpdateCallback, this));
 
     // -- Scene init
     ccl::SceneParams sceneParams;
