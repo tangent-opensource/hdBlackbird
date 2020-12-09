@@ -112,10 +112,10 @@ Currently supported features:
 |                 | Motion Blur (Instances) | ❌  |                                                   |
 | **Materials**   | Cycles Material Graph | ✅    | Ongoing support                                   |
 |                 | Displacement          | ✅    |                                                   |
-|                 | Volumetric            | ❌    |                                                   |
+|                 | Volumetric            | ✅    |                                                   |
 |                 | OSL                   | ❌    |                                                   |
 |                 | USD Preview Surface   | ✅    |                                                   |
-| **Volumes**     | VDB Support           | ❌    | (Likely will go with foundations implementation)  |
+| **Volumes**     | VDB Support           | ✅    | (Likely will go with foundations implementation)  |
 | **Cameras**     | Basic Support         | ✅    |                                                   |
 |                 | Depth of Field        | ✅    |                                                   |
 |                 | Motion Blur           | ✅    |                                                   |
@@ -143,7 +143,7 @@ Currently supported features:
 | **Render Settings** | Basic Render Settings |✅ |                                                   |
 |                 | usdCycles Schema Support  | ❌| Render Settings, Render Products, etc.            |
 | **Rendering**   | Combined AOV          | ✅    |                                                   |
-|                 | Tiled Rendering       | ❌    |                                                   |
+|                 | Tiled Rendering       | ✅    |                                                   |
 |                 | Full AOV Support      | ❌    |                                                   |
 |                 | Cryptomatte           | ❌    |                                                   |
 |                 | OCIO Support          | ✅    |                                                   |
