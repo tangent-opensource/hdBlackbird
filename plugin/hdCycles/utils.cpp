@@ -20,6 +20,8 @@
 #include "utils.h"
 
 #include <render/nodes.h>
+#include <subd/subd_dice.h>
+#include <subd/subd_split.h>
 #include <util/util_path.h>
 
 #include <pxr/base/gf/vec2f.h>
@@ -27,12 +29,10 @@
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/usd/sdf/assetPath.h>
 
-#ifdef USE_USD_HOUDINI
+#ifdef USE_HBOOST
 #    include <hboost/filesystem.hpp>
-#    define BOOST_LIB_NAME hboost
 #else
 #    include <boost/filesystem.hpp>
-#    define BOOST_LIB_NAME boost
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -44,7 +44,7 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath)
 {
 #ifndef USD_HAS_UDIM_RESOLVE_FIX
     // Added precheck to ensure no UDIM is accepted with relative path
-    BOOST_LIB_NAME::filesystem::path filepath(a_filepath);
+    BOOST_NS::filesystem::path filepath(a_filepath);
     if (filepath.is_relative())
         return false;
 #endif
@@ -59,19 +59,19 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath)
 void
 HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 {
-    BOOST_LIB_NAME::filesystem::path filepath(a_filepath);
+    BOOST_NS::filesystem::path filepath(a_filepath);
 
     size_t offset            = filepath.stem().string().find("<UDIM>");
     std::string baseFileName = filepath.stem().string().substr(0, offset);
 
     std::vector<std::string> files;
 
-    BOOST_LIB_NAME::filesystem::path path(ccl::path_dirname(a_filepath));
-    for (BOOST_LIB_NAME::filesystem::directory_iterator it(path);
-         it != BOOST_LIB_NAME::filesystem::directory_iterator(); ++it) {
-        if (BOOST_LIB_NAME::filesystem::is_regular_file(it->status())
-            || BOOST_LIB_NAME::filesystem::is_symlink(it->status())) {
-            std::string foundFile = BOOST_LIB_NAME::filesystem::basename(
+    BOOST_NS::filesystem::path path(ccl::path_dirname(a_filepath));
+    for (BOOST_NS::filesystem::directory_iterator it(path);
+         it != BOOST_NS::filesystem::directory_iterator(); ++it) {
+        if (BOOST_NS::filesystem::is_regular_file(it->status())
+            || BOOST_NS::filesystem::is_symlink(it->status())) {
+            std::string foundFile = BOOST_NS::filesystem::basename(
                 it->path().filename());
 
             if (baseFileName == (foundFile.substr(0, offset))) {
@@ -88,12 +88,12 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 }
 
 void
-HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size)
 {
-    // @TODO: The implementation of this function is broken
-    a_loc  = ccl::make_float3(a_transform.x.w, a_transform.y.w, a_transform.z.w);
-    a_size = ccl::make_float3(a_transform.x.x, a_transform.y.y, a_transform.z.z);
+    // m_cyclesMesh->compute_bounds must be called before this
+    a_loc  = (a_geom->bounds.max + a_geom->bounds.min) / 2.0f;
+    a_size = (a_geom->bounds.max - a_geom->bounds.min) / 2.0f;
 
     if (a_size.x != 0.0f)
         a_size.x = 0.5f / a_size.x;
@@ -131,6 +131,11 @@ HdCyclesCreateDefaultShader()
 
 /* ========= Conversion ========= */
 
+// TODO: Make this function more robust
+// Along with making point sampling more robust
+// UPDATE:
+// This causes a known slowdown to deforming motion blur renders
+// This will be addressed in an upcoming PR
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -142,19 +147,64 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     delegate->SampleTransform(id, &xf);
 
-    if (xf.count == 0) {
-        object->tfm = ccl::transform_identity();
-    } else {
-        // Set transform
-        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    int sampleCount = xf.count;
 
-        if (use_motion) {
-            // Set motion
-            object->motion.clear();
-            object->motion.resize(xf.count);
-            for (int i = 0; i < xf.count; i++) {
-                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+    if (sampleCount == 0) {
+        object->tfm = ccl::transform_identity();
+        return xf;
+    }
+
+    if (sampleCount > 1) {
+        bool foundCenter = false;
+        for (int i = 0; i < sampleCount; i++) {
+            if (xf.times.data()[i] == 0.0f) {
+                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+                foundCenter = true;
             }
+        }
+        if (!foundCenter)
+            object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    } else {
+        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    }
+
+    if (!use_motion) {
+        return xf;
+    }
+
+    object->motion.clear();
+    if (object->geometry) {
+        if (object->geometry->use_motion_blur
+            && object->geometry->motion_steps != sampleCount) {
+            object->motion.resize(object->geometry->motion_steps, object->tfm);
+            return xf;
+        }
+    }
+
+    // TODO: This might still be wrong on some edge cases...
+    // The order of point sampling and transform sampling is the only reason
+    // that this works
+    if (object->geometry && object->geometry->motion_steps == sampleCount) {
+        object->geometry->use_motion_blur = true;
+
+        if (object->geometry->type == ccl::Geometry::MESH) {
+            ccl::Mesh* mesh = (ccl::Mesh*)object->geometry;
+            if (mesh->transform_applied)
+                mesh->need_update = true;
+        }
+
+        object->motion.resize(sampleCount, ccl::transform_empty());
+
+        for (int i = 0; i < sampleCount; i++) {
+            if (xf.times.data()[i] == 0.0f) {
+                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+            }
+
+            int idx = i;
+            if (object->geometry)
+                object->geometry->motion_step(xf.times.data()[i]);
+
+            object->motion[idx] = mat4d_to_transform(xf.values.data()[i]);
         }
     }
 
@@ -170,6 +220,18 @@ HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id)
     delegate->SampleTransform(id, &xf);
 
     return mat4d_to_transform(xf.values[0]);
+}
+
+GfMatrix4d
+ConvertCameraTransform(const GfMatrix4d& a_cameraTransform)
+{
+    GfMatrix4d viewToWorldCorrectionMatrix(1.0);
+
+    GfMatrix4d flipZ(1.0);
+    flipZ[2][2]                 = -1.0;
+    viewToWorldCorrectionMatrix = flipZ * viewToWorldCorrectionMatrix;
+
+    return viewToWorldCorrectionMatrix * a_cameraTransform;
 }
 
 ccl::Transform
@@ -589,7 +651,8 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
         ccl::ustring name_sign;
 
         if (layer_name != NULL) {
-            name_sign = ccl::ustring((std::string(layer_name) + ".tangent_sign").c_str());
+            name_sign = ccl::ustring(
+                (std::string(layer_name) + ".tangent_sign").c_str());
         } else {
             name_sign = ccl::ustring("orco.tangent_sign");
         }

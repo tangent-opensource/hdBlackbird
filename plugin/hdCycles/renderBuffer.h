@@ -27,6 +27,8 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+class HdCyclesRenderDelegate;
+
 /**
  * @brief Utility class for handling HdCycles Render Buffers
  * This handles 2d images for render output.
@@ -39,7 +41,8 @@ public:
      * 
      * @param id Path to the Render Buffer Primitive
      */
-    HDCYCLES_API HdCyclesRenderBuffer(const SdfPath& id);
+    HDCYCLES_API HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegate,
+                                      const SdfPath& id);
 
     /**
      * @brief Destroy the HdCycles Render Buffer object
@@ -133,6 +136,8 @@ public:
      */
     void SetConverged(bool cv);
 
+    void Clear();
+
     /**
      * @brief Helper to blit the render buffer data
      * 
@@ -145,6 +150,10 @@ public:
      */
     void Blit(HdFormat format, int width, int height, int offset, int stride,
               uint8_t const* data);
+
+    void BlitTile(HdFormat format, unsigned int x, unsigned int y,
+                  unsigned int width, unsigned int height, int offset,
+                  int stride, uint8_t const* data);
 
 protected:
     /**
@@ -163,6 +172,8 @@ private:
     std::vector<uint8_t> m_buffer;
     std::atomic<int> m_mappers;
     std::atomic<bool> m_converged;
+
+    HdCyclesRenderDelegate* m_renderDelegate;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

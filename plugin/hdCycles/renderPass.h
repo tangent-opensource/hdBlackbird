@@ -32,20 +32,6 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-typedef struct {
-    unsigned char red;
-    unsigned char green;
-    unsigned char blue;
-    unsigned char alpha;
-} CyRGBA8;
-
-typedef struct {
-    ccl::half red;
-    ccl::half green;
-    ccl::half blue;
-    ccl::half alpha;
-} CyRGBA16;
-
 class HdCyclesRenderDelegate;
 
 /**
@@ -89,8 +75,6 @@ protected:
 
     GfMatrix4d m_projMtx;
     GfMatrix4d m_viewMtx;
-
-    std::vector<unsigned char> m_colorBuffer;
 
 public:
     int m_width  = 0;

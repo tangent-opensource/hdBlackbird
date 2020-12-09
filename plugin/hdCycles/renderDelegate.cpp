@@ -26,7 +26,10 @@
 #include "light.h"
 #include "material.h"
 #include "mesh.h"
+#include "openvdb_asset.h"
 #include "points.h"
+#include "volume.h"
+
 #include "renderBuffer.h"
 #include "renderParam.h"
 #include "renderPass.h"
@@ -53,12 +56,14 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 // clang-format on
 
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesIntegratorTokens, HDCYCLES_INTEGRATOR_TOKENS);
+TF_DEFINE_PUBLIC_TOKENS(HdCyclesAovTokens, HDCYCLES_AOV_TOKENS);
 
 // clang-format off
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_RPRIM_TYPES = {
     HdPrimTypeTokens->mesh,
     HdPrimTypeTokens->basisCurves,
     HdPrimTypeTokens->points,
+    HdPrimTypeTokens->volume,
 };
 
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_SPRIM_TYPES = {
@@ -73,7 +78,8 @@ const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_SPRIM_TYPES = {
 };
 
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_BPRIM_TYPES = { 
-    HdPrimTypeTokens->renderBuffer
+    HdPrimTypeTokens->renderBuffer,
+    _tokens->openvdbAsset,
 };
 
 // clang-format on
@@ -420,6 +426,8 @@ HdCyclesRenderDelegate::CreateRprim(TfToken const& typeId,
         return new HdCyclesBasisCurves(rprimId, instancerId, this);
     } else if (typeId == HdPrimTypeTokens->points) {
         return new HdCyclesPoints(rprimId, instancerId, this);
+    } else if (typeId == HdPrimTypeTokens->volume) {
+        return new HdCyclesVolume(rprimId, instancerId, this);
     } else {
         TF_CODING_ERROR("Unknown Rprim type=%s id=%s", typeId.GetText(),
                         rprimId.GetText());
@@ -489,7 +497,10 @@ HdCyclesRenderDelegate::CreateBprim(TfToken const& typeId,
                                     SdfPath const& bprimId)
 {
     if (typeId == HdPrimTypeTokens->renderBuffer) {
-        return new HdCyclesRenderBuffer(bprimId);
+        return new HdCyclesRenderBuffer(this, bprimId);
+    }
+    if (typeId == _tokens->openvdbAsset) {
+        return new HdCyclesOpenvdbAsset(this, bprimId);
     }
     TF_CODING_ERROR("Unknown Bprim type=%s id=%s", typeId.GetText(),
                     bprimId.GetText());
@@ -500,9 +511,11 @@ HdBprim*
 HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
 {
     if (typeId == HdPrimTypeTokens->renderBuffer) {
-        return new HdCyclesRenderBuffer(SdfPath());
+        return new HdCyclesRenderBuffer(this, SdfPath());
     }
-
+    if (typeId == _tokens->openvdbAsset) {
+        return new HdCyclesOpenvdbAsset(this, SdfPath());
+    }
     TF_CODING_ERROR("Creating unknown fallback bprim type=%s",
                     typeId.GetText());
     return nullptr;
@@ -544,18 +557,31 @@ HdCyclesRenderDelegate::GetCyclesRenderParam() const
 HdAovDescriptor
 HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
 {
+    bool use_tiles  = GetCyclesRenderParam()->IsTiledRender();
+    bool use_linear = GetCyclesRenderParam()
+                          ->GetCyclesSession()
+                          ->params.display_buffer_linear;
+
+    HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4
+                                      : HdFormatUNorm8Vec4;
+    if (use_tiles) {
+        colorFormat = HdFormatFloat32Vec4;
+    }
+
     if (name == HdAovTokens->color) {
-        HdFormat colorFormat = GetCyclesRenderParam()
-                                       ->GetCyclesSession()
-                                       ->params.display_buffer_linear
-                                   ? HdFormatFloat16Vec4
-                                   : HdFormatUNorm8Vec4;
+        return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
+    } else if (name == HdAovTokens->normal) {
+        if (use_tiles) {
+            colorFormat = HdFormatFloat32Vec3;
+        }
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->depth) {
         return HdAovDescriptor(HdFormatFloat32, false, VtValue(1.0f));
     } else if (name == HdAovTokens->primId || name == HdAovTokens->instanceId
                || name == HdAovTokens->elementId) {
         return HdAovDescriptor(HdFormatInt32, false, VtValue(-1));
+    } else if (name == HdCyclesAovTokens->DiffDir) {
+        return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     }
 
     return HdAovDescriptor();

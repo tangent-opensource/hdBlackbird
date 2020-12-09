@@ -208,6 +208,8 @@ protected:
      */
     void _PopulateVertices();
 
+    void _PopulateMotion();
+
     /**
      * @brief Populate faces of cycles mesh
      * 
@@ -222,6 +224,12 @@ protected:
      * 
      */
     void _PopulateCreases();
+
+    /**
+     * @brief Populate generated coordinates attribute
+     * 
+     */
+    void _PopulateGenerated(ccl::Scene* scene);
 
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
@@ -242,6 +250,10 @@ protected:
     VtIntArray m_faceVertexCounts;
     VtIntArray m_faceVertexIndices;
     TfToken m_orientation;
+
+    HdCyclesSampledPrimvarType m_pointSamples;
+
+    float m_velocityScale;
 
     bool m_useSubdivision = false;
     bool m_subdivEnabled  = false;
@@ -276,9 +288,12 @@ protected:
     bool m_doubleSided = false;
 
     bool m_useMotionBlur;
+    bool m_useDeformMotionBlur;
     int m_motionSteps;
 
     bool m_hasVertexColors;
+
+    ccl::vector<ccl::Shader *> m_usedShaders;
 
 private:
     HdCyclesRenderDelegate* m_renderDelegate;

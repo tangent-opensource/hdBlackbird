@@ -61,9 +61,17 @@ HDCYCLES_API
 void
 HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles);
 
+/**
+ * @brief Cycles specific conversion required to get generated coord offsets
+ * 
+ * @param a_transform 
+ * @param a_loc 
+ * @param a_size 
+ * @return * Cycles 
+ */
 HDCYCLES_API
 void
-HdCyclesMeshTextureSpace(ccl::Transform& a_transform, ccl::float3& a_loc,
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size);
 
 /* ========== Material ========== */
@@ -87,6 +95,14 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
 ccl::Transform
 HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id);
+
+/**
+ * @brief Convert USD Camera space to Cycles camera space
+ * 
+ * @param a_cameraTransform 
+ * @return GfMatrix4d 
+ */
+GfMatrix4d ConvertCameraTransform(const GfMatrix4d& a_cameraTransform);
 
 /**
  * @brief Convert GfMatrix4d to Cycles Transform representation
@@ -225,6 +241,9 @@ bool
 HdCyclesIsPrimvarExists(TfToken const& a_name,
                         HdCyclesPDPIMap const& a_primvarDescsPerInterpolation,
                         HdInterpolation* a_interpolation = nullptr);
+
+
+using HdCyclesSampledPrimvarType = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
 
 /* ======== VtValue Utils ========= */
 

@@ -189,6 +189,8 @@ public:
      */
     bool ApplyCameraSettings(ccl::Camera* a_camera);
 
+    const bool& IsDirty() { return m_needsUpdate; }
+
 private:
     float m_horizontalAperture;
     float m_verticalAperture;

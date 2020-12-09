@@ -50,7 +50,7 @@ HdCyclesRenderPass::HdCyclesRenderPass(HdCyclesRenderDelegate* delegate,
 {
 }
 
-HdCyclesRenderPass::~HdCyclesRenderPass() { m_colorBuffer.clear(); }
+HdCyclesRenderPass::~HdCyclesRenderPass() {}
 
 void
 HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
@@ -59,15 +59,26 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(
         m_delegate->GetRenderParam());
 
+    HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
+
+    if (renderParam->GetAovBindings() != aovBindings)
+        renderParam->SetAovBindings(aovBindings);
+
     const auto vp = renderPassState->GetViewport();
 
     GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
     GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
 
+    m_isConverged = renderParam->IsConverged();
+
     // XXX: Need to cast away constness to process updated camera params since
     // the Hydra camera doesn't update the Cycles camera directly.
     HdCyclesCamera* hdCam = const_cast<HdCyclesCamera*>(
         dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
+
+    ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
+
+    bool shouldUpdate = false;
 
     if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
         m_projMtx = projMtx;
@@ -79,34 +90,32 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
         //hdCam->SetTransform(m_projMtx);
 
-        bool shouldUpdate = hdCam->ApplyCameraSettings(
-            renderParam->GetCyclesSession()->scene->camera);
-
-        if (shouldUpdate)
-            renderParam->Interrupt();
-        else
-            renderParam->DirectReset();
+        shouldUpdate += true;
     }
 
-    ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
+    shouldUpdate += hdCam->IsDirty();
 
-    int w = display->draw_width;
-    int h = display->draw_height;
+    if (shouldUpdate) {
+        hdCam->ApplyCameraSettings(active_camera);
+
+        // Needed for now, as houdini looks through a generated camera
+        // and doesn't copy the projection type (as of 18.0.532)
+        bool is_ortho = round(m_projMtx[3][3]) == 1.0;
+
+        if (is_ortho) {
+            active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+        } else
+            active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+
+        active_camera->tag_update();
+        renderParam->Interrupt();
+    }
 
     const auto width     = static_cast<int>(vp[2]);
     const auto height    = static_cast<int>(vp[3]);
     const auto numPixels = static_cast<size_t>(width * height);
 
-    unsigned int pixelSize = (display->half_float) ? sizeof(CyRGBA16)
-                                                   : sizeof(CyRGBA8);
-
-    HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4
-                                               : HdFormatUNorm8Vec4;
-
-    unsigned char* hpixels
-        = (display->half_float)
-              ? (unsigned char*)display->rgba_half.host_pointer
-              : (unsigned char*)display->rgba_byte.host_pointer;
+    bool resized = false;
 
     if (width != m_width || height != m_height) {
         renderParam->Interrupt();
@@ -116,19 +125,25 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         renderParam->CyclesReset(m_width, m_height);
 
         if (numPixels != oldNumPixels) {
-            m_colorBuffer.resize(numPixels * pixelSize);
-            memset(m_colorBuffer.data(), 0, numPixels * pixelSize);
+            resized = true;
         }
     }
 
-    m_isConverged = renderParam->GetProgress() >= 1.0f;
+    if (renderParam->IsTiledRender())
+        return;
 
-    HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
+    ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
 
-    if (w != 0) {
-        m_colorBuffer.resize(w * h * pixelSize);
-        memcpy(m_colorBuffer.data(), hpixels, w * h * pixelSize);
-    }
+    HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4
+                                               : HdFormatUNorm8Vec4;
+
+    unsigned char* hpixels
+        = (display->half_float)
+              ? (unsigned char*)display->rgba_half.host_pointer
+              : (unsigned char*)display->rgba_byte.host_pointer;
+
+    int w = display->draw_width;
+    int h = display->draw_height;
 
     // Blit
     if (!aovBindings.empty()) {
@@ -143,7 +158,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
             if (aov.aovName == HdAovTokens->color) {
                 rb->Blit(colorFormat, w, h, 0, w,
-                         reinterpret_cast<uint8_t*>(m_colorBuffer.data()));
+                         reinterpret_cast<uint8_t*>(hpixels));
             }
         }
     }

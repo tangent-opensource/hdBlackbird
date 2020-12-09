@@ -20,6 +20,7 @@
 #include "renderParam.h"
 
 #include "config.h"
+#include "renderBuffer.h"
 #include "renderDelegate.h"
 #include "utils.h"
 
@@ -40,6 +41,10 @@
 #include <render/session.h>
 #include <render/stats.h>
 
+#ifdef WITH_CYCLES_LOGGING
+#    include <util/util_logging.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 double
@@ -52,6 +57,15 @@ clamp(double d, double min, double max)
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
     , m_renderProgress(0)
+    , m_useTiledRendering(false)
+    , m_cyclesScene(nullptr)
+    , m_cyclesSession(nullptr)
+    , m_objectsUpdated(false)
+    , m_geometryUpdated(false)
+    , m_curveUpdated(false)
+    , m_meshUpdated(false)
+    , m_lightsUpdated(false)
+    , m_shadersUpdated(false)
 {
     _InitializeDefaults();
 }
@@ -62,12 +76,26 @@ HdCyclesRenderParam::_InitializeDefaults()
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_deviceName                        = config.device_name;
     m_useMotionBlur                     = config.enable_motion_blur;
+    m_useTiledRendering                 = config.use_tiled_rendering;
+
+#ifdef WITH_CYCLES_LOGGING
+    if (config.cycles_enable_logging) {
+        ccl::util_logging_start();
+        ccl::util_logging_verbosity_set(config.cycles_logging_severity);
+    }
+#endif
 }
 
 float
 HdCyclesRenderParam::GetProgress()
 {
     return m_cyclesSession->progress.get_progress();
+}
+
+bool
+HdCyclesRenderParam::IsConverged()
+{
+    return GetProgress() >= 1.0f;
 }
 
 void
@@ -96,6 +124,113 @@ HdCyclesRenderParam::_SessionPrintStatus()
     }
 }
 
+// URGENT TODO: Put this and the initialization somewhere more secure
+struct HdCyclesDefaultAov {
+    std::string name;
+    ccl::PassType type;
+    TfToken token;
+    HdFormat format;
+    //int components;
+};
+
+std::vector<HdCyclesDefaultAov> DefaultAovs = {
+    { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4 },
+    //{ "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32 },
+    //{ "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec4 },
+    //{ "DiffDir", ccl::PASS_DIFFUSE_DIRECT, HdCyclesAovTokens->DiffDir, HdFormatFloat32Vec4 },
+    //{ "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32 },
+    //{ "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32 },
+
+};
+
+void
+HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
+{
+    // No session, exit out
+    if (!m_cyclesSession)
+        return;
+
+    if (!m_useTiledRendering)
+        return;
+
+    const int x = rtile.x;
+    const int y = rtile.y;
+    const int w = rtile.w;
+    const int h = rtile.h;
+
+    ccl::RenderBuffers* buffers = rtile.buffers;
+
+    // copy data from device
+    if (!buffers->copy_from_device())
+        return;
+
+    // Adjust absolute sample number to the range.
+    int sample = rtile.sample;
+    const int range_start_sample
+        = m_cyclesSession->tile_manager.range_start_sample;
+    if (range_start_sample != -1) {
+        sample -= range_start_sample;
+    }
+
+    const float exposure = m_cyclesScene->film->exposure;
+
+    if (!m_aovs.empty()) {
+        // Blit from the framebuffer to currently selected aovs...
+        for (auto& aov : m_aovs) {
+            if (!TF_VERIFY(aov.renderBuffer != nullptr)) {
+                continue;
+            }
+
+            auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
+
+            if (rb == nullptr) {
+                continue;
+            }
+
+            if (rb->GetFormat() == HdFormatInvalid) {
+                continue;
+            }
+
+            for (HdCyclesDefaultAov& cyclesAov : DefaultAovs) {
+                if (aov.aovName == cyclesAov.token) {
+                    rb->SetConverged(IsConverged());
+
+                    // Pixels we will use to get from cycles.
+                    int numComponents = HdGetComponentCount(cyclesAov.format);
+
+                    ccl::vector<float> tileData(w * h * numComponents);
+
+                    bool read = buffers->get_pass_rect(cyclesAov.name.c_str(),
+                                                       exposure, sample,
+                                                       numComponents,
+                                                       &tileData[0]);
+
+                    if (!read) {
+                        memset(&tileData[0], 0,
+                               tileData.size() * sizeof(float));
+                    }
+
+                    rb->BlitTile(cyclesAov.format, rtile.x, rtile.y, rtile.w,
+                                 rtile.h, 0, rtile.w,
+                                 reinterpret_cast<uint8_t*>(tileData.data()));
+                }
+            }
+        }
+    }
+}
+
+void
+HdCyclesRenderParam::_UpdateRenderTile(ccl::RenderTile& rtile, bool highlight)
+{
+    if (m_cyclesSession->params.progressive_refine)
+        _WriteRenderTile(rtile);
+}
+
+/*
+    This paradigm does cause unecessary loops through settingsMap for each feature. 
+    This should be addressed in the future. For the moment, the flexibility of setting
+    order of operations is more important.
+*/
 bool
 HdCyclesRenderParam::Initialize()
 {
@@ -145,13 +280,6 @@ void
 HdCyclesRenderParam::CommitResources()
 {
     if (m_shouldUpdate) {
-        if (m_cyclesScene->lights.size() > 0) {
-            if (!m_hasDomeLight)
-                SetBackgroundShader(nullptr, false);
-        } else {
-            SetBackgroundShader(nullptr, true);
-        }
-
         CyclesReset(false);
         m_shouldUpdate = false;
         ResumeRender();
@@ -416,6 +544,13 @@ HdCyclesRenderParam::_CyclesInitialize()
     params.tile_size.y                = config.tile_size[1];
     params.samples                    = config.max_samples;
 
+    // Hardcoded tempoarily
+    if (m_useTiledRendering) {
+        params.start_resolution   = INT_MAX;
+        params.progressive        = false;
+        params.progressive_refine = false;
+    }
+
     /* find matching device */
 
     bool foundDevice = SetDeviceType(m_deviceName, params);
@@ -424,6 +559,12 @@ HdCyclesRenderParam::_CyclesInitialize()
         return false;
 
     m_cyclesSession = new ccl::Session(params);
+
+    m_cyclesSession->write_render_tile_cb
+        = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
+    m_cyclesSession->update_render_tile_cb
+        = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1,
+                    ccl::_2);
 
     if (HdCyclesConfig::GetInstance().enable_logging
         || HdCyclesConfig::GetInstance().enable_progress)
@@ -463,13 +604,6 @@ HdCyclesRenderParam::_CyclesInitialize()
         m_cyclesScene->background->transparent = true;
 
     if (m_useMotionBlur) {
-        SetShutterMotionPosition(config.shutter_motion_position);
-
-        m_cyclesScene->camera->shuttertime = 0.5f;
-        m_cyclesScene->camera->motion.clear();
-        m_cyclesScene->camera->motion.resize(m_motionSteps,
-                                             m_cyclesScene->camera->matrix);
-
         m_cyclesScene->integrator->motion_blur = true;
         m_cyclesScene->integrator->tag_update(m_cyclesScene);
     }
@@ -478,6 +612,19 @@ HdCyclesRenderParam::_CyclesInitialize()
 
     default_vcol_surface->tag_update(m_cyclesScene);
     m_cyclesScene->shaders.push_back(default_vcol_surface);
+
+    m_bufferParams.passes.clear();
+
+    if (m_useTiledRendering) {
+        for (HdCyclesDefaultAov& aov : DefaultAovs) {
+            ccl::Pass::add(aov.type, m_bufferParams.passes, aov.name.c_str());
+        }
+    } else {
+        ccl::Pass::add(ccl::PASS_COMBINED, m_bufferParams.passes, "Combined");
+    }
+
+    m_cyclesScene->film->tag_passes_update(m_cyclesScene,
+                                           m_bufferParams.passes);
 
     SetBackgroundShader(nullptr);
 
@@ -536,6 +683,7 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     if (m_objectsUpdated || m_shadersUpdated) {
         m_cyclesScene->object_manager->tag_update(m_cyclesScene);
         m_objectsUpdated = false;
+        m_shadersUpdated = false;
     }
     if (m_lightsUpdated) {
         m_cyclesScene->light_manager->tag_update(m_cyclesScene);
@@ -548,8 +696,6 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
         m_cyclesScene->film->tag_update(m_cyclesScene);
     }
 
-
-    //m_cyclesScene->shaders->tag_update( m_cyclesScene );
     m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
     m_cyclesScene->mutex.unlock();
 }
@@ -606,9 +752,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 
     m_objectsUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->objects.push_back(a_object);
-    m_cyclesScene->mutex.unlock();
 
     Interrupt();
 }
@@ -722,6 +866,13 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         } else {
             ++it;
         }
+    }
+
+    if (m_cyclesScene->lights.size() > 0) {
+        if (!m_hasDomeLight)
+            SetBackgroundShader(nullptr, false);
+    } else {
+        SetBackgroundShader(nullptr, true);
     }
 
     if (m_lightsUpdated)

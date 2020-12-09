@@ -18,6 +18,8 @@
 //  limitations under the License.
 
 #include "renderBuffer.h"
+#include "renderDelegate.h"
+#include "renderPass.h"
 
 #include <pxr/base/gf/vec2i.h>
 #include <pxr/base/gf/vec3i.h>
@@ -45,6 +47,7 @@ _ConvertPixel(HdFormat dstFormat, uint8_t* dst, HdFormat srcFormat,
                 half.setBits(((uint16_t*)src)[c]);
                 readValue = static_cast<float>(half);
             } else if (srcComponentFormat == HdFormatFloat32) {
+                // We need to subtract one from here due to cycles prim defaulting to 0 but hydra to -1
                 readValue = ((float*)src)[c];
             } else if (srcComponentFormat == HdFormatUNorm8) {
                 readValue = ((uint8_t*)src)[c] / 255.0f;
@@ -68,7 +71,8 @@ _ConvertPixel(HdFormat dstFormat, uint8_t* dst, HdFormat srcFormat,
 }
 }  // namespace
 
-HdCyclesRenderBuffer::HdCyclesRenderBuffer(const SdfPath& id)
+HdCyclesRenderBuffer::HdCyclesRenderBuffer(
+    HdCyclesRenderDelegate* renderDelegate, const SdfPath& id)
     : HdRenderBuffer(id)
     , m_width(0)
     , m_height(0)
@@ -76,6 +80,7 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(const SdfPath& id)
     , m_pixelSize(0)
     , m_mappers(0)
     , m_converged(false)
+    , m_renderDelegate(renderDelegate)
 {
 }
 
@@ -221,6 +226,85 @@ HdCyclesRenderBuffer::Blit(HdFormat format, int width, int height, int offset,
                         static_cast<uint8_t*>(
                             &m_buffer[(j * m_width + i) * m_pixelSize]),
                         format, &data[(jj * stride + offset + ii) * pixelSize]);
+                }
+            }
+        }
+    }
+}
+
+void
+HdCyclesRenderBuffer::Clear()
+{
+    if (m_format == HdFormatInvalid)
+        return;
+
+    size_t pixelSize = HdDataSizeOfFormat(m_format);
+    memset(&m_buffer[0], 0, m_buffer.size() * pixelSize);
+}
+
+void
+HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y,
+                               int unsigned width, unsigned int height,
+                               int offset, int stride, uint8_t const* data)
+{
+    // TODO: BlitTile shouldnt be called but it is...
+    if (m_width <= 0) {
+        return;
+    }
+    if (m_height <= 0) {
+        return;
+    }
+    if (m_buffer.size() <= 0) {
+        return;
+    }
+
+    const auto numPixels = static_cast<size_t>(m_width * m_height);
+    size_t pixelSize     = HdDataSizeOfFormat(format);
+
+    if (m_format == format) {
+        for (unsigned int j = 0; j < height; ++j) {
+            if ((x + width) <= m_width) {
+                if ((y + height) <= m_height) {
+                    int mem_start = (((y + j) * m_width) * pixelSize)
+                                    + (x * pixelSize);
+
+
+                    int tile_mem_start = (j * width) * pixelSize;
+
+                    memcpy(&m_buffer[mem_start], &data[tile_mem_start],
+                           width * pixelSize);
+                }
+            }
+        }
+    } else {
+        // Convert pixel by pixel, with nearest point sampling.
+        // If src and dst are both int-based, don't round trip to float.
+        bool convertAsInt = (HdGetComponentFormat(format) == HdFormatInt32)
+                            && (HdGetComponentFormat(m_format)
+                                == HdFormatInt32);
+
+        for (unsigned int j = 0; j < height; ++j) {
+            for (unsigned int i = 0; i < width; ++i) {
+                int mem_start = (((y + j) * m_width) * m_pixelSize)
+                                + ((x + i) * m_pixelSize);
+
+                int tile_mem_start = ((j * width) * pixelSize)
+                                     + (i * pixelSize);
+
+                if (convertAsInt) {
+                    _ConvertPixel<int32_t>(m_format,
+                                           static_cast<uint8_t*>(
+                                               &m_buffer[mem_start]),
+                                           format, &data[tile_mem_start]);
+                } else {
+                    if (mem_start >= m_buffer.size()) {
+                        // TODO: This is triggered more times than it should be
+                    } else {
+                        _ConvertPixel<float>(m_format,
+                                             static_cast<uint8_t*>(
+                                                 &m_buffer[mem_start]),
+                                             format, &data[tile_mem_start]);
+                    }
                 }
             }
         }
