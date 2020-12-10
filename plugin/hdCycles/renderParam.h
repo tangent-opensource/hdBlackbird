@@ -492,7 +492,11 @@ private:
     bool m_useMotionBlur;
     int m_motionSteps;
 
-    int m_renderProgress;
+    int m_renderPercent;
+    float m_renderProgress;
+
+    double m_totalTime;
+    double m_renderTime;
 
     ccl::DeviceType m_deviceType;
     std::string m_deviceName;

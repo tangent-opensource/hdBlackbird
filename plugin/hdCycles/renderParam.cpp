@@ -56,7 +56,8 @@ clamp(double d, double min, double max)
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
-    , m_renderProgress(0)
+    , m_renderPercent(0)
+    , m_renderProgress(0.0f)
     , m_useTiledRendering(false)
     , m_cyclesScene(nullptr)
     , m_cyclesSession(nullptr)
@@ -103,16 +104,21 @@ HdCyclesRenderParam::_SessionUpdateCallback()
 {
     // - Get Session progress integer amount
 
-    float progress = m_cyclesSession->progress.get_progress();
+    m_renderProgress = m_cyclesSession->progress.get_progress();
 
-    int newProgress = (int)(floor(progress * 100));
-    if (newProgress != m_renderProgress) {
-        m_renderProgress = newProgress;
+    int newPercent = (int)(floor(m_renderProgress * 100));
+    if (newPercent != m_renderPercent) {
+        m_renderPercent = newPercent;
+
 
         if (HdCyclesConfig::GetInstance().enable_progress) {
-            std::cout << "Progress: " << m_renderProgress << "%\n";
+            std::cout << "Progress: " << m_renderPercent << "%\n";
         }
     }
+
+    // - Get Render time
+
+    m_cyclesSession->progress.get_time(m_totalTime, m_renderTime);
 
     // - Handle Session status logging
 
@@ -122,7 +128,7 @@ HdCyclesRenderParam::_SessionUpdateCallback()
         if (substatus != "")
             status += ": " + substatus;
 
-        std::cout << "cycles: " << progress << " : " << status << '\n';
+        std::cout << "cycles: " << m_renderProgress << " : " << status << '\n';
     }
 }
 
@@ -967,6 +973,10 @@ HdCyclesRenderParam::GetRenderStats() const
 
     return {
         { "hdcycles:version", VtValue(HD_CYCLES_VERSION) },
+
+        // - Cycles specific
+
+        // These error out currently, kept for future reference
         /*{ "hdcycles:geometry:total_memory",
           VtValue(ccl::string_human_readable_size(stats.mesh.geometry.total_size)
                       .c_str()) },*/
@@ -976,6 +986,21 @@ HdCyclesRenderParam::GetRenderStats() const
                   .c_str()) },*/
         { "hdcycles:scene:num_objects", VtValue(m_cyclesScene->objects.size()) },
         { "hdcycles:scene:num_shaders", VtValue(m_cyclesScene->shaders.size()) },
+
+        // - Solaris, husk specific
+
+        // Currently these don't update properly. It is unclear if we need to tag renderstats as
+        // dynamic. Maybe our VtValues need to live longer?
+
+        { "rendererName", VtValue("Cycles") },
+        { "rendererVersion", VtValue(HD_CYCLES_VERSION) },
+        { "percentDone", VtValue(m_renderPercent) },
+        { "fractionDone", VtValue(m_renderProgress) },
+        { "lightCounts", VtValue(m_cyclesScene->lights.size()) },
+        { "totalClockTime", VtValue(m_totalTime) },
+        { "cameraRays", VtValue(0) },
+        { "numCompletedSamples", VtValue(0) }
+
     };
 }
 
