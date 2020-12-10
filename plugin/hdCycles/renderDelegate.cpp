@@ -599,6 +599,12 @@ HdCyclesRenderDelegate::GetMaterialBindingPurpose() const
     return HdTokens->full;
 }
 
+VtDictionary
+HdCyclesRenderDelegate::GetRenderStats() const
+{
+    return m_renderParam->GetRenderStats();
+}
+
 bool
 HdCyclesRenderDelegate::IsPauseSupported() const
 {

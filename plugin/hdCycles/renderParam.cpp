@@ -39,6 +39,7 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/session.h>
+#include <render/stats.h>
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
@@ -55,6 +56,8 @@ clamp(double d, double min, double max)
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
+    , m_renderPercent(0)
+    , m_renderProgress(0.0f)
     , m_useTiledRendering(false)
     , m_cyclesScene(nullptr)
     , m_cyclesSession(nullptr)
@@ -97,23 +100,35 @@ HdCyclesRenderParam::IsConverged()
 }
 
 void
-HdCyclesRenderParam::_SessionPrintStatus()
+HdCyclesRenderParam::_SessionUpdateCallback()
 {
-    std::string status, substatus;
+    // - Get Session progress integer amount
 
-    /* get status */
-    float progress = m_cyclesSession->progress.get_progress();
-    m_cyclesSession->progress.get_status(status, substatus);
+    m_renderProgress = m_cyclesSession->progress.get_progress();
 
-    if (HdCyclesConfig::GetInstance().enable_progress) {
-        std::cout << "Progress: " << (int)(round(progress * 100)) << "%\n";
+    int newPercent = (int)(floor(m_renderProgress * 100));
+    if (newPercent != m_renderPercent) {
+        m_renderPercent = newPercent;
+
+
+        if (HdCyclesConfig::GetInstance().enable_progress) {
+            std::cout << "Progress: " << m_renderPercent << "%\n";
+        }
     }
 
+    // - Get Render time
+
+    m_cyclesSession->progress.get_time(m_totalTime, m_renderTime);
+
+    // - Handle Session status logging
+
     if (HdCyclesConfig::GetInstance().enable_logging) {
+        std::string status, substatus;
+        m_cyclesSession->progress.get_status(status, substatus);
         if (substatus != "")
             status += ": " + substatus;
 
-        std::cout << "cycles: " << progress << " : " << status << '\n';
+        std::cout << "cycles: " << m_renderProgress << " : " << status << '\n';
     }
 }
 
@@ -562,7 +577,7 @@ HdCyclesRenderParam::_CyclesInitialize()
     if (HdCyclesConfig::GetInstance().enable_logging
         || HdCyclesConfig::GetInstance().enable_progress)
         m_cyclesSession->progress.set_update_callback(
-            std::bind(&HdCyclesRenderParam::_SessionPrintStatus, this));
+            std::bind(&HdCyclesRenderParam::_SessionUpdateCallback, this));
 
     // -- Scene init
     ccl::SceneParams sceneParams;
@@ -944,6 +959,49 @@ HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
 
     if (m_shadersUpdated)
         Interrupt();
+}
+
+VtDictionary
+HdCyclesRenderParam::GetRenderStats() const
+{
+    // Currently, collect_statistics errors seemingly during render,
+    // we probably need to only access these when the render is complete
+    // however this codeflow is currently undefined...
+
+    //ccl::RenderStats stats;
+    //m_cyclesSession->collect_statistics(&stats);
+
+    return {
+        { "hdcycles:version", VtValue(HD_CYCLES_VERSION) },
+
+        // - Cycles specific
+
+        // These error out currently, kept for future reference
+        /*{ "hdcycles:geometry:total_memory",
+          VtValue(ccl::string_human_readable_size(stats.mesh.geometry.total_size)
+                      .c_str()) },*/
+        /*{ "hdcycles:textures:total_memory",
+          VtValue(
+              ccl::string_human_readable_size(stats.image.textures.total_size)
+                  .c_str()) },*/
+        { "hdcycles:scene:num_objects", VtValue(m_cyclesScene->objects.size()) },
+        { "hdcycles:scene:num_shaders", VtValue(m_cyclesScene->shaders.size()) },
+
+        // - Solaris, husk specific
+
+        // Currently these don't update properly. It is unclear if we need to tag renderstats as
+        // dynamic. Maybe our VtValues need to live longer?
+
+        { "rendererName", VtValue("Cycles") },
+        { "rendererVersion", VtValue(HD_CYCLES_VERSION) },
+        { "percentDone", VtValue(m_renderPercent) },
+        { "fractionDone", VtValue(m_renderProgress) },
+        { "lightCounts", VtValue(m_cyclesScene->lights.size()) },
+        { "totalClockTime", VtValue(m_totalTime) },
+        { "cameraRays", VtValue(0) },
+        { "numCompletedSamples", VtValue(0) }
+
+    };
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

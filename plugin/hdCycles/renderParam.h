@@ -138,10 +138,10 @@ protected:
     void _CyclesExit();
 
     /**
-     * @brief Debug callback to print the status of cycles
+     * @brief Callback when cycles session updated
      * 
      */
-    void _SessionPrintStatus();
+    void _SessionUpdateCallback();
 
     void _WriteRenderTile(ccl::RenderTile& rtile);
     void _UpdateRenderTile(ccl::RenderTile& rtile, bool highlight);
@@ -492,6 +492,12 @@ private:
     bool m_useMotionBlur;
     int m_motionSteps;
 
+    int m_renderPercent;
+    float m_renderProgress;
+
+    double m_totalTime;
+    double m_renderTime;
+
     ccl::DeviceType m_deviceType;
     std::string m_deviceName;
 
@@ -535,6 +541,8 @@ public:
      * 
      */
     ccl::Shader* default_vcol_surface;
+
+    VtDictionary GetRenderStats() const;
 
 private:
     ccl::Session* m_cyclesSession;
