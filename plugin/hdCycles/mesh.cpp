@@ -242,10 +242,10 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
 
                 if (m_orientation == HdTokens->leftHanded) {
                     int temp = v2;
@@ -312,10 +312,10 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
 
                 if (m_orientation == HdTokens->leftHanded) {
                     int temp = v2;
@@ -374,10 +374,10 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
 
                 if (m_orientation == HdTokens->leftHanded) {
                     int temp = v2;
@@ -587,12 +587,12 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
             vi.resize(vCount);
 
             if (m_orientation == HdTokens->rightHanded) {
-                for (int i = 0; i < vCount; ++i) {
-                    vi[i] = *(idxIt + i);
+                for (int j = 0; j < vCount; ++j) {
+                    vi[j] = *(idxIt + j);
                 }
             } else {
-                for (int i = vCount; i > 0; i--) {
-                    vi[i] = *(idxIt + i);
+                for (int j = vCount; j > 0; j--) {
+                    vi[j] = *(idxIt + j);
                 }
             }
 
@@ -609,10 +609,10 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                 materialId = a_faceMaterials[i];
             }
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
                     if (m_orientation == HdTokens->rightHanded) {
@@ -752,6 +752,30 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_faceVertexIndices = m_topology.GetFaceVertexIndices();
         m_geomSubsets       = m_topology.GetGeomSubsets();
         m_orientation       = m_topology.GetOrientation();
+
+        // TODO: We still dont handle leftHanded primvars properly.
+        // However this helps faces be aligned the correct way...
+        if (m_orientation == HdTokens->leftHanded) {
+            VtIntArray newIndices;
+            newIndices.resize(m_faceVertexIndices.size());
+            int tot = 0;
+            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                int count = m_faceVertexCounts[i];
+
+                for (int j = 0; j < count; j++) {
+                    int idx  = tot + j;
+                    int ridx = tot + (count - j);
+
+                    if (j == 0)
+                        newIndices[idx] = m_faceVertexIndices[idx];
+                    else
+                        newIndices[idx] = m_faceVertexIndices[ridx];
+                }
+
+                tot += count;
+            }
+            m_faceVertexIndices = newIndices;
+        }
 
         m_numMeshFaces = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
@@ -1018,9 +1042,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
-        // It's likely that this breaks geom subset materials,
-        // but they should also get tagged as dirty at the same time...
-        m_usedShaders.clear();
+        // We probably need to clear this array, however putting this here,
+        // breaks some IPR sessions
+        // m_usedShaders.clear();
 
         if (m_cyclesMesh) {
             m_cachedMaterialId = sceneDelegate->GetMaterialId(id);

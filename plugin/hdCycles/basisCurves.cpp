@@ -567,9 +567,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
-        // It's likely that this breaks geom subset materials,
-        // but they should also get tagged as dirty at the same time...
-        m_usedShaders.clear();
+        // We probably need to clear this array, however putting this here,
+        // breaks some IPR sessions
+        // m_usedShaders.clear();
 
         if (m_cyclesGeometry) {
             // Add default shader
