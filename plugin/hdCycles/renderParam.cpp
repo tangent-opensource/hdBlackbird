@@ -20,6 +20,7 @@
 #include "renderParam.h"
 
 #include "config.h"
+#include "renderBuffer.h"
 #include "renderDelegate.h"
 #include "utils.h"
 
@@ -38,6 +39,11 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/session.h>
+#include <render/stats.h>
+
+#ifdef WITH_CYCLES_LOGGING
+#    include <util/util_logging.h>
+#endif
 
 #ifdef USE_USD_CYCLES_SCHEMA
 #    include <usdCycles/tokens.h>
@@ -54,7 +60,10 @@ clamp(double d, double min, double max)
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
+    , m_renderPercent(0)
+    , m_renderProgress(0.0f)
     , m_useSquareSamples(false)
+    , m_useTiledRendering(false)
     , m_cyclesScene(nullptr)
     , m_cyclesSession(nullptr)
     , m_objectsUpdated(false)
@@ -75,6 +84,8 @@ HdCyclesRenderParam::_InitializeDefaults()
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_deviceName                        = config.device_name.value;
     m_useSquareSamples                  = config.use_square_samples.value;
+    m_useMotionBlur                     = config.enable_motion_blur;
+    m_useTiledRendering                 = config.use_tiled_rendering;
 
 #ifdef WITH_CYCLES_LOGGING
     if (config.cycles_enable_logging) {
@@ -90,24 +101,41 @@ HdCyclesRenderParam::GetProgress()
     return m_cyclesSession->progress.get_progress();
 }
 
-void
-HdCyclesRenderParam::_SessionPrintStatus()
+HdCyclesRenderParam::IsConverged()
 {
-    std::string status, substatus;
+    return GetProgress() >= 1.0f;
+}
 
-    /* get status */
-    float progress = m_cyclesSession->progress.get_progress();
-    m_cyclesSession->progress.get_status(status, substatus);
+void
+HdCyclesRenderParam::_SessionUpdateCallback()
+{
+    // - Get Session progress integer amount
 
-    if (HdCyclesConfig::GetInstance().enable_progress) {
-        std::cout << "Progress: " << (int)(round(progress * 100)) << "%\n";
+    m_renderProgress = m_cyclesSession->progress.get_progress();
+
+    int newPercent = (int)(floor(m_renderProgress * 100));
+    if (newPercent != m_renderPercent) {
+        m_renderPercent = newPercent;
+
+
+        if (HdCyclesConfig::GetInstance().enable_progress) {
+            std::cout << "Progress: " << m_renderPercent << "%\n";
+        }
     }
 
+    // - Get Render time
+
+    m_cyclesSession->progress.get_time(m_totalTime, m_renderTime);
+
+    // - Handle Session status logging
+
     if (HdCyclesConfig::GetInstance().enable_logging) {
+        std::string status, substatus;
+        m_cyclesSession->progress.get_status(status, substatus);
         if (substatus != "")
             status += ": " + substatus;
 
-        std::cout << "cycles: " << progress << " : " << status << '\n';
+        std::cout << "cycles: " << m_renderProgress << " : " << status << '\n';
     }
 }
 
@@ -160,6 +188,20 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateBackgroundFromConfig(true);
     _UpdateBackgroundFromRenderSettings(settingsMap);
     _UpdateBackgroundFromConfig();
+
+    // TODO: Put these somewhere else
+    m_bufferParams.passes.clear();
+
+    if (m_useTiledRendering) {
+        for (HdCyclesDefaultAov& aov : DefaultAovs) {
+            ccl::Pass::add(aov.type, m_bufferParams.passes, aov.name.c_str());
+        }
+    } else {
+        ccl::Pass::add(ccl::PASS_COMBINED, m_bufferParams.passes, "Combined");
+    }
+
+    m_cyclesScene->film->tag_passes_update(m_cyclesScene,
+                                           m_bufferParams.passes);
 
     return true;
 }
@@ -246,6 +288,15 @@ HdCyclesRenderParam::_UpdateSessionFromConfig(bool a_forceInit)
     config.pixel_size.eval(sessionParams->pixel_size, a_forceInit);
     config.tile_size_x.eval(sessionParams->tile_size.x, a_forceInit);
     config.tile_size_y.eval(sessionParams->tile_size.y, a_forceInit);
+
+    
+    // Hardcoded tempoarily
+    if (m_useTiledRendering) {
+        sessionParams->background = true;
+        sessionParams->start_resolution   = INT_MAX;
+        sessionParams->progressive        = false;
+        sessionParams->progressive_refine = false;
+    }
 
     config.max_samples.eval(sessionParams->samples, a_forceInit);
 }
@@ -1218,15 +1269,129 @@ HdCyclesRenderParam::_CreateSession()
 
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
+    m_cyclesSession->write_render_tile_cb
+        = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
+    m_cyclesSession->update_render_tile_cb
+        = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1,
+                    ccl::_2);
+
     if (HdCyclesConfig::GetInstance().enable_logging
         || HdCyclesConfig::GetInstance().enable_progress)
         m_cyclesSession->progress.set_update_callback(
-            std::bind(&HdCyclesRenderParam::_SessionPrintStatus, this));
+            std::bind(&HdCyclesRenderParam::_SessionUpdateCallback, this));
 
     return true;
 }
 
+// URGENT TODO: Put this and the initialization somewhere more secure
+struct HdCyclesDefaultAov {
+    std::string name;
+    ccl::PassType type;
+    TfToken token;
+    HdFormat format;
+    //int components;
+};
+
+std::vector<HdCyclesDefaultAov> DefaultAovs = {
+    { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4 },
+    //{ "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32 },
+    //{ "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec4 },
+    //{ "DiffDir", ccl::PASS_DIFFUSE_DIRECT, HdCyclesAovTokens->DiffDir, HdFormatFloat32Vec4 },
+    //{ "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32 },
+    //{ "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32 },
+
+};
+
+void
+HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
+{
+    // No session, exit out
+    if (!m_cyclesSession)
+        return;
+
+    if (!m_useTiledRendering)
+        return;
+
+    const int x = rtile.x;
+    const int y = rtile.y;
+    const int w = rtile.w;
+    const int h = rtile.h;
+
+    ccl::RenderBuffers* buffers = rtile.buffers;
+
+    // copy data from device
+    if (!buffers->copy_from_device())
+        return;
+
+    // Adjust absolute sample number to the range.
+    int sample = rtile.sample;
+    const int range_start_sample
+        = m_cyclesSession->tile_manager.range_start_sample;
+    if (range_start_sample != -1) {
+        sample -= range_start_sample;
+    }
+
+    const float exposure = m_cyclesScene->film->exposure;
+
+    if (!m_aovs.empty()) {
+        // Blit from the framebuffer to currently selected aovs...
+        for (auto& aov : m_aovs) {
+            if (!TF_VERIFY(aov.renderBuffer != nullptr)) {
+                continue;
+            }
+
+            auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
+
+            if (rb == nullptr) {
+                continue;
+            }
+
+            if (rb->GetFormat() == HdFormatInvalid) {
+                continue;
+            }
+
+            for (HdCyclesDefaultAov& cyclesAov : DefaultAovs) {
+                if (aov.aovName == cyclesAov.token) {
+                    rb->SetConverged(IsConverged());
+
+                    // Pixels we will use to get from cycles.
+                    int numComponents = HdGetComponentCount(cyclesAov.format);
+
+                    ccl::vector<float> tileData(w * h * numComponents);
+
+                    bool read = buffers->get_pass_rect(cyclesAov.name.c_str(),
+                                                       exposure, sample,
+                                                       numComponents,
+                                                       &tileData[0]);
+
+                    if (!read) {
+                        memset(&tileData[0], 0,
+                               tileData.size() * sizeof(float));
+                    }
+
+                    rb->BlitTile(cyclesAov.format, rtile.x, rtile.y, rtile.w,
+                                 rtile.h, 0, rtile.w,
+                                 reinterpret_cast<uint8_t*>(tileData.data()));
+                }
+            }
+        }
+    }
+}
+
+void
+HdCyclesRenderParam::_UpdateRenderTile(ccl::RenderTile& rtile, bool highlight)
+{
+    if (m_cyclesSession->params.progressive_refine)
+        _WriteRenderTile(rtile);
+}
+
 // TODO: Tidy and move these sub function
+
+/*
+    This paradigm does cause unecessary loops through settingsMap for each feature. 
+    This should be addressed in the future. For the moment, the flexibility of setting
+    order of operations is more important.
+*/
 bool
 HdCyclesRenderParam::_CreateScene()
 {
@@ -1511,8 +1676,7 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
         m_cyclesScene->film->tag_update(m_cyclesScene);
     }
 
-    //m_cyclesScene->shaders->tag_update( m_cyclesScene );
-    m_cyclesSession->reset(m_bufferParams, m_sessionParams.samples);
+    m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
     m_cyclesScene->mutex.unlock();
 }
 
@@ -1568,9 +1732,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 
     m_objectsUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->objects.push_back(a_object);
-    m_cyclesScene->mutex.unlock();
 
     Interrupt();
 }
@@ -1769,6 +1931,49 @@ HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
 
     if (m_shadersUpdated)
         Interrupt();
+}
+
+VtDictionary
+HdCyclesRenderParam::GetRenderStats() const
+{
+    // Currently, collect_statistics errors seemingly during render,
+    // we probably need to only access these when the render is complete
+    // however this codeflow is currently undefined...
+
+    //ccl::RenderStats stats;
+    //m_cyclesSession->collect_statistics(&stats);
+
+    return {
+        { "hdcycles:version", VtValue(HD_CYCLES_VERSION) },
+
+        // - Cycles specific
+
+        // These error out currently, kept for future reference
+        /*{ "hdcycles:geometry:total_memory",
+          VtValue(ccl::string_human_readable_size(stats.mesh.geometry.total_size)
+                      .c_str()) },*/
+        /*{ "hdcycles:textures:total_memory",
+          VtValue(
+              ccl::string_human_readable_size(stats.image.textures.total_size)
+                  .c_str()) },*/
+        { "hdcycles:scene:num_objects", VtValue(m_cyclesScene->objects.size()) },
+        { "hdcycles:scene:num_shaders", VtValue(m_cyclesScene->shaders.size()) },
+
+        // - Solaris, husk specific
+
+        // Currently these don't update properly. It is unclear if we need to tag renderstats as
+        // dynamic. Maybe our VtValues need to live longer?
+
+        { "rendererName", VtValue("Cycles") },
+        { "rendererVersion", VtValue(HD_CYCLES_VERSION) },
+        { "percentDone", VtValue(m_renderPercent) },
+        { "fractionDone", VtValue(m_renderProgress) },
+        { "lightCounts", VtValue(m_cyclesScene->lights.size()) },
+        { "totalClockTime", VtValue(m_totalTime) },
+        { "cameraRays", VtValue(0) },
+        { "numCompletedSamples", VtValue(0) }
+
+    };
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

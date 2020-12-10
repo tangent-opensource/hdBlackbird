@@ -44,6 +44,7 @@
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/vec3i.h>
+#include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/meshUtil.h>
@@ -81,6 +82,8 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_visTransmission(true)
     , m_velocityScale(1.0f)
     , m_hydraVisibility(true)
+    , m_useMotionBlur(false)
+    , m_useDeformMotionBlur(false)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_subdivision.eval(m_subdivEnabled, true);
@@ -91,6 +94,23 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     m_cyclesObject = _CreateCyclesObject();
 
     m_cyclesMesh = _CreateCyclesMesh();
+
+    m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
+
+    if (m_useMotionBlur) {
+        // Motion steps are currently a static const compile time
+        // variable... This is likely an issue...
+        // TODO: Get this from usdCycles schema
+        //m_motionSteps = config.motion_steps;
+        m_motionSteps = m_numTransformSamples;
+
+        // Hardcoded for now until schema PR
+        m_useDeformMotionBlur = true;
+
+        // TODO: Needed when we properly handle motion_verts
+        m_cyclesMesh->motion_steps    = m_motionSteps;
+        m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
+    }
 
     m_cyclesObject->geometry = m_cyclesMesh;
 
@@ -128,7 +148,7 @@ HdCyclesMesh::GetInitialDirtyBitsMask() const
            | HdChangeTracker::DirtyTransform | HdChangeTracker::DirtyPrimvar
            | HdChangeTracker::DirtyTopology | HdChangeTracker::DirtyVisibility
            | HdChangeTracker::DirtyMaterialId | HdChangeTracker::DirtySubdivTags
-           | HdChangeTracker::DirtyDisplayStyle
+           | HdChangeTracker::DirtyPrimID | HdChangeTracker::DirtyDisplayStyle
            | HdChangeTracker::DirtyDoubleSided;
 }
 template<typename T>
@@ -234,10 +254,10 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
 
                 if (m_orientation == HdTokens->leftHanded) {
                     int temp = v2;
@@ -304,10 +324,10 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
 
                 if (m_orientation == HdTokens->leftHanded) {
                     int temp = v2;
@@ -366,10 +386,10 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
 
                 if (m_orientation == HdTokens->leftHanded) {
                     int temp = v2;
@@ -483,7 +503,7 @@ HdCyclesMesh::_CreateCyclesMesh()
     ccl::Mesh* mesh = new ccl::Mesh();
     mesh->clear();
 
-    if (m_useMotionBlur)
+    if (m_useMotionBlur && m_useDeformMotionBlur) {
         mesh->use_motion_blur = true;
 
     m_numMeshVerts = 0;
@@ -498,7 +518,8 @@ HdCyclesMesh::_CreateCyclesObject()
 {
     ccl::Object* object = new ccl::Object();
 
-    object->tfm = ccl::transform_identity();
+    object->tfm     = ccl::transform_identity();
+    object->pass_id = -1;
 
     object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
 
@@ -521,19 +542,22 @@ HdCyclesMesh::_PopulateMotion()
         return;
     }
 
+    ccl::AttributeSet* attributes = (m_useSubdivision)
+                                        ? &m_cyclesMesh->subd_attributes
+                                        : &m_cyclesMesh->attributes;
+
     m_cyclesMesh->use_motion_blur = true;
 
     m_cyclesMesh->motion_steps = m_pointSamples.count + 1;
 
-    ccl::Attribute* attr_mP = m_cyclesMesh->attributes.find(
+    ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
     if (attr_mP)
-        m_cyclesMesh->attributes.remove(attr_mP);
+        attributes->remove(attr_mP);
 
     if (!attr_mP) {
-        attr_mP = m_cyclesMesh->attributes.add(
-            ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+        attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     }
 
     ccl::float3* mP = attr_mP->data_float3();
@@ -574,12 +598,12 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
             vi.resize(vCount);
 
             if (m_orientation == HdTokens->rightHanded) {
-                for (int i = 0; i < vCount; ++i) {
-                    vi[i] = *(idxIt + i);
+                for (int j = 0; j < vCount; ++j) {
+                    vi[j] = *(idxIt + j);
                 }
             } else {
-                for (int i = vCount; i > 0; i--) {
-                    vi[i] = *(idxIt + i);
+                for (int j = vCount; j > 0; j--) {
+                    vi[j] = *(idxIt + j);
                 }
             }
 
@@ -596,10 +620,10 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                 materialId = a_faceMaterials[i];
             }
 
-            for (int i = 1; i < vCount - 1; ++i) {
+            for (int j = 1; j < vCount - 1; ++j) {
                 int v0 = *idxIt;
-                int v1 = *(idxIt + i + 0);
-                int v2 = *(idxIt + i + 1);
+                int v1 = *(idxIt + j + 0);
+                int v2 = *(idxIt + j + 1);
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
                     if (m_orientation == HdTokens->rightHanded) {
@@ -685,8 +709,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     bool pointsIsComputed = false;
 
-    // TODO: Check if this code is ever executed... Only seems to be for points
-    // and removing it seems to work for our tests
+    // This is needed for USD Skel, however is currently buggy...
     auto extComputationDescs
         = sceneDelegate->GetExtComputationPrimvarDescriptors(
             id, HdInterpolationVertex);
@@ -713,7 +736,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         break;
     }
 
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
+    if (!pointsIsComputed
+        && HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
         mesh_updated        = true;
         VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
         if (!pointsValue.IsEmpty()) {
@@ -728,12 +752,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             // TODO: Should we check if time varying?
             // TODO: can we use this for m_points too?
             sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
-        } /*
-        size_t maxSample = 3;
-
-        HdCyclesSampledPrimvarType 4;
-        sceneDelegate->SamplePrimvar(id, HdTokens->points, &samples );
-        std::cout << "Found time sampled points "<< samples.count << '\n';*/
+        }
     }
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
@@ -744,6 +763,30 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_faceVertexIndices = m_topology.GetFaceVertexIndices();
         m_geomSubsets       = m_topology.GetGeomSubsets();
         m_orientation       = m_topology.GetOrientation();
+
+        // TODO: We still dont handle leftHanded primvars properly.
+        // However this helps faces be aligned the correct way...
+        if (m_orientation == HdTokens->leftHanded) {
+            VtIntArray newIndices;
+            newIndices.resize(m_faceVertexIndices.size());
+            int tot = 0;
+            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+                int count = m_faceVertexCounts[i];
+
+                for (int j = 0; j < count; j++) {
+                    int idx  = tot + j;
+                    int ridx = tot + (count - j);
+
+                    if (j == 0)
+                        newIndices[idx] = m_faceVertexIndices[idx];
+                    else
+                        newIndices[idx] = m_faceVertexIndices[ridx];
+                }
+
+                tot += count;
+            }
+            m_faceVertexIndices = newIndices;
+        }
 
         m_numMeshFaces = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
@@ -926,8 +969,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         _PopulateVertices();
 
-        m_cyclesMesh->use_motion_blur = m_useMotionBlur;
-
         if (m_useMotionBlur && m_useDeformMotionBlur)
             _PopulateMotion();
 
@@ -1100,6 +1141,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+        // This causes a known slowdown to deforming motion blur renders
+        // This will be addressed in an upcoming PR
         m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
                                                   id, m_useMotionBlur);
 
@@ -1116,7 +1159,16 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         fallbackShader = param->default_vcol_surface;
     }
 
+    if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
+        // Offset of 1 added because Cycles primId pass needs to be shifted down to -1
+        m_cyclesObject->pass_id = this->GetPrimId() + 1;
+    }
+
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
+        // We probably need to clear this array, however putting this here,
+        // breaks some IPR sessions
+        // m_usedShaders.clear();
+
         if (m_cyclesMesh) {
             m_cachedMaterialId = sceneDelegate->GetMaterialId(id);
             if (m_faceVertexCounts.size() > 0) {
@@ -1207,7 +1259,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     instanceObj->geometry = m_cyclesMesh;
 
                     // TODO: Implement motion blur for point instanced objects
-                    if (m_useMotionBlur) {
+                    /*if (m_useMotionBlur) {
                         m_cyclesMesh->motion_steps    = m_motionSteps;
                         m_cyclesMesh->use_motion_blur = m_useMotionBlur;
 
@@ -1217,7 +1269,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             instanceObj->motion[j] = mat4d_to_transform(
                                 combinedTransforms[j].data()[j]);
                         }
-                    }
+                    }*/
 
                     m_cyclesInstances.push_back(instanceObj);
 

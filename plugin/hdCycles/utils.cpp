@@ -29,12 +29,10 @@
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/usd/sdf/assetPath.h>
 
-#ifdef USE_USD_HOUDINI
+#ifdef USE_HBOOST
 #    include <hboost/filesystem.hpp>
-#    define BOOST_LIB_NAME hboost
 #else
 #    include <boost/filesystem.hpp>
-#    define BOOST_LIB_NAME boost
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -46,7 +44,7 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath)
 {
 #ifndef USD_HAS_UDIM_RESOLVE_FIX
     // Added precheck to ensure no UDIM is accepted with relative path
-    BOOST_LIB_NAME::filesystem::path filepath(a_filepath);
+    BOOST_NS::filesystem::path filepath(a_filepath);
     if (filepath.is_relative())
         return false;
 #endif
@@ -61,19 +59,19 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath)
 void
 HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
 {
-    BOOST_LIB_NAME::filesystem::path filepath(a_filepath);
+    BOOST_NS::filesystem::path filepath(a_filepath);
 
     size_t offset            = filepath.stem().string().find("<UDIM>");
     std::string baseFileName = filepath.stem().string().substr(0, offset);
 
     std::vector<std::string> files;
 
-    BOOST_LIB_NAME::filesystem::path path(ccl::path_dirname(a_filepath));
-    for (BOOST_LIB_NAME::filesystem::directory_iterator it(path);
-         it != BOOST_LIB_NAME::filesystem::directory_iterator(); ++it) {
-        if (BOOST_LIB_NAME::filesystem::is_regular_file(it->status())
-            || BOOST_LIB_NAME::filesystem::is_symlink(it->status())) {
-            std::string foundFile = BOOST_LIB_NAME::filesystem::basename(
+    BOOST_NS::filesystem::path path(ccl::path_dirname(a_filepath));
+    for (BOOST_NS::filesystem::directory_iterator it(path);
+         it != BOOST_NS::filesystem::directory_iterator(); ++it) {
+        if (BOOST_NS::filesystem::is_regular_file(it->status())
+            || BOOST_NS::filesystem::is_symlink(it->status())) {
+            std::string foundFile = BOOST_NS::filesystem::basename(
                 it->path().filename());
 
             if (baseFileName == (foundFile.substr(0, offset))) {
@@ -135,6 +133,9 @@ HdCyclesCreateDefaultShader()
 
 // TODO: Make this function more robust
 // Along with making point sampling more robust
+// UPDATE:
+// This causes a known slowdown to deforming motion blur renders
+// This will be addressed in an upcoming PR
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -220,6 +221,18 @@ HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id)
     delegate->SampleTransform(id, &xf);
 
     return mat4d_to_transform(xf.values[0]);
+}
+
+GfMatrix4d
+ConvertCameraTransform(const GfMatrix4d& a_cameraTransform)
+{
+    GfMatrix4d viewToWorldCorrectionMatrix(1.0);
+
+    GfMatrix4d flipZ(1.0);
+    flipZ[2][2]                 = -1.0;
+    viewToWorldCorrectionMatrix = flipZ * viewToWorldCorrectionMatrix;
+
+    return viewToWorldCorrectionMatrix * a_cameraTransform;
 }
 
 ccl::Transform

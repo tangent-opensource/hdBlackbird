@@ -25,7 +25,6 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-
 template<>
 HdCyclesEnvValue<bool>::HdCyclesEnvValue(const char* a_envName, bool a_default)
 {

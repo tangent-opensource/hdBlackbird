@@ -114,6 +114,9 @@ public:
     HDCYCLES_API
     float GetProgress();
 
+    HDCYCLES_API
+    bool IsConverged();
+
     /**
      * @brief Start a cycles render
      * TODO: Refactor this
@@ -141,10 +144,13 @@ protected:
     void _CyclesExit();
 
     /**
-     * @brief Debug callback to print the status of cycles
+     * @brief Callback when cycles session updated
      * 
      */
-    void _SessionPrintStatus();
+    void _SessionUpdateCallback();
+
+    void _WriteRenderTile(ccl::RenderTile& rtile);
+    void _UpdateRenderTile(ccl::RenderTile& rtile, bool highlight);
 
 public:
     /**
@@ -498,8 +504,16 @@ private:
 
     ccl::BufferParams m_bufferParams;
 
+    int m_renderPercent;
+    float m_renderProgress;
+
+    double m_totalTime;
+    double m_renderTime;
+
     ccl::DeviceType m_deviceType;
     std::string m_deviceName;
+
+    bool m_useTiledRendering;
 
     int m_width;
     int m_height;
@@ -518,6 +532,8 @@ private:
     bool m_useSquareSamples;
 
 public:
+    const bool& IsTiledRender() const { return m_useTiledRendering; }
+
     void CommitResources();
     /**
      * @brief Get the active Cycles Session 
@@ -540,9 +556,25 @@ public:
      */
     ccl::Shader* default_vcol_surface;
 
+    VtDictionary GetRenderStats() const;
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
+
+
+    HdRenderPassAovBindingVector m_aovs;
+
+public:
+    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
+    {
+        m_aovs = a_aovs;
+    }
+
+    HdRenderPassAovBindingVector const& GetAovBindings() const
+    {
+        return m_aovs;
+    }
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

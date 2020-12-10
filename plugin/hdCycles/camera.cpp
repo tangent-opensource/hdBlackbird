@@ -189,10 +189,11 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         EvalCameraParam(&m_shutterClose, HdCameraTokens->shutterClose,
                         sceneDelegate, id);
 
-        float shutter = (std::abs(m_shutterOpen) + std::abs(m_shutterClose))
-                        / 2.0f;
-        if (m_shutterOpen == 0.0f && m_shutterClose == 0.0f)
-            shutter = 0.5f;
+        // TODO: Shutter time is somewhat undefined, the usdCycles schema can directly set this
+        //float shutter = (std::abs(m_shutterOpen) + std::abs(m_shutterClose))
+        //                / 2.0f;
+        //if (m_shutterOpen == 0.0f && m_shutterClose == 0.0f)
+        //    shutter = 0.5f;
         m_shutterTime = 0.5f;
 
         // Projection
@@ -499,21 +500,24 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     if (shouldUpdate)
         m_needsUpdate = false;
 
-    /*if (m_useMotionBlur) {
+    // TODO:
+    // We likely need to ensure motion_position is respected when
+    // populating the camera->motion array.
+    if (m_useMotionBlur) {
         a_camera->motion.clear();
-        a_camera->motion.resize(m_transformSamples.count, a_camera->matrix);
-        for (int i = 0; i < m_transformSamples.count; i++) {
-            int idx = a_camera->motion_step(m_transformSamples.times.data()[i]);
+        a_camera->motion.resize(m_transformSamples.count, ccl::transform_identity());
 
+        for (int i = 0; i < m_transformSamples.count; i++) {
             if (m_transformSamples.times.data()[i] == 0.0f) {
-                a_camera->matrix = mat4d_to_transform(
-                    m_transformSamples.values.data()[i]);
-            } else {
-                a_camera->motion[i] = mat4d_to_transform(
-                    m_transformSamples.values.data()[i]);
+                a_camera->matrix = mat4d_to_transform(ConvertCameraTransform(
+                    m_transformSamples.values.data()[i]));
             }
+
+            a_camera->motion[i] = mat4d_to_transform(
+                ConvertCameraTransform(m_transformSamples.values.data()[i]));
+
         }
-    }*/
+    }
 
     return shouldUpdate;
 }

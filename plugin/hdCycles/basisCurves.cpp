@@ -650,6 +650,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
+        // We probably need to clear this array, however putting this here,
+        // breaks some IPR sessions
+        // m_usedShaders.clear();
+
         if (m_cyclesGeometry) {
             // Add default shader
             const SdfPath& materialId = sceneDelegate->GetMaterialId(GetId());

@@ -68,7 +68,7 @@ public:
     /* ====== Cycles Settings ====== */
 
     /**
-     * @brief If enabled, Cycles will log every step
+     * @brief If enabled, Cycles will log 
      *
      */
     bool cycles_enable_logging;
@@ -80,6 +80,13 @@ public:
     int cycles_logging_severity;
 
     /* ====== HdCycles Settings ====== */
+
+    /**
+     * @brief Use tiles for renders, allows AOV's and better performance
+     * EXPERIMENTAL, currently many known issues.
+     * 
+     */
+    bool use_tiled_rendering;
 
     /**
      * @brief If enabled, HdCycles will log every step

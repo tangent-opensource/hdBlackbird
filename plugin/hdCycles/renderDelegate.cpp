@@ -26,9 +26,9 @@
 #include "light.h"
 #include "material.h"
 #include "mesh.h"
+#include "openvdb_asset.h"
 #include "points.h"
 #include "volume.h"
-#include "openvdb_asset.h"
 
 #include "renderBuffer.h"
 #include "renderParam.h"
@@ -62,6 +62,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 // clang-format on
 
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesIntegratorTokens, HDCYCLES_INTEGRATOR_TOKENS);
+TF_DEFINE_PUBLIC_TOKENS(HdCyclesAovTokens, HDCYCLES_AOV_TOKENS);
 
 // clang-format off
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_RPRIM_TYPES = {
@@ -291,7 +292,7 @@ HdCyclesRenderDelegate::CreateBprim(TfToken const& typeId,
                                     SdfPath const& bprimId)
 {
     if (typeId == HdPrimTypeTokens->renderBuffer) {
-        return new HdCyclesRenderBuffer(bprimId);
+        return new HdCyclesRenderBuffer(this, bprimId);
     }
     if (typeId == _tokens->openvdbAsset) {
         return new HdCyclesOpenvdbAsset(this, bprimId);
@@ -305,7 +306,7 @@ HdBprim*
 HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
 {
     if (typeId == HdPrimTypeTokens->renderBuffer) {
-        return new HdCyclesRenderBuffer(SdfPath());
+        return new HdCyclesRenderBuffer(this, SdfPath());
     }
     if (typeId == _tokens->openvdbAsset) {
         return new HdCyclesOpenvdbAsset(this, SdfPath());
@@ -351,18 +352,31 @@ HdCyclesRenderDelegate::GetCyclesRenderParam() const
 HdAovDescriptor
 HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
 {
+    bool use_tiles  = GetCyclesRenderParam()->IsTiledRender();
+    bool use_linear = GetCyclesRenderParam()
+                          ->GetCyclesSession()
+                          ->params.display_buffer_linear;
+
+    HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4
+                                      : HdFormatUNorm8Vec4;
+    if (use_tiles) {
+        colorFormat = HdFormatFloat32Vec4;
+    }
+
     if (name == HdAovTokens->color) {
-        HdFormat colorFormat = GetCyclesRenderParam()
-                                       ->GetCyclesSession()
-                                       ->params.display_buffer_linear
-                                   ? HdFormatFloat16Vec4
-                                   : HdFormatUNorm8Vec4;
+        return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
+    } else if (name == HdAovTokens->normal) {
+        if (use_tiles) {
+            colorFormat = HdFormatFloat32Vec3;
+        }
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->depth) {
         return HdAovDescriptor(HdFormatFloat32, false, VtValue(1.0f));
     } else if (name == HdAovTokens->primId || name == HdAovTokens->instanceId
                || name == HdAovTokens->elementId) {
         return HdAovDescriptor(HdFormatInt32, false, VtValue(-1));
+    } else if (name == HdCyclesAovTokens->DiffDir) {
+        return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     }
 
     return HdAovDescriptor();
@@ -378,6 +392,12 @@ TfToken
 HdCyclesRenderDelegate::GetMaterialBindingPurpose() const
 {
     return HdTokens->full;
+}
+
+VtDictionary
+HdCyclesRenderDelegate::GetRenderStats() const
+{
+    return m_renderParam->GetRenderStats();
 }
 
 bool

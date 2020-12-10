@@ -620,10 +620,10 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
     const SdfPath& id = GetId();
 
     param->GetCyclesScene()->mutex.lock();
+    bool material_updated = false;
 
     HdDirtyBits bits = *dirtyBits;
 
-    bool material_updated = false;
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
         VtValue vtMat = sceneDelegate->GetMaterialResource(id);
@@ -638,8 +638,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
             HdMaterialNetwork const* surface      = nullptr;
             HdMaterialNetwork const* displacement = nullptr;
             HdMaterialNetwork const* volume       = nullptr;
-
-            bool foundNetwork = false;
 
             if (GetMaterialNetwork(HdCyclesMaterialTerminalTokens->surface,
                                    sceneDelegate, networkMap,
