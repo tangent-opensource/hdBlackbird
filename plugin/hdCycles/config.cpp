@@ -84,10 +84,16 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
                       "Enable HdCycles progress reporting");
 
+TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
+                      "Use Tiled Rendering (Experimental)");
+
+
 // HdCycles Constructor
 HdCyclesConfig::HdCyclesConfig()
 {
     // -- Cycles Settings
+    use_tiled_rendering = TfGetEnvSetting(HD_CYCLES_USE_TILED_RENDERING);
+
     cycles_enable_logging   = TfGetEnvSetting(CYCLES_ENABLE_LOGGING);
     cycles_logging_severity = TfGetEnvSetting(CYCLES_LOGGING_SEVERITY);
 
