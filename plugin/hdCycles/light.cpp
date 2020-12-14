@@ -28,6 +28,7 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/shader.h>
+#include <util/util_hash.h>
 #include <util/util_math_float3.h>
 #include <util/util_string.h>
 
@@ -57,7 +58,7 @@ HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType,
     if (id == SdfPath::EmptyPath())
         return;
 
-    _CreateCyclesLight(m_renderDelegate->GetCyclesRenderParam());
+    _CreateCyclesLight(id, m_renderDelegate->GetCyclesRenderParam());
 }
 
 HdCyclesLight::~HdCyclesLight()
@@ -84,10 +85,13 @@ HdCyclesLight::Finalize(HdRenderParam* renderParam)
 }
 
 void
-HdCyclesLight::_CreateCyclesLight(HdCyclesRenderParam* renderParam)
+HdCyclesLight::_CreateCyclesLight(SdfPath const& id,
+                                  HdCyclesRenderParam* renderParam)
 {
     ccl::Scene* scene = renderParam->GetCyclesScene();
     m_cyclesLight     = new ccl::Light();
+
+    m_cyclesLight->name = ccl::ustring(id.GetName().c_str());
 
     m_cyclesShader        = new ccl::Shader();
     m_cyclesShader->graph = new ccl::ShaderGraph();
@@ -149,8 +153,8 @@ HdCyclesLight::_CreateCyclesLight(HdCyclesRenderParam* renderParam)
     m_cyclesLight->is_portal        = false;
     m_cyclesLight->max_bounces      = 1024;
 
-    //TODO: Add support for random_id
-    //m_cyclesLight->random_id = ...
+    m_cyclesLight->random_id
+        = ccl::hash_uint2(ccl::hash_string(m_cyclesLight->name.c_str()), 0);
 
     m_cyclesShader->tag_update(scene);
     m_cyclesLight->tag_update(scene);

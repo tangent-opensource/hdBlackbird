@@ -44,10 +44,9 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-// TODO: Read these from usdCycles schema
+// TODO: Remove this when we deprecate old curve support
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(_tokens,
-    ((cyclesCurveStyle, "cycles:object:curve_style"))
     ((cyclesCurveResolution, "cycles:object:curve_resolution"))
 );
 // clang-format on
@@ -70,7 +69,6 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_visScatter(true)
     , m_visShadow(true)
     , m_visTransmission(true)
-    , m_hydraVisibility(true)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_motion_blur.eval(m_useMotionBlur, true);
@@ -511,7 +509,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
         TfToken curveShape = usdCyclesTokens->ribbon;
 
-        // This needs a big change
+        // Left for now due to other immediate bugs.
+        // This should be unified, as should potentially all primvar 
+        // accessors...
         for (auto& entry : pdpi) {
             for (auto& pv : entry.second) {
                 if ("primvars:" + pv.name.GetString()
@@ -599,8 +599,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         update_curve        = true;
         _sharedData.visible = sceneDelegate->GetVisible(id);
-
-        m_hydraVisibility = _sharedData.visible;
     }
 
     if (generate_new_curve) {
@@ -680,7 +678,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         m_cyclesHair->curve_shape = m_curveShape;
 
         m_cyclesObject->visibility = m_visibilityFlags;
-        if (!m_hydraVisibility)
+        if (!_sharedData.visible)
             m_cyclesObject->visibility = 0;
 
         m_cyclesGeometry->tag_update(scene, true);

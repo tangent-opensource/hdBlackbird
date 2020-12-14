@@ -118,16 +118,11 @@ public:
     bool IsConverged();
 
     /**
-     * @brief Start a cycles render
-     * TODO: Refactor this
-     * 
-     */
-    void _CyclesStart();
-
-    /**
      * @brief Key access point to set a HdCycles render setting via key and value
      * Handles SessionParams, SceneParams, Integrator, Film, and Background intelligently.
-     * TODO: Might make sense to split up
+     * 
+     * This has some inherent performance overheads (runs multiple times, unecessary)
+     * however for now, this works the most clearly due to Cycles restrictions
      * 
      * @param key 
      * @param value 
@@ -137,6 +132,13 @@ public:
     bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
 protected:
+
+    /**
+     * @brief Start a cycles render
+     * 
+     */
+    void _CyclesStart();
+
     /**
      * @brief Main exit logic of cycles render
      * 
@@ -187,127 +189,6 @@ public:
     /* ======= Cycles Settings ======= */
 
     /**
-     * @brief Get should cycles be run in experimental mode
-     * 
-     * @return Returns true if cycles will run in experimental mode
-     */
-    const bool& GetUseExperimental();
-
-    /**
-     * @brief Set should cycles be run in experimental mode
-     * 
-     * @param a_value Should use experimental mode
-     */
-    void SetUseExperimental(const bool& a_value);
-
-    /**
-     * @brief Get the maximum samples to be used in a render
-     * 
-     * @return const int& Maximum number of samples
-     */
-    const int& GetMaxSamples();
-
-    /**
-     * @brief Set the maximum samples to be used in a render
-     * 
-     * @param a_value Maximum number of samples
-     */
-    void SetMaxSamples(const int& a_value);
-
-    /**
-     * @brief Get the number of threads to be used when rendering
-     * 
-     * @return const int& Number of threads
-     */
-    const int& GetNumThreads();
-
-    /**
-     * @brief Set the number of threads to be used when rendering
-     * 0 is automatic
-     * 
-     * @param a_value Number of threads 
-     */
-    void SetNumThreads(const int& a_value);
-
-    /**
-     * @brief Get the individual Pixel Size of cycles render
-     * 
-     * @return const int& Pixel Size
-     */
-    const int& GetPixelSize();
-
-    /**
-     * @brief Set the individual Pixel Size of cycles render
-     * 
-     * @param a_value Pixel Size
-     */
-    void SetPixelSize(const int& a_value);
-
-    /**
-     * @brief Get the Tile Size of cycles tiled render
-     * 
-     * @return const pxr::GfVec2i& Tile width and height
-     */
-    const pxr::GfVec2i GetTileSize();
-
-    /**
-     * @brief Set the Tile Size of cycles tiled render
-     * 
-     * @param a_value Tile width and height
-     */
-    void SetTileSize(const pxr::GfVec2i& a_value);
-
-    /**
-     * @brief Set the Tile Size of cycles tiled render
-     * 
-     * @param a_x Tile width
-     * @param a_y Tile hieght
-     */
-    void SetTileSize(int a_x, int a_y);
-
-    /**
-     * @brief Get the Start Resolution of cycles render
-     * 
-     * @return const int& Start Resolution
-     */
-    const int& GetStartResolution();
-
-    /**
-     * @brief Set the Start Resolution of cycles render
-     * 
-     * @param a_value Start Resolution
-     */
-    void SetStartResolution(const int& a_value);
-
-    /**
-     * @brief Get the Exposure of final render
-     * 
-     * @return const float& Exposure
-     */
-    const float& GetExposure();
-
-    /**
-     * @brief Set the Exposure of final render
-     * 
-     * @param a_exposure Exposure
-     */
-    void SetExposure(float a_exposure);
-
-    /**
-     * @brief Get the current Device Type 
-     * 
-     * @return const ccl::DeviceType& Device Type
-     */
-    const ccl::DeviceType& GetDeviceType();
-
-    /**
-     * @brief Get the Device Type Name as string
-     * 
-     * @return const std::string& Device Type Name
-     */
-    const std::string& GetDeviceTypeName();
-
-    /**
      * @brief Set Cycles render device type
      * 
      * @param a_deviceType Device type as type
@@ -335,45 +216,7 @@ public:
      */
     bool SetDeviceType(const std::string& a_deviceType);
 
-    /**
-     * @brief Get the camera's motion position
-     * TODO: Move this to HdCyclesCamera
-     * 
-     * @return const ccl::Camera::MotionPosition& Motion Position 
-     */
-    const ccl::Camera::MotionPosition& GetShutterMotionPosition();
-
-    /**
-     * @brief Set the camera's motion position
-     * TODO: Move this to HdCyclesCamera
-     * 
-     * @param a_value Motion Position
-     */
-    void SetShutterMotionPosition(const int& a_value);
-
-    /**
-     * @brief Set the camera's motion position
-     * TODO: Move this to HdCyclesCamera
-     * 
-     * @param a_value Motion Position
-     */
-    void SetShutterMotionPosition(const ccl::Camera::MotionPosition& a_value);
-
     /* ====== HdCycles Settings ====== */
-
-    /**
-     * @brief Get the Width of render
-     * 
-     * @return Width in pixels
-     */
-    const float& GetWidth() { return m_width; }
-
-    /**
-     * @brief Get the Height of render
-     * 
-     * @return Height in pixels
-     */
-    const float& GetHeight() { return m_height; }
 
     /**
      * @brief Add light to scene
@@ -452,11 +295,19 @@ public:
      */
     void RemoveObject(ccl::Object* a_object);
 
-public:
-    bool GetUseMotionBlur();
-
 private:
     bool _CreateSession();
+
+    /**
+     * @brief Creates the base Cycles scene
+     * 
+     * This paradigm does cause unecessary loops through settingsMap for each feature. 
+     * This should be addressed in the future. For the moment, the flexibility of setting
+     * order of operations is more important.
+     * 
+     * @return true 
+     * @return false 
+     */
     bool _CreateScene();
 
     void _UpdateDelegateFromConfig(bool a_forceInit = false);
@@ -489,6 +340,8 @@ private:
     bool _HandleBackgroundRenderSetting(const TfToken& key,
                                         const VtValue& value);
 
+    void _HandlePasses();
+
     /**
      * @brief Initialize member values based on config
      * TODO: Refactor this
@@ -501,7 +354,6 @@ private:
 
     ccl::SessionParams m_sessionParams;
     ccl::SceneParams m_sceneParams;
-
     ccl::BufferParams m_bufferParams;
 
     int m_renderPercent;

@@ -116,7 +116,7 @@ HdCyclesRenderParam::_InitializeDefaults()
 float
 HdCyclesRenderParam::GetProgress()
 {
-    return m_cyclesSession->progress.get_progress();
+    return m_renderProgress;
 }
 
 bool
@@ -208,19 +208,7 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateBackgroundFromRenderSettings(settingsMap);
     _UpdateBackgroundFromConfig();
 
-    // TODO: Put these somewhere else
-    m_bufferParams.passes.clear();
-
-    if (m_useTiledRendering) {
-        for (HdCyclesDefaultAov& aov : DefaultAovs) {
-            ccl::Pass::add(aov.type, m_bufferParams.passes, aov.name.c_str());
-        }
-    } else {
-        ccl::Pass::add(ccl::PASS_COMBINED, m_bufferParams.passes, "Combined");
-    }
-
-    m_cyclesScene->film->tag_passes_update(m_cyclesScene,
-                                           m_bufferParams.passes);
+    _HandlePasses();
 
     return true;
 }
@@ -308,10 +296,11 @@ HdCyclesRenderParam::_UpdateSessionFromConfig(bool a_forceInit)
     config.tile_size_x.eval(sessionParams->tile_size.x, a_forceInit);
     config.tile_size_y.eval(sessionParams->tile_size.y, a_forceInit);
 
-    
-    // Hardcoded tempoarily
+    // Tiled rendering requires some settings to be forced on...
+    // This requires some more thought and testing in regards
+    // to the usdCycles schema...
     if (m_useTiledRendering) {
-        sessionParams->background = true;
+        sessionParams->background         = true;
         sessionParams->start_resolution   = INT_MAX;
         sessionParams->progressive        = false;
         sessionParams->progressive_refine = false;
@@ -364,8 +353,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
 
     if (key == usdCyclesTokens->cyclesProgressive_update_timeout) {
         sessionParams->progressive_update_timeout = _HdCyclesGetVtValue<float>(
-            value, sessionParams->progressive_update_timeout,
-            &session_updated);
+            value, sessionParams->progressive_update_timeout, &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesExperimental) {
@@ -383,9 +371,8 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
     // Tiles
 
     if (key == usdCyclesTokens->cyclesTile_size) {
-        sessionParams->tile_size = vec2i_to_int2(
-            _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size),
-                                         &session_updated));
+        sessionParams->tile_size = vec2i_to_int2(_HdCyclesGetVtValue<GfVec2i>(
+            value, int2_to_vec2i(sessionParams->tile_size), &session_updated));
     }
 
     TfToken tileOrder;
@@ -448,7 +435,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
     TfToken shadingSystem;
     if (key == usdCyclesTokens->cyclesShading_system) {
         shadingSystem = _HdCyclesGetVtValue<TfToken>(value, shadingSystem,
-                                                  &session_updated);
+                                                     &session_updated);
 
         if (shadingSystem == usdCyclesTokens->osl) {
             sessionParams->shadingsystem = ccl::SHADINGSYSTEM_OSL;
@@ -472,8 +459,9 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
     ccl::DenoiseParams denoisingParams;
 
     if (key == usdCyclesTokens->cyclesRun_denoising) {
-        denoisingParams.use = _HdCyclesGetVtValue<int>(value, denoisingParams.use,
-                                                 &denoising_updated);
+        denoisingParams.use = _HdCyclesGetVtValue<int>(value,
+                                                       denoisingParams.use,
+                                                       &denoising_updated);
     }
 
     if (key == usdCyclesTokens->cyclesDenoising_start_sample) {
@@ -587,7 +575,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key,
                                        &scene_updated);
     }*/
 
-    
+
     if (key == usdCyclesTokens->cyclesUse_bvh_spatial_split) {
         sceneParams->use_bvh_spatial_split = _HdCyclesGetVtValue<bool>(
             value, sceneParams->use_bvh_spatial_split, &scene_updated);
@@ -832,8 +820,8 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
             if (m_useSquareSamples) {
                 integrator->adaptive_min_samples
                     = std::min(integrator->adaptive_min_samples
-                              * integrator->adaptive_min_samples,
-                          INT_MAX);
+                                   * integrator->adaptive_min_samples,
+                               INT_MAX);
             }
             integrator_updated = true;
         }
@@ -1267,9 +1255,29 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key,
     return false;
 }
 
+void
+HdCyclesRenderParam::_HandlePasses()
+{
+    // TODO: These might need to live elsewhere when we fully implement aovs/passes
+    m_bufferParams.passes.clear();
+
+    if (m_useTiledRendering) {
+        for (HdCyclesDefaultAov& aov : DefaultAovs) {
+            ccl::Pass::add(aov.type, m_bufferParams.passes, aov.name.c_str());
+        }
+    } else {
+        ccl::Pass::add(ccl::PASS_COMBINED, m_bufferParams.passes, "Combined");
+    }
+
+    m_cyclesScene->film->tag_passes_update(m_cyclesScene,
+                                           m_bufferParams.passes);
+}
+
 bool
 HdCyclesRenderParam::SetRenderSetting(const TfToken& key, const VtValue& value)
 {
+    // This has some inherent performance overheads (runs multiple times, unecessary)
+    // however for now, this works the most clearly due to Cycles restrictions
 #ifdef USE_USD_CYCLES_SCHEMA
     _HandleSessionRenderSetting(key, value);
     _HandleSceneRenderSetting(key, value);
@@ -1387,13 +1395,6 @@ HdCyclesRenderParam::_UpdateRenderTile(ccl::RenderTile& rtile, bool highlight)
         _WriteRenderTile(rtile);
 }
 
-// TODO: Tidy and move these sub function
-
-/*
-    This paradigm does cause unecessary loops through settingsMap for each feature. 
-    This should be addressed in the future. For the moment, the flexibility of setting
-    order of operations is more important.
-*/
 bool
 HdCyclesRenderParam::_CreateScene()
 {
@@ -1440,11 +1441,11 @@ HdCyclesRenderParam::StopRender()
     _CyclesExit();
 }
 
+
+// Deprecate? This isnt used... Also doesnt work
 void
 HdCyclesRenderParam::RestartRender()
 {
-    std::cout << "===== Restart Render\n";
-    // Not called
     StopRender();
     Initialize({});
     StartRender();
@@ -1455,9 +1456,6 @@ HdCyclesRenderParam::PauseRender()
 {
     if (m_cyclesSession)
         m_cyclesSession->set_pause(true);
-    else {
-        std::cout << "Couldn't pause: No session\n";
-    }
 }
 
 void
@@ -1465,9 +1463,6 @@ HdCyclesRenderParam::ResumeRender()
 {
     if (m_cyclesSession)
         m_cyclesSession->set_pause(false);
-    else {
-        std::cout << "Couldn't resume: No session\n";
-    }
 }
 
 void
@@ -1529,18 +1524,6 @@ HdCyclesRenderParam::SetBackgroundShader(ccl::Shader* a_shader, bool a_emissive)
 
 // -- Cycles render device
 
-const ccl::DeviceType&
-HdCyclesRenderParam::GetDeviceType()
-{
-    return m_deviceType;
-}
-
-const std::string&
-HdCyclesRenderParam::GetDeviceTypeName()
-{
-    return m_deviceName;
-}
-
 bool
 HdCyclesRenderParam::SetDeviceType(ccl::DeviceType a_deviceType,
                                    ccl::SessionParams& params)
@@ -1567,7 +1550,11 @@ HdCyclesRenderParam::SetDeviceType(const std::string& a_deviceType,
 bool
 HdCyclesRenderParam::SetDeviceType(const std::string& a_deviceType)
 {
-    return SetDeviceType(a_deviceType, m_sessionParams);
+    ccl::SessionParams* params = &m_sessionParams;
+    if (m_cyclesSession)
+        params = &m_cyclesSession->params;
+
+    return SetDeviceType(a_deviceType, *params);
 }
 
 bool
@@ -1589,27 +1576,6 @@ HdCyclesRenderParam::_SetDevice(const ccl::DeviceType& a_deviceType,
     }
 
     return device_available;
-}
-
-// -- Shutter motion position
-
-void
-HdCyclesRenderParam::SetShutterMotionPosition(const int& avalue)
-{
-    SetShutterMotionPosition((ccl::Camera::MotionPosition)avalue);
-}
-
-void
-HdCyclesRenderParam::SetShutterMotionPosition(
-    const ccl::Camera::MotionPosition& avalue)
-{
-    m_cyclesScene->camera->motion_position = avalue;
-}
-
-const ccl::Camera::MotionPosition&
-HdCyclesRenderParam::GetShutterMotionPosition()
-{
-    return m_cyclesScene->camera->motion_position;
 }
 
 /* ====== HdCycles Settings ====== */
@@ -1696,13 +1662,13 @@ HdCyclesRenderParam::CyclesReset(int w, int h)
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_update        = true;
     m_cyclesScene->camera->need_device_update = true;
-    m_cyclesSession->reset(m_bufferParams, m_sessionParams.samples);
+    m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
 }
 
 void
 HdCyclesRenderParam::DirectReset()
 {
-    m_cyclesSession->reset(m_bufferParams, m_sessionParams.samples);
+    m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
 }
 
 void
@@ -1721,6 +1687,13 @@ HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 
     if (a_light->type == ccl::LIGHT_BACKGROUND) {
         m_hasDomeLight = true;
+    }
+
+    if (m_cyclesScene->lights.size() > 0) {
+        if (!m_hasDomeLight)
+            SetBackgroundShader(nullptr, false);
+    } else {
+        SetBackgroundShader(nullptr, true);
     }
 }
 

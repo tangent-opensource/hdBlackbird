@@ -164,7 +164,6 @@ protected:
     int m_motionSteps;
 
     unsigned int m_visibilityFlags;
-    bool m_hydraVisibility;
 
     bool m_visCamera;
     bool m_visDiffuse;

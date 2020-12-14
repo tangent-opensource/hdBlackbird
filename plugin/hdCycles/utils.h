@@ -379,6 +379,7 @@ _HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd,
                       HdMesh* a_mesh, HdSceneDelegate* a_scene, TfToken a_token,
                       T a_default)
 {
+    // TODO: Optimize this
     // Needed because our current schema stores tokens with primvars: prefix
     // however the HdPrimvarDescriptor omits this.
     // Solution could be to remove from usdCycles schema and add in all settings

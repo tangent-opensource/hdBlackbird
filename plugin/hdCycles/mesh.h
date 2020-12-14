@@ -280,8 +280,6 @@ protected:
 
     TfToken m_normalInterpolation;
 
-    bool m_hydraVisibility;
-
     VtVec2fArray m_uvs;
     VtIntArray m_uvIndices;
 

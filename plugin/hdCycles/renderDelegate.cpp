@@ -180,6 +180,7 @@ HdCyclesRenderDelegate::GetRenderSettingDescriptors() const
 HdRenderSettingsMap
 HdCyclesRenderDelegate::GetRenderSettingsMap() const
 {
+    // We may want to populate this in the future from the usdCycles schema
     return _settingsMap;
 }
 

@@ -81,7 +81,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_visShadow(true)
     , m_visTransmission(true)
     , m_velocityScale(1.0f)
-    , m_hydraVisibility(true)
     , m_useMotionBlur(false)
     , m_useDeformMotionBlur(false)
 {
@@ -957,6 +956,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                               : 0;
             m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
             m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
+
+            mesh_updated = true;
         }
     }
 #endif
@@ -1198,8 +1199,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         mesh_updated        = true;
         _sharedData.visible = sceneDelegate->GetVisible(id);
-
-        m_hydraVisibility = _sharedData.visible;
     }
 
     // -------------------------------------
@@ -1294,7 +1293,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (mesh_updated || newMesh) {
         m_cyclesObject->visibility = m_visibilityFlags;
-        if (!m_hydraVisibility)
+        if (!_sharedData.visible)
             m_cyclesObject->visibility = 0;
 
         m_cyclesMesh->tag_update(scene, false);

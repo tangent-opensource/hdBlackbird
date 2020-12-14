@@ -24,7 +24,6 @@
 #include "renderParam.h"
 #include "utils.h"
 
-//#include <kernel/kernel_types.h>
 #include <render/camera.h>
 #include <render/scene.h>
 
