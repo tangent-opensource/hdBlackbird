@@ -58,6 +58,25 @@ clamp(double d, double min, double max)
     return t > max ? max : t;
 }
 
+// URGENT TODO: Put this and the initialization somewhere more secure
+struct HdCyclesDefaultAov {
+    std::string name;
+    ccl::PassType type;
+    TfToken token;
+    HdFormat format;
+    //int components;
+};
+
+std::vector<HdCyclesDefaultAov> DefaultAovs = {
+    { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4 },
+    //{ "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32 },
+    //{ "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec4 },
+    //{ "DiffDir", ccl::PASS_DIFFUSE_DIRECT, HdCyclesAovTokens->DiffDir, HdFormatFloat32Vec4 },
+    //{ "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32 },
+    //{ "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32 },
+
+};
+
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
     , m_renderPercent(0)
@@ -84,7 +103,6 @@ HdCyclesRenderParam::_InitializeDefaults()
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     m_deviceName                        = config.device_name.value;
     m_useSquareSamples                  = config.use_square_samples.value;
-    m_useMotionBlur                     = config.enable_motion_blur;
     m_useTiledRendering                 = config.use_tiled_rendering;
 
 #ifdef WITH_CYCLES_LOGGING
@@ -101,6 +119,7 @@ HdCyclesRenderParam::GetProgress()
     return m_cyclesSession->progress.get_progress();
 }
 
+bool
 HdCyclesRenderParam::IsConverged()
 {
     return GetProgress() >= 1.0f;
@@ -343,9 +362,9 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
                                         &session_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesProgressive) {
+    if (key == usdCyclesTokens->cyclesProgressive_update_timeout) {
         sessionParams->progressive_update_timeout = _HdCyclesGetVtValue<float>(
-            value, sessionParams->cyclesProgressive_update_timeout,
+            value, sessionParams->progressive_update_timeout,
             &session_updated);
     }
 
@@ -365,7 +384,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
 
     if (key == usdCyclesTokens->cyclesTile_size) {
         sessionParams->tile_size = vec2i_to_int2(
-            _HdCyclesGetVtValue<GfVec2i>(value, sessionParams->tile_size,
+            _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size),
                                          &session_updated));
     }
 
@@ -428,7 +447,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
 
     TfToken shadingSystem;
     if (key == usdCyclesTokens->cyclesShading_system) {
-        shadingSystem = _HdCyclesGetVtValue<bool>(value, shadingSystem,
+        shadingSystem = _HdCyclesGetVtValue<TfToken>(value, shadingSystem,
                                                   &session_updated);
 
         if (shadingSystem == usdCyclesTokens->osl) {
@@ -446,29 +465,14 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
 
     // Session BVH
 
-    if (key == usdCyclesTokens->cyclesUse_bvh_spatial_split) {
-        sessionParams->use_bvh_spatial_split = _HdCyclesGetVtValue<bool>(
-            value, sessionParams->use_bvh_spatial_split, &session_updated);
-    }
-
-    if (key == usdCyclesTokens->cyclesUse_bvh_unaligned_nodes) {
-        sessionParams->use_bvh_unaligned_nodes = _HdCyclesGetVtValue<bool>(
-            value, sessionParams->use_bvh_unaligned_nodes, &session_updated);
-    }
-
-    if (key == usdCyclesTokens->cyclesNum_bvh_time_steps) {
-        sessionParams->num_bvh_time_steps
-            = _HdCyclesGetVtValue<int>(value, sessionParams->num_bvh_time_steps,
-                                       &session_updated);
-    }
 
     // Denoising
 
     bool denoising_updated = false;
-    DenoiseParams denoisingParams;
+    ccl::DenoiseParams denoisingParams;
 
     if (key == usdCyclesTokens->cyclesRun_denoising) {
-        denoising.use = _HdCyclesGetVtValue<int>(value, denoising.use,
+        denoisingParams.use = _HdCyclesGetVtValue<int>(value, denoisingParams.use,
                                                  &denoising_updated);
     }
 
@@ -582,6 +586,23 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key,
             = _HdCyclesGetVtValue<std::string>(value, scene->dicing_camera,
                                        &scene_updated);
     }*/
+
+    
+    if (key == usdCyclesTokens->cyclesUse_bvh_spatial_split) {
+        sceneParams->use_bvh_spatial_split = _HdCyclesGetVtValue<bool>(
+            value, sceneParams->use_bvh_spatial_split, &scene_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesUse_bvh_unaligned_nodes) {
+        sceneParams->use_bvh_unaligned_nodes = _HdCyclesGetVtValue<bool>(
+            value, sceneParams->use_bvh_unaligned_nodes, &scene_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesNum_bvh_time_steps) {
+        sceneParams->num_bvh_time_steps
+            = _HdCyclesGetVtValue<int>(value, sceneParams->num_bvh_time_steps,
+                                       &scene_updated);
+    }
 
     if (scene_updated) {
         // Although this is called, it does not correctly reset session in IPR
@@ -810,7 +831,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
         if (sample_updated) {
             if (m_useSquareSamples) {
                 integrator->adaptive_min_samples
-                    = min(integrator->adaptive_min_samples
+                    = std::min(integrator->adaptive_min_samples
                               * integrator->adaptive_min_samples,
                           INT_MAX);
             }
@@ -1173,7 +1194,7 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key,
     bool visCamera, visDiffuse, visGlossy, visTransmission, visScatter;
     visCamera = visDiffuse = visGlossy = visTransmission = visScatter = true;
 
-    uint visFlags = 0;
+    unsigned int visFlags = 0;
 
     if (key == usdCyclesTokens->cyclesBackgroundVisibilityCamera) {
         visCamera = _HdCyclesGetVtValue<bool>(value, visCamera,
@@ -1282,25 +1303,6 @@ HdCyclesRenderParam::_CreateSession()
 
     return true;
 }
-
-// URGENT TODO: Put this and the initialization somewhere more secure
-struct HdCyclesDefaultAov {
-    std::string name;
-    ccl::PassType type;
-    TfToken token;
-    HdFormat format;
-    //int components;
-};
-
-std::vector<HdCyclesDefaultAov> DefaultAovs = {
-    { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4 },
-    //{ "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32 },
-    //{ "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec4 },
-    //{ "DiffDir", ccl::PASS_DIFFUSE_DIRECT, HdCyclesAovTokens->DiffDir, HdFormatFloat32Vec4 },
-    //{ "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32 },
-    //{ "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32 },
-
-};
 
 void
 HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)

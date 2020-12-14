@@ -505,6 +505,7 @@ HdCyclesMesh::_CreateCyclesMesh()
 
     if (m_useMotionBlur && m_useDeformMotionBlur) {
         mesh->use_motion_blur = true;
+    }
 
     m_numMeshVerts = 0;
     m_numMeshFaces = 0;

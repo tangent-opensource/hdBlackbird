@@ -287,6 +287,12 @@ vec2i_to_int2(const GfVec2i& a_vec)
     return ccl::make_int2(a_vec[0], a_vec[1]);
 }
 
+GfVec2i
+int2_to_vec2i(const ccl::int2& a_int)
+{
+    return GfVec2i(a_int.x, a_int.y);
+}
+
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec)
 {

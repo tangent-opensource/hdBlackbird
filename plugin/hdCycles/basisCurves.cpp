@@ -129,7 +129,9 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-    // TODO: Consolidate this for schema
+    // We support optimized embree Curves, as well as legacy/old curves ribbon and tube...
+    // Old curves are only enabled via ENV var: HD_CYCLES_USE_OLD_CURVES
+    // Old curves will likely be deprecated in the near future...
     bool use_old_curves;
     config.use_old_curves.eval(use_old_curves, true);
 
@@ -146,7 +148,6 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
     if (m_usedShaders.size() > 0)
         m_cyclesGeometry->used_shaders = m_usedShaders;
 }
-
 
 void
 HdCyclesBasisCurves::_PopulateMotion()
@@ -508,26 +509,26 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             dirtyBits, id, this, sceneDelegate,
             usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
 
+        TfToken curveShape = usdCyclesTokens->ribbon;
+
         // This needs a big change
         for (auto& entry : pdpi) {
             for (auto& pv : entry.second) {
                 if ("primvars:" + pv.name.GetString()
                     == usdCyclesTokens->primvarsCyclesCurveShape.GetString()) {
-                    TfToken curveShape = usdCyclesTokens->thick;
-
                     curveShape = _HdCyclesGetCurvePrimvar<TfToken>(
                         pv, dirtyBits, id, this, sceneDelegate,
                         usdCyclesTokens->primvarsCyclesCurveShape, curveShape);
-
-                    if (curveShape == usdCyclesTokens->ribbon) {
-                        m_curveShape = ccl::CURVE_RIBBON;
-                        update_curve = true;
-                    } else {
-                        m_curveShape = ccl::CURVE_THICK;
-                        update_curve = true;
-                    }
                 }
             }
+        }
+
+        if (curveShape == usdCyclesTokens->ribbon) {
+            m_curveShape = ccl::CURVE_RIBBON;
+            update_curve = true;
+        } else {
+            m_curveShape = ccl::CURVE_THICK;
+            update_curve = true;
         }
 
         m_cyclesObject->is_shadow_catcher = _HdCyclesGetCurveParam<bool>(

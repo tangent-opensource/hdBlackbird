@@ -24,6 +24,8 @@
 
 #include "hdcycles.h"
 
+#include <util/util_array.h>
+
 #include <pxr/base/gf/range1f.h>
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/vt/dictionary.h>
@@ -222,7 +224,7 @@ private:
     int m_stereoEye;
     float m_offscreenDicingScale;
 
-    ccl::vector<float> m_shutterCurve;
+    ccl::array<float> m_shutterCurve;
 
     float m_fisheyeFov;
     float m_fisheyeLens;
