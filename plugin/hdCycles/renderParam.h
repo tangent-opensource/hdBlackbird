@@ -163,13 +163,13 @@ public:
     void CyclesReset(bool a_forceUpdate = false);
 
     /**
-     * @brief Cycles reset based on width and height
-     * TODO: Refactor these
+     * @brief Set "viewport" based on width and height
+     * TODO: Add support for render regions
      * 
      * @param w Width of new render
      * @param h Height of new render
      */
-    void CyclesReset(int w, int h);
+    void SetViewport(int w, int h);
 
     /**
      * @brief Slightly hacky workaround to directly reset the session
@@ -366,6 +366,8 @@ private:
     std::string m_deviceName;
 
     bool m_useTiledRendering;
+
+    bool m_aovBindingsNeedValidation;
 
     int m_width;
     int m_height;

@@ -203,9 +203,14 @@ HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index,
 void
 HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
 {
-    if (!m_hasStarted) {
-        m_renderParam->StartRender();
-        m_hasStarted = true;
+    // TODO: This is very hacky, because tiled render doesnt get the 
+    // proper width and height till render pass fires once, we need
+    // this...
+    if (!m_renderParam->IsTiledRender()) {
+        if (!m_hasStarted) {
+            m_renderParam->StartRender();
+            m_hasStarted = true;
+        }
     }
 
     m_renderParam->CommitResources();

@@ -291,6 +291,7 @@ HdCyclesRenderParam::_UpdateSessionFromConfig(bool a_forceInit)
 
     sessionParams->progressive        = true;
     sessionParams->progressive_refine = false;
+    sessionParams->progressive_update_timeout = 0.1;
 
     config.pixel_size.eval(sessionParams->pixel_size, a_forceInit);
     config.tile_size_x.eval(sessionParams->tile_size.x, a_forceInit);
@@ -1649,19 +1650,23 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 }
 
 void
-HdCyclesRenderParam::CyclesReset(int w, int h)
+HdCyclesRenderParam::SetViewport(int w, int h)
 {
-    m_width                       = w;
-    m_height                      = h;
-    m_bufferParams.width          = w;
-    m_bufferParams.height         = h;
-    m_bufferParams.full_width     = w;
-    m_bufferParams.full_height    = h;
-    m_cyclesScene->camera->width  = w;
-    m_cyclesScene->camera->height = h;
+    m_width  = w;
+    m_height = h;
+
+    m_bufferParams.width                      = m_width;
+    m_bufferParams.height                     = m_height;
+    m_bufferParams.full_width                 = m_width;
+    m_bufferParams.full_height                = m_height;
+    m_cyclesScene->camera->width              = m_width;
+    m_cyclesScene->camera->height             = m_height;
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_update        = true;
     m_cyclesScene->camera->need_device_update = true;
+
+    m_aovBindingsNeedValidation = true;
+
     m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
 }
 
