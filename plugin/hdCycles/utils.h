@@ -41,6 +41,8 @@
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/vt/value.h>
+#include <pxr/imaging/hd/basisCurves.h>
+#include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
@@ -121,6 +123,24 @@ mat4d_to_transform(const GfMatrix4d& mat);
  */
 ccl::Transform
 mat4f_to_transform(const GfMatrix4f& mat);
+
+/**
+ * @brief Convert GfVec2i to Cycles int2 representation
+ *
+ * @param a_vec
+ * @return Cycles int2
+ */
+ccl::int2
+vec2i_to_int2(const GfVec2i& a_vec);
+
+/**
+ * @brief Convert int2 to GfVec2i representation
+ * 
+ * @param a_int 
+ * @return GfVec2i 
+ */
+GfVec2i
+int2_to_vec2i(const ccl::int2& a_int);
 
 /**
  * @brief Convert GfVec2f to Cycles float2 representation
@@ -243,7 +263,8 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
                         HdInterpolation* a_interpolation = nullptr);
 
 
-using HdCyclesSampledPrimvarType = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
+using HdCyclesSampledPrimvarType
+    = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
 
 /* ======== VtValue Utils ========= */
 
@@ -308,6 +329,134 @@ _CheckForVec2iValue(const VtValue& value, F&& f)
     }
 }
 
+// Get value
+
+template<typename T>
+T
+_HdCyclesGetVtValue(VtValue a_value, T a_default, bool* a_hasChanged = nullptr,
+                    bool a_checkWithDefault = false)
+{
+    if (!a_value.IsEmpty()) {
+        if (a_value.IsHolding<T>()) {
+            T val = a_value.UncheckedGet<T>();
+            if (a_checkWithDefault && val != a_default)
+                *a_hasChanged = true;
+            else
+                *a_hasChanged = true;
+            return val;
+        }
+    }
+    return a_default;
+}
+
+// Bool specialization
+
+template<>
+bool
+_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default, bool* a_hasChanged,
+                          bool a_checkWithDefault);
+
+// Get abitrary param
+
+template<typename T>
+T
+_HdCyclesGetParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
+                  T a_default)
+{
+    // TODO: This is not Get() Because of the reasons listed here:
+    // https://groups.google.com/g/usd-interest/c/k-N05Ac7SRk/m/RtK5HvglAQAJ
+    // We may need to fix this in newer versions of USD
+    VtValue val = a_scene->GetLightParamValue(a_id, a_token);
+    return _HdCyclesGetVtValue<T>(val, a_default);
+}
+
+// Get mesh param
+
+template<typename T>
+T
+_HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd,
+                      HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                      HdMesh* a_mesh, HdSceneDelegate* a_scene, TfToken a_token,
+                      T a_default)
+{
+    // TODO: Optimize this
+    // Needed because our current schema stores tokens with primvars: prefix
+    // however the HdPrimvarDescriptor omits this.
+    // Solution could be to remove from usdCycles schema and add in all settings
+    // providers (houdini_cycles, blender exporter)
+    if ("primvars:" + a_pvd.name.GetString() == a_token.GetString()) {
+        if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
+            VtValue v;
+            v = a_mesh->GetPrimvar(a_scene, a_token);
+            return _HdCyclesGetVtValue<T>(v, a_default);
+        }
+    }
+    return a_default;
+}
+
+// Get curve param
+
+// This needs to be refactored.
+template<typename T>
+T
+_HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd,
+                         HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                         HdBasisCurves* a_curve, HdSceneDelegate* a_scene,
+                         TfToken a_token, T a_default)
+{
+    // Needed because our current schema stores tokens with primvars: prefix
+    // however the HdPrimvarDescriptor omits this.
+    // Solution could be to remove from usdCycles schema and add in all settings
+    // providers (houdini_cycles, blender exporter)
+    if ("primvars:" + a_pvd.name.GetString() == a_token.GetString()) {
+        VtValue v;
+        v = a_curve->GetPrimvar(a_scene, a_token);
+        if (v.IsHolding<T>()) {
+            return v.UncheckedGet<T>();
+        } else {
+            return a_default;
+        }
+    }
+    return a_default;
+}
+
+// Get curve param
+
+template<typename T>
+T
+_HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                       HdBasisCurves* a_curves, HdSceneDelegate* a_scene,
+                       TfToken a_token, T a_default)
+{
+    if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
+        VtValue v;
+        v = a_curves->GetPrimvar(a_scene, a_token);
+        return _HdCyclesGetVtValue<T>(v, a_default);
+    }
+    return a_default;
+}
+
+// Get light param
+
+template<typename T>
+T
+_HdCyclesGetLightParam(const SdfPath& a_id, HdSceneDelegate* a_scene,
+                       TfToken a_token, T a_default)
+{
+    VtValue v = a_scene->GetLightParamValue(a_id, a_token);
+    return _HdCyclesGetVtValue<T>(v, a_default);
+}
+
+// Get camera param
+
+template<typename T>
+T
+_HdCyclesGetCameraParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
+                        T a_default)
+{
+    VtValue v = a_scene->GetCameraParamValue(a_id, a_token);
+    return _HdCyclesGetVtValue<T>(v, a_default);
+}
 
 /* ========= MikkTSpace ========= */
 

@@ -125,6 +125,7 @@ public:
      * 
      */
     HDCYCLES_API HdCyclesRenderDelegate();
+    HDCYCLES_API HdCyclesRenderDelegate(HdRenderSettingsMap const& settingsMap);
     HDCYCLES_API ~HdCyclesRenderDelegate() override;
 
     HDCYCLES_API HdRenderParam* GetRenderParam() const override;
@@ -150,6 +151,8 @@ public:
 
     HDCYCLES_API HdRenderSettingDescriptorList
     GetRenderSettingDescriptors() const override;
+
+    HDCYCLES_API virtual HdRenderSettingsMap GetRenderSettingsMap() const;
 
     HDCYCLES_API virtual HdResourceRegistrySharedPtr
     GetResourceRegistry() const override;
@@ -194,14 +197,12 @@ protected:
     static const TfTokenVector SUPPORTED_SPRIM_TYPES;
     static const TfTokenVector SUPPORTED_BPRIM_TYPES;
 
-    void _SetRenderSetting(const TfToken& key, const VtValue& value);
-
 private:
     // This class does not support copying.
     HdCyclesRenderDelegate(const HdCyclesRenderDelegate&) = delete;
     HdCyclesRenderDelegate& operator=(const HdCyclesRenderDelegate&) = delete;
 
-    void _Initialize();
+    void _Initialize(HdRenderSettingsMap const& settingsMap);
 
 protected:  // data
     HdCyclesRenderPass* m_renderPass;

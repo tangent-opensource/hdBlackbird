@@ -35,6 +35,8 @@
 #include "renderPass.h"
 #include "utils.h"
 
+#include <render/background.h>
+#include <render/film.h>
 #include <render/integrator.h>
 
 #include <boost/algorithm/string.hpp>
@@ -45,6 +47,10 @@
 #include <pxr/base/vt/api.h>
 #include <pxr/imaging/hd/camera.h>
 #include <pxr/imaging/hd/tokens.h>
+
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -85,35 +91,32 @@ const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_BPRIM_TYPES = {
 // clang-format on
 
 HdCyclesRenderDelegate::HdCyclesRenderDelegate()
-    : m_hasStarted(false)
+    : HdRenderDelegate()
+    , m_hasStarted(false)
 {
-    _Initialize();
+    _Initialize({});
+}
+
+HdCyclesRenderDelegate::HdCyclesRenderDelegate(
+    HdRenderSettingsMap const& settingsMap)
+    : HdRenderDelegate(settingsMap)
+    , m_hasStarted(false)
+{
+    _Initialize(settingsMap);
 }
 
 void
-HdCyclesRenderDelegate::_Initialize()
+HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
 {
     // -- Initialize Render Param (Core cycles wrapper)
     m_renderParam.reset(new HdCyclesRenderParam());
 
-    if (!m_renderParam->Initialize())
+    if (!m_renderParam->Initialize(settingsMap))
         return;
 
     // -- Initialize Render Delegate components
 
     m_resourceRegistry.reset(new HdResourceRegistry());
-
-    // -- Setup render settings
-
-    _InitializeCyclesRenderSettings();
-
-    _PopulateDefaultSettings(m_settingDescriptors);
-
-    // Set default render settings in cycles
-    for (size_t i = 0; i < m_settingDescriptors.size(); ++i) {
-        _SetRenderSetting(m_settingDescriptors[i].key,
-                          m_settingDescriptors[i].defaultValue);
-    }
 }
 
 HdCyclesRenderDelegate::~HdCyclesRenderDelegate()
@@ -145,232 +148,18 @@ HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-    m_settingDescriptors.push_back(
-        { std::string("Use Motion Blur"),
-          HdCyclesRenderSettingsTokens->useMotionBlur,
-          VtValue(m_renderParam->GetUseMotionBlur()) });
+#ifdef USE_USD_CYCLES_SCHEMA
+    // TODO: Undecided how to approach these
+    /* m_settingDescriptors.push_back({ std::string("Exposure"),
+                                     usdCyclesTokens->cyclesFilmExposure,
+                                     VtValue(config.exposure.value) });*/
+    /*
 
-    m_settingDescriptors.push_back(
-        { std::string("Motion Steps"),
-          HdCyclesRenderSettingsTokens->motionSteps,
-          VtValue(m_renderParam->GetMotionSteps()) });
+    m_settingDescriptors.push_back({ std::string("Samples"),
+                                     usdCyclesTokens->cyclesSamples,
+                                     VtValue(config.exposure.) });*/
 
-    // -- Featureset
-
-    m_settingDescriptors.push_back(
-        { std::string("Device"), HdCyclesRenderSettingsTokens->device,
-          VtValue(m_renderParam->GetDeviceTypeName()) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Use Experimental Cycles"),
-          HdCyclesRenderSettingsTokens->experimental,
-          VtValue(m_renderParam->GetUseExperimental()) });
-
-    m_settingDescriptors.push_back({ std::string("Max Samples"),
-                                     HdCyclesRenderSettingsTokens->samples,
-                                     VtValue(m_renderParam->GetMaxSamples()) });
-
-    m_settingDescriptors.push_back({ std::string("Num Threads"),
-                                     HdCyclesRenderSettingsTokens->threads,
-                                     VtValue(m_renderParam->GetNumThreads()) });
-
-    m_settingDescriptors.push_back({ std::string("Pixel Size"),
-                                     HdCyclesRenderSettingsTokens->pixelSize,
-                                     VtValue(m_renderParam->GetPixelSize()) });
-
-    m_settingDescriptors.push_back({ std::string("Tile Size"),
-                                     HdCyclesRenderSettingsTokens->tileSize,
-                                     VtValue(m_renderParam->GetTileSize()) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Start Resolution"),
-          HdCyclesRenderSettingsTokens->startResolution,
-          VtValue(m_renderParam->GetStartResolution()) });
-
-    m_settingDescriptors.push_back({ std::string("Exposure"),
-                                     HdCyclesRenderSettingsTokens->exposure,
-                                     VtValue(m_renderParam->GetExposure()) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Motion Position"),
-          HdCyclesRenderSettingsTokens->motionBlurPosition,
-          VtValue((int)m_renderParam->GetShutterMotionPosition()) });
-
-    // -- Integrator Settings
-
-    m_settingDescriptors.push_back(
-        { std::string("Integrator Method"),
-          HdCyclesRenderSettingsTokens->integratorMethod,
-          VtValue(config.integrator_method) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Diffuse Samples"),
-          HdCyclesRenderSettingsTokens->lightPathsDiffuse,
-          VtValue(config.diffuse_samples) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Glossy Samples"),
-          HdCyclesRenderSettingsTokens->lightPathsGlossy,
-          VtValue(config.glossy_samples) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Transmission Samples"),
-          HdCyclesRenderSettingsTokens->lightPathsTransmission,
-          VtValue(config.transmission_samples) });
-
-    m_settingDescriptors.push_back({ std::string("AO Samples"),
-                                     HdCyclesRenderSettingsTokens->lightPathsAO,
-                                     VtValue(config.ao_samples) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Mesh Light Samples"),
-          HdCyclesRenderSettingsTokens->lightPathsMeshLight,
-          VtValue(config.mesh_light_samples) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Subsurface Samples"),
-          HdCyclesRenderSettingsTokens->lightPathsSubsurface,
-          VtValue(config.subsurface_samples) });
-
-    m_settingDescriptors.push_back(
-        { std::string("Volume Samples"),
-          HdCyclesRenderSettingsTokens->lightPathsVolume,
-          VtValue(config.volume_samples) });
-}
-
-void
-HdCyclesRenderDelegate::_SetRenderSetting(const TfToken& key,
-                                          const VtValue& _value)
-{
-    if (!m_renderParam && !m_renderParam->GetCyclesSession())
-        return;
-
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
-    ccl::Integrator* integrator = m_renderParam->GetCyclesScene()->integrator;
-    bool integrator_updated     = false;
-
-    if (key == HdCyclesRenderSettingsTokens->useMotionBlur) {
-        _CheckForBoolValue(_value, [&](const bool b) {
-            if (m_renderParam->GetUseMotionBlur() != b)
-                m_renderParam->SetUseMotionBlur(b);
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->motionSteps) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (m_renderParam->GetMotionSteps() != i)
-                m_renderParam->SetMotionSteps(i);
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->experimental) {
-        _CheckForBoolValue(_value, [&](const bool b) {
-            if (m_renderParam->GetUseExperimental() != b)
-                m_renderParam->SetUseExperimental(b);
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->samples) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (m_renderParam->GetMaxSamples() != i)
-                m_renderParam->SetMaxSamples(i);
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->threads) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (m_renderParam->GetNumThreads() != i)
-                m_renderParam->SetNumThreads(i);
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->tileSize) {
-        _CheckForVec2iValue(_value, [&](const pxr::GfVec2i v) {
-            if (m_renderParam->GetTileSize() != v)
-                m_renderParam->SetTileSize(v);
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->pixelSize) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (m_renderParam->GetPixelSize() != i)
-                m_renderParam->GetCyclesSession()->params.pixel_size = i;
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->startResolution) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (m_renderParam->GetStartResolution() != i)
-                m_renderParam->GetCyclesSession()->params.start_resolution = i;
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->device) {
-        _CheckForStringValue(_value, [&](const std::string s) {
-            if (m_renderParam->GetDeviceTypeName() != s)
-                m_renderParam->SetDeviceType(s);
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->integratorMethod) {
-        _CheckForStringValue(_value, [&](const std::string s) {
-            ccl::Integrator::Method m = ccl::Integrator::PATH;
-
-            if (boost::iequals(s, "BRANCHED_PATH")) {
-                m = ccl::Integrator::BRANCHED_PATH;
-            }
-
-            if (integrator->method != m) {
-                integrator->method = m;
-                integrator_updated = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->lightPathsDiffuse) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (integrator->diffuse_samples != i) {
-                integrator->diffuse_samples = i;
-                integrator_updated          = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->lightPathsGlossy) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (integrator->glossy_samples != i) {
-                integrator->glossy_samples = i;
-                integrator_updated         = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->lightPathsTransmission) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (integrator->transmission_samples != i) {
-                integrator->transmission_samples = i;
-                integrator_updated               = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->lightPathsAO) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (integrator->ao_samples != i) {
-                integrator->ao_samples = i;
-                integrator_updated     = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->lightPathsMeshLight) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (integrator->mesh_light_samples != i) {
-                integrator->mesh_light_samples = i;
-                integrator_updated             = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->lightPathsSubsurface) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (integrator->subsurface_samples != i) {
-                integrator->subsurface_samples = i;
-                integrator_updated             = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->lightPathsVolume) {
-        _CheckForIntValue(_value, [&](const int i) {
-            if (integrator->volume_samples != i) {
-                integrator->volume_samples = i;
-                integrator_updated         = true;
-            }
-        });
-    } else if (key == HdCyclesRenderSettingsTokens->exposure) {
-        _CheckForFloatValue(_value, [&](float f) {
-            if (m_renderParam->GetExposure() != f)
-                m_renderParam->SetExposure(f);
-        });
-        _CheckForDoubleValue(_value, [&](double d) {
-            if (m_renderParam->GetExposure() != d)
-                m_renderParam->SetExposure((float)d);
-        });
-    }
-
-    if (integrator_updated) {
-        integrator->tag_update(m_renderParam->GetCyclesScene());
-    }
+#endif
 }
 
 void
@@ -378,7 +167,7 @@ HdCyclesRenderDelegate::SetRenderSetting(const TfToken& key,
                                          const VtValue& value)
 {
     HdRenderDelegate::SetRenderSetting(key, value);
-    _SetRenderSetting(key, value);
+    m_renderParam->SetRenderSetting(key, value);
     m_renderParam->Interrupt();
 }
 
@@ -386,6 +175,13 @@ HdRenderSettingDescriptorList
 HdCyclesRenderDelegate::GetRenderSettingDescriptors() const
 {
     return m_settingDescriptors;
+}
+
+HdRenderSettingsMap
+HdCyclesRenderDelegate::GetRenderSettingsMap() const
+{
+    // We may want to populate this in the future from the usdCycles schema
+    return _settingsMap;
 }
 
 HdResourceRegistrySharedPtr
@@ -407,9 +203,14 @@ HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index,
 void
 HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
 {
-    if (!m_hasStarted) {
-        m_renderParam->StartRender();
-        m_hasStarted = true;
+    // TODO: This is very hacky, because tiled render doesnt get the 
+    // proper width and height till render pass fires once, we need
+    // this...
+    if (!m_renderParam->IsTiledRender()) {
+        if (!m_hasStarted) {
+            m_renderParam->StartRender();
+            m_hasStarted = true;
+        }
     }
 
     m_renderParam->CommitResources();

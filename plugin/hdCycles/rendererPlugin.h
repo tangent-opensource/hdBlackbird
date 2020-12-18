@@ -54,14 +54,17 @@ public:
      */
     HDCYCLES_API HdRenderDelegate* CreateRenderDelegate() override;
 
+    HDCYCLES_API HdRenderDelegate*
+    CreateRenderDelegate(HdRenderSettingsMap const& settingsMap) override;
+
     /**
      * @brief Destroy a render delegate created by this class
      * 
      * @param renderDelegate The render delegate to delete
      * @return HDCYCLES_API 
      */
-    HDCYCLES_API void
-    DeleteRenderDelegate(HdRenderDelegate* renderDelegate) override;
+    HDCYCLES_API
+    void DeleteRenderDelegate(HdRenderDelegate* renderDelegate) override;
 
     /**
      * @brief Checks to see if the plugin is supported on the running system

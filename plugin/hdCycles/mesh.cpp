@@ -53,6 +53,10 @@
 #include <pxr/imaging/hd/smoothNormals.h>
 #include <pxr/imaging/pxOsd/tokens.h>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
@@ -69,15 +73,22 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
     , m_hasVertexColors(false)
+    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
+    , m_visCamera(true)
+    , m_visDiffuse(true)
+    , m_visGlossy(true)
+    , m_visScatter(true)
+    , m_visShadow(true)
+    , m_visTransmission(true)
     , m_velocityScale(1.0f)
     , m_useMotionBlur(false)
     , m_useDeformMotionBlur(false)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_subdivEnabled                     = config.enable_subdivision;
-    m_dicingRate                        = config.subdivision_dicing_rate;
-    m_maxSubdivision                    = config.max_subdivision;
-    m_useMotionBlur                     = config.enable_motion_blur;
+    config.enable_subdivision.eval(m_subdivEnabled, true);
+    config.subdivision_dicing_rate.eval(m_dicingRate, true);
+    config.max_subdivision.eval(m_maxSubdivision, true);
+    config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateCyclesObject();
 
@@ -844,6 +855,113 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         newMesh = true;
     }
 
+#ifdef USE_USD_CYCLES_SCHEMA
+    for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
+        for (auto& pv : primvarDescsEntry.second) {
+            // Mesh Specific
+
+            m_useMotionBlur = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
+
+            m_useDeformMotionBlur = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblurDeform,
+                m_useDeformMotionBlur);
+
+            m_motionSteps = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblurSteps, m_motionSteps);
+
+            TfToken subdivisionType = usdCyclesTokens->catmull_clark;
+
+            subdivisionType = _HdCyclesGetMeshParam<TfToken>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesMeshSubdivision_type,
+                subdivisionType);
+
+            if (subdivisionType == usdCyclesTokens->catmull_clark) {
+                m_cyclesMesh->subdivision_type
+                    = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
+            } else if (subdivisionType == usdCyclesTokens->linear) {
+                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_LINEAR;
+            } else {
+                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+            }
+
+            m_dicingRate = _HdCyclesGetMeshParam<float>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesMeshDicingRate, m_dicingRate);
+
+            m_maxSubdivision = _HdCyclesGetMeshParam<int>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level,
+                m_maxSubdivision);
+
+            // Object Generic
+
+            m_cyclesObject->is_shadow_catcher = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
+                m_cyclesObject->is_shadow_catcher);
+
+            m_cyclesObject->pass_id = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectPass_id,
+                m_cyclesObject->pass_id);
+
+            m_cyclesObject->use_holdout = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+                m_cyclesObject->use_holdout);
+
+            // Visibility
+
+            m_visibilityFlags = 0;
+
+            m_visCamera = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectVisibilityCamera,
+                m_visCamera);
+
+            m_visDiffuse = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
+                m_visDiffuse);
+
+            m_visGlossy = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy,
+                m_visGlossy);
+
+            m_visScatter = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
+                m_visScatter);
+
+            m_visShadow = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectVisibilityShadow,
+                m_visShadow);
+
+            m_visTransmission = _HdCyclesGetMeshParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
+                m_visTransmission);
+
+            m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
+            m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
+            m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
+            m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER
+                                              : 0;
+            m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
+            m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
+
+            mesh_updated = true;
+        }
+    }
+#endif
+
     // -------------------------------------
     // -- Create Cycles Mesh
 
@@ -901,9 +1019,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
             ccl::SubdParams& subd_params = *m_cyclesMesh->subd_params;
 
-            subd_params.dicing_rate = m_dicingRate
-                                      / ((m_refineLevel + 1) * 2.0f);
-            subd_params.max_level = m_maxSubdivision;
+            subd_params.dicing_rate = m_dicingRate;
+            subd_params.max_level   = m_maxSubdivision;
+
+            // This allows us to dice based on USD refine level (low, medium, high, etc)
+            // However it is unclear if we want to support this, or if we want it off by default
+            // Disabled for now...
+            if (false) {
+                // Note: This math is abitrary and possible wrong
+                subd_params.dicing_rate = subd_params.dicing_rate
+                                          / ((m_refineLevel + 1) * 2.0f);
+            }
 
             subd_params.objecttoworld = ccl::transform_identity();
         }
@@ -914,7 +1040,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     auto value = GetPrimvar(sceneDelegate, pv.name);
                     VtValue triangulated;
-
 
                     if (pv.name == HdTokens->normals) {
                         VtVec3fArray normals;
@@ -1074,11 +1199,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         mesh_updated        = true;
         _sharedData.visible = sceneDelegate->GetVisible(id);
-        if (_sharedData.visible) {
-            m_cyclesObject->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
-        } else {
-            m_cyclesObject->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
-        }
     }
 
     // -------------------------------------
@@ -1159,7 +1279,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
                 // Hide prototype
                 if (m_cyclesObject)
-                    m_cyclesObject->visibility = 0;
+                    m_visibilityFlags = 0;
             }
         }
     }
@@ -1172,6 +1292,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (mesh_updated || newMesh) {
+        m_cyclesObject->visibility = m_visibilityFlags;
+        if (!_sharedData.visible)
+            m_cyclesObject->visibility = 0;
+
         m_cyclesMesh->tag_update(scene, false);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();

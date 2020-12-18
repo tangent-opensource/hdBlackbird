@@ -47,11 +47,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdSceneDelegate;
 class HdCyclesRenderDelegate;
 
-enum HdCyclesCurveStyle {
-    CURVE_RIBBONS,
-    CURVE_TUBE,
-};
-
 /**
  * @brief Cycles Basis Curve Rprim mapped to Cycles Basis Curve
  * 
@@ -168,7 +163,16 @@ protected:
     bool m_useMotionBlur;
     int m_motionSteps;
 
-    HdCyclesCurveStyle m_curveStyle;
+    unsigned int m_visibilityFlags;
+
+    bool m_visCamera;
+    bool m_visDiffuse;
+    bool m_visGlossy;
+    bool m_visScatter;
+    bool m_visShadow;
+    bool m_visTransmission;
+
+    ccl::CurveShapeType m_curveShape;
     int m_curveResolution;
 
     ccl::vector<ccl::Shader *> m_usedShaders;

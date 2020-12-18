@@ -171,6 +171,14 @@ endif()
 find_package(USD REQUIRED)
 find_package(Cycles REQUIRED)
 
+# - UsdCycles Schema
+
+find_package(usdCycles REQUIRED)
+if(${usdCycles_FOUND})
+  option(USE_USD_CYCLES_SCHEMA "Use usdCycles Schema" ON)
+  add_definitions(-DUSE_USD_CYCLES_SCHEMA)
+endif()
+
 # - Cycles Logging
 
 find_package(Glog)

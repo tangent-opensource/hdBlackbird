@@ -24,6 +24,8 @@
 
 #include "hdcycles.h"
 
+#include <util/util_array.h>
+
 #include <pxr/base/gf/range1f.h>
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/vt/dictionary.h>
@@ -210,10 +212,29 @@ private:
     float m_fov;
     GfMatrix4d m_transform;
     float m_shutterTime;
+    float m_rollingShutterTime;
     float m_apertureRatio;
     int m_blades;
     float m_bladesRotation;
     float m_apertureSize;
+
+    int m_motionPosition;
+    int m_rollingShutterType;
+    int m_panoramaType;
+    int m_stereoEye;
+    float m_offscreenDicingScale;
+
+    ccl::array<float> m_shutterCurve;
+
+    float m_fisheyeFov;
+    float m_fisheyeLens;
+    float m_latMin, m_latMax, m_longMin, m_longMax;
+    bool m_useSphericalStereo;
+    
+    float m_interocularDistance;
+    float m_convergenceDistance;
+    bool m_usePoleMerge;
+    float m_poleMergeAngleFrom, m_poleMergeAngleTo;
 
     bool m_useDof;
 

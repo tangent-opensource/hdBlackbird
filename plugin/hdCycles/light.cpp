@@ -28,11 +28,16 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/shader.h>
+#include <util/util_hash.h>
 #include <util/util_math_float3.h>
 #include <util/util_string.h>
 
 #include <pxr/usd/sdf/assetPath.h>
 #include <pxr/usd/usdLux/tokens.h>
+
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -53,7 +58,7 @@ HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType,
     if (id == SdfPath::EmptyPath())
         return;
 
-    _CreateCyclesLight(m_renderDelegate->GetCyclesRenderParam());
+    _CreateCyclesLight(id, m_renderDelegate->GetCyclesRenderParam());
 }
 
 HdCyclesLight::~HdCyclesLight()
@@ -80,10 +85,13 @@ HdCyclesLight::Finalize(HdRenderParam* renderParam)
 }
 
 void
-HdCyclesLight::_CreateCyclesLight(HdCyclesRenderParam* renderParam)
+HdCyclesLight::_CreateCyclesLight(SdfPath const& id,
+                                  HdCyclesRenderParam* renderParam)
 {
     ccl::Scene* scene = renderParam->GetCyclesScene();
     m_cyclesLight     = new ccl::Light();
+
+    m_cyclesLight->name = ccl::ustring(id.GetName().c_str());
 
     m_cyclesShader        = new ccl::Shader();
     m_cyclesShader->graph = new ccl::ShaderGraph();
@@ -135,20 +143,18 @@ HdCyclesLight::_CreateCyclesLight(HdCyclesRenderParam* renderParam)
 
     renderParam->AddShader(m_cyclesShader);
 
-    // TODO: Export these from blender
+    // Set defaults
     m_cyclesLight->use_diffuse      = true;
     m_cyclesLight->use_glossy       = true;
     m_cyclesLight->use_transmission = true;
     m_cyclesLight->use_scatter      = true;
     m_cyclesLight->cast_shadow      = true;
     m_cyclesLight->use_mis          = true;
+    m_cyclesLight->is_portal        = false;
     m_cyclesLight->max_bounces      = 1024;
 
-    // TODO: Get with usdCycles Schema.
-    //m_cyclesLight->samples = 1024;
-
-    //TODO: Add support for random_id
-    //m_cyclesLight->random_id = ...
+    m_cyclesLight->random_id
+        = ccl::hash_uint2(ccl::hash_string(m_cyclesLight->name.c_str()), 0);
 
     m_cyclesShader->tag_update(scene);
     m_cyclesLight->tag_update(scene);
@@ -398,11 +404,60 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
+#ifdef USE_USD_CYCLES_SCHEMA
+
+    m_cyclesLight->cast_shadow
+        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                       usdCyclesTokens->cyclesLightCast_shadow,
+                                       m_cyclesLight->cast_shadow);
+
+    m_cyclesLight->use_diffuse
+        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                       usdCyclesTokens->cyclesLightUse_diffuse,
+                                       m_cyclesLight->use_diffuse);
+
+    m_cyclesLight->use_glossy
+        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                       usdCyclesTokens->cyclesLightUse_glossy,
+                                       m_cyclesLight->use_glossy);
+
+    m_cyclesLight->use_transmission = _HdCyclesGetLightParam<bool>(
+        id, sceneDelegate, usdCyclesTokens->cyclesLightUse_transmission,
+        m_cyclesLight->use_transmission);
+
+    m_cyclesLight->use_scatter
+        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                       usdCyclesTokens->cyclesLightUse_scatter,
+                                       m_cyclesLight->use_scatter);
+
+    m_cyclesLight->use_mis
+        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                       usdCyclesTokens->cyclesLightUse_mis,
+                                       m_cyclesLight->use_mis);
+
+    m_cyclesLight->is_portal
+        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                       usdCyclesTokens->cyclesLightIs_portal,
+                                       m_cyclesLight->is_portal);
+
+    m_cyclesLight->samples
+        = _HdCyclesGetLightParam<int>(id, sceneDelegate,
+                                      usdCyclesTokens->cyclesLightSamples,
+                                      m_cyclesLight->samples);
+
+    m_cyclesLight->max_bounces
+        = _HdCyclesGetLightParam<int>(id, sceneDelegate,
+                                      usdCyclesTokens->cyclesLightMax_bounces,
+                                      m_cyclesLight->max_bounces);
+
+#endif
+
+
     // TODO: Light is_enabled doesn't seem to have any effect
-    /* if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
+    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         light_updated             = true;
         m_cyclesLight->is_enabled = sceneDelegate->GetVisible(id);
-    }*/
+    }
 
     if (*dirtyBits & HdLight::DirtyTransform) {
         light_updated = true;

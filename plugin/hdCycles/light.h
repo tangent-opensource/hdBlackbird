@@ -107,11 +107,11 @@ private:
     /**
      * @brief Create the cycles light representation
      *
-     * @param scene Cycles scene to add light to
-     * @param transform Initial transform for object
+     * @param id SceneDelegate id of light
+     * @param renderParam HdCycles renderParam
      * @return New allocated pointer to ccl::Light
      */
-    void _CreateCyclesLight(HdCyclesRenderParam* renderParam);
+    void _CreateCyclesLight(SdfPath const& id, HdCyclesRenderParam* renderParam);
 
     /**
      * @brief Set transform of light and associate light types

@@ -280,6 +280,18 @@ mat4f_to_transform(const GfMatrix4f& mat)
     return outTransform;
 }
 
+ccl::int2
+vec2i_to_int2(const GfVec2i& a_vec)
+{
+    return ccl::make_int2(a_vec[0], a_vec[1]);
+}
+
+GfVec2i
+int2_to_vec2i(const ccl::int2& a_int)
+{
+    return GfVec2i(a_int.x, a_int.y);
+}
+
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec)
 {
@@ -684,6 +696,35 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
     context.m_pInterface = &sm_interface;
     /* Compute tangents. */
     genTangSpaceDefault(&context);
+}
+
+template<>
+bool
+_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default,
+                          bool* a_hasChanged = nullptr, bool a_checkWithDefault)
+{
+    bool val = a_default;
+    if (!a_value.IsEmpty()) {
+        if (a_value.IsHolding<bool>()) {
+            if (!a_checkWithDefault && a_hasChanged)
+                *a_hasChanged = true;
+            val = a_value.UncheckedGet<bool>();
+        } else if (a_value.IsHolding<int>()) {
+            if (!a_checkWithDefault && a_hasChanged)
+                *a_hasChanged = true;
+            val = (bool)a_value.UncheckedGet<int>();
+        } else if (a_value.IsHolding<float>()) {
+            if (!a_checkWithDefault && a_hasChanged)
+                val = (a_value.UncheckedGet<float>() == 1.0f);
+        } else if (a_value.IsHolding<double>()) {
+            if (!a_checkWithDefault && a_hasChanged)
+                *a_hasChanged = true;
+            val = (a_value.UncheckedGet<double>() == 1.0);
+        }
+    }
+    if (a_hasChanged && a_checkWithDefault && val != a_default)
+        *a_hasChanged = true;
+    return val;
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

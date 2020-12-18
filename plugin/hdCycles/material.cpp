@@ -41,6 +41,10 @@
 #include <pxr/usd/sdr/shaderProperty.h>
 #include <pxr/usdImaging/usdImaging/tokens.h>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
@@ -74,6 +78,31 @@ TF_MAKE_STATIC_DATA(NdrTokenVec, _sourceTypes)
 {
     *_sourceTypes = { TfToken("OSL"), TfToken("cycles") };
 }
+
+#ifdef USE_USD_CYCLES_SCHEMA
+
+std::map<TfToken, ccl::DisplacementMethod> DISPLACEMENT_CONVERSION = {
+    { usdCyclesTokens->displacement_bump, ccl::DISPLACE_BUMP },
+    { usdCyclesTokens->displacement_true, ccl::DISPLACE_TRUE },
+    { usdCyclesTokens->displacement_both, ccl::DISPLACE_BOTH },
+};
+
+std::map<TfToken, ccl::VolumeInterpolation> VOLUME_INTERPOLATION_CONVERSION = {
+    { usdCyclesTokens->volume_interpolation_linear,
+      ccl::VOLUME_INTERPOLATION_LINEAR },
+    { usdCyclesTokens->volume_interpolation_cubic,
+      ccl::VOLUME_INTERPOLATION_CUBIC },
+};
+
+std::map<TfToken, ccl::VolumeSampling> VOLUME_SAMPLING_CONVERSION = {
+    { usdCyclesTokens->volume_sampling_distance, ccl::VOLUME_SAMPLING_DISTANCE },
+    { usdCyclesTokens->volume_sampling_equiangular,
+      ccl::VOLUME_SAMPLING_EQUIANGULAR },
+    { usdCyclesTokens->volume_sampling_multiple_importance,
+      ccl::VOLUME_SAMPLING_MULTIPLE_IMPORTANCE },
+};
+
+#endif
 
 bool
 IsValidCyclesIdentifier(const std::string& identifier)
@@ -588,12 +617,16 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
     auto cyclesRenderParam     = static_cast<HdCyclesRenderParam*>(renderParam);
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
+    const SdfPath& id = GetId();
+
+    param->GetCyclesScene()->mutex.lock();
     bool material_updated = false;
 
     HdDirtyBits bits = *dirtyBits;
 
+
     if (*dirtyBits & HdMaterial::DirtyResource) {
-        VtValue vtMat = sceneDelegate->GetMaterialResource(GetId());
+        VtValue vtMat = sceneDelegate->GetMaterialResource(id);
 
         if (vtMat.IsHolding<HdMaterialNetworkMap>()) {
             if (m_shaderGraph) {
@@ -633,10 +666,76 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
                 }
             }
 
-            if (!material_updated) {
+            if (material_updated) {
+                m_shader->graph = m_shaderGraph;
+            } else {
                 TF_CODING_WARNING("Material type not supported");
             }
         }
+    }
+
+    if (*dirtyBits & HdMaterial::DirtyResource) {
+#ifdef USE_USD_CYCLES_SCHEMA
+
+        TfToken displacementMethod = _HdCyclesGetParam<TfToken>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesMaterialDisplacement_method,
+            usdCyclesTokens->displacement_bump);
+
+        if (m_shader->displacement_method
+            != DISPLACEMENT_CONVERSION[displacementMethod]) {
+            m_shader->displacement_method
+                = DISPLACEMENT_CONVERSION[displacementMethod];
+        }
+
+        m_shader->pass_id
+            = _HdCyclesGetParam<int>(sceneDelegate, id,
+                                     usdCyclesTokens->cyclesMaterialPass_id,
+                                     m_shader->pass_id);
+
+        m_shader->use_mis
+            = _HdCyclesGetParam<bool>(sceneDelegate, id,
+                                      usdCyclesTokens->cyclesMaterialUse_mis,
+                                      m_shader->use_mis);
+
+        m_shader->use_transparent_shadow = _HdCyclesGetParam<bool>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesMaterialUse_transparent_shadow,
+            m_shader->use_transparent_shadow);
+
+        m_shader->heterogeneous_volume = _HdCyclesGetParam<bool>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesMaterialHeterogeneous_volume,
+            m_shader->heterogeneous_volume);
+
+        m_shader->volume_step_rate = _HdCyclesGetParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesMaterialVolume_step_rate,
+            m_shader->volume_step_rate);
+
+        TfToken volume_interpolation = _HdCyclesGetParam<TfToken>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesMaterialVolume_interpolation_method,
+            usdCyclesTokens->volume_interpolation_linear);
+
+        if (m_shader->volume_interpolation_method
+            != VOLUME_INTERPOLATION_CONVERSION[volume_interpolation]) {
+            m_shader->volume_interpolation_method
+                = VOLUME_INTERPOLATION_CONVERSION[volume_interpolation];
+        }
+
+        TfToken volume_sampling = _HdCyclesGetParam<TfToken>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesMaterialVolume_sampling_method,
+            usdCyclesTokens->volume_sampling_multiple_importance);
+
+        if (m_shader->volume_sampling_method
+            != VOLUME_SAMPLING_CONVERSION[volume_sampling]) {
+            m_shader->volume_sampling_method
+                = VOLUME_SAMPLING_CONVERSION[volume_sampling];
+        }
+        material_updated = true;
+
+#endif
     }
 
     if (material_updated) {
@@ -647,6 +746,8 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
         m_shader->tag_used(param->GetCyclesScene());
         param->Interrupt();
     }
+
+    param->GetCyclesScene()->mutex.unlock();
 
     *dirtyBits = Clean;
 }

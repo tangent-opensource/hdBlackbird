@@ -61,6 +61,16 @@ For example:
 
 ## Notes
 
+### usdCycles schema
+
+To allow a full 1:1 representation of a Blender Cycles scene, we need to store Cycles specific settings in USD. To do this, we created [usdCycles](https://github.com/tangent-opensource/usdcycles). More information can be found in that repo.
+
+To prevent DCC's and tooling to not have to implement the full dependency chain of hdCycles, the usdCycles schema definition has been split into it's own repo (and rez package). Found [Here!](https://github.com/tangent-opensource/usdcycles).
+
+Building hdCycles without usdCycles is possible, but results in a very limited subsection of Cycles settings.
+
+For full usdCycles schema support, please build with [usdCycles](https://github.com/tangent-opensource/usdcycles).
+
 ### Stability & Performance                           
 
 The codebase is in __active__ development and should be deemed as __unstable__. 
@@ -105,7 +115,7 @@ Currently supported features:
 |                 | Generic Primitives    | ✅    | (Cube, sphere, cylinder)                          |
 |                 | Tangents              | ✅    |                                                   |
 |                 | Point Instances       | ✅    |                                                   |
-|                 | usdCycles Schema Support| ❌  |                                                   |
+|                 | usdCycles Schema Support| ✅  |                                                   |
 |                 | Motion Blur (Transform) | ✅  |                                                   |
 |                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
 |                 | Motion Blur (Velocity)  | ❌  |                                                   |
@@ -115,11 +125,12 @@ Currently supported features:
 |                 | Volumetric            | ✅    |                                                   |
 |                 | OSL                   | ❌    |                                                   |
 |                 | USD Preview Surface   | ✅    |                                                   |
+|                 | usdCycles Schema Support | ✅    |                                                   |
 | **Volumes**     | VDB Support           | ✅    | (Likely will go with foundations implementation)  |
 | **Cameras**     | Basic Support         | ✅    |                                                   |
 |                 | Depth of Field        | ✅    |                                                   |
 |                 | Motion Blur           | ✅    |                                                   |
-|                 | usdCycles Schema Support| ❌  |                                                   |
+|                 | usdCycles Schema Support | ✅  |                                                   |
 | **Curves**      | BasisCurves           | ✅    |                                                   |
 |                 | NURBs                 | ❌    |                                                   |
 |                 | Point Instancing      | ❌    |                                                   |
@@ -127,7 +138,7 @@ Currently supported features:
 |                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
 |                 | Motion Blur (Velocity)  | ❌  |                                                   |
 |                 | Motion Blur (Instances) | ❌  |                                                   |
-|                 | usdCycles Schema Support| ❌  |                                                   |
+|                 | usdCycles Schema Support| ✅  |                                                   |
 | **Points**      | Points                | ✅    |                                                   |
 |                 | usdCycles Schema Support| ✅  |                                                   |
 |                 | Motion Blur (Transform) | ❌  |                                                   |
@@ -139,9 +150,9 @@ Currently supported features:
 |                 | Dome                  | ✅    |                                                   |
 |                 | Temperature           | ✅    | We manually create a blackbody shader for now...  |
 |                 | Light Materials       |   ❌  | Pending support for new USD Light network shaders |
-|                 | usdCycles Schema Support| ❌  |                                                   |
+|                 | usdCycles Schema Support| ✅  |                                                   |
 | **Render Settings** | Basic Render Settings |✅ |                                                   |
-|                 | usdCycles Schema Support  | ❌| Render Settings, Render Products, etc.            |
+|                 | usdCycles Schema Support  | ✅| Render Settings, Render Products, etc.            |
 | **Rendering**   | Combined AOV          | ✅    |                                                   |
 |                 | Tiled Rendering       | ✅    |                                                   |
 |                 | Full AOV Support      | ❌    |                                                   |

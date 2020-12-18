@@ -108,6 +108,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
 
         active_camera->tag_update();
+
         renderParam->Interrupt();
     }
 
@@ -118,11 +119,22 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     bool resized = false;
 
     if (width != m_width || height != m_height) {
-        renderParam->Interrupt();
         const auto oldNumPixels = static_cast<size_t>(m_width * m_height);
         m_width                 = width;
         m_height                = height;
-        renderParam->CyclesReset(m_width, m_height);
+
+        // TODO: Due to the startup flow of Cycles, this gets called after a tiled render
+        // has already started. Sometimes causing the original tiled render to complete
+        // before actually rendering at the appropriate size. This seems to be a Cycles
+        // issue, however the startup flow of HdCycles has LOTS of room for improvement...
+        renderParam->SetViewport(m_width, m_height);
+
+        // TODO: This is very hacky... But stops the tiled render double render issue...
+        if (renderParam->IsTiledRender()) {
+            renderParam->StartRender();
+        }
+
+        renderParam->Interrupt();
 
         if (numPixels != oldNumPixels) {
             resized = true;

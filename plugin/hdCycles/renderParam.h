@@ -77,6 +77,7 @@ public:
 
     /**
      * @brief Completely restart a cycles render
+     * Currently unused, likely broken
      *  
      */
     HDCYCLES_API
@@ -91,9 +92,9 @@ public:
 
     /**
      * @brief Initialize cycles renderer
-     * 
+     * Core first time initialization of HdCycles
      */
-    bool Initialize();
+    bool Initialize(HdRenderSettingsMap const& settingsMap);
 
     /**
      * @brief Pause cycles render session
@@ -117,19 +118,26 @@ public:
     bool IsConverged();
 
     /**
-     * @brief Start a cycles render
-     * TODO: Refactor this
+     * @brief Key access point to set a HdCycles render setting via key and value
+     * Handles SessionParams, SceneParams, Integrator, Film, and Background intelligently.
      * 
+     * This has some inherent performance overheads (runs multiple times, unecessary)
+     * however for now, this works the most clearly due to Cycles restrictions
+     * 
+     * @param key 
+     * @param value 
+     * @return true 
+     * @return false 
      */
-    void CyclesStart();
+    bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
 protected:
+
     /**
-     * @brief Main initialization logic of cycles render
+     * @brief Start a cycles render
      * 
-     * @return Returns true if successful 
      */
-    bool _CyclesInitialize();
+    void _CyclesStart();
 
     /**
      * @brief Main exit logic of cycles render
@@ -155,13 +163,13 @@ public:
     void CyclesReset(bool a_forceUpdate = false);
 
     /**
-     * @brief Cycles reset based on width and height
-     * TODO: Refactor these
+     * @brief Set "viewport" based on width and height
+     * TODO: Add support for render regions
      * 
      * @param w Width of new render
      * @param h Height of new render
      */
-    void CyclesReset(int w, int h);
+    void SetViewport(int w, int h);
 
     /**
      * @brief Slightly hacky workaround to directly reset the session
@@ -179,127 +187,6 @@ public:
                              bool a_emissive       = true);
 
     /* ======= Cycles Settings ======= */
-
-    /**
-     * @brief Get should cycles be run in experimental mode
-     * 
-     * @return Returns true if cycles will run in experimental mode
-     */
-    const bool& GetUseExperimental();
-
-    /**
-     * @brief Set should cycles be run in experimental mode
-     * 
-     * @param a_value Should use experimental mode
-     */
-    void SetUseExperimental(const bool& a_value);
-
-    /**
-     * @brief Get the maximum samples to be used in a render
-     * 
-     * @return const int& Maximum number of samples
-     */
-    const int& GetMaxSamples();
-
-    /**
-     * @brief Set the maximum samples to be used in a render
-     * 
-     * @param a_value Maximum number of samples
-     */
-    void SetMaxSamples(const int& a_value);
-
-    /**
-     * @brief Get the number of threads to be used when rendering
-     * 
-     * @return const int& Number of threads
-     */
-    const int& GetNumThreads();
-
-    /**
-     * @brief Set the number of threads to be used when rendering
-     * 0 is automatic
-     * 
-     * @param a_value Number of threads 
-     */
-    void SetNumThreads(const int& a_value);
-
-    /**
-     * @brief Get the individual Pixel Size of cycles render
-     * 
-     * @return const int& Pixel Size
-     */
-    const int& GetPixelSize();
-
-    /**
-     * @brief Set the individual Pixel Size of cycles render
-     * 
-     * @param a_value Pixel Size
-     */
-    void SetPixelSize(const int& a_value);
-
-    /**
-     * @brief Get the Tile Size of cycles tiled render
-     * 
-     * @return const pxr::GfVec2i& Tile width and height
-     */
-    const pxr::GfVec2i GetTileSize();
-
-    /**
-     * @brief Set the Tile Size of cycles tiled render
-     * 
-     * @param a_value Tile width and height
-     */
-    void SetTileSize(const pxr::GfVec2i& a_value);
-
-    /**
-     * @brief Set the Tile Size of cycles tiled render
-     * 
-     * @param a_x Tile width
-     * @param a_y Tile hieght
-     */
-    void SetTileSize(int a_x, int a_y);
-
-    /**
-     * @brief Get the Start Resolution of cycles render
-     * 
-     * @return const int& Start Resolution
-     */
-    const int& GetStartResolution();
-
-    /**
-     * @brief Set the Start Resolution of cycles render
-     * 
-     * @param a_value Start Resolution
-     */
-    void SetStartResolution(const int& a_value);
-
-    /**
-     * @brief Get the Exposure of final render
-     * 
-     * @return const float& Exposure
-     */
-    const float& GetExposure();
-
-    /**
-     * @brief Set the Exposure of final render
-     * 
-     * @param a_exposure Exposure
-     */
-    void SetExposure(float a_exposure);
-
-    /**
-     * @brief Get the current Device Type 
-     * 
-     * @return const ccl::DeviceType& Device Type
-     */
-    const ccl::DeviceType& GetDeviceType();
-
-    /**
-     * @brief Get the Device Type Name as string
-     * 
-     * @return const std::string& Device Type Name
-     */
-    const std::string& GetDeviceTypeName();
 
     /**
      * @brief Set Cycles render device type
@@ -329,73 +216,7 @@ public:
      */
     bool SetDeviceType(const std::string& a_deviceType);
 
-    /**
-     * @brief Get the camera's motion position
-     * TODO: Move this to HdCyclesCamera
-     * 
-     * @return const ccl::Camera::MotionPosition& Motion Position 
-     */
-    const ccl::Camera::MotionPosition& GetShutterMotionPosition();
-
-    /**
-     * @brief Set the camera's motion position
-     * TODO: Move this to HdCyclesCamera
-     * 
-     * @param a_value Motion Position
-     */
-    void SetShutterMotionPosition(const int& a_value);
-
-    /**
-     * @brief Set the camera's motion position
-     * TODO: Move this to HdCyclesCamera
-     * 
-     * @param a_value Motion Position
-     */
-    void SetShutterMotionPosition(const ccl::Camera::MotionPosition& a_value);
-
     /* ====== HdCycles Settings ====== */
-
-    /**
-     * @brief Set should use motion blur
-     * 
-     * @param a_value Should use motion blur
-     */
-    void SetUseMotionBlur(const bool& a_value) { m_useMotionBlur = a_value; }
-
-    /**
-     * @brief Get if should use motion blur
-     * 
-     * @return Return true if motion blur should be used
-     */
-    const bool& GetUseMotionBlur() { return m_useMotionBlur; }
-
-    /**
-     * @brief Set the Motion Steps
-     * 
-     * @param a_value Motion Steps
-     */
-    void SetMotionSteps(const int& a_value) { m_motionSteps = a_value; }
-
-    /**
-     * @brief Get Motion Steps
-     * 
-     * @return const int& Motion Steps
-     */
-    const int& GetMotionSteps() { return m_motionSteps; }
-
-    /**
-     * @brief Get the Width of render
-     * 
-     * @return Width in pixels
-     */
-    const float& GetWidth() { return m_width; }
-
-    /**
-     * @brief Get the Height of render
-     * 
-     * @return Height in pixels
-     */
-    const float& GetHeight() { return m_height; }
 
     /**
      * @brief Add light to scene
@@ -475,6 +296,52 @@ public:
     void RemoveObject(ccl::Object* a_object);
 
 private:
+    bool _CreateSession();
+
+    /**
+     * @brief Creates the base Cycles scene
+     * 
+     * This paradigm does cause unecessary loops through settingsMap for each feature. 
+     * This should be addressed in the future. For the moment, the flexibility of setting
+     * order of operations is more important.
+     * 
+     * @return true 
+     * @return false 
+     */
+    bool _CreateScene();
+
+    void _UpdateDelegateFromConfig(bool a_forceInit = false);
+    void
+    _UpdateDelegateFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleDelegateRenderSetting(const TfToken& key, const VtValue& value);
+
+    void _UpdateSessionFromConfig(bool a_forceInit = false);
+    void
+    _UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleSessionRenderSetting(const TfToken& key, const VtValue& value);
+
+    void _UpdateSceneFromConfig(bool a_forceInit = false);
+    void _UpdateSceneFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleSceneRenderSetting(const TfToken& key, const VtValue& value);
+
+    void _UpdateFilmFromConfig(bool a_forceInit = false);
+    void _UpdateFilmFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleFilmRenderSetting(const TfToken& key, const VtValue& value);
+
+    void _UpdateIntegratorFromConfig(bool a_forceInit = false);
+    void
+    _UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleIntegratorRenderSetting(const TfToken& key,
+                                        const VtValue& value);
+
+    void _UpdateBackgroundFromConfig(bool a_forceInit = false);
+    void
+    _UpdateBackgroundFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleBackgroundRenderSetting(const TfToken& key,
+                                        const VtValue& value);
+
+    void _HandlePasses();
+
     /**
      * @brief Initialize member values based on config
      * TODO: Refactor this
@@ -485,12 +352,9 @@ private:
     bool _SetDevice(const ccl::DeviceType& a_deviceType,
                     ccl::SessionParams& params);
 
+    ccl::SessionParams m_sessionParams;
+    ccl::SceneParams m_sceneParams;
     ccl::BufferParams m_bufferParams;
-
-    // These values are not explicitly defined in cycles api
-    // They are stored here to allow for easy retrieval
-    bool m_useMotionBlur;
-    int m_motionSteps;
 
     int m_renderPercent;
     float m_renderProgress;
@@ -502,6 +366,8 @@ private:
     std::string m_deviceName;
 
     bool m_useTiledRendering;
+
+    bool m_aovBindingsNeedValidation;
 
     int m_width;
     int m_height;
@@ -516,6 +382,8 @@ private:
     bool m_shouldUpdate;
 
     bool m_hasDomeLight;
+
+    bool m_useSquareSamples;
 
 public:
     const bool& IsTiledRender() const { return m_useTiledRendering; }

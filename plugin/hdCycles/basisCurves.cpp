@@ -38,12 +38,15 @@
 #include <pxr/base/gf/vec3i.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
-// TODO: Read these from usdCycles schema
+// TODO: Remove this when we deprecate old curve support
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(_tokens,
-    ((cyclesCurveStyle, "cycles:object:curve_style"))
     ((cyclesCurveResolution, "cycles:object:curve_resolution"))
 );
 // clang-format on
@@ -56,12 +59,19 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_cyclesMesh(nullptr)
     , m_cyclesGeometry(nullptr)
     , m_cyclesHair(nullptr)
-    , m_curveStyle(CURVE_TUBE)
+    , m_curveShape(ccl::CURVE_THICK)
     , m_curveResolution(5)
     , m_renderDelegate(a_renderDelegate)
+    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
+    , m_visCamera(true)
+    , m_visDiffuse(true)
+    , m_visGlossy(true)
+    , m_visScatter(true)
+    , m_visShadow(true)
+    , m_visTransmission(true)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_useMotionBlur                     = config.enable_motion_blur;
+    config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
     m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
@@ -117,8 +127,14 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-    if (config.use_old_curves) {
-        if (m_curveStyle == CURVE_RIBBONS) {
+    // We support optimized embree Curves, as well as legacy/old curves ribbon and tube...
+    // Old curves are only enabled via ENV var: HD_CYCLES_USE_OLD_CURVES
+    // Old curves will likely be deprecated in the near future...
+    bool use_old_curves;
+    config.use_old_curves.eval(use_old_curves, true);
+
+    if (use_old_curves) {
+        if (m_curveShape == ccl::CURVE_RIBBON) {
             _CreateRibbons(scene->camera);
         } else {
             _CreateTubeMesh();
@@ -130,7 +146,6 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
     if (m_usedShaders.size() > 0)
         m_cyclesGeometry->used_shaders = m_usedShaders;
 }
-
 
 void
 HdCyclesBasisCurves::_PopulateMotion()
@@ -485,19 +500,90 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
-        if (HdCyclesIsPrimvarExists(_tokens->cyclesCurveStyle, pdpi)) {
-            VtIntArray type = sceneDelegate->Get(id, _tokens->cyclesCurveStyle)
-                                  .Get<VtIntArray>();
-            if (type.size() > 0) {
-                if (type[0] == 0)
-                    m_curveStyle = CURVE_RIBBONS;
-                else
-                    m_curveStyle = CURVE_TUBE;
+
+#ifdef USE_USD_CYCLES_SCHEMA
+
+        m_useMotionBlur = (bool)_HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
+
+        TfToken curveShape = usdCyclesTokens->ribbon;
+
+        // Left for now due to other immediate bugs.
+        // This should be unified, as should potentially all primvar 
+        // accessors...
+        for (auto& entry : pdpi) {
+            for (auto& pv : entry.second) {
+                if ("primvars:" + pv.name.GetString()
+                    == usdCyclesTokens->primvarsCyclesCurveShape.GetString()) {
+                    curveShape = _HdCyclesGetCurvePrimvar<TfToken>(
+                        pv, dirtyBits, id, this, sceneDelegate,
+                        usdCyclesTokens->primvarsCyclesCurveShape, curveShape);
+                }
             }
-        } else {
-            m_curveStyle = CURVE_TUBE;
         }
 
+        if (curveShape == usdCyclesTokens->ribbon) {
+            m_curveShape = ccl::CURVE_RIBBON;
+            update_curve = true;
+        } else {
+            m_curveShape = ccl::CURVE_THICK;
+            update_curve = true;
+        }
+
+        m_cyclesObject->is_shadow_catcher = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
+            m_cyclesObject->is_shadow_catcher);
+
+        m_cyclesObject->pass_id = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectPass_id,
+            m_cyclesObject->pass_id);
+
+        m_cyclesObject->use_holdout = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+            m_cyclesObject->use_holdout);
+
+        // Visibility
+
+        m_visibilityFlags = 0;
+
+        m_visCamera = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, m_visCamera);
+
+        m_visDiffuse = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
+            m_visDiffuse);
+
+        m_visGlossy = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, m_visGlossy);
+
+        m_visScatter = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
+            m_visScatter);
+
+        m_visShadow = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, m_visShadow);
+
+        m_visTransmission = _HdCyclesGetCurveParam<bool>(
+            dirtyBits, id, this, sceneDelegate,
+            usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
+            m_visTransmission);
+
+        m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
+        m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
+        m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
+        m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
+        m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
+        m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
+#endif
         if (HdCyclesIsPrimvarExists(_tokens->cyclesCurveResolution, pdpi)) {
             VtIntArray resolution
                 = sceneDelegate->Get(id, _tokens->cyclesCurveResolution)
@@ -511,12 +597,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-        update_curve = true;
-        if (sceneDelegate->GetVisible(id)) {
-            m_cyclesObject->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
-        } else {
-            m_cyclesObject->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
-        }
+        update_curve        = true;
+        _sharedData.visible = sceneDelegate->GetVisible(id);
     }
 
     if (generate_new_curve) {
@@ -593,6 +675,12 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (generate_new_curve || update_curve) {
+        m_cyclesHair->curve_shape = m_curveShape;
+
+        m_cyclesObject->visibility = m_visibilityFlags;
+        if (!_sharedData.visible)
+            m_cyclesObject->visibility = 0;
+
         m_cyclesGeometry->tag_update(scene, true);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
@@ -628,6 +716,8 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 
     attr_random = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_RANDOM);
 
+    // We have patched the Cycles API to allow shape to be set per curve
+    m_cyclesHair->curve_shape = m_curveShape;
     m_cyclesHair->reserve_curves(num_curves, num_keys);
 
     num_curves = 0;

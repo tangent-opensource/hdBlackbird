@@ -22,6 +22,11 @@ set(PXR_PACKAGE hdCycles)
 
 add_custom_target(python ALL)
 
+if(USE_USD_CYCLES_SCHEMA)
+  include_directories(${USD_CYCLES_INCLUDE_DIRS})
+  link_libraries(${USD_CYCLES_LIBRARIES})
+endif()
+
 if(USE_LEGACY_HOUDINI)
   include_directories(${HOUDINI_INCLUDE_DIRS})
   link_directories(${HOUDINI_LIB_DIRS})

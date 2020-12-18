@@ -29,6 +29,10 @@
 
 #include <pxr/usd/usdGeom/tokens.h>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 namespace {
@@ -64,6 +68,35 @@ EvalCameraParam(T* value, const TfToken& paramName,
 }
 }  // namespace
 
+#ifdef USE_USD_CYCLES_SCHEMA
+
+std::map<TfToken, ccl::Camera::MotionPosition> MOTION_POSITION_CONVERSION = {
+    { usdCyclesTokens->start, ccl::Camera::MOTION_POSITION_START },
+    { usdCyclesTokens->center, ccl::Camera::MOTION_POSITION_CENTER },
+    { usdCyclesTokens->end, ccl::Camera::MOTION_POSITION_END },
+};
+
+std::map<TfToken, ccl::Camera::RollingShutterType> ROLLING_SHUTTER_TYPE_CONVERSION
+    = {
+          { usdCyclesTokens->none, ccl::Camera::ROLLING_SHUTTER_NONE },
+          { usdCyclesTokens->top, ccl::Camera::ROLLING_SHUTTER_TOP },
+      };
+
+std::map<TfToken, ccl::PanoramaType> PANORAMA_TYPE_CONVERSION = {
+    { usdCyclesTokens->equirectangular, ccl::PANORAMA_EQUIRECTANGULAR },
+    { usdCyclesTokens->fisheye_equidistant, ccl::PANORAMA_FISHEYE_EQUIDISTANT },
+    { usdCyclesTokens->fisheye_equisolid, ccl::PANORAMA_FISHEYE_EQUISOLID },
+    { usdCyclesTokens->mirrorball, ccl::PANORAMA_MIRRORBALL },
+};
+
+std::map<TfToken, ccl::Camera::StereoEye> STEREO_EYE_CONVERSION = {
+    { usdCyclesTokens->none, ccl::Camera::STEREO_NONE },
+    { usdCyclesTokens->left, ccl::Camera::STEREO_LEFT },
+    { usdCyclesTokens->right, ccl::Camera::STEREO_RIGHT },
+};
+
+#endif
+
 HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
                                HdCyclesRenderDelegate* a_renderDelegate)
     : HdCamera(id)
@@ -79,13 +112,34 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_clippingRange(0.1f, 100000.0f)
     , m_renderDelegate(a_renderDelegate)
     , m_needsUpdate(false)
+    , m_shutterTime(1.0f)
+    , m_rollingShutterTime(0.1f)
+    , m_motionPosition(ccl::Camera::MOTION_POSITION_CENTER)
+    , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
+    , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
+    , m_stereoEye(ccl::Camera::STEREO_NONE)
+    , m_offscreenDicingScale(0.0f)
+
+    , m_fisheyeFov(M_PI_F)
+    , m_fisheyeLens(10.5f)
+    , m_latMin(-M_PI_2_F)
+    , m_latMax(M_PI_2_F)
+    , m_longMin(-M_PI_F)
+    , m_longMax(M_PI_F)
+    , m_useSphericalStereo(false)
+
+    , m_interocularDistance(0.065f)
+    , m_convergenceDistance(30.0f * 0.065f)
+    , m_usePoleMerge(false)
+    , m_poleMergeAngleFrom(60.0f * M_PI_F / 180.0f)
+    , m_poleMergeAngleTo(75.0f * M_PI_F / 180.0f)
 {
     m_cyclesCamera
         = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->camera;
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_useDof                            = config.enable_dof;
-    m_useMotionBlur                     = config.enable_motion_blur;
+    config.enable_dof.eval(m_useDof, true);
+    config.enable_motion_blur.eval(m_useMotionBlur, true);
 }
 
 HdCyclesCamera::~HdCyclesCamera() {}
@@ -217,6 +271,145 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_focusDistance  = 0.0f;
             m_apertureRatio  = 1.0f;
         }
+
+#ifdef USE_USD_CYCLES_SCHEMA
+
+        // Motion Position
+        TfToken motionPosition = _HdCyclesGetCameraParam<TfToken>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraMotion_position,
+            usdCyclesTokens->center);
+
+        if (m_motionPosition != MOTION_POSITION_CONVERSION[motionPosition]) {
+            m_motionPosition = MOTION_POSITION_CONVERSION[motionPosition];
+        }
+
+        // rolling shutter type
+        TfToken rollingShutterType = _HdCyclesGetCameraParam<TfToken>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraRolling_shutter_type,
+            usdCyclesTokens->none);
+
+        if (m_rollingShutterType
+            != ROLLING_SHUTTER_TYPE_CONVERSION[rollingShutterType]) {
+            m_rollingShutterType
+                = ROLLING_SHUTTER_TYPE_CONVERSION[rollingShutterType];
+        }
+
+        // panorama type
+        TfToken panoramaType = _HdCyclesGetCameraParam<TfToken>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraPanorama_type,
+            usdCyclesTokens->equirectangular);
+
+        if (m_panoramaType != PANORAMA_TYPE_CONVERSION[panoramaType]) {
+            m_panoramaType = PANORAMA_TYPE_CONVERSION[panoramaType];
+        }
+
+        // stereo eye
+        TfToken stereoEye = _HdCyclesGetCameraParam<TfToken>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraStereo_eye,
+            usdCyclesTokens->none);
+
+        if (m_stereoEye != STEREO_EYE_CONVERSION[stereoEye]) {
+            m_stereoEye = STEREO_EYE_CONVERSION[stereoEye];
+        }
+
+        // Others
+
+        VtFloatArray shutterCurve;
+
+        shutterCurve = _HdCyclesGetCameraParam<VtFloatArray>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraShutter_curve,
+            shutterCurve);
+
+        if (shutterCurve.size() > 0) {
+            m_shutterCurve.resize(shutterCurve.size());
+
+            for (int i = 0; i < shutterCurve.size(); i++) {
+                m_shutterCurve[i] = shutterCurve[i];
+            }
+        }
+
+        m_shutterTime = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraShutter_time,
+            m_shutterTime);
+
+        m_rollingShutterTime = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraRolling_shutter_duration,
+            m_rollingShutterTime);
+
+        m_blades = _HdCyclesGetCameraParam<int>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraBlades, m_blades);
+
+        m_bladesRotation = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraBlades_rotation,
+            m_bladesRotation);
+
+        m_offscreenDicingScale = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraOffscreen_dicing_scale,
+            m_offscreenDicingScale);
+
+        // Fisheye
+
+        m_fisheyeFov = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraFisheye_fov,
+            m_fisheyeFov);
+
+        m_fisheyeLens = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraFisheye_lens,
+            m_fisheyeLens);
+
+        // Panorama
+
+        m_latMin = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraLatitude_min,
+            m_latMin);
+
+        m_latMax = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraLatitude_max,
+            m_latMax);
+
+        m_longMin = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraLongitude_min,
+            m_longMin);
+
+        m_longMax = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraLongitude_max,
+            m_longMax);
+
+        // Stereo
+
+        m_useSphericalStereo = _HdCyclesGetCameraParam<bool>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraUse_spherical_stereo,
+            m_useSphericalStereo);
+
+        m_interocularDistance = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraInterocular_distance,
+            m_interocularDistance);
+
+        m_convergenceDistance = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraConvergence_distance,
+            m_convergenceDistance);
+
+        // Pole merge
+
+        m_usePoleMerge = _HdCyclesGetCameraParam<bool>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraUse_pole_merge,
+            m_usePoleMerge);
+
+        m_poleMergeAngleFrom = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id,
+            usdCyclesTokens->cyclesCameraPole_merge_angle_from,
+            m_poleMergeAngleFrom);
+
+        m_poleMergeAngleTo = _HdCyclesGetCameraParam<float>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraPole_merge_angle_to,
+            m_poleMergeAngleTo);
+#endif
     }
 
     if (*dirtyBits & HdCamera::DirtyProjMatrix) {
@@ -259,12 +452,41 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     a_camera->focaldistance  = m_focusDistance;
     a_camera->aperture_ratio = m_apertureRatio;
 
+    a_camera->shutter_curve = m_shutterCurve;
+
+    a_camera->offscreen_dicing_scale = m_offscreenDicingScale;
+
+    a_camera->fisheye_fov  = m_fisheyeFov;
+    a_camera->fisheye_lens = m_fisheyeLens;
+
+    a_camera->latitude_min  = m_latMin;
+    a_camera->latitude_max  = m_latMin;
+    a_camera->longitude_min = m_latMax;
+    a_camera->longitude_max = m_longMax;
+
+    a_camera->use_spherical_stereo = m_useSphericalStereo;
+
+    a_camera->interocular_distance = m_interocularDistance;
+    a_camera->convergence_distance = m_convergenceDistance;
+    a_camera->use_pole_merge       = m_usePoleMerge;
+
+    a_camera->pole_merge_angle_from = m_poleMergeAngleFrom;
+    a_camera->pole_merge_angle_to   = m_poleMergeAngleTo;
+
     a_camera->nearclip = m_clippingRange.GetMin();
     a_camera->farclip  = m_clippingRange.GetMax();
 
     a_camera->shuttertime = m_shutterTime;
     a_camera->motion_position
         = ccl::Camera::MotionPosition::MOTION_POSITION_CENTER;
+
+    a_camera->rolling_shutter_duration = m_rollingShutterTime;
+
+    a_camera->rolling_shutter_type
+        = (ccl::Camera::RollingShutterType)m_rollingShutterType;
+    a_camera->panorama_type   = (ccl::PanoramaType)m_panoramaType;
+    a_camera->motion_position = (ccl::Camera::MotionPosition)m_motionPosition;
+    a_camera->stereo_eye      = (ccl::Camera::StereoEye)m_stereoEye;
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
