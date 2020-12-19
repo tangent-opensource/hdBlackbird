@@ -102,7 +102,7 @@ public:
      * 
      */
     HDCYCLES_API
-    void Reload() override;
+    void Reload();
 
     /**
      * @return Return true if this material is valid

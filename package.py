@@ -15,6 +15,7 @@ requires = [
 
 variants = [
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.11'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini'],
 ]
