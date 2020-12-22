@@ -146,6 +146,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
     ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
 
+    if (!display)
+        return;
+
     HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4
                                                : HdFormatUNorm8Vec4;
 
@@ -153,6 +156,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         = (display->half_float)
               ? (unsigned char*)display->rgba_half.host_pointer
               : (unsigned char*)display->rgba_byte.host_pointer;
+
+    if (!hpixels)
+        return;
 
     int w = display->draw_width;
     int h = display->draw_height;
