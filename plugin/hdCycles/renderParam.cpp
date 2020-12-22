@@ -138,7 +138,8 @@ HdCyclesRenderParam::_SessionUpdateCallback()
 
 
         if (HdCyclesConfig::GetInstance().enable_progress) {
-            std::cout << "Progress: " << m_renderPercent << "%\n";
+            std::cout << "Progress: " << m_renderPercent << "%" << std::endl
+                      << std::flush;
         }
     }
 
@@ -289,8 +290,8 @@ HdCyclesRenderParam::_UpdateSessionFromConfig(bool a_forceInit)
 
     config.start_resolution.eval(sessionParams->start_resolution, a_forceInit);
 
-    sessionParams->progressive        = true;
-    sessionParams->progressive_refine = false;
+    sessionParams->progressive                = true;
+    sessionParams->progressive_refine         = false;
     sessionParams->progressive_update_timeout = 0.1;
 
     config.pixel_size.eval(sessionParams->pixel_size, a_forceInit);
@@ -1305,10 +1306,8 @@ HdCyclesRenderParam::_CreateSession()
         = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1,
                     ccl::_2);
 
-    if (HdCyclesConfig::GetInstance().enable_logging
-        || HdCyclesConfig::GetInstance().enable_progress)
-        m_cyclesSession->progress.set_update_callback(
-            std::bind(&HdCyclesRenderParam::_SessionUpdateCallback, this));
+    m_cyclesSession->progress.set_update_callback(
+        std::bind(&HdCyclesRenderParam::_SessionUpdateCallback, this));
 
     return true;
 }
@@ -1655,12 +1654,12 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     m_width  = w;
     m_height = h;
 
-    m_bufferParams.width                      = m_width;
-    m_bufferParams.height                     = m_height;
-    m_bufferParams.full_width                 = m_width;
-    m_bufferParams.full_height                = m_height;
-    m_cyclesScene->camera->width              = m_width;
-    m_cyclesScene->camera->height             = m_height;
+    m_bufferParams.width          = m_width;
+    m_bufferParams.height         = m_height;
+    m_bufferParams.full_width     = m_width;
+    m_bufferParams.full_height    = m_height;
+    m_cyclesScene->camera->width  = m_width;
+    m_cyclesScene->camera->height = m_height;
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_update        = true;
     m_cyclesScene->camera->need_device_update = true;
