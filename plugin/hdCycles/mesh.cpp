@@ -1055,6 +1055,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         }
 
                         _AddNormals(normals, primvarDescsEntry.first);
+                        mesh_updated = true;
                     }
 
                     // TODO: Properly implement
@@ -1087,6 +1088,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                 //_AddVelocities(vels, primvarDescsEntry.first);
                             }
                         }
+                        mesh_updated = true;
                     }
 
                     if (pv.role == HdPrimvarRoleTokens->color) {
@@ -1110,6 +1112,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             _AddColors(pv.name, colors, scene,
                                        primvarDescsEntry.first);
                         }
+                        mesh_updated = true;
                     }
 
                     // TODO: Add more general uv support
@@ -1132,6 +1135,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             _AddUVSet(pv.name, uvs, scene,
                                       primvarDescsEntry.first);
                         }
+                        mesh_updated = true;
                     }
                 }
             }
