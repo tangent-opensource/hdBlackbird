@@ -63,6 +63,9 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
     (r)
     (g)
     (b)
+    (opacity)
+    (alpha)
+    (a)
     (st)
     (Vector)
     (base_color)
@@ -174,6 +177,9 @@ matConvertUSDUVTexture(HdMaterialNode& usd_node,
 {
     ccl::ImageTextureNode* imageTexture = new ccl::ImageTextureNode();
 
+    // NOTE: There's no way to author this via UsdPreviewSurface...
+    //imageTexture->interpolation = ccl::InterpolationType::INTERPOLATION_CLOSEST;
+
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
         if (params.first == _tokens->file) {
             if (params.second.IsHolding<SdfAssetPath>()) {
@@ -238,6 +244,10 @@ socketConverter(TfToken a_token)
         return _tokens->base_color;
     } else if (a_token == _tokens->result) {
         return _tokens->UV;
+    } else if (a_token == _tokens->a) {
+        return _tokens->alpha;
+    }  else if (a_token == _tokens->opacity) {
+        return _tokens->alpha;
     }
 
     return a_token;
