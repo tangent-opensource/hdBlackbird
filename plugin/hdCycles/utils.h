@@ -104,7 +104,8 @@ HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id);
  * @param a_cameraTransform 
  * @return GfMatrix4d 
  */
-GfMatrix4d ConvertCameraTransform(const GfMatrix4d& a_cameraTransform);
+GfMatrix4d
+ConvertCameraTransform(const GfMatrix4d& a_cameraTransform);
 
 /**
  * @brief Convert GfMatrix4d to Cycles Transform representation
@@ -339,10 +340,12 @@ _HdCyclesGetVtValue(VtValue a_value, T a_default, bool* a_hasChanged = nullptr,
     if (!a_value.IsEmpty()) {
         if (a_value.IsHolding<T>()) {
             T val = a_value.UncheckedGet<T>();
-            if (a_checkWithDefault && val != a_default)
-                *a_hasChanged = true;
-            else
-                *a_hasChanged = true;
+            if (a_hasChanged) {
+                if (a_checkWithDefault && val != a_default)
+                    *a_hasChanged = true;
+                else
+                    *a_hasChanged = true;
+            }
             return val;
         }
     }
