@@ -25,6 +25,7 @@
 #include "utils.h"
 
 #include <render/camera.h>
+#include <render/integrator.h>
 #include <render/scene.h>
 
 #include <pxr/usd/usdGeom/tokens.h>
@@ -140,6 +141,13 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_dof.eval(m_useDof, true);
     config.enable_motion_blur.eval(m_useMotionBlur, true);
+
+    bool use_motion_blur = m_renderDelegate->GetCyclesRenderParam()
+                               ->GetCyclesScene()
+                               ->integrator->motion_blur;
+    if (use_motion_blur) {
+        m_useMotionBlur = true;
+    }
 }
 
 HdCyclesCamera::~HdCyclesCamera() {}
@@ -504,7 +512,8 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     // populating the camera->motion array.
     if (m_useMotionBlur) {
         a_camera->motion.clear();
-        a_camera->motion.resize(m_transformSamples.count, ccl::transform_identity());
+        a_camera->motion.resize(m_transformSamples.count,
+                                ccl::transform_identity());
 
         for (int i = 0; i < m_transformSamples.count; i++) {
             if (m_transformSamples.times.data()[i] == 0.0f) {
@@ -514,7 +523,6 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
             a_camera->motion[i] = mat4d_to_transform(
                 ConvertCameraTransform(m_transformSamples.values.data()[i]));
-
         }
     }
 
