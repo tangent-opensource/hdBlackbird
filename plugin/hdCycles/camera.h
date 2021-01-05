@@ -206,6 +206,8 @@ private:
     GfRange1f m_clippingRange;
     TfToken m_projectionType;
 
+    bool m_usePanoramic;
+
     GfMatrix4d m_projMtx;
 
     // Cycles camera specifics

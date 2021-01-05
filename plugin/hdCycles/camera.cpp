@@ -128,6 +128,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_longMin(-M_PI_F)
     , m_longMax(M_PI_F)
     , m_useSphericalStereo(false)
+    , m_usePanoramic(false)
 
     , m_interocularDistance(0.065f)
     , m_convergenceDistance(30.0f * 0.065f)
@@ -304,6 +305,10 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         // panorama type
+        m_usePanoramic = _HdCyclesGetCameraParam<bool>(
+            sceneDelegate, id, usdCyclesTokens->cyclesCameraUse_panoramic,
+            m_usePanoramic);
+
         TfToken panoramaType = _HdCyclesGetCameraParam<TfToken>(
             sceneDelegate, id, usdCyclesTokens->cyclesCameraPanorama_type,
             usdCyclesTokens->equirectangular);
@@ -496,10 +501,29 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     a_camera->motion_position = (ccl::Camera::MotionPosition)m_motionPosition;
     a_camera->stereo_eye      = (ccl::Camera::StereoEye)m_stereoEye;
 
-    if (m_projectionType == UsdGeomTokens->orthographic) {
+    if (m_usePanoramic) {
+        a_camera->type = ccl::CameraType::CAMERA_PANORAMA;
+    } else if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
     } else {
         a_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+    }
+
+    if (a_camera->type == ccl::CAMERA_PANORAMA) {
+        if (a_camera->panorama_type == ccl::PANORAMA_MIRRORBALL) {
+            a_camera->matrix
+                = a_camera->matrix
+                  * ccl::transform_rotate(-(M_PI / 2.0f),
+                                          ccl::make_float3(1.0f, 0.0f, 0.0f));
+        } else {
+            a_camera->matrix
+                = a_camera->matrix
+                  * ccl::transform_rotate(-(M_PI / 2.0f),
+                                          ccl::make_float3(0.0f, 1.0f, 0.0f))
+
+                  * ccl::make_transform(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                        1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);                  ccl::make_float3(1.0f, 0.0f, 0.0f));
+        }
     }
 
     bool shouldUpdate = m_needsUpdate;

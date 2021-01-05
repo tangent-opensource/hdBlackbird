@@ -86,7 +86,10 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
         const float fov_rad = atan(1.0f / m_projMtx[1][1]) * 2.0f;
         const float fov_deg = fov_rad / M_PI * 180.0f;
-        hdCam->SetFOV(fov_rad);
+
+        if(hdCam->GetCamera()->type != ccl::CameraType::CAMERA_PANORAMA) {
+            hdCam->SetFOV(fov_rad);
+        }
 
         //hdCam->SetTransform(m_projMtx);
 
@@ -104,8 +107,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
         if (is_ortho) {
             active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
-        } else
-            active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+        }
 
         active_camera->tag_update();
 
