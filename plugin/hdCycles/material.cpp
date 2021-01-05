@@ -53,6 +53,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
     (bxdf)
     (OSL)
     (diffuseColor)
+    (emissiveColor)
     (roughness)
     (metallic)
     (specular)
@@ -65,6 +66,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
     (b)
     (opacity)
     (alpha)
+    (emission)
     (a)
     (st)
     (Vector)
@@ -183,10 +185,36 @@ matConvertUSDUVTexture(HdMaterialNode& usd_node,
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
         if (params.first == _tokens->file) {
             if (params.second.IsHolding<SdfAssetPath>()) {
-                imageTexture->filename = ccl::ustring(
+                std::string filepath = "";
+
+                // TODO:
+                // USD Issue-916 means that we cant resolve relative UDIM
+                // paths. This is fixed in 20.08. When we upgrade to that
+                // (And when houdini does). We can just use resolved path.
+                // For now, if the string has a UDIM in it, don't resolve.
+                // (This means relative UDIMs won't work)
+#ifdef USD_HAS_UDIM_RESOLVE_FIX
+                filepath = std::string(
                     params.second.Get<SdfAssetPath>().GetResolvedPath().c_str());
+#else
+                std::string raw_path = std::string(
+                    params.second.Get<SdfAssetPath>().GetAssetPath().c_str());
+                if (HdCyclesPathIsUDIM(raw_path)) {
+                    filepath = raw_path;
+                } else {
+                    filepath = std::string(params.second.Get<SdfAssetPath>()
+                                               .GetResolvedPath()
+                                               .c_str());
+                }
+#endif
+                imageTexture->filename = ccl::ustring(filepath.c_str());
             }
         }
+    }
+
+    // Handle udim tiles
+    if (HdCyclesPathIsUDIM(imageTexture->filename.string())) {
+        HdCyclesParseUDIMS(imageTexture->filename.string(), imageTexture->tiles);
     }
     cycles_shader_graph->add(imageTexture);
     return imageTexture;
@@ -210,7 +238,16 @@ matConvertUSDPreviewSurface(HdMaterialNode& usd_node,
                     params.second.UncheckedGet<GfVec4f>());
             }
 
-        } else if (params.first == _tokens->roughness) {
+        } else if (params.first == _tokens->emissiveColor) {
+            if (params.second.IsHolding<GfVec3f>()) {
+                principled->emission = vec3f_to_float3(
+                    params.second.UncheckedGet<GfVec3f>());
+            } else if (params.second.IsHolding<GfVec4f>()) {
+                principled->emission = vec4f_to_float3(
+                    params.second.UncheckedGet<GfVec4f>());
+            }
+
+        }else if (params.first == _tokens->roughness) {
             if (params.second.IsHolding<float>()) {
                 principled->roughness = params.second.UncheckedGet<float>();
             }
@@ -242,11 +279,13 @@ socketConverter(TfToken a_token)
         return _tokens->Vector;
     } else if (a_token == _tokens->diffuseColor) {
         return _tokens->base_color;
+    } else if (a_token == _tokens->emissiveColor) {
+        return _tokens->emission;
     } else if (a_token == _tokens->result) {
         return _tokens->UV;
     } else if (a_token == _tokens->a) {
         return _tokens->alpha;
-    }  else if (a_token == _tokens->opacity) {
+    } else if (a_token == _tokens->opacity) {
         return _tokens->alpha;
     }
 
