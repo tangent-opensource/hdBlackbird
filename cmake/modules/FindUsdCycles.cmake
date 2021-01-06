@@ -17,8 +17,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+set(USD_CYCLES_LIB_PREFIX "")
+set(USD_CYCLES_LIB_SUFFIX ${CMAKE_STATIC_LIBRARY_SUFFIX})
+
 if(UNIX)
-    set(USD_CYCLES_LIB_PREFIX lib)
+    # Not used currently because linux doesnt build with lib prefix
+    #set(USD_CYCLES_LIB_PREFIX lib)
+
+    set(USD_CYCLES_LIB_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
 endif()
 
 # Cycles Includes
@@ -33,7 +39,7 @@ find_path(USD_CYCLES_INCLUDE_DIRS "usdCycles/tokens.h"
 
 find_path(USD_CYCLES_LIBRARY_DIR
     NAMES
-    ${USD_CYCLES_LIB_PREFIX}usdCycles${CMAKE_STATIC_LIBRARY_SUFFIX}
+    ${USD_CYCLES_LIB_PREFIX}usdCycles${USD_CYCLES_LIB_SUFFIX}
 
     HINTS
     ${USD_CYCLES_ROOT}/plugin/usd
@@ -45,7 +51,7 @@ set(USD_CYCLES_LIBS usdCycles)
 
 foreach (lib ${USD_CYCLES_LIBS})
     find_library(${lib}_LIBRARY
-        NAMES ${USD_CYCLES_LIB_PREFIX}${lib}${CMAKE_STATIC_LIBRARY_SUFFIX}
+        NAMES ${USD_CYCLES_LIB_PREFIX}${lib}${USD_CYCLES_LIB_SUFFIX}
         HINTS ${USD_CYCLES_LIBRARY_DIR})
     if (${lib}_LIBRARY)
         add_library(${lib} INTERFACE IMPORTED)

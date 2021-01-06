@@ -26,6 +26,9 @@
 #include <pxr/base/tf/singleton.h>
 #include <pxr/pxr.h>
 
+// TODO: Create a proper HdCycles Logger
+#include <iostream>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 template<typename T> struct HdCyclesEnvValue {

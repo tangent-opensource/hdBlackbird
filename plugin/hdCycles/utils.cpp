@@ -701,7 +701,7 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
 template<>
 bool
 _HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default,
-                          bool* a_hasChanged = nullptr, bool a_checkWithDefault)
+                          bool* a_hasChanged, bool a_checkWithDefault)
 {
     bool val = a_default;
     if (!a_value.IsEmpty()) {
