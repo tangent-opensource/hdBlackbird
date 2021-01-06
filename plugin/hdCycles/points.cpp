@@ -36,15 +36,11 @@
 #include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
-PXR_NAMESPACE_OPEN_SCOPE
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
 
-// TODO: Read these from usdCycles schema
-// clang-format off
-TF_DEFINE_PRIVATE_TOKENS(_tokens,
-    ((cyclesPointStyle, "cycles:object:point_style"))
-    ((cyclesPointResolution, "cycles:object:point_resolution"))
-);
-// clang-format on
+PXR_NAMESPACE_OPEN_SCOPE
 
 HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
                                HdCyclesRenderDelegate* a_renderDelegate)
@@ -61,6 +57,9 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
     if (m_useMotionBlur) {
         config.motion_steps.eval(m_motionSteps, true);
     }
+
+    m_cyclesMesh = new ccl::Mesh();
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
 }
 
 HdCyclesPoints::~HdCyclesPoints()
@@ -108,51 +107,59 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     ccl::Scene* scene = param->GetCyclesScene();
 
-    bool needs_update = false;
+    bool needs_update  = false;
+    bool needs_newMesh = true;
 
     // Read Cycles Primvars
 
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
-                                        _tokens->cyclesPointStyle)) {
-        needs_update = true;
+#ifdef USE_USD_CYCLES_SCHEMA
+
+    if (HdChangeTracker::IsPrimvarDirty(
+            *dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
+        needs_newMesh = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(id, _tokens->cyclesPointStyle, &xf);
+        sceneDelegate->SamplePrimvar(id,
+                                     usdCyclesTokens->cyclesObjectPoint_style,
+                                     &xf);
         if (xf.count > 0) {
-            const VtIntArray& styles = xf.values[0].Get<VtIntArray>();
-            if (styles.size() > 0) {
-                m_pointStyle = styles[0];
+            const TfToken& styles = xf.values[0].Get<TfToken>();
+            m_pointStyle          = POINT_DISCS;
+            if (styles == usdCyclesTokens->sphere) {
+                m_pointStyle = POINT_SPHERES;
             }
         }
     }
 
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
-                                        _tokens->cyclesPointResolution)) {
-        needs_update = true;
+    if (HdChangeTracker::IsPrimvarDirty(
+            *dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_resolution)) {
+        needs_newMesh = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(id, _tokens->cyclesPointResolution, &xf);
+        sceneDelegate->SamplePrimvar(
+            id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
         if (xf.count > 0) {
-            const VtIntArray& resolutions = xf.values[0].Get<VtIntArray>();
-            if (resolutions.size() > 0) {
-                m_pointResolution = std::max(resolutions[0], 3);
-            }
+            const int& resolutions = xf.values[0].Get<int>();
+            m_pointResolution      = std::max(resolutions, 10);
         }
     }
+
+#endif
 
     // Create Points
 
-    if (*dirtyBits & HdChangeTracker::DirtyPoints) {
+    if (*dirtyBits & HdChangeTracker::DirtyPoints || needs_newMesh) {
         needs_update = true;
 
+        m_cyclesMesh->clear();
+
         if (m_pointStyle == HdCyclesPointStyle::POINT_DISCS) {
-            m_cyclesMesh = _CreateDiscMesh();
+            _CreateDiscMesh();
         } else {
-            m_cyclesMesh = _CreateSphereMesh();
+            _CreateSphereMesh();
         }
 
         m_cyclesMesh->tag_update(scene, true);
-        param->AddGeometry(m_cyclesMesh);
 
         const auto pointsValue = sceneDelegate->Get(id, HdTokens->points);
         if (!pointsValue.IsEmpty() && pointsValue.IsHolding<VtVec3fArray>()) {
@@ -194,7 +201,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         needs_update = true;
     }
 
-
+    // TODO: It's likely that this can cause double transforms due to modifying the core transform
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->widths)) {
         needs_update = true;
 
@@ -219,7 +226,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         needs_update = true;
 
         if (m_cyclesObjects.size() > 0) {
-            HdTimeSampleArray<VtValue, 2> xf;
+            HdTimeSampleArray<VtValue, 1> xf;
             sceneDelegate->SamplePrimvar(id, HdTokens->normals, &xf);
             if (xf.count > 0) {
                 const VtVec3fArray& normals = xf.values[0].Get<VtVec3fArray>();
@@ -282,41 +289,38 @@ HdCyclesPoints::IsValid() const
 }
 
 // Creates z up disc
-ccl::Mesh*
+void
 HdCyclesPoints::_CreateDiscMesh()
 {
-    ccl::Mesh* mesh = new ccl::Mesh();
-    mesh->clear();
-    mesh->name             = ccl::ustring("generated_disc");
-    mesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+    m_cyclesMesh->clear();
+    m_cyclesMesh->name             = ccl::ustring("generated_disc");
+    m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
 
     int numVerts = m_pointResolution;
     int numFaces = m_pointResolution - 2;
 
-    mesh->reserve_mesh(numVerts, numFaces);
+    m_cyclesMesh->reserve_mesh(numVerts, numFaces);
 
-    mesh->verts.reserve(numVerts);
+    m_cyclesMesh->verts.reserve(numVerts);
 
     for (int i = 0; i < m_pointResolution; i++) {
         float d = ((float)i / (float)m_pointResolution) * 2.0f * M_PI;
         float x = sin(d) * 0.5f;
         float y = cos(d) * 0.5f;
-        mesh->verts.push_back_reserved(ccl::make_float3(x, y, 0.0f));
+        m_cyclesMesh->verts.push_back_reserved(ccl::make_float3(x, y, 0.0f));
     }
 
     for (int i = 1; i < m_pointResolution - 1; i++) {
         int v0 = 0;
         int v1 = i;
         int v2 = i + 1;
-        mesh->add_triangle(v0, v1, v2, 0, true);
+        m_cyclesMesh->add_triangle(v0, v1, v2, 0, true);
     }
 
-    mesh->compute_bounds();
-
-    return mesh;
+    m_cyclesMesh->compute_bounds();
 }
 
-ccl::Mesh*
+void
 HdCyclesPoints::_CreateSphereMesh()
 {
     float radius = 0.5f;
@@ -324,10 +328,9 @@ HdCyclesPoints::_CreateSphereMesh()
     int sectorCount = m_pointResolution;
     int stackCount  = m_pointResolution;
 
-    ccl::Mesh* mesh = new ccl::Mesh();
-    mesh->clear();
-    mesh->name             = ccl::ustring("generated_sphere");
-    mesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+    m_cyclesMesh->clear();
+    m_cyclesMesh->name             = ccl::ustring("generated_sphere");
+    m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
 
     float z, xy;
 
@@ -343,9 +346,9 @@ HdCyclesPoints::_CreateSphereMesh()
         for (int j = 0; j <= sectorCount; ++j) {
             sectorAngle = j * sectorStep;
 
-            mesh->verts.push_back_slow(ccl::make_float3(xy * cosf(sectorAngle),
-                                                        xy * sinf(sectorAngle),
-                                                        z));
+            m_cyclesMesh->verts.push_back_slow(
+                ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle),
+                                 z));
             // TODO: Add normals and uvs
         }
     }
@@ -357,18 +360,16 @@ HdCyclesPoints::_CreateSphereMesh()
 
         for (int j = 0; j < sectorCount; ++j, ++k1, ++k2) {
             if (i != 0) {
-                mesh->add_triangle(k1, k2, k1 + 1, 0, true);
+                m_cyclesMesh->add_triangle(k1, k2, k1 + 1, 0, true);
             }
 
             if (i != (stackCount - 1)) {
-                mesh->add_triangle(k1 + 1, k2, k2 + 1, 0, true);
+                m_cyclesMesh->add_triangle(k1 + 1, k2, k2 + 1, 0, true);
             }
         }
     }
 
-    mesh->compute_bounds();
-
-    return mesh;
+    m_cyclesMesh->compute_bounds();
 }
 
 ccl::Object*

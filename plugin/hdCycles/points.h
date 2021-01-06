@@ -124,7 +124,7 @@ private:
      * @param resolution Resolution of the disc geometry
      * @return New allocated pointer to ccl::Mesh
      */
-    ccl::Mesh* _CreateDiscMesh();
+    void _CreateDiscMesh();
 
     /**
      * @brief Create the cycles points as spheres mesh and object representation
@@ -133,7 +133,7 @@ private:
      * @param transform Initial transform for object
      * @return New allocated pointer to ccl::Mesh
      */
-    ccl::Mesh* _CreateSphereMesh();
+    void _CreateSphereMesh();
 
     /**
      * @brief Create the cycles object for an individual point
