@@ -71,6 +71,10 @@ endif()
 
 # - Python
 
+if (UNIX)
+  set(PYTHON_LIBRARY $ENV{REZ_PYTHON_ROOT})
+endif()
+
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
 
 # - Boost
@@ -178,9 +182,9 @@ find_package(Cycles REQUIRED)
 
 # - UsdCycles Schema
 
-find_package(usdCycles REQUIRED)
-if(${usdCycles_FOUND})
-  option(USE_USD_CYCLES_SCHEMA "Use usdCycles Schema" ON)
+find_package(UsdCycles REQUIRED)
+if(${UsdCycles_FOUND})
+  option(USE_USD_CYCLES_SCHEMA "Use UsdCycles Schema" ON)
   add_definitions(-DUSE_USD_CYCLES_SCHEMA)
 endif()
 
