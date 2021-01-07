@@ -71,11 +71,21 @@ endif()
 
 # - Python
 
-if (UNIX)
-  set(PYTHON_LIBRARY $ENV{REZ_PYTHON_ROOT})
+# TODO: Temp fix due to python2 linux issues
+if(DEFINED ENV{REZ_PYTHON_BASE})
+  if (UNIX)
+    set(PYTHON_LIBRARY "$ENV{REZ_PYTHON_ROOT}/lib")
+  endif()
 endif()
 
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
+
+# TODO: Temp fix due to python2 linux issues
+if(DEFINED ENV{REZ_PYTHON_BASE})
+  if (UNIX)
+    set(PYTHON_INCLUDE_DIR "$ENV{REZ_PYTHON_ROOT}/include/python2.7")
+  endif()
+endif()
 
 # - Boost
 
