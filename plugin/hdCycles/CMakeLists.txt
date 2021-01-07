@@ -43,6 +43,11 @@ if(WITH_EMBREE)
   link_libraries(${EMBREE_LIBRARIES})
 endif()
 
+if(USE_OPENGL)
+  include_directories(${GLEW_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
+  link_libraries(${OPENGL_gl_LIBRARY} ${GLEW_LIBRARY})
+endif()
+
 pxr_plugin(${PXR_PACKAGE}
   LIBRARIES
 
@@ -52,12 +57,10 @@ pxr_plugin(${PXR_PACKAGE}
     ${HBoost_LIBRARIES}
     ${Python_LIBRARIES}
     ${CYCLES_LIBRARIES}
-    ${OPENGL_gl_LIBRARY}
     ${PNG_LIBRARIES}
-    ${JPEG_LIBRARIES}
+    #${JPEG_LIBRARIES}
     ${ZLIB_LIBRARIES}
     ${TIFF_LIBRARY}
-    ${GLEW_LIBRARY}
     ${OPENJPEG_LIBRARIES}
     ${OPENEXR_LIBRARIES}
     ${OPENSUBDIV_LIBRARIES}
@@ -80,8 +83,6 @@ pxr_plugin(${PXR_PACKAGE}
     ${CYCLES_INCLUDE_DIRS}
     ${OIIO_INCLUDE_DIRS}
     ${OPENEXR_INCLUDE_DIRS}
-    ${GLEW_INCLUDE_DIR}
-    ${OPENGL_INCLUDE_DIR}
     ${OPENSUBDIV_INCLUDE_DIR}
     ${OCIO_INCLUDE_DIRS}
 

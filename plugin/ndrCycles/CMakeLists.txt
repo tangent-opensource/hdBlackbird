@@ -28,6 +28,11 @@ if(USE_LEGACY_HOUDINI)
   link_libraries(${HOUDINI_LIBRARIES_DEPS})
 endif()
 
+if(USE_OPENGL)
+  include_directories(${GLEW_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
+  link_libraries(${OPENGL_gl_LIBRARY} ${GLEW_LIBRARY})
+endif()
+
 pxr_plugin(${PXR_PACKAGE}
   LIBRARIES
     ${USD_LIBRARIES}
@@ -36,13 +41,10 @@ pxr_plugin(${PXR_PACKAGE}
     ${HBoost_LIBRARIES}
     ${Python_LIBRARIES}            
     ${CYCLES_LIBRARIES}
-    ${OPENGL_gl_LIBRARY}
     ${PNG_LIBRARIES}
-    ${JPEG_LIBRARIES}
     ${ZLIB_LIBRARIES}
     ${TIFF_LIBRARY}
     ${PTHREADS_LIBRARIES}
-    ${GLEW_LIBRARY}
     ${OPENJPEG_LIBRARIES}
     ${OIIO_LIBRARIES}
     ${OPENEXR_LIBRARIES}
@@ -56,8 +58,6 @@ pxr_plugin(${PXR_PACKAGE}
     ${CYCLES_INCLUDE_DIRS}
     ${OIIO_INCLUDE_DIRS}
     ${OPENEXR_INCLUDE_DIRS}
-    ${GLEW_INCLUDE_DIR}
-    ${OPENGL_INCLUDE_DIR}
     ${TBB_INCLUDE_DIRS}
 
   PUBLIC_CLASSES

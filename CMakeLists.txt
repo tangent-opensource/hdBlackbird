@@ -72,8 +72,6 @@ endif()
 # - Python
 
 find_package(Python COMPONENTS Development Interpreter REQUIRED)
-find_package(PyOpenGL REQUIRED)
-find_package(PySide)
 
 # - Boost
 
@@ -129,9 +127,17 @@ endif()
 
 # -- External Deps
 
-find_package(GLEW REQUIRED)
+find_package(OpenGL)
+
+if (${OpenGL_FOUND})
+  find_package(GLEW REQUIRED)
+  find_package(PyOpenGL)
+  find_package(PySide)
+  set(USE_OPENGL TRUE)
+  message("[HDCYCLES] Configured with OpenGL")
+endif()
+
 find_package(OpenEXR REQUIRED)
-find_package(OpenGL REQUIRED)
 find_package(TBB REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenImageIO REQUIRED)
@@ -143,7 +149,6 @@ file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
 file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
 
 find_package(OpenJPEG REQUIRED)
-find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 

@@ -2,7 +2,7 @@
 
 name = 'hdcycles'
 
-version = '0.8.1'
+version = '0.8.2'
 
 authors = [
     'benjamin.skinner',
@@ -14,10 +14,13 @@ requires = [
 ]
 
 variants = [
+    # Windows
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.11'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini'],
+    # Linux
+    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'usd-20.08-houdini'],
 ]
 
 build_system = "cmake"
@@ -39,7 +42,7 @@ def private_build_requires():
     if 'win' in str(sys.platform):
         return ['visual_studio']
     else:
-        return ['gcc-7']
+        return ['gcc-6']
 
 # Pass along rez version to cmake build
 def pre_build_commands():
