@@ -65,7 +65,7 @@ endforeach ()
 
 include(FindPackageHandleStandardArgs)
 
-find_package_handle_standard_args(usdCycles
+find_package_handle_standard_args(UsdCycles
     REQUIRED_VARS
         USD_CYCLES_INCLUDE_DIRS
         USD_CYCLES_LIBRARY_DIR
