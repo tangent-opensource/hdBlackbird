@@ -47,7 +47,7 @@ find_path(USD_CYCLES_LIBRARY_DIR
 
     DOC "usdCycles Libraries directory")
 
-set(USD_CYCLES_LIBS usdCycles)
+set(USD_CYCLES_LIBS UsdCycles)
 
 foreach (lib ${USD_CYCLES_LIBS})
     find_library(${lib}_LIBRARY
