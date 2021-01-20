@@ -214,7 +214,8 @@ matConvertUSDUVTexture(HdMaterialNode& usd_node,
 
     // Handle udim tiles
     if (HdCyclesPathIsUDIM(imageTexture->filename.string())) {
-        HdCyclesParseUDIMS(imageTexture->filename.string(), imageTexture->tiles);
+        HdCyclesParseUDIMS(imageTexture->filename.string(),
+                           imageTexture->tiles);
     }
     cycles_shader_graph->add(imageTexture);
     return imageTexture;
@@ -247,7 +248,7 @@ matConvertUSDPreviewSurface(HdMaterialNode& usd_node,
                     params.second.UncheckedGet<GfVec4f>());
             }
 
-        }else if (params.first == _tokens->roughness) {
+        } else if (params.first == _tokens->roughness) {
             if (params.second.IsHolding<float>()) {
                 principled->roughness = params.second.UncheckedGet<float>();
             }
@@ -715,9 +716,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
                 }
             }
 
-            if (material_updated) {
-                m_shader->graph = m_shaderGraph;
-            } else {
+            if (!material_updated) {
                 TF_CODING_WARNING("Material type not supported");
             }
         }
@@ -788,8 +787,9 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (material_updated) {
-        if (m_shader->graph != m_shaderGraph)
+        if (m_shader->graph != m_shaderGraph) {
             m_shader->set_graph(m_shaderGraph);
+        }
 
         m_shader->tag_update(param->GetCyclesScene());
         m_shader->tag_used(param->GetCyclesScene());
