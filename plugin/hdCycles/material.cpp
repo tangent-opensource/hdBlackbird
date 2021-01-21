@@ -384,6 +384,12 @@ convertCyclesNode(HdMaterialNode& usd_node,
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket,
                                     params.second.Get<std::string>().c_str());
+                } else if (params.second.IsHolding<TfToken>()) {
+                    // Arguably all enums should be strings, but at one point
+                    // our houdini material nodes output them as tokens so this
+                    // is more for backwards compat.
+                    cyclesNode->set(socket,
+                                    params.second.Get<TfToken>().GetText());
                 }
             } break;
 
