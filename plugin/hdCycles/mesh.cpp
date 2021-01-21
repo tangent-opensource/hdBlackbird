@@ -465,15 +465,17 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
-        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        //ccl::float3* cdata   = attr->data_float3();
-
-        // TODO: For now, this method produces very wrong results. Some other solution will be needed
-
+        // This is enough for Blender exports, leaving it like this for now
+        // TODO: support face-varying normals in cycles and fill them in here
         m_cyclesMesh->add_face_normals();
         m_cyclesMesh->add_vertex_normals();
 
         return;
+
+        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        //ccl::float3* cdata   = attr->data_float3();
+
+        // TODO: For now, this method produces very wrong results. Some other solution will be needed
 
         //memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
 
@@ -493,6 +495,33 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
             cdata[i] = ccl::normalize(cdata[i]);
         }*/
+    }
+}
+
+/* 
+The code here replicates the triangulation logic in _PopulateFaces 
+Since more sophisticated rules (e.g. shortest diagonal) exist, it
+would be more correct to separate it in its own function or use
+HdMeshUtil::ComputeTriangleIndices */
+void
+HdCyclesMesh::_SetSmoothShadedFaces(VtBoolArray& smooth,
+                                    HdInterpolation interpolation,
+                                    bool subdivide_faces)
+{
+    if (interpolation == HdInterpolationUniform) {  // one bool per face
+        size_t triIdx = 0;
+        for (size_t faceIdx = 0; faceIdx < m_faceVertexCounts.size();
+             ++faceIdx) {
+            if (subdivide_faces) {
+                m_cyclesMesh->subd_faces[faceIdx].smooth = smooth[faceIdx];
+            } else {
+                const int vCount = m_faceVertexCounts[faceIdx];
+                for (int j = 0; j < vCount - 2; ++j) {
+                    m_cyclesMesh->smooth[triIdx] = smooth[faceIdx];
+                    ++triIdx;
+                }
+            }
+        }
     }
 }
 
@@ -818,6 +847,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                               id, HdInterpolationFaceVarying) },
             { HdInterpolationVertex,
               sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
+            { HdInterpolationUniform,
+              sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
             { HdInterpolationConstant,
               sceneDelegate->GetPrimvarDescriptors(id,
                                                    HdInterpolationConstant) },
@@ -1137,6 +1168,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         }
                         mesh_updated = true;
                     }
+
+                    if (strcmp(pv.name.GetText(), "_smooth") == 0) {
+                        if (value.IsHolding<VtArray<bool>>()) {
+                            VtArray<bool> smooth
+                                = value.UncheckedGet<VtArray<bool>>();
+                            _SetSmoothShadedFaces(smooth,
+                                                  primvarDescsEntry.first,
+                                                  m_useSubdivision
+                                                      && m_subdivEnabled);
+                        }
+                    }
                 }
             }
         }
@@ -1215,8 +1257,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     GetInstancerId()))) {
             auto instanceTransforms = instancer->SampleInstanceTransforms(id);
             auto newNumInstances    = (instanceTransforms.count > 0)
-                                       ? instanceTransforms.values[0].size()
-                                       : 0;
+                                          ? instanceTransforms.values[0].size()
+                                          : 0;
             // Clear all instances...
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {

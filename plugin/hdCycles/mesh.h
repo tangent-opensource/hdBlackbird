@@ -140,6 +140,16 @@ protected:
     void _AddNormals(VtVec3fArray& normals, HdInterpolation interpolation);
 
     /**
+     * @brief Add faces which are meant to use smooth shading
+     * 
+     * @param smooth
+     * @param interpolation 
+     */
+    void _SetSmoothShadedFaces(VtBoolArray& smooth,
+                               HdInterpolation interpolation,
+                               bool subdivide_faces);
+
+    /**
      * @brief Add vertex velocities (Not tested)
      * 
      * @param velocities 
@@ -302,7 +312,7 @@ protected:
 
     bool m_hasVertexColors;
 
-    ccl::vector<ccl::Shader *> m_usedShaders;
+    ccl::vector<ccl::Shader*> m_usedShaders;
 
 private:
     HdCyclesRenderDelegate* m_renderDelegate;
