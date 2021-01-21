@@ -19,6 +19,7 @@
 
 #include "material.h"
 
+#include "config.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
 #include "utils.h"
@@ -794,6 +795,16 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
         m_shader->tag_update(param->GetCyclesScene());
         m_shader->tag_used(param->GetCyclesScene());
         param->Interrupt();
+
+        static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+        std::string dump_location = config.cycles_shader_graph_dump_dir + "/"
+                                    + id.GetString() + "_graph.txt";
+        std::cout << "Dumping shader graph: " << dump_location << '\n';
+        try {
+            m_shaderGraph->dump_graph(dump_location.c_str());
+        } catch (...) {
+            std::cout << "Couldn't dump shadergraph: " << dump_location << "\n";
+        }
     }
 
     param->GetCyclesScene()->mutex.unlock();
