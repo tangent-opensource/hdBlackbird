@@ -24,7 +24,9 @@
 
 #include "renderDelegate.h"
 
-#include <util/util_transform.h>
+#include <render/graph.h>
+#include <render/light.h>
+#include <render/nodes.h>
 
 #include <pxr/imaging/hd/light.h>
 #include <pxr/pxr.h>
@@ -120,21 +122,20 @@ private:
      */
     void _SetTransform(const ccl::Transform& a_transform);
 
+    /**
+     * @brief Get default shader graph for lights
+     * 
+     * @param isBackground Is the shader graph for the background shader
+     */
+    ccl::ShaderGraph *_GetDefaultShaderGraph(bool isBackground = false);
+
     const TfToken m_hdLightType;
     ccl::Light* m_cyclesLight;
-    ccl::Shader* m_cyclesShader;
-    ccl::EmissionNode* m_emissionNode;
 
-    // Background light specifics
-    ccl::BackgroundNode* m_backgroundNode;
+    // Background light-specific
     ccl::TextureCoordinateNode* m_backgroundTransform;
-    ccl::EnvironmentTextureNode* m_backgroundTexture;
-    ccl::BlackbodyNode* m_blackbodyNode;
-    std::string m_backgroundFilePath;
 
     bool m_normalize;
-    bool m_useTemperature;
-    float m_temperature;
 
     HdCyclesRenderDelegate* m_renderDelegate;
 
