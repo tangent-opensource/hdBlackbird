@@ -43,6 +43,7 @@
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/mesh.h>
+#include <pxr/imaging/hd/meshUtil.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
@@ -52,6 +53,8 @@ class Mesh;
 }
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+class HdCyclesMesh;
 
 /* =========- Texture ========== */
 
@@ -198,6 +201,30 @@ ccl::float3
 vec4f_to_float3(const GfVec4f& a_vec);
 
 /**
+ * @brief Convert float to Cycles float4
+ * Fills all components with float
+ *
+ * @param a_vec
+ * @param a_alpha
+ * @return Cycles float4
+ */
+ccl::float4
+vec1f_to_float4(const float& a_vec);
+
+/**
+ * @brief Convert GfVec2f to Cycles float4
+ * Z is set to a default of 0
+ * Alpha is set to a default of 1
+ *
+ * @param a_vec
+ * @param a_z
+ * @param a_alpha
+ * @return Cycles float4
+ */
+ccl::float4
+vec2f_to_float4(const GfVec2f& a_vec, float a_z = 0.0f, float a_alpha = 1.0f);
+
+/**
  * @brief Convert GfVec3f to Cycles float4 representation with alpha option
  *
  * @param a_vec
@@ -269,6 +296,9 @@ using HdCyclesSampledPrimvarType
 
 /* ======== VtValue Utils ========= */
 
+void
+_PopulateAttribute(const TfToken& name, const TfToken& role, HdInterpolation interpolation, const VtValue& value,
+                   ccl::Attribute* attr, HdMeshUtil meshUtil, HdCyclesMesh* mesh);
 
 template<typename F>
 void
