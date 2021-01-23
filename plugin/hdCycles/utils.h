@@ -297,8 +297,10 @@ using HdCyclesSampledPrimvarType
 /* ======== VtValue Utils ========= */
 
 void
-_PopulateAttribute(const TfToken& name, const TfToken& role, HdInterpolation interpolation, const VtValue& value,
-                   ccl::Attribute* attr, HdMeshUtil meshUtil, HdCyclesMesh* mesh);
+_PopulateAttribute(const TfToken& name, const TfToken& role,
+                   HdInterpolation interpolation, const VtValue& value,
+                   ccl::Attribute* attr, HdMeshUtil meshUtil,
+                   HdCyclesMesh* mesh);
 
 template<typename F>
 void
