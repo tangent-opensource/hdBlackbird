@@ -92,6 +92,8 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
 
     m_cyclesObject = _CreateCyclesObject();
 
+    m_cyclesObject->name = id.GetString();
+
     m_cyclesMesh = _CreateCyclesMesh();
 
     m_numTransformSamples = HD_CYCLES_MOTION_STEPS;

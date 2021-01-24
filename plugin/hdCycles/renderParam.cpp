@@ -28,6 +28,7 @@
 
 #include <device/device.h>
 #include <render/background.h>
+#include <render/bake.h>
 #include <render/buffers.h>
 #include <render/camera.h>
 #include <render/curves.h>
@@ -91,6 +92,9 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_meshUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
+    , m_isBaking(false)
+    , m_bakePassFilter(ccl::BAKE_FILTER_NONE)
+    , m_bakeShaderType(ccl::SHADER_EVAL_COMBINED)
 {
     _InitializeDefaults();
 }
@@ -209,7 +213,12 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateBackgroundFromRenderSettings(settingsMap);
     _UpdateBackgroundFromConfig();
 
-    _HandlePasses();
+    // -- Bake
+    _UpdateBakeFromConfig(true);
+    _UpdateBakeFromRenderSettings(settingsMap);
+    _UpdateBakeFromConfig();
+
+    //_HandlePasses();
 
     return true;
 }
@@ -1118,6 +1127,173 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
     return false;
 }
 
+// -- Bake
+
+void
+HdCyclesRenderParam::_UpdateBakeFromConfig(bool a_forceInit)
+{
+    if (!m_cyclesScene)
+        return;
+}
+
+void
+HdCyclesRenderParam::_UpdateBakeFromRenderSettings(
+    HdRenderSettingsMap const& settingsMap)
+{
+    for (auto& entry : settingsMap) {
+        TfToken key   = entry.first;
+        VtValue value = entry.second;
+
+        _HandleBakeRenderSetting(key, value);
+    }
+}
+
+bool
+HdCyclesRenderParam::_HandleBakeRenderSetting(const TfToken& key,
+                                              const VtValue& value)
+{
+#ifdef USE_USD_CYCLES_SCHEMA
+
+    // -- Bake Settings
+
+    bool bake_updated = false;
+
+    if (key == usdCyclesTokens->cyclesBakeEnable) {
+        m_isBaking = _HdCyclesGetVtValue<bool>(value, m_isBaking,
+                                               &bake_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesBakeObject) {
+        m_bakeObject = _HdCyclesGetVtValue<std::string>(value, m_bakeObject,
+                                                        &bake_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesBakeBake_type) {
+        TfToken rawType = _HdCyclesGetVtValue<TfToken>(value,
+                                                       usdCyclesTokens->box,
+                                                       &bake_updated);
+        if (rawType == usdCyclesTokens->normal) {
+            m_bakeShaderType = ccl::SHADER_EVAL_NORMAL;
+        } else if (rawType == usdCyclesTokens->uv) {
+            m_bakeShaderType = ccl::SHADER_EVAL_UV;
+        } else if (rawType == usdCyclesTokens->roughness) {
+            m_bakeShaderType = ccl::SHADER_EVAL_ROUGHNESS;
+        } else if (rawType == usdCyclesTokens->diffuse_color) {
+            m_bakeShaderType = ccl::SHADER_EVAL_DIFFUSE_COLOR;
+        } else if (rawType == usdCyclesTokens->glossy_color) {
+            m_bakeShaderType = ccl::SHADER_EVAL_GLOSSY_COLOR;
+        } else if (rawType == usdCyclesTokens->transmission_color) {
+            m_bakeShaderType = ccl::SHADER_EVAL_TRANSMISSION_COLOR;
+        } else if (rawType == usdCyclesTokens->emit) {
+            m_bakeShaderType = ccl::SHADER_EVAL_EMISSION;
+        } else if (rawType == usdCyclesTokens->ambient_occlusion) {
+            m_bakeShaderType = ccl::SHADER_EVAL_AO;
+        } else if (rawType == usdCyclesTokens->combined) {
+            m_bakeShaderType = ccl::SHADER_EVAL_COMBINED;
+        } else if (rawType == usdCyclesTokens->shadow) {
+            m_bakeShaderType = ccl::SHADER_EVAL_SHADOW;
+        } else if (rawType == usdCyclesTokens->diffuse) {
+            m_bakeShaderType = ccl::SHADER_EVAL_DIFFUSE;
+        } else if (rawType == usdCyclesTokens->glossy) {
+            m_bakeShaderType = ccl::SHADER_EVAL_GLOSSY;
+        } else if (rawType == usdCyclesTokens->transmission) {
+            m_bakeShaderType = ccl::SHADER_EVAL_TRANSMISSION;
+        } else if (rawType == usdCyclesTokens->environment) {
+            m_bakeShaderType = ccl::SHADER_EVAL_ENVIRONMENT;
+        }
+    }
+
+    m_bakePassFilter |= ccl::BAKE_FILTER_COMBINED;
+
+    /*
+
+    if (key == usdCyclesTokens->cyclesBakeDirect) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_DIRECT;
+    }
+    if (key == usdCyclesTokens->cyclesBakeIndirect) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_INDIRECT;
+    }
+    if (key == usdCyclesTokens->cyclesBakeFilterColor) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_COLOR;
+    }
+    if (key == usdCyclesTokens->cyclesBakeFilterDiffuse) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_DIFFUSE;
+    }
+    if (key == usdCyclesTokens->cyclesBakeFilterGlossy) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_GLOSSY;
+    }
+    if (key == usdCyclesTokens->cyclesBakeFilterTransmission) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_TRANSMISSION;
+    }
+    if (key == usdCyclesTokens->cyclesBakeFilterEmission) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_EMISSION;
+    }
+    if (key == usdCyclesTokens->cyclesBakeFilterAmbient_occlusion) {
+        bool val = false;
+        val      = _HdCyclesGetVtValue<bool>(value, val, &bake_updated);
+        if (val)
+            m_bakePassFilter |= ccl::BAKE_FILTER_AO;
+    }
+*/
+
+
+    if (false) {
+        //film->tag_update(m_cyclesScene);
+        m_cyclesScene->bake_manager->set(m_cyclesScene, m_bakeObject,
+                                         m_bakeShaderType, m_bakePassFilter);
+        m_cyclesSession->tile_manager.set_samples(
+            m_cyclesSession->params.samples);
+
+        m_cyclesSession->params.progressive_refine = false;
+
+        //m_cyclesScene->film->passes.clear();
+        ccl::Pass::add(ccl::PASS_COMBINED, m_cyclesScene->film->passes,
+                       "Combined");
+
+
+
+        m_bufferParams.width  = 1024;
+        m_bufferParams.height = 1024;
+        m_bufferParams.passes = m_cyclesScene->film->passes;
+
+        m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
+
+        m_cyclesSession->read_bake_tile_cb
+            = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
+
+        std::cout << "m_bakeObject: " << m_bakeObject << '\n';
+        std::cout << "bakeShaderType: " << m_bakeShaderType << '\n';
+        std::cout << "bakePassFilter: " << m_bakePassFilter << '\n';
+        return true;
+    }
+
+#endif
+    return false;
+}
+
+// -- Background
+
 void
 HdCyclesRenderParam::_UpdateBackgroundFromConfig(bool a_forceInit)
 {
@@ -1286,6 +1462,7 @@ HdCyclesRenderParam::SetRenderSetting(const TfToken& key, const VtValue& value)
     _HandleIntegratorRenderSetting(key, value);
     _HandleFilmRenderSetting(key, value);
     _HandleBackgroundRenderSetting(key, value);
+    _HandleBakeRenderSetting(key, value);
 #endif
     return false;
 }
@@ -1377,6 +1554,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
                     if (!read) {
                         memset(&tileData[0], 0,
                                tileData.size() * sizeof(float));
+                        break;
                     }
 
                     rb->BlitTile(cyclesAov.format, rtile.x, rtile.y, rtile.w,
@@ -1476,6 +1654,41 @@ void
 HdCyclesRenderParam::CommitResources()
 {
     if (m_shouldUpdate) {
+        m_cyclesScene->bake_manager->set(m_cyclesScene, m_bakeObject,
+                                         m_bakeShaderType, m_bakePassFilter);
+        m_cyclesSession->tile_manager.set_samples(
+            m_cyclesSession->params.samples);
+
+        m_cyclesSession->params.progressive_refine = false;
+
+        //m_cyclesScene->film->passes.clear();
+        ccl::Pass::add(ccl::PASS_COMBINED, m_cyclesScene->film->passes,
+                       "Combined");
+
+        m_bufferParams.width  = 1024;
+        m_bufferParams.height = 1024;
+        m_bufferParams.passes = m_cyclesScene->film->passes;
+
+        m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
+
+        m_cyclesSession->read_bake_tile_cb
+            = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
+
+        std::cout << "m_bakeObject: " << m_bakeObject << '\n';
+        std::cout << "bakeShaderType: " << m_bakeShaderType << '\n';
+        std::cout << "bakePassFilter: " << m_bakePassFilter << '\n';
+
+        for (ccl::Object* ob : m_cyclesScene->objects) {
+            std::cout << ob->name << "   ";
+            if (ob->name == m_bakeObject) {
+                std::cout << "FOUND OBEJCT\n";
+                
+                //break;
+            }
+        }
+
+
+
         if (m_cyclesScene->lights.size() > 0) {
             if (!m_hasDomeLight)
                 SetBackgroundShader(nullptr, false);

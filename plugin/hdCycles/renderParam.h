@@ -328,6 +328,10 @@ private:
     void _UpdateFilmFromRenderSettings(HdRenderSettingsMap const& settingsMap);
     bool _HandleFilmRenderSetting(const TfToken& key, const VtValue& value);
 
+    void _UpdateBakeFromConfig(bool a_forceInit = false);
+    void _UpdateBakeFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleBakeRenderSetting(const TfToken& key, const VtValue& value);
+
     void _UpdateIntegratorFromConfig(bool a_forceInit = false);
     void
     _UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap);
@@ -371,6 +375,11 @@ private:
 
     int m_width;
     int m_height;
+
+    bool m_isBaking;
+    std::string m_bakeObject;
+    int m_bakePassFilter;
+    ccl::ShaderEvalType m_bakeShaderType;
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;

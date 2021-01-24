@@ -84,7 +84,7 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
                       "Enable HdCycles progress reporting");
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
+TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, true,
                       "Use Tiled Rendering (Experimental)");
 
 
@@ -111,8 +111,8 @@ HdCyclesConfig::HdCyclesConfig()
     max_subdivision = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SUBDIVISION", 12);
     enable_dof      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_DOF", true);
 
-    render_width   = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_WIDTH", 1280);
-    render_height  = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_HEIGHT", 720);
+    render_width   = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_WIDTH", 1024);
+    render_height  = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_HEIGHT", 1024);
     use_old_curves = HdCyclesEnvValue<bool>("HD_CYCLES_USE_OLD_CURVES", false);
 
     enable_transparent_background
