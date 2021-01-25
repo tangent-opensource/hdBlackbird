@@ -106,6 +106,18 @@ public:
     void Finalize(HdRenderParam* renderParam) override;
 
 private:
+    // Tracking for Cycles light shader graphs, saves on potentially 
+    // expensive new/delete re-creation of graphs for interactive sessions.
+    enum ShaderGraphBits : uint8_t {
+        Default     = 0,
+        Temperature = 1 << 0,
+        IES         = 1 << 1,
+        Texture     = 1 << 2,
+        All         = (Temperature
+                       |IES
+                       |Texture)
+    };
+
     /**
      * @brief Create the cycles light representation
      *
@@ -126,14 +138,22 @@ private:
      * @brief Get default shader graph for lights
      * 
      * @param isBackground Is the shader graph for the background shader
+     * @return Newly allocated default shader graph
      */
-    ccl::ShaderGraph *_GetDefaultShaderGraph(bool isBackground = false);
+    ccl::ShaderGraph *_GetDefaultShaderGraph(const bool isBackground = false);
+
+    /**
+     * @brief Find first shader node based on type.
+     * 
+     * @param graph ShaderGraph to search in
+     * @param type The type of ShaderNode to search for
+     * @return The first ShaderNode found based on type in graph
+     */
+    ccl::ShaderNode *_FindShaderNode(const ccl::ShaderGraph *graph, const ccl::NodeType *type);
 
     const TfToken m_hdLightType;
     ccl::Light* m_cyclesLight;
-
-    // Background light-specific
-    ccl::TextureCoordinateNode* m_backgroundTransform;
+    ShaderGraphBits m_shaderGraphBits;
 
     bool m_normalize;
 

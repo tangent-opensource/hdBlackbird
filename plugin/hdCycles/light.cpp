@@ -44,7 +44,7 @@ HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType,
     : HdLight(id)
     , m_cyclesLight(nullptr)
     , m_hdLightType(lightType)
-    , m_backgroundTransform(nullptr)
+    , m_shaderGraphBits(ShaderGraphBits::Default)
     , m_renderDelegate(a_renderDelegate)
 {
     // Added to prevent fallback lights
@@ -144,8 +144,11 @@ HdCyclesLight::_SetTransform(const ccl::Transform& a_transform)
     m_cyclesLight->tfm = a_transform;
 
     if (m_cyclesLight->type == ccl::LIGHT_BACKGROUND) {
-        if (m_backgroundTransform)
-            m_backgroundTransform->ob_tfm = a_transform;
+        ccl::TextureCoordinateNode *backgroundTransform = 
+            (ccl::TextureCoordinateNode*)_FindShaderNode(
+            m_cyclesLight->shader->graph, ccl::TextureCoordinateNode::node_type);
+        if (backgroundTransform)
+            backgroundTransform->ob_tfm = a_transform;
     } else {
         // Set the area light transforms
         m_cyclesLight->axisu = ccl::transform_get_column(&a_transform, 0);
@@ -182,6 +185,17 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
     return graph;
 }
 
+ccl::ShaderNode*
+HdCyclesLight::_FindShaderNode(const ccl::ShaderGraph *graph, const ccl::NodeType *type)
+{
+    for( ccl::ShaderNode *node : graph->nodes ) {
+        if (node->type == type) {
+            return node;
+        }
+    }
+    return nullptr;
+}
+
 void
 HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     HdDirtyBits* dirtyBits)
@@ -196,8 +210,51 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (*dirtyBits & HdLight::DirtyParams) {
         light_updated = true;
-        ccl::ShaderGraph *graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND ? true : false);
-        ccl::ShaderNode *outNode = (ccl::ShaderNode*)graph->output()->input("Surface")->link->parent;
+        ccl::ShaderGraph *oldGraph = m_cyclesLight->shader->graph;
+
+        // Check if we need to rebuild the graph
+        ShaderGraphBits shaderGraphBits = ShaderGraphBits::Default;
+
+        VtValue enableTemperature = sceneDelegate->GetLightParamValue(
+            id, HdLightTokens->enableColorTemperature);
+        if (enableTemperature.IsHolding<bool>()) {
+            shaderGraphBits = enableTemperature.UncheckedGet<bool>() ? 
+                (ShaderGraphBits)(shaderGraphBits|ShaderGraphBits::Temperature) : (ShaderGraphBits)(shaderGraphBits);
+        }
+
+        VtValue iesFile
+            = sceneDelegate->GetLightParamValue(id,
+                                                HdLightTokens->shapingIesFile);
+        if (iesFile.IsHolding<SdfAssetPath>()) {
+            shaderGraphBits = (ShaderGraphBits)(shaderGraphBits|ShaderGraphBits::IES);
+        }
+
+        VtValue textureFile
+            = sceneDelegate->GetLightParamValue(id,
+                                                HdLightTokens->textureFile);
+        if (textureFile.IsHolding<SdfAssetPath>()) {
+            SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
+            std::string filepath = ap.GetResolvedPath();
+
+            if (filepath.length() > 0) {
+                shaderGraphBits = (ShaderGraphBits)(shaderGraphBits|ShaderGraphBits::Texture);
+            }
+        }
+
+        ccl::ShaderGraph *graph = nullptr;
+        ccl::ShaderNode *outNode = nullptr;
+
+        // Ideally we would just check if it is different, however some nodes
+        // simplify & fold internally so we have to re-create the graph, so if
+        // there is any nodes used, re-create...
+        if (shaderGraphBits || 
+            shaderGraphBits != m_shaderGraphBits) {
+            graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND ? true : false);
+            outNode = (ccl::ShaderNode*)graph->output()->input("Surface")->link->parent;
+            m_shaderGraphBits = shaderGraphBits;
+        } else {
+            outNode = (ccl::ShaderNode*)oldGraph->output()->input("Surface")->link->parent;
+        }
 
         // -- Common params
 
@@ -254,30 +311,61 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // }
 
         // Enable Temperature
-        VtValue enableTemperature = sceneDelegate->GetLightParamValue(
-            id, HdLightTokens->enableColorTemperature);
-        bool useTemperature = false;
-        if (enableTemperature.IsHolding<bool>()) {
-            useTemperature = enableTemperature.UncheckedGet<bool>();
-        }
-
         ccl::BlackbodyNode *blackbodyNode = nullptr;
-        if (useTemperature) {
+        if (shaderGraphBits & ShaderGraphBits::Temperature) {
             // Get Temperature
             VtValue temperature = sceneDelegate->GetLightParamValue(
                 id, HdLightTokens->colorTemperature);
             if (temperature.IsHolding<float>()) {
-                // Add temperature node
-                blackbodyNode = new ccl::BlackbodyNode();
+                if (graph) {
+                    blackbodyNode = new ccl::BlackbodyNode();
+                    graph->add(blackbodyNode);
 
-                graph->add(blackbodyNode);
-
-                graph->connect(
-                    blackbodyNode->output("Color"),
-                    outNode->input("Color"));
-
+                    graph->connect(
+                        blackbodyNode->output("Color"),
+                        outNode->input("Color"));
+                }
+                else {
+                    blackbodyNode = (ccl::BlackbodyNode*)_FindShaderNode(
+                        oldGraph, ccl::BlackbodyNode::node_type);
+                }
+                assert(blackbodyNode != nullptr);
                 blackbodyNode->temperature = temperature.UncheckedGet<float>();
             }
+        }
+
+        // Enable IES profile. Angle scale and normalize are not supported currently.
+        // TODO: Perhaps usdCycles could store embedded IES into a string? ->ies can
+        // be used instead of ->filename, Blender uses it to store IES profiles in
+        // .blend files...
+        if (shaderGraphBits & ShaderGraphBits::IES) {
+            SdfAssetPath ap         = iesFile.UncheckedGet<SdfAssetPath>();
+            std::string iesfilepath = ap.GetResolvedPath();
+
+            ccl::IESLightNode *iesNode = nullptr;
+            if (graph) {
+                ccl::TextureCoordinateNode *iesTransform = 
+                    new ccl::TextureCoordinateNode();
+                iesTransform->use_transform = true;
+                iesTransform->ob_tfm = m_cyclesLight->tfm;
+                graph->add(iesTransform);
+
+                iesNode = new ccl::IESLightNode();
+                graph->add(iesNode);
+
+                graph->connect(
+                    iesTransform->output("Normal"),
+                    iesNode->input("Vector"));
+
+                graph->connect(
+                    iesNode->output("Fac"),
+                    outNode->input("Strength"));
+            } else {
+                iesNode = (ccl::IESLightNode*)_FindShaderNode(
+                    oldGraph, ccl::IESLightNode::node_type);
+            }
+            assert(iesNode != nullptr);
+            iesNode->filename = iesfilepath;
         }
 
         if (m_hdLightType == HdPrimTypeTokens->rectLight) {
@@ -296,17 +384,13 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             if (height.IsHolding<float>())
                 m_cyclesLight->sizev = height.UncheckedGet<float>();
 
-            VtValue textureFile
-                = sceneDelegate->GetLightParamValue(id,
-                                                    HdLightTokens->textureFile);
-
-            if (textureFile.IsHolding<SdfAssetPath>()) {
+            if (shaderGraphBits & ShaderGraphBits::Texture) {
                 SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
                 std::string filepath = ap.GetResolvedPath();
 
-                // TODO: Prevent this string comparison
-                if (filepath != "") {
-                    ccl::ImageTextureNode *textureNode = new ccl::ImageTextureNode();
+                ccl::ImageTextureNode *textureNode = nullptr;
+                if (graph) {
+                    textureNode = new ccl::ImageTextureNode();
                     graph->add(textureNode);
                     ccl::GeometryNode *geometryNode = new ccl::GeometryNode();
                     graph->add(geometryNode);
@@ -315,7 +399,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         geometryNode->output("Parametric"),
                         textureNode->input("Vector"));
 
-                    if (useTemperature && blackbodyNode) {
+                    if ((shaderGraphBits & ShaderGraphBits::Temperature) && blackbodyNode) {
                         ccl::VectorMathNode *vecMathNode = new ccl::VectorMathNode();
                         vecMathNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
                         graph->add(vecMathNode);
@@ -337,8 +421,12 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             textureNode->output("Color"),
                             outNode->input("Color"));
                     }
-                    textureNode->filename = filepath;
+                } else {
+                    textureNode = (ccl::ImageTextureNode*)_FindShaderNode(
+                        oldGraph, ccl::ImageTextureNode::node_type);
                 }
+                assert(textureNode != nullptr);
+                textureNode->filename = filepath;
             }
         }
 
@@ -412,53 +500,74 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             backroundNode->color = m_cyclesLight->strength;
 
             backroundNode->strength = m_finalIntensity;
-            VtValue textureFile
-                = sceneDelegate->GetLightParamValue(id,
-                                                    HdLightTokens->textureFile);
 
-            if (textureFile.IsHolding<SdfAssetPath>()) {
+            if (shaderGraphBits & ShaderGraphBits::Texture) {
                 SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
                 std::string filepath = ap.GetResolvedPath();
 
-                // TODO: Prevent this string comparison
-                if (filepath != "") {
+                ccl::EnvironmentTextureNode *backgroundTexture = nullptr;
+                if (graph) {
                     // Add environment texture nodes
                     ccl::TextureCoordinateNode *backgroundTransform = 
                         new ccl::TextureCoordinateNode();
                     backgroundTransform->use_transform = true;
                     backgroundTransform->ob_tfm = m_cyclesLight->tfm;
-
-                    m_backgroundTransform = backgroundTransform;
-
                     graph->add(backgroundTransform);
 
-                    ccl::EnvironmentTextureNode *backgroundTexture = 
+                    backgroundTexture = 
                         new ccl::EnvironmentTextureNode();
-                    // Change co-ordinate mapping on environment texture to match other Hydra delegates
-                    backgroundTexture->tex_mapping.y_mapping = 
-                        ccl::TextureMapping::Z;
-                    backgroundTexture->tex_mapping.z_mapping = 
-                        ccl::TextureMapping::Y;
-                    backgroundTexture->tex_mapping.scale = 
-                        ccl::make_float3(-1.0f, 1.0f, 1.0f);
-                    backgroundTexture->tex_mapping.rotation = 
-                        ccl::make_float3(0.0f, 0.0f, M_PI * -0.5f);
+                    if (param->GetUpAxis() == HdCyclesRenderParam::UpAxis::Y) {
+                        // Change co-ordinate mapping on environment texture to match other Hydra delegates
+                        backgroundTexture->tex_mapping.y_mapping = 
+                            ccl::TextureMapping::Z;
+                        backgroundTexture->tex_mapping.z_mapping = 
+                            ccl::TextureMapping::Y;
+                        backgroundTexture->tex_mapping.scale = 
+                            ccl::make_float3(-1.0f, 1.0f, 1.0f);
+                        backgroundTexture->tex_mapping.rotation = 
+                            ccl::make_float3(0.0f, 0.0f, M_PI * -0.5f);
+                    }
 
                     graph->add(backgroundTexture);
 
                     graph->connect(
                         backgroundTransform->output("Object"),
                         backgroundTexture->input("Vector"));
-                    graph->connect(
-                        backgroundTexture->output("Color"),
-                        backroundNode->input("Color"));
 
-                    backgroundTexture->filename = filepath;
+                    if ((shaderGraphBits & ShaderGraphBits::Temperature) && blackbodyNode) {
+                        ccl::VectorMathNode *vecMathNode = new ccl::VectorMathNode();
+                        vecMathNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                        graph->add(vecMathNode);
+
+                        graph->connect(
+                            backgroundTexture->output("Color"),
+                            vecMathNode->input("Vector1"));
+
+                        graph->connect(
+                            blackbodyNode->output("Color"),
+                            vecMathNode->input("Vector2"));
+
+                        graph->disconnect(outNode->input("Color"));
+                        graph->connect(
+                            vecMathNode->output("Vector"),
+                            outNode->input("Color"));
+                    } else {
+                        graph->connect(
+                            backgroundTexture->output("Color"),
+                            outNode->input("Color"));
+                    }
+                } else {
+                    backgroundTexture = (ccl::EnvironmentTextureNode*)_FindShaderNode(
+                        oldGraph, ccl::EnvironmentTextureNode::node_type);
                 }
+                assert(backgroundTexture != nullptr);
+                backgroundTexture->filename = filepath;
             }
         }
 
-        m_cyclesLight->shader->set_graph(graph);
+        if (graph) {
+            m_cyclesLight->shader->set_graph(graph);
+        }
     }
 
 #ifdef USE_USD_CYCLES_SCHEMA
