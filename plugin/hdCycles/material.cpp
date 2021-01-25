@@ -117,7 +117,7 @@ IsValidCyclesIdentifier(const std::string& identifier)
 
     // DEPRECATED:
     // Only needed for retroactive support of pre 0.8.0 cycles shaders
-    isvalid += identifier.rfind("cycles:") == 0;
+    isvalid += (bool)(identifier.rfind("cycles:") == 0);
 
     return isvalid;
 }
@@ -796,15 +796,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
         m_shader->tag_used(param->GetCyclesScene());
         param->Interrupt();
 
-        static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-        std::string dump_location = config.cycles_shader_graph_dump_dir + "/"
-                                    + id.GetString() + "_graph.txt";
-        std::cout << "Dumping shader graph: " << dump_location << '\n';
-        try {
-            m_shaderGraph->dump_graph(dump_location.c_str());
-        } catch (...) {
-            std::cout << "Couldn't dump shadergraph: " << dump_location << "\n";
-        }
+        _DumpGraph(m_shaderGraph, m_shader->name.c_str());
     }
 
     param->GetCyclesScene()->mutex.unlock();
