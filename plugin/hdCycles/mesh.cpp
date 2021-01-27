@@ -435,26 +435,42 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
 void
 HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 {
-    printf("Adding %d normals\n", normals.size());
-    printf("Subdivision faces %d subdivision corners %d\n",
-        m_cyclesMesh->subd_faces.size(), m_cyclesMesh->subd_face_corners.size());
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
     if (interpolation == HdInterpolationUniform) {
-        return;
-        ccl::Attribute* attr_fN = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
-        ccl::float3* fN         = attr_fN->data_float3();
+#if 0 // Geometric normal only
+        m_cyclesMesh->add_face_normals();        
+
+        for (int i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
+            m_cyclesMesh->smooth[i] = false;
+        }
+#else // unique face normal
+
+        ccl::Attribute* attr_fvN = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
+        ccl::float3* fvN         = attr_fvN->data_float3();
+
+        // here we loop on the polygonal faces because it's not triangulated.
+        // I think there exist a hdmeshutil to triangulate any attribute
+        if (normals.size() != m_faceVertexCounts.size()) {
+            //printf("Expecting one normal for each polygon\n");
+            return;
+        }
 
         int idx = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
+            ccl::float3 fNi = vec3f_to_float3(normals[i]);
+            if (m_orientation == HdTokens->leftHanded) {
+                fNi = -fNi;
+            }
 
-            // This needs to be checked
-            for (int j = 1; j < vCount - 1; ++idx) {
-                fN[idx] = vec3f_to_float3(normals[idx]);
+            for (int j = 1; j < vCount - 1; ++j) { // for each triangle
+                for (int k = 0; k < 3; ++k) { // for each corner
+                    fvN[idx++] = fNi;
+                }
             }
         }
-
+#endif
     } else if (interpolation == HdInterpolationVertex) {
         ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* cdata   = attr->data_float3();
@@ -469,7 +485,6 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
-        printf("Found FaceVarying interpolation\n");
         ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* fvN     = attr->data_float3();
 
