@@ -130,7 +130,7 @@ protected:
      * @param interpolation 
      */
     void _AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
-                   HdInterpolation interpolation, HdMeshUtil meshUtil);
+                   HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/face normals (Not implemented)
@@ -158,8 +158,7 @@ protected:
      * @param interpolation 
      */
     void _AddColors(TfToken name, TfToken role, VtValue colors,
-                    ccl::Scene* scene, HdInterpolation interpolation,
-                    HdMeshUtil meshUtil);
+                    ccl::Scene* scene, HdInterpolation interpolation);
 
 protected:
     struct PrimvarSource {

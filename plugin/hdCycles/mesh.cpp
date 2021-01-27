@@ -221,7 +221,7 @@ HdCyclesMesh::_ComputeTangents(bool needsign)
 
 void
 HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
-                        HdInterpolation interpolation, HdMeshUtil meshUtil)
+                        HdInterpolation interpolation)
 {
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
                                         ? &m_cyclesMesh->subd_attributes
@@ -246,7 +246,7 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
         attr->flags |= ccl::ATTR_SUBDIVIDED;
 
     _PopulateAttribute(name, HdPrimvarRoleTokens->textureCoordinate,
-                       interpolation, uvs, attr, meshUtil, this);
+                       interpolation, uvs, attr, this);
 
     if (need_tangent) {
         ccl::ustring sign_name = ccl::ustring(name.GetString()
@@ -328,8 +328,7 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
 
 void
 HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
-                         ccl::Scene* scene, HdInterpolation interpolation,
-                         HdMeshUtil meshUtil)
+                         ccl::Scene* scene, HdInterpolation interpolation)
 {
     if (colors.IsEmpty())
         return;
@@ -344,11 +343,79 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
     const bool need_vcol = m_cyclesMesh->need_attribute(scene, vcol_name)
                            || m_cyclesMesh->need_attribute(scene, vcol_std);
 
-    ccl::Attribute* vcol_attr = NULL;
-    vcol_attr                 = attributes->add(vcol_std, vcol_name);
+    ccl::TypeDesc ctype;
 
-    _PopulateAttribute(name, HdPrimvarRoleTokens->color, interpolation, colors,
-                       vcol_attr, meshUtil, this);
+    ccl::AttributeElement celem = ccl::ATTR_ELEMENT_NONE;
+
+    switch (interpolation) {
+    case HdInterpolationConstant: celem = ccl::ATTR_ELEMENT_MESH; break;
+    case HdInterpolationVertex:
+        if (attributes->geometry->type == ccl::Geometry::HAIR) {
+            celem = ccl::ATTR_ELEMENT_CURVE_KEY;
+        } else {
+            celem = ccl::ATTR_ELEMENT_VERTEX;
+        }
+        break;
+    case HdInterpolationVarying:
+    case HdInterpolationFaceVarying: celem = ccl::ATTR_ELEMENT_CORNER; break;
+    case HdInterpolationUniform: celem = ccl::ATTR_ELEMENT_FACE; break;
+    default: break;
+    }
+
+    if (colors.IsHolding<VtArray<float>>()
+        || colors.IsHolding<VtArray<double>>()
+        || colors.IsHolding<VtArray<int>>()
+        || colors.IsHolding<VtArray<bool>>()) {
+        ctype = ccl::TypeDesc::TypeFloat;
+    } else if (colors.IsHolding<VtArray<GfVec2f>>()
+               || colors.IsHolding<VtArray<GfVec2d>>()
+               || colors.IsHolding<VtArray<GfVec2i>>()) {
+        ctype = ccl::TypeFloat2;
+    } else if (colors.IsHolding<VtArray<GfVec3f>>()
+               || colors.IsHolding<VtArray<GfVec3d>>()
+               || colors.IsHolding<VtArray<GfVec3i>>()) {
+        ctype = ccl::TypeDesc::TypeColor;
+
+    } else if (colors.IsHolding<VtArray<GfVec4f>>()
+               || colors.IsHolding<VtArray<GfVec4d>>()
+               || colors.IsHolding<VtArray<GfVec4i>>()) {
+        ctype = ccl::TypeDesc::TypeVector;
+    }
+
+
+    ccl::Attribute* vcol_attr = NULL;
+    vcol_attr                 = attributes->add(vcol_name, ctype, celem);
+
+    _PopulateAttribute(name, HdPrimvarRoleTokens->vector, interpolation, colors,
+                       vcol_attr, this);
+
+    if (name == HdTokens->displayColor
+        && interpolation == HdInterpolationConstant) {
+        ccl::float4 displayColor;
+
+        if (colors.IsHolding<VtArray<float>>()) {
+            displayColor = vec1f_to_float4(
+                colors.UncheckedGet<VtArray<float>>()[0]);
+        } else if (colors.IsHolding<VtArray<GfVec2f>>()) {
+            displayColor = vec2f_to_float4(
+                colors.UncheckedGet<VtArray<GfVec2f>>()[0]);
+
+        } else if (colors.IsHolding<VtArray<GfVec3f>>()) {
+            displayColor = vec3f_to_float4(
+                colors.UncheckedGet<VtArray<GfVec3f>>()[0]);
+
+        } else if (colors.IsHolding<VtArray<GfVec4f>>()) {
+            displayColor = vec4f_to_float4(
+                colors.UncheckedGet<VtArray<GfVec4f>>()[0]);
+        } else {
+            std::cout
+                << "Invalid color size. Only float, vec2, vec3, and vec4 are supported. Found"
+                << colors.GetTypeName() << "\n";
+        }
+
+        m_cyclesObject->color = ccl::make_float3(displayColor.x, displayColor.y,
+                                                 displayColor.z);
+    }
 }
 
 void
@@ -1025,21 +1092,22 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     else if (pv.role
                              == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVSet(pv.name, value, scene,
-                                  primvarDescsEntry.first, meshUtil);
+                                  primvarDescsEntry.first);
 
                         mesh_updated = true;
                     }
 
                     // - Colors + other data
 
-                    else if (pv.role == HdPrimvarRoleTokens->color
-                             || pv.role == HdPrimvarRoleTokens->vector) {
+                    else {
                         // Add colors to attribute
                         _AddColors(pv.name, pv.role, value, scene,
-                                   primvarDescsEntry.first, meshUtil);
+                                   primvarDescsEntry.first);
 
-                        m_hasVertexColors = true;
-                        mesh_updated      = true;
+                        if (pv.name == HdTokens->displayColor) {
+                            m_hasVertexColors = true;
+                        }
+                        mesh_updated = true;
                     }
                 }
             }

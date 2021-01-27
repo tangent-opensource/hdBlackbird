@@ -43,7 +43,6 @@
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/mesh.h>
-#include <pxr/imaging/hd/meshUtil.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
@@ -156,6 +155,24 @@ ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec);
 
 /**
+ * @brief Convert GfVec2i to Cycles float2 representation
+ *
+ * @param a_vec
+ * @return Cycles float2
+ */
+ccl::float2
+vec2i_to_float2(const GfVec2i& a_vec);
+
+/**
+ * @brief Convert GfVec2d to Cycles float2 representation
+ *
+ * @param a_vec
+ * @return Cycles float2
+ */
+ccl::float2
+vec2d_to_float2(const GfVec2d& a_vec);
+
+/**
  * @brief Convert GfVec3f to Cycles float2 representation
  *
  * @param a_vec
@@ -190,6 +207,24 @@ vec2f_to_float3(const GfVec2f& a_vec);
  */
 ccl::float3
 vec3f_to_float3(const GfVec3f& a_vec);
+
+/**
+ * @brief Convert GfVec3i to Cycles float3 representation
+ *
+ * @param a_vec
+ * @return Cycles float3
+ */
+ccl::float3
+vec3i_to_float3(const GfVec3i& a_vec);
+
+/**
+ * @brief Convert GfVec3d to Cycles float3 representation
+ *
+ * @param a_vec
+ * @return Cycles float3
+ */
+ccl::float3
+vec3d_to_float3(const GfVec3d& a_vec);
 
 /**
  * @brief Lossy convert GfVec4f to Cycles float3 representation
@@ -299,8 +334,7 @@ using HdCyclesSampledPrimvarType
 void
 _PopulateAttribute(const TfToken& name, const TfToken& role,
                    HdInterpolation interpolation, const VtValue& value,
-                   ccl::Attribute* attr, HdMeshUtil meshUtil,
-                   HdCyclesMesh* mesh);
+                   ccl::Attribute* attr, HdCyclesMesh* mesh);
 
 template<typename F>
 void

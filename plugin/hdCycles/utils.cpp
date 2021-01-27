@@ -301,6 +301,18 @@ vec2f_to_float2(const GfVec2f& a_vec)
 }
 
 ccl::float2
+vec2i_to_float2(const GfVec2i& a_vec)
+{
+    return ccl::make_float2((float)a_vec[0], (float)a_vec[1]);
+}
+
+ccl::float2
+vec2d_to_float2(const GfVec2d& a_vec)
+{
+    return ccl::make_float2((float)a_vec[0], (float)a_vec[1]);
+}
+
+ccl::float2
 vec3f_to_float2(const GfVec3f& a_vec)
 {
     return ccl::make_float2(a_vec[0], a_vec[1]);
@@ -322,6 +334,18 @@ ccl::float3
 vec3f_to_float3(const GfVec3f& a_vec)
 {
     return ccl::make_float3(a_vec[0], a_vec[1], a_vec[2]);
+}
+
+ccl::float3
+vec3i_to_float3(const GfVec3i& a_vec)
+{
+    return ccl::make_float3((float)a_vec[0], (float)a_vec[1], (float)a_vec[2]);
+}
+
+ccl::float3
+vec3d_to_float3(const GfVec3d& a_vec)
+{
+    return ccl::make_float3((float)a_vec[0], (float)a_vec[1], (float)a_vec[2]);
 }
 
 ccl::float3
@@ -352,6 +376,20 @@ ccl::float4
 vec4f_to_float4(const GfVec4f& a_vec)
 {
     return ccl::make_float4(a_vec[0], a_vec[1], a_vec[2], a_vec[3]);
+}
+
+ccl::float4
+vec4i_to_float4(const GfVec4i& a_vec)
+{
+    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2],
+                            (float)a_vec[3]);
+}
+
+ccl::float4
+vec4d_to_float4(const GfVec4d& a_vec)
+{
+    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2],
+                            (float)a_vec[3]);
 }
 
 /* ========= Primvars ========= */
@@ -491,169 +529,135 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
 void
 _PopulateAttribute(const TfToken& name, const TfToken& role,
                    HdInterpolation interpolation, const VtValue& value,
-                   ccl::Attribute* attr, HdMeshUtil meshUtil,
-                   HdCyclesMesh* mesh)
+                   ccl::Attribute* attr, HdCyclesMesh* mesh)
 {
     // Done this way to 'future-proof' and allow arbitrary number of components
     // This might be useless, but felt prudent
     int num_components = -1;
 
+    // We can probably deduce types and sizes from the Gf/Vt API
+    // but for now we handle every permutation.
     VtFloatArray colorVec1f;
     VtVec2fArray colorVec2f;
     VtVec3fArray colorVec3f;
     VtVec4fArray colorVec4f;
 
+    VtDoubleArray colorVec1d;
+    VtVec2dArray colorVec2d;
+    VtVec3dArray colorVec3d;
+    VtVec4dArray colorVec4d;
+
+    VtIntArray colorVec1i;
+    VtVec2iArray colorVec2i;
+    VtVec3iArray colorVec3i;
+    VtVec4iArray colorVec4i;
+
+    // 0 float, 1 double, 2 int
+    int src_type = 0;
+
     if (value.IsHolding<VtArray<float>>()) {
         colorVec1f     = value.UncheckedGet<VtArray<float>>();
         num_components = 1;
+        src_type       = 0;
     } else if (value.IsHolding<VtArray<GfVec2f>>()) {
         colorVec2f     = value.UncheckedGet<VtArray<GfVec2f>>();
         num_components = 2;
+        src_type       = 0;
     } else if (value.IsHolding<VtArray<GfVec3f>>()) {
         colorVec3f     = value.UncheckedGet<VtArray<GfVec3f>>();
         num_components = 3;
+        src_type       = 0;
     } else if (value.IsHolding<VtArray<GfVec4f>>()) {
         colorVec4f     = value.UncheckedGet<VtArray<GfVec4f>>();
         num_components = 4;
+        src_type       = 0;
+    } else if (value.IsHolding<VtArray<double>>()) {
+        colorVec1d     = value.UncheckedGet<VtArray<double>>();
+        num_components = 1;
+        src_type       = 1;
+    } else if (value.IsHolding<VtArray<GfVec2d>>()) {
+        colorVec2d     = value.UncheckedGet<VtArray<GfVec2d>>();
+        num_components = 2;
+        src_type       = 1;
+    } else if (value.IsHolding<VtArray<GfVec3d>>()) {
+        colorVec3d     = value.UncheckedGet<VtArray<GfVec3d>>();
+        num_components = 3;
+        src_type       = 1;
+    } else if (value.IsHolding<VtArray<GfVec4d>>()) {
+        colorVec4d     = value.UncheckedGet<VtArray<GfVec4d>>();
+        num_components = 4;
+        src_type       = 1;
+    } else if (value.IsHolding<VtArray<int>>()) {
+        colorVec1i     = value.UncheckedGet<VtArray<int>>();
+        num_components = 1;
+        src_type       = 2;
+    } else if (value.IsHolding<VtArray<GfVec2i>>()) {
+        colorVec2i     = value.UncheckedGet<VtArray<GfVec2i>>();
+        num_components = 2;
+        src_type       = 2;
+    } else if (value.IsHolding<VtArray<GfVec3i>>()) {
+        colorVec3i     = value.UncheckedGet<VtArray<GfVec3i>>();
+        num_components = 3;
+        src_type       = 2;
+    } else if (value.IsHolding<VtArray<GfVec4f>>()) {
+        colorVec4f     = value.UncheckedGet<VtArray<GfVec4f>>();
+        num_components = 4;
+        src_type       = 2;
     } else {
         std::cout
             << "Invalid color size. Only float, vec2, vec3, and vec4 are supported. Found"
             << value.GetTypeName() << "\n";
     }
 
-    std::cout << "vec" << num_components << '\n';
-    if (interpolation == HdInterpolationFaceVarying) {
-        VtValue triangulated;
-        if (num_components == 1) {
-            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(colorVec1f.data(),
-                                                           colorVec1f.size(),
-                                                           HdTypeFloat,
-                                                           &triangulated);
-            colorVec1f = triangulated.Get<VtFloatArray>();
-        } else if (num_components == 2) {
-            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(colorVec2f.data(),
-                                                           colorVec2f.size(),
-                                                           HdTypeFloatVec2,
-                                                           &triangulated);
-            colorVec2f = triangulated.Get<VtVec2fArray>();
-        } else if (num_components == 3) {
-            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(colorVec3f.data(),
-                                                           colorVec3f.size(),
-                                                           HdTypeFloatVec3,
-                                                           &triangulated);
-            colorVec3f = triangulated.Get<VtVec3fArray>();
-        } else if (num_components == 4) {
-            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(colorVec4f.data(),
-                                                           colorVec4f.size(),
-                                                           HdTypeFloatVec4,
-                                                           &triangulated);
-            colorVec4f = triangulated.Get<VtVec4fArray>();
-        }
-    }
-
-
-    std::cout << "GGGGGGG: " << name << '\n';
-    std::cout << "FFFFFFF: " << role << '\n';
+    size_t arr_size  = value.GetArraySize();
     char* data       = attr->data();
     size_t data_size = sizeof(ccl::uchar4);
-    if (role != HdPrimvarRoleTokens->color) {
-        if (num_components == 1)
-            data_size += sizeof(float);
-        else if (num_components == 2)
-            data_size += sizeof(ccl::float2);
-        else if (num_components == 3)
-            data_size += sizeof(ccl::float3);
-        else if (num_components == 4)
-            data_size += sizeof(ccl::float4);
-    }
 
-    std::cout << " data_size " << data_size << '\n';
+    if (num_components == 1)
+        data_size = sizeof(float);
+    else if (num_components == 2)
+        data_size = sizeof(ccl::float2);
+    else if (num_components == 3)
+        data_size = sizeof(ccl::float3);
+    else if (num_components == 4)
+        data_size = sizeof(ccl::float4);
 
     if (interpolation == HdInterpolationVertex) {
         VtIntArray::const_iterator idxIt = mesh->GetFaceVertexIndices().begin();
 
-        // TODO: Add support for subd faces?
-        for (int i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
-            const int vCount = mesh->GetFaceVertexCounts()[i];
+        for (int i = 0; i < value.GetArraySize(); i++) {
+            if (num_components == 1) {
+                if (src_type == 0)
+                    ((float*)data)[0] = colorVec1f[i];
+                else if (src_type == 1)
+                    ((float*)data)[0] = (float)colorVec1d[i];
+                else if (src_type == 2)
+                    ((float*)data)[0] = (float)colorVec1i[i];
+            } else if (num_components == 2) {
+                if (src_type == 0)
+                    ((ccl::float2*)data)[0] = vec2f_to_float2(colorVec2f[i]);
+                else if (src_type == 1)
+                    ((ccl::float2*)data)[0] = vec2d_to_float2(colorVec2d[i]);
+                else if (src_type == 2)
+                    ((ccl::float2*)data)[0] = vec2i_to_float2(colorVec2i[i]);
 
-            for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + j + 0);
-                int v2 = *(idxIt + j + 1);
+            } else if (num_components == 3) {
+                if (src_type == 0)
+                    ((ccl::float3*)data)[0] = vec3f_to_float3(colorVec3f[i]);
+                else if (src_type == 1)
+                    ((ccl::float3*)data)[0] = vec3d_to_float3(colorVec3d[i]);
+                else if (src_type == 2)
+                    ((ccl::float3*)data)[0] = vec3i_to_float3(colorVec3i[i]);
 
-                if (mesh->GetOrientation() == HdTokens->leftHanded) {
-                    v1 = *(idxIt + j + 1);
-                    v2 = *(idxIt + j + 0);
-                }
-
-                if (num_components == 1) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec1f_to_float4(colorVec1f[v0]));
-                        ((ccl::uchar4*)data)[1] = ccl::color_float4_to_uchar4(
-                            vec1f_to_float4(colorVec1f[v1]));
-                        ((ccl::uchar4*)data)[2] = ccl::color_float4_to_uchar4(
-                            vec1f_to_float4(colorVec1f[v2]));
-                    } else {
-                        ((float*)data)[0] = colorVec1f[v0];
-                        ((float*)data)[1] = colorVec1f[v1];
-                        ((float*)data)[2] = colorVec1f[v2];
-                    }
-                    data += (3 * data_size);
-                } else if (num_components == 2) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec2f_to_float4(colorVec2f[v0]));
-                        ((ccl::uchar4*)data)[1] = ccl::color_float4_to_uchar4(
-                            vec2f_to_float4(colorVec2f[v1]));
-                        ((ccl::uchar4*)data)[2] = ccl::color_float4_to_uchar4(
-                            vec2f_to_float4(colorVec2f[v2]));
-                    } else {
-                        ((ccl::float2*)data)[0] = vec2f_to_float2(
-                            colorVec2f[v0]);
-                        ((ccl::float2*)data)[1] = vec2f_to_float2(
-                            colorVec2f[v1]);
-                        ((ccl::float2*)data)[2] = vec2f_to_float2(
-                            colorVec2f[v2]);
-                    }
-                    data += (3 * data_size);
-                } else if (num_components == 3) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec3f_to_float4(colorVec3f[v0]));
-                        ((ccl::uchar4*)data)[1] = ccl::color_float4_to_uchar4(
-                            vec3f_to_float4(colorVec3f[v1]));
-                        ((ccl::uchar4*)data)[2] = ccl::color_float4_to_uchar4(
-                            vec3f_to_float4(colorVec3f[v2]));
-                    } else {
-                        ((ccl::float3*)data)[0] = vec3f_to_float3(
-                            colorVec3f[v0]);
-                        ((ccl::float3*)data)[1] = vec3f_to_float3(
-                            colorVec3f[v1]);
-                        ((ccl::float3*)data)[2] = vec3f_to_float3(
-                            colorVec3f[v2]);
-                    }
-                    data += (3 * data_size);
-                } else if (num_components == 4) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec4f_to_float4(colorVec4f[v0]));
-                        ((ccl::uchar4*)data)[1] = ccl::color_float4_to_uchar4(
-                            vec4f_to_float4(colorVec4f[v1]));
-                        ((ccl::uchar4*)data)[2] = ccl::color_float4_to_uchar4(
-                            vec4f_to_float4(colorVec4f[v2]));
-                    } else {
-                        ((ccl::float4*)data)[0] = vec4f_to_float4(
-                            colorVec4f[v0]);
-                        ((ccl::float4*)data)[1] = vec4f_to_float4(
-                            colorVec4f[v1]);
-                        ((ccl::float4*)data)[2] = vec4f_to_float4(
-                            colorVec4f[v2]);
-                    }
-                    data += (3 * data_size);
-                }
+            } else if (num_components == 4) {
+                if (src_type == 0)
+                    ((ccl::float4*)data)[0] = vec4f_to_float4(colorVec4f[i]);
+                else if (src_type == 1)
+                    ((ccl::float4*)data)[0] = vec4d_to_float4(colorVec4d[i]);
+                else if (src_type == 2)
+                    ((ccl::float4*)data)[0] = vec4i_to_float4(colorVec4i[i]);
             }
-            idxIt += vCount;
+            data += 1 * data_size;
         }
 
     } else if (interpolation == HdInterpolationUniform) {
@@ -664,101 +668,196 @@ _PopulateAttribute(const TfToken& name, const TfToken& role,
             }
             const int vCount = mesh->GetFaceVertexCounts()[i];
 
-            int subTris = (vCount - 2) * 3;
+            int subTris = (vCount - 2);
 
-            if (num_components == 1) {
-                for (size_t j = 0; j < subTris; j++) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec1f_to_float4(colorVec1f[i]));
-                    } else {
+            for (size_t j = 0; j < subTris; j++) {
+                if (num_components == 1) {
+                    if (src_type == 0)
                         ((float*)data)[0] = colorVec1f[i];
-                    }
-                    data += 1 * data_size;
-                }
-            } else if (num_components == 2) {
-                for (size_t j = 0; j < subTris; j++) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec2f_to_float4(colorVec2f[i]));
-                    } else {
+                    else if (src_type == 1)
+                        ((float*)data)[0] = (float)colorVec1d[i];
+                    else if (src_type == 2)
+                        ((float*)data)[0] = (float)colorVec1i[i];
+
+                } else if (num_components == 2) {
+                    if (src_type == 0)
                         ((ccl::float2*)data)[0] = vec2f_to_float2(
                             colorVec2f[i]);
-                    }
-                    data += 1 * data_size;
-                }
-            } else if (num_components == 3) {
-                for (size_t j = 0; j < subTris; j++) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec3f_to_float4(colorVec3f[i]));
-                    } else {
+                    else if (src_type == 1)
+                        ((ccl::float2*)data)[0] = vec2d_to_float2(
+                            colorVec2d[i]);
+                    else if (src_type == 2)
+                        ((ccl::float2*)data)[0] = vec2i_to_float2(
+                            colorVec2i[i]);
+
+                } else if (num_components == 3) {
+                    if (src_type == 0)
                         ((ccl::float3*)data)[0] = vec3f_to_float3(
                             colorVec3f[i]);
-                    }
-                    data += 1 * data_size;
-                }
-            } else if (num_components == 4) {
-                for (size_t j = 0; j < subTris; j++) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec4f_to_float4(colorVec4f[i]));
-                    } else {
+                    else if (src_type == 1)
+                        ((ccl::float3*)data)[0] = vec3d_to_float3(
+                            colorVec3d[i]);
+                    else if (src_type == 2)
+                        ((ccl::float3*)data)[0] = vec3i_to_float3(
+                            colorVec3i[i]);
+
+                } else if (num_components == 4) {
+                    if (src_type == 0)
                         ((ccl::float4*)data)[0] = vec4f_to_float4(
                             colorVec4f[i]);
-                    }
-                    data += 1 * data_size;
+                    else if (src_type == 1)
+                        ((ccl::float4*)data)[0] = vec4d_to_float4(
+                            colorVec4d[i]);
+                    else if (src_type == 2)
+                        ((ccl::float4*)data)[0] = vec4i_to_float4(
+                            colorVec4i[i]);
                 }
+                data += 1 * data_size;
             }
         }
     } else if (interpolation == HdInterpolationFaceVarying) {
-        int idx = 0;
-
+        int count = 0;
         for (int i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
             const int vCount = mesh->GetFaceVertexCounts()[i];
-            int subTris      = (vCount - 2) * 3;
 
-            for (int j = 0; j < subTris; j++) {
-                if (num_components == 1) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec1f_to_float4(colorVec1f[idx]));
-                    } else {
-                        ((float*)data)[0] = colorVec1f[idx];
-                    }
-                    data += 1 * data_size;
-                } else if (num_components == 2) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec2f_to_float4(colorVec2f[idx]));
-                    } else {
-                        //std::cout << "vec2 facevarying << convert\n";
-                        ((ccl::float2*)data)[0] = vec2f_to_float2(
-                            colorVec2f[idx]);
-                    }
-                    data += 1 * data_size;
-                } else if (num_components == 3) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec3f_to_float4(colorVec3f[idx]));
-                    } else {
-                        ((ccl::float3*)data)[0] = vec3f_to_float3(
-                            colorVec3f[idx]);
-                    }
-                    data += 1 * data_size;
-                } else if (num_components == 4) {
-                    if (role == HdPrimvarRoleTokens->color) {
-                        ((ccl::uchar4*)data)[0] = ccl::color_float4_to_uchar4(
-                            vec4f_to_float4(colorVec4f[idx]));
-                    } else {
-                        ((ccl::float4*)data)[0] = vec4f_to_float4(
-                            colorVec4f[idx]);
-                    }
-                    data += 1 * data_size;
+            for (int j = 1; j < vCount - 1; ++j) {
+                int v0 = count;
+                int v1 = (count + j + 0);
+                int v2 = (count + j + 1);
+
+                if (mesh->GetOrientation() == HdTokens->leftHanded) {
+                    v1 = (count + ((vCount - 1) - j) + 0);
+                    v2 = (count + ((vCount - 1) - j) + 1);
                 }
-                idx += 1;
+
+                if (num_components == 1) {
+                    if (src_type == 0) {
+                        ((float*)data)[0] = colorVec1f[v0];
+                        ((float*)data)[1] = colorVec1f[v1];
+                        ((float*)data)[2] = colorVec1f[v2];
+                    } else if (src_type == 1) {
+                        ((float*)data)[0] = (float)colorVec1d[v0];
+                        ((float*)data)[1] = (float)colorVec1d[v1];
+                        ((float*)data)[2] = (float)colorVec1d[v2];
+                    } else if (src_type == 2) {
+                        ((float*)data)[0] = (float)colorVec1i[v0];
+                        ((float*)data)[1] = (float)colorVec1i[v1];
+                        ((float*)data)[2] = (float)colorVec1i[v2];
+                    }
+                } else if (num_components == 2) {
+                    if (src_type == 0) {
+                        ((ccl::float2*)data)[0] = vec2f_to_float2(
+                            colorVec2f[v0]);
+                        ((ccl::float2*)data)[1] = vec2f_to_float2(
+                            colorVec2f[v1]);
+                        ((ccl::float2*)data)[2] = vec2f_to_float2(
+                            colorVec2f[v2]);
+                    } else if (src_type == 1) {
+                        ((ccl::float2*)data)[0] = vec2d_to_float2(
+                            colorVec2d[v0]);
+                        ((ccl::float2*)data)[1] = vec2d_to_float2(
+                            colorVec2d[v1]);
+                        ((ccl::float2*)data)[2] = vec2d_to_float2(
+                            colorVec2d[v2]);
+                    } else if (src_type == 2) {
+                        ((ccl::float2*)data)[0] = vec2i_to_float2(
+                            colorVec2i[v0]);
+                        ((ccl::float2*)data)[1] = vec2i_to_float2(
+                            colorVec2i[v1]);
+                        ((ccl::float2*)data)[2] = vec2i_to_float2(
+                            colorVec2i[v2]);
+                    }
+
+                } else if (num_components == 3) {
+                    if (src_type == 0) {
+                        ((ccl::float3*)data)[0] = vec3f_to_float3(
+                            colorVec3f[v0]);
+                        ((ccl::float3*)data)[1] = vec3f_to_float3(
+                            colorVec3f[v1]);
+                        ((ccl::float3*)data)[2] = vec3f_to_float3(
+                            colorVec3f[v2]);
+                    } else if (src_type == 1) {
+                        ((ccl::float3*)data)[0] = vec3d_to_float3(
+                            colorVec3d[v0]);
+                        ((ccl::float3*)data)[1] = vec3d_to_float3(
+                            colorVec3d[v1]);
+                        ((ccl::float3*)data)[2] = vec3d_to_float3(
+                            colorVec3d[v2]);
+                    } else if (src_type == 2) {
+                        ((ccl::float3*)data)[0] = vec3i_to_float3(
+                            colorVec3i[v0]);
+                        ((ccl::float3*)data)[1] = vec3i_to_float3(
+                            colorVec3i[v1]);
+                        ((ccl::float3*)data)[2] = vec3i_to_float3(
+                            colorVec3i[v2]);
+                    }
+
+                } else if (num_components == 4) {
+                    if (src_type == 0) {
+                        ((ccl::float4*)data)[0] = vec4f_to_float4(
+                            colorVec4f[v0]);
+                        ((ccl::float4*)data)[1] = vec4f_to_float4(
+                            colorVec4f[v1]);
+                        ((ccl::float4*)data)[2] = vec4f_to_float4(
+                            colorVec4f[v2]);
+                    } else if (src_type == 1) {
+                        ((ccl::float4*)data)[0] = vec4d_to_float4(
+                            colorVec4d[v0]);
+                        ((ccl::float4*)data)[1] = vec4d_to_float4(
+                            colorVec4d[v1]);
+                        ((ccl::float4*)data)[2] = vec4d_to_float4(
+                            colorVec4d[v2]);
+                    } else if (src_type == 2) {
+                        ((ccl::float4*)data)[0] = vec4i_to_float4(
+                            colorVec4i[v0]);
+                        ((ccl::float4*)data)[1] = vec4i_to_float4(
+                            colorVec4i[v1]);
+                        ((ccl::float4*)data)[2] = vec4i_to_float4(
+                            colorVec4i[v2]);
+                    }
+                }
+                data += 3 * data_size;
+            }
+            count += vCount;
+        }
+    } else if (interpolation == HdInterpolationConstant) {
+        if (value.GetArraySize() > 0) {
+            if (num_components == 1) {
+                if (src_type == 0)
+                    ((float*)data)[0] = colorVec1f[0];
+                else if (src_type == 1)
+                    ((float*)data)[0] = (float)colorVec1d[0];
+                else if (src_type == 2)
+                    ((float*)data)[0] = (float)colorVec1i[0];
+
+            } else if (num_components == 2) {
+                if (src_type == 0)
+                    ((ccl::float2*)data)[0] = vec2f_to_float2(colorVec2f[0]);
+                else if (src_type == 1)
+                    ((ccl::float2*)data)[0] = vec2d_to_float2(colorVec2d[0]);
+                else if (src_type == 2)
+                    ((ccl::float2*)data)[0] = vec2i_to_float2(colorVec2i[0]);
+
+            } else if (num_components == 3) {
+                if (src_type == 0)
+                    ((ccl::float3*)data)[0] = vec3f_to_float3(colorVec3f[0]);
+                else if (src_type == 1)
+                    ((ccl::float3*)data)[0] = vec3d_to_float3(colorVec3d[0]);
+                else if (src_type == 2)
+                    ((ccl::float3*)data)[0] = vec3i_to_float3(colorVec3i[0]);
+
+            } else if (num_components == 4) {
+                if (src_type == 0)
+                    ((ccl::float4*)data)[0] = vec4f_to_float4(colorVec4f[0]);
+                else if (src_type == 1)
+                    ((ccl::float4*)data)[0] = vec4d_to_float4(colorVec4d[0]);
+                else if (src_type == 2)
+                    ((ccl::float4*)data)[0] = vec4i_to_float4(colorVec4i[0]);
             }
         }
+    } else {
+        std::cout << "HdCycles WARNING: Interpolation unsupported: "
+                  << interpolation << '\n';
     }
 }
 
