@@ -105,7 +105,7 @@ HdCyclesConfig::HdCyclesConfig()
                                                 false);
     motion_steps       = HdCyclesEnvValue<int>("HD_CYCLES_MOTION_STEPS", 3);
     enable_subdivision = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_SUBDIVISION",
-                                                false);
+                                                true);
     subdivision_dicing_rate
         = HdCyclesEnvValue<float>("HD_CYCLES_SUBDIVISION_DICING_RATE", 1.0);
     max_subdivision = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SUBDIVISION", 12);

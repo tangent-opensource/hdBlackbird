@@ -140,16 +140,6 @@ protected:
     void _AddNormals(VtVec3fArray& normals, HdInterpolation interpolation);
 
     /**
-     * @brief Add faces which are meant to use smooth shading
-     * 
-     * @param smooth
-     * @param interpolation 
-     */
-    void _SetSmoothShadedFaces(VtBoolArray& smooth,
-                               HdInterpolation interpolation,
-                               bool subdivide_faces);
-
-    /**
      * @brief Add vertex velocities (Not tested)
      * 
      * @param velocities 

@@ -435,9 +435,13 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
 void
 HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
 {
+    printf("Adding %d normals\n", normals.size());
+    printf("Subdivision faces %d subdivision corners %d\n",
+        m_cyclesMesh->subd_faces.size(), m_cyclesMesh->subd_face_corners.size());
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
     if (interpolation == HdInterpolationUniform) {
+        return;
         ccl::Attribute* attr_fN = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* fN         = attr_fN->data_float3();
 
@@ -465,60 +469,22 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
-        // This is enough for Blender exports, leaving it like this for now
-        // TODO: support face-varying normals in cycles and fill them in here
-        m_cyclesMesh->add_face_normals();
-        m_cyclesMesh->add_vertex_normals();
+        printf("Found FaceVarying interpolation\n");
+        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
+        ccl::float3* fvN     = attr->data_float3();
 
-        return;
-
-        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        //ccl::float3* cdata   = attr->data_float3();
-
-        // TODO: For now, this method produces very wrong results. Some other solution will be needed
-
-        //memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
-
-        // Although looping through all faces, normals are averaged per
-        // vertex. This seems to be a limitation of cycles. Not allowing
-        // face varying/loop_normals/corner_normals natively.
-
-        // For now, we add all corner normals and normalize separately.
-        // TODO: Update when Cycles supports corner_normals
-        /*for (size_t i = 0; i < m_numMeshFaces; i++) {
-            for (size_t j = 0; j < 3; j++) {
-                ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
-                cdata[m_cyclesMesh->get_triangle(i).v[j]] += n;
-            }
+        if (m_cyclesMesh->num_triangles() * 3 != normals.size()) {
+            //printf("Number of normals doesn't match number of faces\n");
+            return;
         }
 
-        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
-            cdata[i] = ccl::normalize(cdata[i]);
-        }*/
-    }
-}
+        // The attribute has been triangulated in the outer loop
+        for (size_t i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
+            for (int j = 0; j < 3; ++j) {
+                fvN[i * 3 + j] = vec3f_to_float3(normals[i * 3 + j]);
 
-/* 
-The code here replicates the triangulation logic in _PopulateFaces 
-Since more sophisticated rules (e.g. shortest diagonal) exist, it
-would be more correct to separate it in its own function or use
-HdMeshUtil::ComputeTriangleIndices */
-void
-HdCyclesMesh::_SetSmoothShadedFaces(VtBoolArray& smooth,
-                                    HdInterpolation interpolation,
-                                    bool subdivide_faces)
-{
-    if (interpolation == HdInterpolationUniform) {  // one bool per face
-        size_t triIdx = 0;
-        for (size_t faceIdx = 0; faceIdx < m_faceVertexCounts.size();
-             ++faceIdx) {
-            if (subdivide_faces) {
-                m_cyclesMesh->subd_faces[faceIdx].smooth = smooth[faceIdx];
-            } else {
-                const int vCount = m_faceVertexCounts[faceIdx];
-                for (int j = 0; j < vCount - 2; ++j) {
-                    m_cyclesMesh->smooth[triIdx] = smooth[faceIdx];
-                    ++triIdx;
+                if (m_orientation == HdTokens->leftHanded) {
+                    fvN[i * 3 + j] = -fvN[i * 3 + j];
                 }
             }
         }
@@ -1167,17 +1133,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                       primvarDescsEntry.first);
                         }
                         mesh_updated = true;
-                    }
-
-                    if (strcmp(pv.name.GetText(), "_smooth") == 0) {
-                        if (value.IsHolding<VtArray<bool>>()) {
-                            VtArray<bool> smooth
-                                = value.UncheckedGet<VtArray<bool>>();
-                            _SetSmoothShadedFaces(smooth,
-                                                  primvarDescsEntry.first,
-                                                  m_useSubdivision
-                                                      && m_subdivEnabled);
-                        }
                     }
                 }
             }
