@@ -1103,10 +1103,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // - Colors + other data
 
                     else {
-                        // Add colors to attribute
                         _AddColors(pv.name, pv.role, value, scene,
                                    primvarDescsEntry.first);
 
+                        // This swaps the default_surface to one that uses
+                        // displayColor for diffuse
                         if (pv.name == HdTokens->displayColor) {
                             m_hasVertexColors = true;
                         }
