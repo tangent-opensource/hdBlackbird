@@ -151,6 +151,7 @@ protected:
 
     /**
      * @brief Add vertex/primitive colors
+     * TODO: This handles more than just colors, we should probably refactor
      * 
      * @param name 
      * @param colors 

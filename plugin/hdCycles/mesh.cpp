@@ -343,6 +343,10 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
     const bool need_vcol = m_cyclesMesh->need_attribute(scene, vcol_name)
                            || m_cyclesMesh->need_attribute(scene, vcol_std);
 
+    // TODO: Maybe we move this to _PopulateAttributes as well?
+    // seems generic enough. Although different types (uv/vel/cols)
+    // require different handling...
+
     ccl::TypeDesc ctype;
 
     ccl::AttributeElement celem = ccl::ATTR_ELEMENT_NONE;
@@ -381,7 +385,6 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
                || colors.IsHolding<VtArray<GfVec4i>>()) {
         ctype = ccl::TypeDesc::TypeVector;
     }
-
 
     ccl::Attribute* vcol_attr = NULL;
     vcol_attr                 = attributes->add(vcol_name, ctype, celem);
