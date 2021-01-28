@@ -31,6 +31,20 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+/**
+ * @brief This env wrapper allows us to use environment variables
+ * as overrides to usd schema. The main addition is the eval function
+ * which only applies an override if an environment variable is both
+ * AUTHORED and DIFFERENT to the default.
+ * 
+ * This could do with some more work, and likely is a little slow.
+ * The current design decision is that the renderParam is setup with
+ * the defaults set in this config, usdCycles schema prims are applied 
+ * on top, and then if environment variable is authored, that value is 
+ * used. To the effect of: usdCycles < Environment variable.
+ * 
+ * @tparam T 
+ */
 template<typename T> struct HdCyclesEnvValue {
     HdCyclesEnvValue() = default;
 
@@ -81,6 +95,12 @@ public:
      *
      */
     int cycles_logging_severity;
+
+    /**
+     * @brief Valid, existing directory to dump shader graphs
+     * 
+     */
+    std::string cycles_shader_graph_dump_dir;
 
     /* ====== HdCycles Settings ====== */
 

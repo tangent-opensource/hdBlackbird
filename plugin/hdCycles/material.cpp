@@ -19,6 +19,7 @@
 
 #include "material.h"
 
+#include "config.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
 #include "utils.h"
@@ -116,7 +117,7 @@ IsValidCyclesIdentifier(const std::string& identifier)
 
     // DEPRECATED:
     // Only needed for retroactive support of pre 0.8.0 cycles shaders
-    isvalid += identifier.rfind("cycles:") == 0;
+    isvalid += (bool)(identifier.rfind("cycles:") == 0);
 
     return isvalid;
 }
@@ -803,6 +804,8 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
         m_shader->tag_update(param->GetCyclesScene());
         m_shader->tag_used(param->GetCyclesScene());
         param->Interrupt();
+
+        _DumpGraph(m_shaderGraph, m_shader->name.c_str());
     }
 
     param->GetCyclesScene()->mutex.unlock();

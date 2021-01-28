@@ -40,6 +40,7 @@
 
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
+#include <pxr/base/tf/stringUtils.h>
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/mesh.h>
@@ -80,6 +81,17 @@ HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
 
 ccl::Shader*
 HdCyclesCreateDefaultShader();
+
+
+/**
+ * @brief Helper function to dump shader graph if 
+ * CYCLES_DUMP_SHADER_GRAPH_DIR environment variable
+ * is set.
+ * 
+ * @return true if dumped
+ */
+bool
+_DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name);
 
 /* ========= Conversion ========= */
 

@@ -72,11 +72,16 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 
 /* ====== HdCycles Settings ====== */
 
+// For distinct generic delegate settings we still use the pixar TF_DEFINE_ENV_SETTING
 
 TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging");
 
 TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1,
                       "Enable HdCycles progress reporting");
+
+TF_DEFINE_ENV_SETTING(
+    CYCLES_DUMP_SHADER_GRAPH_DIR, "",
+    "Valid, existing directory to dump shader graphs for render");
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
                       "Enable HdCycles Logging");
@@ -96,6 +101,9 @@ HdCyclesConfig::HdCyclesConfig()
 
     cycles_enable_logging   = TfGetEnvSetting(CYCLES_ENABLE_LOGGING);
     cycles_logging_severity = TfGetEnvSetting(CYCLES_LOGGING_SEVERITY);
+
+    cycles_shader_graph_dump_dir = TfGetEnvSetting(
+        CYCLES_DUMP_SHADER_GRAPH_DIR);
 
     // -- HdCycles Settings
     enable_logging  = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);
