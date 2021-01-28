@@ -124,6 +124,12 @@ public:
     bool enable_progress;
 
     /**
+     * @brief Set custom up axis (Z or Y currently supported)
+     *
+     */
+    std::string up_axis;
+
+    /**
      * @brief If enabled, HdCycles will populate object's motion and enable motion blur
      *
      */
