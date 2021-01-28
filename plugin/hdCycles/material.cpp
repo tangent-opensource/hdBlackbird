@@ -354,13 +354,11 @@ convertCyclesNode(HdMaterialNode& usd_node,
             switch (socket.type) {
             case ccl::SocketType::INT: {
                 cyclesNode->set(socket, params.second.Get<int>());
-                break;
-            }
+            } break;
 
             case ccl::SocketType::FLOAT: {
                 cyclesNode->set(socket, params.second.Get<float>());
-                break;
-            }
+            } break;
 
             case ccl::SocketType::FLOAT_ARRAY: {
                 if (params.second.IsHolding<VtFloatArray>()) {
@@ -372,8 +370,7 @@ convertCyclesNode(HdMaterialNode& usd_node,
                     }
                     cyclesNode->set(socket, val);
                 }
-                break;
-            }
+            } break;
 
             case ccl::SocketType::ENUM: {
                 if (params.second.IsHolding<int>()) {
@@ -384,6 +381,12 @@ convertCyclesNode(HdMaterialNode& usd_node,
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket,
                                     params.second.Get<std::string>().c_str());
+                } else if (params.second.IsHolding<TfToken>()) {
+                    // Arguably all enums should be strings, but at one point
+                    // our houdini material nodes output them as tokens so this
+                    // is more for backwards compat.
+                    cyclesNode->set(socket,
+                                    params.second.Get<TfToken>().GetText());
                 }
             } break;
 
@@ -458,6 +461,12 @@ convertCyclesNode(HdMaterialNode& usd_node,
                     }
                     cyclesNode->set(socket, val);
                 }
+            } break;
+
+            default: {
+                std::cout << "HdCycles unsupported socket type. Node: "
+                          << node_id << " - Socket: " << socket.name.string()
+                          << " - Type: " << socket.type << '\n';
             } break;
             }
         }
