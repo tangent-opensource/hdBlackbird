@@ -24,7 +24,9 @@
 
 #include "renderDelegate.h"
 
-#include <util/util_transform.h>
+#include <render/graph.h>
+#include <render/light.h>
+#include <render/nodes.h>
 
 #include <pxr/imaging/hd/light.h>
 #include <pxr/pxr.h>
@@ -104,6 +106,18 @@ public:
     void Finalize(HdRenderParam* renderParam) override;
 
 private:
+    // Tracking for Cycles light shader graphs, saves on potentially 
+    // expensive new/delete re-creation of graphs for interactive sessions.
+    enum ShaderGraphBits : uint8_t {
+        Default     = 0,
+        Temperature = 1 << 0,
+        IES         = 1 << 1,
+        Texture     = 1 << 2,
+        All         = (Temperature
+                       |IES
+                       |Texture)
+    };
+
     /**
      * @brief Create the cycles light representation
      *
@@ -120,21 +134,28 @@ private:
      */
     void _SetTransform(const ccl::Transform& a_transform);
 
+    /**
+     * @brief Get default shader graph for lights
+     * 
+     * @param isBackground Is the shader graph for the background shader
+     * @return Newly allocated default shader graph
+     */
+    ccl::ShaderGraph *_GetDefaultShaderGraph(const bool isBackground = false);
+
+    /**
+     * @brief Find first shader node based on type.
+     * 
+     * @param graph ShaderGraph to search in
+     * @param type The type of ShaderNode to search for
+     * @return The first ShaderNode found based on type in graph
+     */
+    ccl::ShaderNode *_FindShaderNode(const ccl::ShaderGraph *graph, const ccl::NodeType *type);
+
     const TfToken m_hdLightType;
     ccl::Light* m_cyclesLight;
-    ccl::Shader* m_cyclesShader;
-    ccl::EmissionNode* m_emissionNode;
-
-    // Background light specifics
-    ccl::BackgroundNode* m_backgroundNode;
-    ccl::TextureCoordinateNode* m_backgroundTransform;
-    ccl::EnvironmentTextureNode* m_backgroundTexture;
-    ccl::BlackbodyNode* m_blackbodyNode;
-    std::string m_backgroundFilePath;
+    ShaderGraphBits m_shaderGraphBits;
 
     bool m_normalize;
-    bool m_useTemperature;
-    float m_temperature;
 
     HdCyclesRenderDelegate* m_renderDelegate;
 

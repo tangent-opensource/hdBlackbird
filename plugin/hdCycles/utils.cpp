@@ -20,6 +20,7 @@
 #include "utils.h"
 
 #include "mesh.h"
+#include "config.h"
 
 #include <render/nodes.h>
 #include <subd/subd_dice.h>
@@ -129,6 +130,29 @@ HdCyclesCreateDefaultShader()
     shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
 
     return shader;
+}
+
+bool
+_DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
+{
+    if (!shaderGraph)
+        return false;
+
+    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
+    if (config.cycles_shader_graph_dump_dir.size() > 0) {
+        std::string dump_location = config.cycles_shader_graph_dump_dir + "/"
+                                    + TfMakeValidIdentifier(name)
+                                    + "_graph.txt";
+        std::cout << "Dumping shader graph: " << dump_location << '\n';
+        try {
+            shaderGraph->dump_graph(dump_location.c_str());
+            return true;
+        } catch (...) {
+            std::cout << "Couldn't dump shadergraph: " << dump_location << "\n";
+        }
+    }
+    return false;
 }
 
 /* ========= Conversion ========= */

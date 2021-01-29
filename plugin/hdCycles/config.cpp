@@ -72,11 +72,16 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 
 /* ====== HdCycles Settings ====== */
 
+// For distinct generic delegate settings we still use the pixar TF_DEFINE_ENV_SETTING
 
 TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging");
 
 TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1,
                       "Enable HdCycles progress reporting");
+
+TF_DEFINE_ENV_SETTING(
+    CYCLES_DUMP_SHADER_GRAPH_DIR, "",
+    "Valid, existing directory to dump shader graphs for render");
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
                       "Enable HdCycles Logging");
@@ -87,6 +92,8 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
 TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
                       "Use Tiled Rendering (Experimental)");
 
+TF_DEFINE_ENV_SETTING(HD_CYCLES_UP_AXIS, "Z",
+                      "Set custom up axis (Z or Y currently supported)");
 
 // HdCycles Constructor
 HdCyclesConfig::HdCyclesConfig()
@@ -97,9 +104,14 @@ HdCyclesConfig::HdCyclesConfig()
     cycles_enable_logging   = TfGetEnvSetting(CYCLES_ENABLE_LOGGING);
     cycles_logging_severity = TfGetEnvSetting(CYCLES_LOGGING_SEVERITY);
 
+    cycles_shader_graph_dump_dir = TfGetEnvSetting(
+        CYCLES_DUMP_SHADER_GRAPH_DIR);
+
     // -- HdCycles Settings
     enable_logging  = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);
     enable_progress = TfGetEnvSetting(HD_CYCLES_ENABLE_PROGRESS);
+
+    up_axis = TfGetEnvSetting(HD_CYCLES_UP_AXIS);
 
     enable_motion_blur = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR",
                                                 false);
