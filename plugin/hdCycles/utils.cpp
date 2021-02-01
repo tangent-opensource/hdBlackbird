@@ -19,15 +19,14 @@
 
 #include "utils.h"
 
-#include "mesh.h"
 #include "config.h"
+#include "mesh.h"
 
 #include <render/nodes.h>
 #include <subd/subd_dice.h>
 #include <subd/subd_split.h>
 #include <util/util_path.h>
 
-#include <pxr/base/gf/vec2f.h>
 #include <pxr/base/tf/stringUtils.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/usd/sdf/assetPath.h>
@@ -550,334 +549,254 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
     return false;
 }
 
+template<>
+float
+to_cycles<float>(const float& v)
+{
+    return v;
+}
+template<>
+float
+to_cycles<double>(const double& v)
+{
+    return static_cast<float>(v);
+}
+template<>
+float
+to_cycles<int>(const int& v)
+{
+    return static_cast<float>(v);
+}
+
+
+template<>
+ccl::float2
+to_cycles<GfVec2f>(const GfVec2f& v)
+{
+    return ccl::make_float2(v[0], v[1]);
+}
+template<>
+ccl::float2
+to_cycles<GfVec2h>(const GfVec2h& v)
+{
+    return ccl::make_float2(static_cast<float>(v[0]), static_cast<float>(v[1]));
+}
+template<>
+ccl::float2
+to_cycles<GfVec2d>(const GfVec2d& v)
+{
+    return ccl::make_float2(static_cast<float>(v[0]), static_cast<float>(v[1]));
+}
+template<>
+ccl::float2
+to_cycles<GfVec2i>(const GfVec2i& v)
+{
+    return ccl::make_float2(static_cast<float>(v[0]), static_cast<float>(v[1]));
+}
+
+template<>
+ccl::float3
+to_cycles<GfVec3f>(const GfVec3f& v)
+{
+    return ccl::make_float3(v[0], v[1], v[2]);
+}
+template<>
+ccl::float3
+to_cycles<GfVec3h>(const GfVec3h& v)
+{
+    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]));
+}
+template<>
+ccl::float3
+to_cycles<GfVec3d>(const GfVec3d& v)
+{
+    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]));
+}
+template<>
+ccl::float3
+to_cycles<GfVec3i>(const GfVec3i& v)
+{
+    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]));
+}
+
+template<>
+ccl::float4
+to_cycles<GfVec4f>(const GfVec4f& v)
+{
+    return ccl::make_float4(v[0], v[1], v[2], v[3]);
+}
+template<>
+ccl::float4
+to_cycles<GfVec4h>(const GfVec4h& v)
+{
+    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]), static_cast<float>(v[3]));
+}
+template<>
+ccl::float4
+to_cycles<GfVec4d>(const GfVec4d& v)
+{
+    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]), static_cast<float>(v[3]));
+}
+template<>
+ccl::float4
+to_cycles<GfVec4i>(const GfVec4i& v)
+{
+    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]), static_cast<float>(v[3]));
+}
+
 void
 _PopulateAttribute(const TfToken& name, const TfToken& role,
                    HdInterpolation interpolation, const VtValue& value,
                    ccl::Attribute* attr, HdCyclesMesh* mesh)
 {
-    // Done this way to 'future-proof' and allow arbitrary number of components
-    // This might be useless, but felt prudent
-    int num_components = -1;
-
-    // We can probably deduce types and sizes from the Gf/Vt API
-    // but for now we handle every permutation.
-    VtFloatArray colorVec1f;
-    VtVec2fArray colorVec2f;
-    VtVec3fArray colorVec3f;
-    VtVec4fArray colorVec4f;
-
-    VtDoubleArray colorVec1d;
-    VtVec2dArray colorVec2d;
-    VtVec3dArray colorVec3d;
-    VtVec4dArray colorVec4d;
-
-    VtIntArray colorVec1i;
-    VtVec2iArray colorVec2i;
-    VtVec3iArray colorVec3i;
-    VtVec4iArray colorVec4i;
-
-    // 0 float, 1 double, 2 int
-    int src_type = 0;
-
-    if (value.IsHolding<VtArray<float>>()) {
-        colorVec1f     = value.UncheckedGet<VtArray<float>>();
-        num_components = 1;
-        src_type       = 0;
-    } else if (value.IsHolding<VtArray<GfVec2f>>()) {
-        colorVec2f     = value.UncheckedGet<VtArray<GfVec2f>>();
-        num_components = 2;
-        src_type       = 0;
-    } else if (value.IsHolding<VtArray<GfVec3f>>()) {
-        colorVec3f     = value.UncheckedGet<VtArray<GfVec3f>>();
-        num_components = 3;
-        src_type       = 0;
-    } else if (value.IsHolding<VtArray<GfVec4f>>()) {
-        colorVec4f     = value.UncheckedGet<VtArray<GfVec4f>>();
-        num_components = 4;
-        src_type       = 0;
-    } else if (value.IsHolding<VtArray<double>>()) {
-        colorVec1d     = value.UncheckedGet<VtArray<double>>();
-        num_components = 1;
-        src_type       = 1;
-    } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-        colorVec2d     = value.UncheckedGet<VtArray<GfVec2d>>();
-        num_components = 2;
-        src_type       = 1;
-    } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-        colorVec3d     = value.UncheckedGet<VtArray<GfVec3d>>();
-        num_components = 3;
-        src_type       = 1;
-    } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-        colorVec4d     = value.UncheckedGet<VtArray<GfVec4d>>();
-        num_components = 4;
-        src_type       = 1;
-    } else if (value.IsHolding<VtArray<int>>()) {
-        colorVec1i     = value.UncheckedGet<VtArray<int>>();
-        num_components = 1;
-        src_type       = 2;
-    } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-        colorVec2i     = value.UncheckedGet<VtArray<GfVec2i>>();
-        num_components = 2;
-        src_type       = 2;
-    } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-        colorVec3i     = value.UncheckedGet<VtArray<GfVec3i>>();
-        num_components = 3;
-        src_type       = 2;
-    } else if (value.IsHolding<VtArray<GfVec4f>>()) {
-        colorVec4f     = value.UncheckedGet<VtArray<GfVec4f>>();
-        num_components = 4;
-        src_type       = 2;
-    } else {
-        std::cout
-            << "Invalid color size. Only float, vec2, vec3, and vec4 are supported. Found"
-            << value.GetTypeName() << "\n";
-    }
-
-    size_t arr_size  = value.GetArraySize();
-    char* data       = attr->data();
-    size_t data_size = sizeof(ccl::uchar4);
-
-    if (num_components == 1)
-        data_size = sizeof(float);
-    else if (num_components == 2)
-        data_size = sizeof(ccl::float2);
-    else if (num_components == 3)
-        data_size = sizeof(ccl::float3);
-    else if (num_components == 4)
-        data_size = sizeof(ccl::float4);
-
     if (interpolation == HdInterpolationVertex) {
-        VtIntArray::const_iterator idxIt = mesh->GetFaceVertexIndices().begin();
+        if (value.IsHolding<VtArray<float>>()) {
+            _PopulateAttribte_Vertex<float, float>(value, attr);
+        } else if (value.IsHolding<VtArray<double>>()) {
+            _PopulateAttribte_Vertex<double, float>(value, attr);
+        } else if (value.IsHolding<VtArray<int>>()) {
+            _PopulateAttribte_Vertex<int, float>(value, attr);
+        }
 
-        for (int i = 0; i < value.GetArraySize(); i++) {
-            if (num_components == 1) {
-                if (src_type == 0)
-                    ((float*)data)[0] = colorVec1f[i];
-                else if (src_type == 1)
-                    ((float*)data)[0] = (float)colorVec1d[i];
-                else if (src_type == 2)
-                    ((float*)data)[0] = (float)colorVec1i[i];
-            } else if (num_components == 2) {
-                if (src_type == 0)
-                    ((ccl::float2*)data)[0] = vec2f_to_float2(colorVec2f[i]);
-                else if (src_type == 1)
-                    ((ccl::float2*)data)[0] = vec2d_to_float2(colorVec2d[i]);
-                else if (src_type == 2)
-                    ((ccl::float2*)data)[0] = vec2i_to_float2(colorVec2i[i]);
+        else if (value.IsHolding<VtArray<GfVec2f>>()) {
+            _PopulateAttribte_Vertex<GfVec2f, ccl::float2>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
+            _PopulateAttribte_Vertex<GfVec2d, ccl::float2>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
+            _PopulateAttribte_Vertex<GfVec2i, ccl::float2>(value, attr);
+        }
 
-            } else if (num_components == 3) {
-                if (src_type == 0)
-                    ((ccl::float3*)data)[0] = vec3f_to_float3(colorVec3f[i]);
-                else if (src_type == 1)
-                    ((ccl::float3*)data)[0] = vec3d_to_float3(colorVec3d[i]);
-                else if (src_type == 2)
-                    ((ccl::float3*)data)[0] = vec3i_to_float3(colorVec3i[i]);
+        else if (value.IsHolding<VtArray<GfVec3f>>()) {
+            _PopulateAttribte_Vertex<GfVec3f, ccl::float3>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
+            _PopulateAttribte_Vertex<GfVec3d, ccl::float3>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
+            _PopulateAttribte_Vertex<GfVec3i, ccl::float3>(value, attr);
+        }
 
-            } else if (num_components == 4) {
-                if (src_type == 0)
-                    ((ccl::float4*)data)[0] = vec4f_to_float4(colorVec4f[i]);
-                else if (src_type == 1)
-                    ((ccl::float4*)data)[0] = vec4d_to_float4(colorVec4d[i]);
-                else if (src_type == 2)
-                    ((ccl::float4*)data)[0] = vec4i_to_float4(colorVec4i[i]);
-            }
-            data += 1 * data_size;
+        else if (value.IsHolding<VtArray<GfVec4f>>()) {
+            _PopulateAttribte_Vertex<GfVec4f, ccl::float4>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
+            _PopulateAttribte_Vertex<GfVec4d, ccl::float4>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
+            _PopulateAttribte_Vertex<GfVec4i, ccl::float4>(value, attr);
         }
 
     } else if (interpolation == HdInterpolationUniform) {
-        for (size_t i = 0; i < value.GetArraySize(); i++) {
-            if (i > mesh->GetFaceVertexCounts().size()) {
-                std::cout << "Oversized...\n";
-                continue;
-            }
-            const int vCount = mesh->GetFaceVertexCounts()[i];
+        if (value.GetArraySize() > mesh->GetFaceVertexCounts().size()) {
+            std::cout << "Oversized...\n";
+            return;
+        }
 
-            int subTris = (vCount - 2);
+        if (value.IsHolding<VtArray<float>>()) {
+            _PopulateAttribte_Uniform<float, float>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<double>>()) {
+            _PopulateAttribte_Uniform<double, float>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<int>>()) {
+            _PopulateAttribte_Uniform<int, float>(value, attr, mesh);
+        }
 
-            for (size_t j = 0; j < subTris; j++) {
-                if (num_components == 1) {
-                    if (src_type == 0)
-                        ((float*)data)[0] = colorVec1f[i];
-                    else if (src_type == 1)
-                        ((float*)data)[0] = (float)colorVec1d[i];
-                    else if (src_type == 2)
-                        ((float*)data)[0] = (float)colorVec1i[i];
+        else if (value.IsHolding<VtArray<GfVec2f>>()) {
+            _PopulateAttribte_Uniform<GfVec2f, ccl::float2>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
+            _PopulateAttribte_Uniform<GfVec2d, ccl::float2>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
+            _PopulateAttribte_Uniform<GfVec2i, ccl::float2>(value, attr, mesh);
+        }
 
-                } else if (num_components == 2) {
-                    if (src_type == 0)
-                        ((ccl::float2*)data)[0] = vec2f_to_float2(
-                            colorVec2f[i]);
-                    else if (src_type == 1)
-                        ((ccl::float2*)data)[0] = vec2d_to_float2(
-                            colorVec2d[i]);
-                    else if (src_type == 2)
-                        ((ccl::float2*)data)[0] = vec2i_to_float2(
-                            colorVec2i[i]);
+        else if (value.IsHolding<VtArray<GfVec3f>>()) {
+            _PopulateAttribte_Uniform<GfVec3f, ccl::float3>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
+            _PopulateAttribte_Uniform<GfVec3d, ccl::float3>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
+            _PopulateAttribte_Uniform<GfVec3i, ccl::float3>(value, attr, mesh);
+        }
 
-                } else if (num_components == 3) {
-                    if (src_type == 0)
-                        ((ccl::float3*)data)[0] = vec3f_to_float3(
-                            colorVec3f[i]);
-                    else if (src_type == 1)
-                        ((ccl::float3*)data)[0] = vec3d_to_float3(
-                            colorVec3d[i]);
-                    else if (src_type == 2)
-                        ((ccl::float3*)data)[0] = vec3i_to_float3(
-                            colorVec3i[i]);
-
-                } else if (num_components == 4) {
-                    if (src_type == 0)
-                        ((ccl::float4*)data)[0] = vec4f_to_float4(
-                            colorVec4f[i]);
-                    else if (src_type == 1)
-                        ((ccl::float4*)data)[0] = vec4d_to_float4(
-                            colorVec4d[i]);
-                    else if (src_type == 2)
-                        ((ccl::float4*)data)[0] = vec4i_to_float4(
-                            colorVec4i[i]);
-                }
-                data += 1 * data_size;
-            }
+        else if (value.IsHolding<VtArray<GfVec4f>>()) {
+            _PopulateAttribte_Uniform<GfVec4f, ccl::float4>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
+            _PopulateAttribte_Uniform<GfVec4d, ccl::float4>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
+            _PopulateAttribte_Uniform<GfVec4i, ccl::float4>(value, attr, mesh);
         }
     } else if (interpolation == HdInterpolationFaceVarying) {
-        int count = 0;
-        for (int i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
-            const int vCount = mesh->GetFaceVertexCounts()[i];
+        if (value.IsHolding<VtArray<float>>()) {
+            _PopulateAttribte_FaceVarying<float, float>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<double>>()) {
+            _PopulateAttribte_FaceVarying<double, float>(value, attr, mesh);
+        } else if (value.IsHolding<VtArray<int>>()) {
+            _PopulateAttribte_FaceVarying<int, float>(value, attr, mesh);
+        }
 
-            for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = count;
-                int v1 = (count + j + 0);
-                int v2 = (count + j + 1);
+        else if (value.IsHolding<VtArray<GfVec2f>>()) {
+            _PopulateAttribte_FaceVarying<GfVec2f, ccl::float2>(value, attr,
+                                                                mesh);
+        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
+            _PopulateAttribte_FaceVarying<GfVec2d, ccl::float2>(value, attr,
+                                                                mesh);
+        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
+            _PopulateAttribte_FaceVarying<GfVec2i, ccl::float2>(value, attr,
+                                                                mesh);
+        }
 
-                if (mesh->GetOrientation() == HdTokens->leftHanded) {
-                    v1 = (count + ((vCount - 1) - j) + 0);
-                    v2 = (count + ((vCount - 1) - j) + 1);
-                }
+        else if (value.IsHolding<VtArray<GfVec3f>>()) {
+            _PopulateAttribte_FaceVarying<GfVec3f, ccl::float3>(value, attr,
+                                                                mesh);
+        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
+            _PopulateAttribte_FaceVarying<GfVec3d, ccl::float3>(value, attr,
+                                                                mesh);
+        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
+            _PopulateAttribte_FaceVarying<GfVec3i, ccl::float3>(value, attr,
+                                                                mesh);
+        }
 
-                if (num_components == 1) {
-                    if (src_type == 0) {
-                        ((float*)data)[0] = colorVec1f[v0];
-                        ((float*)data)[1] = colorVec1f[v1];
-                        ((float*)data)[2] = colorVec1f[v2];
-                    } else if (src_type == 1) {
-                        ((float*)data)[0] = (float)colorVec1d[v0];
-                        ((float*)data)[1] = (float)colorVec1d[v1];
-                        ((float*)data)[2] = (float)colorVec1d[v2];
-                    } else if (src_type == 2) {
-                        ((float*)data)[0] = (float)colorVec1i[v0];
-                        ((float*)data)[1] = (float)colorVec1i[v1];
-                        ((float*)data)[2] = (float)colorVec1i[v2];
-                    }
-                } else if (num_components == 2) {
-                    if (src_type == 0) {
-                        ((ccl::float2*)data)[0] = vec2f_to_float2(
-                            colorVec2f[v0]);
-                        ((ccl::float2*)data)[1] = vec2f_to_float2(
-                            colorVec2f[v1]);
-                        ((ccl::float2*)data)[2] = vec2f_to_float2(
-                            colorVec2f[v2]);
-                    } else if (src_type == 1) {
-                        ((ccl::float2*)data)[0] = vec2d_to_float2(
-                            colorVec2d[v0]);
-                        ((ccl::float2*)data)[1] = vec2d_to_float2(
-                            colorVec2d[v1]);
-                        ((ccl::float2*)data)[2] = vec2d_to_float2(
-                            colorVec2d[v2]);
-                    } else if (src_type == 2) {
-                        ((ccl::float2*)data)[0] = vec2i_to_float2(
-                            colorVec2i[v0]);
-                        ((ccl::float2*)data)[1] = vec2i_to_float2(
-                            colorVec2i[v1]);
-                        ((ccl::float2*)data)[2] = vec2i_to_float2(
-                            colorVec2i[v2]);
-                    }
-
-                } else if (num_components == 3) {
-                    if (src_type == 0) {
-                        ((ccl::float3*)data)[0] = vec3f_to_float3(
-                            colorVec3f[v0]);
-                        ((ccl::float3*)data)[1] = vec3f_to_float3(
-                            colorVec3f[v1]);
-                        ((ccl::float3*)data)[2] = vec3f_to_float3(
-                            colorVec3f[v2]);
-                    } else if (src_type == 1) {
-                        ((ccl::float3*)data)[0] = vec3d_to_float3(
-                            colorVec3d[v0]);
-                        ((ccl::float3*)data)[1] = vec3d_to_float3(
-                            colorVec3d[v1]);
-                        ((ccl::float3*)data)[2] = vec3d_to_float3(
-                            colorVec3d[v2]);
-                    } else if (src_type == 2) {
-                        ((ccl::float3*)data)[0] = vec3i_to_float3(
-                            colorVec3i[v0]);
-                        ((ccl::float3*)data)[1] = vec3i_to_float3(
-                            colorVec3i[v1]);
-                        ((ccl::float3*)data)[2] = vec3i_to_float3(
-                            colorVec3i[v2]);
-                    }
-
-                } else if (num_components == 4) {
-                    if (src_type == 0) {
-                        ((ccl::float4*)data)[0] = vec4f_to_float4(
-                            colorVec4f[v0]);
-                        ((ccl::float4*)data)[1] = vec4f_to_float4(
-                            colorVec4f[v1]);
-                        ((ccl::float4*)data)[2] = vec4f_to_float4(
-                            colorVec4f[v2]);
-                    } else if (src_type == 1) {
-                        ((ccl::float4*)data)[0] = vec4d_to_float4(
-                            colorVec4d[v0]);
-                        ((ccl::float4*)data)[1] = vec4d_to_float4(
-                            colorVec4d[v1]);
-                        ((ccl::float4*)data)[2] = vec4d_to_float4(
-                            colorVec4d[v2]);
-                    } else if (src_type == 2) {
-                        ((ccl::float4*)data)[0] = vec4i_to_float4(
-                            colorVec4i[v0]);
-                        ((ccl::float4*)data)[1] = vec4i_to_float4(
-                            colorVec4i[v1]);
-                        ((ccl::float4*)data)[2] = vec4i_to_float4(
-                            colorVec4i[v2]);
-                    }
-                }
-                data += 3 * data_size;
-            }
-            count += vCount;
+        else if (value.IsHolding<VtArray<GfVec4f>>()) {
+            _PopulateAttribte_FaceVarying<GfVec4f, ccl::float4>(value, attr,
+                                                                mesh);
+        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
+            _PopulateAttribte_FaceVarying<GfVec4d, ccl::float4>(value, attr,
+                                                                mesh);
+        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
+            _PopulateAttribte_FaceVarying<GfVec4i, ccl::float4>(value, attr,
+                                                                mesh);
         }
     } else if (interpolation == HdInterpolationConstant) {
-        if (value.GetArraySize() > 0) {
-            if (num_components == 1) {
-                if (src_type == 0)
-                    ((float*)data)[0] = colorVec1f[0];
-                else if (src_type == 1)
-                    ((float*)data)[0] = (float)colorVec1d[0];
-                else if (src_type == 2)
-                    ((float*)data)[0] = (float)colorVec1i[0];
+        if (value.IsHolding<VtArray<float>>()) {
+            _PopulateAttribte_Constant<float, float>(value, attr);
+        } else if (value.IsHolding<VtArray<double>>()) {
+            _PopulateAttribte_Constant<double, float>(value, attr);
+        } else if (value.IsHolding<VtArray<int>>()) {
+            _PopulateAttribte_Constant<int, float>(value, attr);
+        }
 
-            } else if (num_components == 2) {
-                if (src_type == 0)
-                    ((ccl::float2*)data)[0] = vec2f_to_float2(colorVec2f[0]);
-                else if (src_type == 1)
-                    ((ccl::float2*)data)[0] = vec2d_to_float2(colorVec2d[0]);
-                else if (src_type == 2)
-                    ((ccl::float2*)data)[0] = vec2i_to_float2(colorVec2i[0]);
+        else if (value.IsHolding<VtArray<GfVec2f>>()) {
+            _PopulateAttribte_Constant<GfVec2f, ccl::float2>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
+            _PopulateAttribte_Constant<GfVec2d, ccl::float2>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
+            _PopulateAttribte_Constant<GfVec2i, ccl::float2>(value, attr);
+        }
 
-            } else if (num_components == 3) {
-                if (src_type == 0)
-                    ((ccl::float3*)data)[0] = vec3f_to_float3(colorVec3f[0]);
-                else if (src_type == 1)
-                    ((ccl::float3*)data)[0] = vec3d_to_float3(colorVec3d[0]);
-                else if (src_type == 2)
-                    ((ccl::float3*)data)[0] = vec3i_to_float3(colorVec3i[0]);
+        else if (value.IsHolding<VtArray<GfVec3f>>()) {
+            _PopulateAttribte_Constant<GfVec3f, ccl::float3>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
+            _PopulateAttribte_Constant<GfVec3d, ccl::float3>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
+            _PopulateAttribte_Constant<GfVec3i, ccl::float3>(value, attr);
+        }
 
-            } else if (num_components == 4) {
-                if (src_type == 0)
-                    ((ccl::float4*)data)[0] = vec4f_to_float4(colorVec4f[0]);
-                else if (src_type == 1)
-                    ((ccl::float4*)data)[0] = vec4d_to_float4(colorVec4d[0]);
-                else if (src_type == 2)
-                    ((ccl::float4*)data)[0] = vec4i_to_float4(colorVec4i[0]);
-            }
+        else if (value.IsHolding<VtArray<GfVec4f>>()) {
+            _PopulateAttribte_Constant<GfVec4f, ccl::float4>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
+            _PopulateAttribte_Constant<GfVec4d, ccl::float4>(value, attr);
+        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
+            _PopulateAttribte_Constant<GfVec4i, ccl::float4>(value, attr);
         }
     } else {
         std::cout << "HdCycles WARNING: Interpolation unsupported: "
