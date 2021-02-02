@@ -438,14 +438,9 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
     if (interpolation == HdInterpolationUniform) {
-        // Falling back to using the geometric normal, which is uniform
-        // but not custom. Print a warning here maybe?
+        // Expecting one normal for each polygon
         if (normals.size() != m_faceVertexCounts.size()) {
-            m_cyclesMesh->add_face_normals();        
-
-            for (int i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
-                m_cyclesMesh->smooth[i] = false;
-            }
+            TF_WARN("Unexpected number of uniform normals, skipping.");
             return;
         }
 
@@ -483,12 +478,12 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* fvN     = attr->data_float3();
 
+        // This assumes that the attribute has been triangulated by the caller.
         if (m_cyclesMesh->num_triangles() * 3 != normals.size()) {
-            //printf("Number of normals doesn't match number of faces\n");
+            TF_WARN("Unexpected number of facevarying normals, skipping.");
             return;
         }
 
-        // The attribute has been triangulated in the outer loop
         for (size_t i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
             for (int j = 0; j < 3; ++j) {
                 fvN[i * 3 + j] = vec3f_to_float3(normals[i * 3 + j]);
