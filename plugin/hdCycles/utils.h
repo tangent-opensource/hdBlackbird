@@ -146,59 +146,59 @@ mat4f_to_transform(const GfMatrix4f& mat);
 
 
 template<typename T, typename U>
-U
-to_cycles(const T& vec)
+inline U
+to_cycles(const T& vec) noexcept
 {
 }
 
 template<>
-float
-to_cycles<float, float>(const float& v);
+inline float
+to_cycles<float, float>(const float& v) noexcept;
 template<>
-float
-to_cycles<double, float>(const double& v);
+inline float
+to_cycles<double, float>(const double& v) noexcept;
 template<>
-float
-to_cycles<int, float>(const int& v);
+inline float
+to_cycles<int, float>(const int& v) noexcept;
 
 template<>
-ccl::float2
-to_cycles<GfVec2f, ccl::float2>(const GfVec2f& v);
+inline ccl::float2
+to_cycles<GfVec2f, ccl::float2>(const GfVec2f& v) noexcept;
 template<>
-ccl::float2
-to_cycles<GfVec2h, ccl::float2>(const GfVec2h& v);
+inline ccl::float2
+to_cycles<GfVec2h, ccl::float2>(const GfVec2h& v) noexcept;
 template<>
-ccl::float2
-to_cycles<GfVec2d, ccl::float2>(const GfVec2d& v);
+inline ccl::float2
+to_cycles<GfVec2d, ccl::float2>(const GfVec2d& v) noexcept;
 template<>
-ccl::float2
-to_cycles<GfVec2i, ccl::float2>(const GfVec2i& v);
+inline ccl::float2
+to_cycles<GfVec2i, ccl::float2>(const GfVec2i& v) noexcept;
 
 template<>
-ccl::float3
-to_cycles<GfVec3f, ccl::float3>(const GfVec3f& v);
+inline ccl::float3
+to_cycles<GfVec3f, ccl::float3>(const GfVec3f& v) noexcept;
 template<>
-ccl::float3
-to_cycles<GfVec3h, ccl::float3>(const GfVec3h& v);
+inline ccl::float3
+to_cycles<GfVec3h, ccl::float3>(const GfVec3h& v) noexcept;
 template<>
-ccl::float3
-to_cycles<GfVec3d, ccl::float3>(const GfVec3d& v);
+inline ccl::float3
+to_cycles<GfVec3d, ccl::float3>(const GfVec3d& v) noexcept;
 template<>
-ccl::float3
-to_cycles<GfVec3i, ccl::float3>(const GfVec3i& v);
+inline ccl::float3
+to_cycles<GfVec3i, ccl::float3>(const GfVec3i& v) noexcept;
 
 template<>
-ccl::float4
-to_cycles<GfVec3f, ccl::float4>(const GfVec3f& v);
+inline ccl::float4
+to_cycles<GfVec3f, ccl::float4>(const GfVec3f& v) noexcept;
 template<>
-ccl::float4
-to_cycles<GfVec3h, ccl::float4>(const GfVec3h& v);
+inline ccl::float4
+to_cycles<GfVec3h, ccl::float4>(const GfVec3h& v) noexcept;
 template<>
-ccl::float4
-to_cycles<GfVec3d, ccl::float4>(const GfVec3d& v);
+inline ccl::float4
+to_cycles<GfVec3d, ccl::float4>(const GfVec3d& v) noexcept;
 template<>
-ccl::float4
-to_cycles<GfVec3i, ccl::float4>(const GfVec3i& v);
+inline ccl::float4
+to_cycles<GfVec3i, ccl::float4>(const GfVec3i& v) noexcept;
 
 /**
  * @brief Convert GfVec2i to Cycles int2 representation

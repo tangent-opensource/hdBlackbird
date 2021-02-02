@@ -550,101 +550,101 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
 }
 
 template<>
-float
-to_cycles<float>(const float& v)
+inline float
+to_cycles<float>(const float& v) noexcept
 {
     return v;
 }
 template<>
-float
-to_cycles<double>(const double& v)
+inline float
+to_cycles<double>(const double& v) noexcept
 {
     return static_cast<float>(v);
 }
 template<>
-float
-to_cycles<int>(const int& v)
+inline float
+to_cycles<int>(const int& v) noexcept
 {
     return static_cast<float>(v);
 }
 
 
 template<>
-ccl::float2
-to_cycles<GfVec2f>(const GfVec2f& v)
+inline ccl::float2
+to_cycles<GfVec2f>(const GfVec2f& v) noexcept
 {
     return ccl::make_float2(v[0], v[1]);
 }
 template<>
-ccl::float2
-to_cycles<GfVec2h>(const GfVec2h& v)
+inline ccl::float2
+to_cycles<GfVec2h>(const GfVec2h& v) noexcept
 {
     return ccl::make_float2(static_cast<float>(v[0]), static_cast<float>(v[1]));
 }
 template<>
-ccl::float2
-to_cycles<GfVec2d>(const GfVec2d& v)
+inline ccl::float2
+to_cycles<GfVec2d>(const GfVec2d& v) noexcept
 {
     return ccl::make_float2(static_cast<float>(v[0]), static_cast<float>(v[1]));
 }
 template<>
-ccl::float2
-to_cycles<GfVec2i>(const GfVec2i& v)
+inline ccl::float2
+to_cycles<GfVec2i>(const GfVec2i& v) noexcept
 {
     return ccl::make_float2(static_cast<float>(v[0]), static_cast<float>(v[1]));
 }
 
 template<>
-ccl::float3
-to_cycles<GfVec3f>(const GfVec3f& v)
+inline ccl::float3
+to_cycles<GfVec3f>(const GfVec3f& v) noexcept
 {
     return ccl::make_float3(v[0], v[1], v[2]);
 }
 template<>
-ccl::float3
-to_cycles<GfVec3h>(const GfVec3h& v)
+inline ccl::float3
+to_cycles<GfVec3h>(const GfVec3h& v) noexcept
 {
     return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
                             static_cast<float>(v[2]));
 }
 template<>
-ccl::float3
-to_cycles<GfVec3d>(const GfVec3d& v)
+inline ccl::float3
+to_cycles<GfVec3d>(const GfVec3d& v) noexcept
 {
     return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
                             static_cast<float>(v[2]));
 }
 template<>
-ccl::float3
-to_cycles<GfVec3i>(const GfVec3i& v)
+inline ccl::float3
+to_cycles<GfVec3i>(const GfVec3i& v) noexcept
 {
     return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
                             static_cast<float>(v[2]));
 }
 
 template<>
-ccl::float4
-to_cycles<GfVec4f>(const GfVec4f& v)
+inline ccl::float4
+to_cycles<GfVec4f>(const GfVec4f& v) noexcept
 {
     return ccl::make_float4(v[0], v[1], v[2], v[3]);
 }
 template<>
-ccl::float4
-to_cycles<GfVec4h>(const GfVec4h& v)
+inline ccl::float4
+to_cycles<GfVec4h>(const GfVec4h& v) noexcept
 {
     return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
                             static_cast<float>(v[2]), static_cast<float>(v[3]));
 }
 template<>
-ccl::float4
-to_cycles<GfVec4d>(const GfVec4d& v)
+inline ccl::float4
+to_cycles<GfVec4d>(const GfVec4d& v) noexcept
 {
     return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
                             static_cast<float>(v[2]), static_cast<float>(v[3]));
 }
 template<>
-ccl::float4
-to_cycles<GfVec4i>(const GfVec4i& v)
+inline ccl::float4
+to_cycles<GfVec4i>(const GfVec4i& v) noexcept
 {
     return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
                             static_cast<float>(v[2]), static_cast<float>(v[3]));
