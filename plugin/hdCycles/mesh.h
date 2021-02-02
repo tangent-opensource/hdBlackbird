@@ -302,7 +302,7 @@ protected:
 
     bool m_hasVertexColors;
 
-    ccl::vector<ccl::Shader*> m_usedShaders;
+    ccl::vector<ccl::Shader *> m_usedShaders;
 
 private:
     HdCyclesRenderDelegate* m_renderDelegate;

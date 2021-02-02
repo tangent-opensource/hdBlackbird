@@ -438,23 +438,19 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
     if (interpolation == HdInterpolationUniform) {
-#if 0 // Geometric normal only
-        m_cyclesMesh->add_face_normals();        
+        // Falling back to using the geometric normal, which is uniform
+        // but not custom. Print a warning here maybe?
+        if (normals.size() != m_faceVertexCounts.size()) {
+            m_cyclesMesh->add_face_normals();        
 
-        for (int i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
-            m_cyclesMesh->smooth[i] = false;
+            for (int i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
+                m_cyclesMesh->smooth[i] = false;
+            }
+            return;
         }
-#else // unique face normal
 
         ccl::Attribute* attr_fvN = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* fvN         = attr_fvN->data_float3();
-
-        // here we loop on the polygonal faces because it's not triangulated.
-        // I think there exist a hdmeshutil to triangulate any attribute
-        if (normals.size() != m_faceVertexCounts.size()) {
-            //printf("Expecting one normal for each polygon\n");
-            return;
-        }
 
         int idx = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
@@ -470,7 +466,6 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
                 }
             }
         }
-#endif
     } else if (interpolation == HdInterpolationVertex) {
         ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* cdata   = attr->data_float3();
@@ -1227,8 +1222,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     GetInstancerId()))) {
             auto instanceTransforms = instancer->SampleInstanceTransforms(id);
             auto newNumInstances    = (instanceTransforms.count > 0)
-                                          ? instanceTransforms.values[0].size()
-                                          : 0;
+                                       ? instanceTransforms.values[0].size()
+                                       : 0;
             // Clear all instances...
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
