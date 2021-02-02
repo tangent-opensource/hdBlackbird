@@ -1777,9 +1777,7 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 
     m_shadersUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->shaders.push_back(a_shader);
-    m_cyclesScene->mutex.unlock();
 }
 
 void
