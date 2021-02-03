@@ -418,11 +418,11 @@ convertCyclesNode(HdMaterialNode& usd_node,
                 } else if (params.second.IsHolding<TfToken>()) {
                     val = params.second.Get<TfToken>().GetString().c_str();
                     if (val.length() > 0)
-                        val = pxr::TfMakeValidIdentifier(val);
+                        val = TfMakeValidIdentifier(val);
                 } else if (params.second.IsHolding<std::string>()) {
                     val = std::string(params.second.Get<std::string>().c_str());
                     if (val.length() > 0)
-                        val = pxr::TfMakeValidIdentifier(val);
+                        val = TfMakeValidIdentifier(val);
                 }
 
                 cyclesNode->set(socket, val.c_str());
@@ -539,7 +539,7 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
                         node.path, std::make_pair(&node, cycles_node)));
             }
 
-            for (const pxr::SdfPath& tPath : networkMap.terminals) {
+            for (const SdfPath& tPath : networkMap.terminals) {
                 if (node.path == tPath) {
                     output_node = cycles_node;
 

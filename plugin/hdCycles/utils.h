@@ -564,8 +564,8 @@ template<typename F>
 void
 _CheckForVec2iValue(const VtValue& value, F&& f)
 {
-    if (value.IsHolding<pxr::GfVec2i>()) {
-        f(value.UncheckedGet<pxr::GfVec2i>());
+    if (value.IsHolding<GfVec2i>()) {
+        f(value.UncheckedGet<GfVec2i>());
     }
 }
 
