@@ -220,7 +220,7 @@ HdCyclesMesh::_ComputeTangents(bool needsign)
 }
 
 void
-HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
+HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
                         HdInterpolation interpolation)
 {
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
@@ -241,42 +241,12 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
     need_tangent = true;
 
     ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV, uv_name);
-    ccl::float2* fdata   = attr->data_float2();
 
     if (m_useSubdivision && subdivide_uvs && m_subdivEnabled)
         attr->flags |= ccl::ATTR_SUBDIVIDED;
 
-    if (interpolation == HdInterpolationVertex) {
-        VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
-
-        // TODO: Add support for subd faces?
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
-
-            for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + j + 0);
-                int v2 = *(idxIt + j + 1);
-
-                if (m_orientation == HdTokens->leftHanded) {
-                    int temp = v2;
-                    v2       = v0;
-                    v0       = temp;
-                }
-
-                fdata[0] = vec2f_to_float2(uvs[v0]);
-                fdata[1] = vec2f_to_float2(uvs[v1]);
-                fdata[2] = vec2f_to_float2(uvs[v2]);
-                fdata += 3;
-            }
-            idxIt += vCount;
-        }
-    } else {
-        for (size_t i = 0; i < uvs.size(); i++) {
-            fdata[0] = vec2f_to_float2(uvs[i]);
-            fdata += 1;
-        }
-    }
+    _PopulateAttribute(name, HdPrimvarRoleTokens->textureCoordinate,
+                       interpolation, uvs, attr, this);
 
     if (need_tangent) {
         ccl::ustring sign_name = ccl::ustring(name.GetString()
@@ -357,10 +327,10 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
 }
 
 void
-HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
-                         HdInterpolation interpolation)
+HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
+                         ccl::Scene* scene, HdInterpolation interpolation)
 {
-    if (colors.size() <= 0)
+    if (colors.IsEmpty())
         return;
 
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
@@ -373,62 +343,81 @@ HdCyclesMesh::_AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
     const bool need_vcol = m_cyclesMesh->need_attribute(scene, vcol_name)
                            || m_cyclesMesh->need_attribute(scene, vcol_std);
 
+    // TODO: Maybe we move this to _PopulateAttributes as well?
+    // seems generic enough. Although different types (uv/vel/cols)
+    // require different handling...
+
+    ccl::TypeDesc ctype;
+
+    ccl::AttributeElement celem = ccl::ATTR_ELEMENT_NONE;
+
+    switch (interpolation) {
+    case HdInterpolationConstant: celem = ccl::ATTR_ELEMENT_MESH; break;
+    case HdInterpolationVertex:
+        if (attributes->geometry->type == ccl::Geometry::HAIR) {
+            celem = ccl::ATTR_ELEMENT_CURVE_KEY;
+        } else {
+            celem = ccl::ATTR_ELEMENT_VERTEX;
+        }
+        break;
+    case HdInterpolationVarying:
+    case HdInterpolationFaceVarying: celem = ccl::ATTR_ELEMENT_CORNER; break;
+    case HdInterpolationUniform: celem = ccl::ATTR_ELEMENT_FACE; break;
+    default: break;
+    }
+
+    if (colors.IsHolding<VtArray<float>>()
+        || colors.IsHolding<VtArray<double>>()
+        || colors.IsHolding<VtArray<int>>()
+        || colors.IsHolding<VtArray<bool>>()) {
+        ctype = ccl::TypeDesc::TypeFloat;
+    } else if (colors.IsHolding<VtArray<GfVec2f>>()
+               || colors.IsHolding<VtArray<GfVec2d>>()
+               || colors.IsHolding<VtArray<GfVec2i>>()) {
+        ctype = ccl::TypeFloat2;
+    } else if (colors.IsHolding<VtArray<GfVec3f>>()
+               || colors.IsHolding<VtArray<GfVec3d>>()
+               || colors.IsHolding<VtArray<GfVec3i>>()) {
+        ctype = ccl::TypeDesc::TypeColor;
+
+    } else if (colors.IsHolding<VtArray<GfVec4f>>()
+               || colors.IsHolding<VtArray<GfVec4d>>()
+               || colors.IsHolding<VtArray<GfVec4i>>()) {
+        ctype = ccl::TypeDesc::TypeVector;
+    }
+
     ccl::Attribute* vcol_attr = NULL;
-    vcol_attr                 = attributes->add(vcol_std, vcol_name);
+    vcol_attr                 = attributes->add(vcol_name, ctype, celem);
 
-    ccl::uchar4* cdata = vcol_attr->data_uchar4();
+    _PopulateAttribute(name, HdPrimvarRoleTokens->vector, interpolation, colors,
+                       vcol_attr, this);
 
-    if (interpolation == HdInterpolationVertex) {
-        VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+    if (name == HdTokens->displayColor
+        && interpolation == HdInterpolationConstant) {
+        ccl::float4 displayColor;
 
-        // TODO: Add support for subd faces?
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
+        if (colors.IsHolding<VtArray<float>>()) {
+            displayColor = vec1f_to_float4(
+                colors.UncheckedGet<VtArray<float>>()[0]);
+        } else if (colors.IsHolding<VtArray<GfVec2f>>()) {
+            displayColor = vec2f_to_float4(
+                colors.UncheckedGet<VtArray<GfVec2f>>()[0]);
 
-            for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + j + 0);
-                int v2 = *(idxIt + j + 1);
+        } else if (colors.IsHolding<VtArray<GfVec3f>>()) {
+            displayColor = vec3f_to_float4(
+                colors.UncheckedGet<VtArray<GfVec3f>>()[0]);
 
-                if (m_orientation == HdTokens->leftHanded) {
-                    int temp = v2;
-                    v2       = v0;
-                    v0       = temp;
-                }
-
-                cdata[0] = ccl::color_float4_to_uchar4(
-                    vec3f_to_float4(colors[v0]));
-                cdata[1] = ccl::color_float4_to_uchar4(
-                    vec3f_to_float4(colors[v1]));
-                cdata[2] = ccl::color_float4_to_uchar4(
-                    vec3f_to_float4(colors[v2]));
-                cdata += 3;
-            }
-            idxIt += vCount;
+        } else if (colors.IsHolding<VtArray<GfVec4f>>()) {
+            displayColor = vec4f_to_float4(
+                colors.UncheckedGet<VtArray<GfVec4f>>()[0]);
+        } else {
+            std::cout
+                << "Invalid color size. Only float, vec2, vec3, and vec4 are supported. Found"
+                << colors.GetTypeName() << "\n";
         }
 
-    } else if (interpolation == HdInterpolationVarying
-               || interpolation == HdInterpolationConstant
-               || interpolation == HdInterpolationUniform) {
-        for (size_t i = 0; i < m_numMeshFaces * 3; i++) {
-            GfVec3f pv_col  = colors[0];
-            ccl::float4 col = vec3f_to_float4(pv_col);
-
-            cdata[0] = ccl::color_float4_to_uchar4(col);
-            cdata += 1;
-        }
-    } else if (interpolation == HdInterpolationFaceVarying) {
-        for (size_t i = 0; i < m_numMeshFaces * 3; i++) {
-            int idx = i;
-            if (idx > colors.size())
-                idx = colors.size() - 1;
-
-            GfVec3f pv_col  = colors[idx];
-            ccl::float4 col = vec3f_to_float4(pv_col);
-
-            cdata[0] = ccl::color_float4_to_uchar4(col);
-            cdata += 1;
-        }
+        m_cyclesObject->color = ccl::make_float3(displayColor.x, displayColor.y,
+                                                 displayColor.z);
     }
 }
 
@@ -588,6 +577,8 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
 
     VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
 
+    m_numTriFaces = 0;
+
     if (a_subdivide) {
         bool smooth = true;
         std::vector<int> vi;
@@ -633,6 +624,7 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                         m_cyclesMesh->add_triangle(v0, v2, v1, materialId,
                                                    true);
                     }
+                    m_numTriFaces++;
                 }
             }
             idxIt += vCount;
@@ -821,6 +813,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             { HdInterpolationConstant,
               sceneDelegate->GetPrimvarDescriptors(id,
                                                    HdInterpolationConstant) },
+            { HdInterpolationUniform,
+              sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
+
         };
 
     if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
@@ -1034,14 +1029,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             subd_params.objecttoworld = ccl::transform_identity();
         }
 
-        // Get all uvs (assumes all GfVec2f are uvs)
+        // Ingest mesh primvars (data, not schema)
         for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
             for (auto& pv : primvarDescsEntry.second) {
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     auto value = GetPrimvar(sceneDelegate, pv.name);
                     VtValue triangulated;
 
-                    if (pv.name == HdTokens->normals) {
+                    // - Normals
+
+                    if (pv.name == HdTokens->normals
+                        || pv.role == HdPrimvarRoleTokens->normal) {
                         VtVec3fArray normals;
                         normals = value.UncheckedGet<VtArray<GfVec3f>>();
 
@@ -1058,9 +1056,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         mesh_updated = true;
                     }
 
+                    // - Velocities
+
                     // TODO: Properly implement
-                    VtValue triangulatedVal;
-                    if (pv.name == HdTokens->velocities) {
+                    else if (pv.name == HdTokens->velocities) {
                         if (value.IsHolding<VtArray<GfVec3f>>()) {
                             VtVec3fArray vels;
                             vels = value.UncheckedGet<VtArray<GfVec3f>>();
@@ -1091,49 +1090,26 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         mesh_updated = true;
                     }
 
-                    if (pv.role == HdPrimvarRoleTokens->color) {
-                        m_hasVertexColors = true;
+                    // - Texture Coordinates
 
-                        if (value.IsHolding<VtArray<GfVec3f>>()) {
-                            // Get primvar colors
-                            VtVec3fArray colors;
-                            colors = value.UncheckedGet<VtArray<GfVec3f>>();
+                    else if (pv.role
+                             == HdPrimvarRoleTokens->textureCoordinate) {
+                        _AddUVSet(pv.name, value, scene,
+                                  primvarDescsEntry.first);
 
-                            if (primvarDescsEntry.first
-                                == HdInterpolationFaceVarying) {
-                                // Triangulate primvar colors
-                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                    colors.data(), colors.size(),
-                                    HdTypeFloatVec3, &triangulated);
-                                colors = triangulated.Get<VtVec3fArray>();
-                            }
-
-                            // Add colors to attribute
-                            _AddColors(pv.name, colors, scene,
-                                       primvarDescsEntry.first);
-                        }
                         mesh_updated = true;
                     }
 
-                    // TODO: Add more general uv support
-                    //if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
-                    if (value.IsHolding<VtArray<GfVec2f>>()) {
-                        VtVec2fArray uvs
-                            = value.UncheckedGet<VtArray<GfVec2f>>();
-                        if (primvarDescsEntry.first
-                            == HdInterpolationFaceVarying) {
-                            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                uvs.data(), uvs.size(), HdTypeFloatVec2,
-                                &triangulated);
+                    // - Colors + other data
 
-                            VtVec2fArray triangulatedUvs
-                                = triangulated.Get<VtVec2fArray>();
+                    else {
+                        _AddColors(pv.name, pv.role, value, scene,
+                                   primvarDescsEntry.first);
 
-                            _AddUVSet(pv.name, triangulatedUvs, scene,
-                                      primvarDescsEntry.first);
-                        } else {
-                            _AddUVSet(pv.name, uvs, scene,
-                                      primvarDescsEntry.first);
+                        // This swaps the default_surface to one that uses
+                        // displayColor for diffuse
+                        if (pv.name == HdTokens->displayColor) {
+                            m_hasVertexColors = true;
                         }
                         mesh_updated = true;
                     }

@@ -40,6 +40,9 @@
 
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
+#include <pxr/base/gf/vec2f.h>
+#include <pxr/base/gf/vec3f.h>
+#include <pxr/base/gf/vec4f.h>
 #include <pxr/base/tf/stringUtils.h>
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
@@ -48,11 +51,15 @@
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
 
+#include <iostream>
+
 namespace ccl {
 class Mesh;
 }
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+class HdCyclesMesh;
 
 /* =========- Texture ========== */
 
@@ -137,6 +144,62 @@ mat4d_to_transform(const GfMatrix4d& mat);
 ccl::Transform
 mat4f_to_transform(const GfMatrix4f& mat);
 
+
+template<typename T, typename U>
+inline U
+to_cycles(const T& vec) noexcept
+{
+}
+
+template<>
+inline float
+to_cycles<float, float>(const float& v) noexcept;
+template<>
+inline float
+to_cycles<double, float>(const double& v) noexcept;
+template<>
+inline float
+to_cycles<int, float>(const int& v) noexcept;
+
+template<>
+inline ccl::float2
+to_cycles<GfVec2f, ccl::float2>(const GfVec2f& v) noexcept;
+template<>
+inline ccl::float2
+to_cycles<GfVec2h, ccl::float2>(const GfVec2h& v) noexcept;
+template<>
+inline ccl::float2
+to_cycles<GfVec2d, ccl::float2>(const GfVec2d& v) noexcept;
+template<>
+inline ccl::float2
+to_cycles<GfVec2i, ccl::float2>(const GfVec2i& v) noexcept;
+
+template<>
+inline ccl::float3
+to_cycles<GfVec3f, ccl::float3>(const GfVec3f& v) noexcept;
+template<>
+inline ccl::float3
+to_cycles<GfVec3h, ccl::float3>(const GfVec3h& v) noexcept;
+template<>
+inline ccl::float3
+to_cycles<GfVec3d, ccl::float3>(const GfVec3d& v) noexcept;
+template<>
+inline ccl::float3
+to_cycles<GfVec3i, ccl::float3>(const GfVec3i& v) noexcept;
+
+template<>
+inline ccl::float4
+to_cycles<GfVec3f, ccl::float4>(const GfVec3f& v) noexcept;
+template<>
+inline ccl::float4
+to_cycles<GfVec3h, ccl::float4>(const GfVec3h& v) noexcept;
+template<>
+inline ccl::float4
+to_cycles<GfVec3d, ccl::float4>(const GfVec3d& v) noexcept;
+template<>
+inline ccl::float4
+to_cycles<GfVec3i, ccl::float4>(const GfVec3i& v) noexcept;
+
 /**
  * @brief Convert GfVec2i to Cycles int2 representation
  *
@@ -163,6 +226,24 @@ int2_to_vec2i(const ccl::int2& a_int);
  */
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec);
+
+/**
+ * @brief Convert GfVec2i to Cycles float2 representation
+ *
+ * @param a_vec
+ * @return Cycles float2
+ */
+ccl::float2
+vec2i_to_float2(const GfVec2i& a_vec);
+
+/**
+ * @brief Convert GfVec2d to Cycles float2 representation
+ *
+ * @param a_vec
+ * @return Cycles float2
+ */
+ccl::float2
+vec2d_to_float2(const GfVec2d& a_vec);
 
 /**
  * @brief Convert GfVec3f to Cycles float2 representation
@@ -201,6 +282,24 @@ ccl::float3
 vec3f_to_float3(const GfVec3f& a_vec);
 
 /**
+ * @brief Convert GfVec3i to Cycles float3 representation
+ *
+ * @param a_vec
+ * @return Cycles float3
+ */
+ccl::float3
+vec3i_to_float3(const GfVec3i& a_vec);
+
+/**
+ * @brief Convert GfVec3d to Cycles float3 representation
+ *
+ * @param a_vec
+ * @return Cycles float3
+ */
+ccl::float3
+vec3d_to_float3(const GfVec3d& a_vec);
+
+/**
  * @brief Lossy convert GfVec4f to Cycles float3 representation
  *
  * @param a_vec
@@ -208,6 +307,30 @@ vec3f_to_float3(const GfVec3f& a_vec);
  */
 ccl::float3
 vec4f_to_float3(const GfVec4f& a_vec);
+
+/**
+ * @brief Convert float to Cycles float4
+ * Fills all components with float
+ *
+ * @param a_vec
+ * @param a_alpha
+ * @return Cycles float4
+ */
+ccl::float4
+vec1f_to_float4(const float& a_vec);
+
+/**
+ * @brief Convert GfVec2f to Cycles float4
+ * Z is set to a default of 0
+ * Alpha is set to a default of 1
+ *
+ * @param a_vec
+ * @param a_z
+ * @param a_alpha
+ * @return Cycles float4
+ */
+ccl::float4
+vec2f_to_float4(const GfVec2f& a_vec, float a_z = 0.0f, float a_alpha = 1.0f);
 
 /**
  * @brief Convert GfVec3f to Cycles float4 representation with alpha option
@@ -279,8 +402,112 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
 using HdCyclesSampledPrimvarType
     = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
 
-/* ======== VtValue Utils ========= */
+/* ======= Attribute Utils ======== */
 
+void
+_PopulateAttribute(const TfToken& name, const TfToken& role,
+                   HdInterpolation interpolation, const VtValue& value,
+                   ccl::Attribute* attr, HdCyclesMesh* mesh);
+
+template<typename T, typename U>
+bool
+_PopulateAttribte_Vertex(const VtValue& value, ccl::Attribute* attr)
+{
+    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
+    size_t arr_size     = value.GetArraySize();
+
+    if (arr_size <= 0)
+        return false;
+
+    char* data = attr->data();
+
+    for (int i = 0; i < arr_size; i++)
+        ((U*)data)[i] = to_cycles<T, U>(usd_data[i]);
+
+    return true;
+}
+
+template<typename T, typename U>
+bool
+_PopulateAttribte_Uniform(const VtValue& value, ccl::Attribute* attr,
+                          HdCyclesMesh* mesh)
+{
+    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
+    size_t arr_size     = value.GetArraySize();
+
+    if (arr_size <= 0)
+        return false;
+
+    char* data = attr->data();
+
+    int idx = 0;
+    for (size_t i = 0; i < arr_size; i++)
+        for (size_t j = 0; j < (mesh->GetFaceVertexCounts()[i] - 2); j++, idx++)
+            ((U*)data)[idx] = to_cycles<T, U>(usd_data[i]);
+
+    return true;
+}
+
+template<typename T, typename U>
+bool
+_PopulateAttribte_FaceVarying(const VtValue& value, ccl::Attribute* attr,
+                              HdCyclesMesh* mesh)
+{
+    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
+    size_t arr_size     = value.GetArraySize();
+    size_t data_size    = sizeof(U);
+
+    if (arr_size <= 0)
+        return false;
+
+    char* data = attr->data();
+
+    int count = 0;
+    for (int i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
+        const int vCount = mesh->GetFaceVertexCounts()[i];
+
+        for (int j = 1; j < vCount - 1; ++j) {
+            int v0 = count;
+            int v1 = (count + j + 0);
+            int v2 = (count + j + 1);
+
+            if (mesh->GetOrientation() == HdTokens->leftHanded) {
+                v1 = (count + ((vCount - 1) - j) + 0);
+                v2 = (count + ((vCount - 1) - j) + 1);
+            }
+
+            ((U*)data)[0] = to_cycles<T, U>(usd_data[v0]);
+            ((U*)data)[1] = to_cycles<T, U>(usd_data[v1]);
+            ((U*)data)[2] = to_cycles<T, U>(usd_data[v2]);
+
+            data += 3 * data_size;
+        }
+        count += vCount;
+    }
+
+    return true;
+}
+
+template<typename T, typename U>
+bool
+_PopulateAttribte_Constant(const VtValue& value, ccl::Attribute* attr)
+{
+    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
+    size_t arr_size     = value.GetArraySize();
+    if (arr_size != 1) {
+        std::cout << "Constant attribute, incompatible size: " << arr_size
+                  << '\n';
+        return false;
+    }
+
+    char* data = attr->data();
+
+    ((U*)data)[0] = to_cycles<T, U>(usd_data[0]);
+
+    return true;
+}
+
+/* ======== VtValue Utils ========= */
 
 template<typename F>
 void

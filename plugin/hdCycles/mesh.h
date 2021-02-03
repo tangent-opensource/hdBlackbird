@@ -33,6 +33,7 @@
 #include <pxr/base/gf/vec3i.h>
 #include <pxr/imaging/hd/enums.h>
 #include <pxr/imaging/hd/mesh.h>
+#include <pxr/imaging/hd/meshUtil.h>
 #include <pxr/imaging/hd/vertexAdjacency.h>
 #include <pxr/pxr.h>
 
@@ -128,7 +129,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
+    void _AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
                    HdInterpolation interpolation);
 
     /**
@@ -150,14 +151,15 @@ protected:
 
     /**
      * @brief Add vertex/primitive colors
+     * TODO: This handles more than just colors, we should probably refactor
      * 
      * @param name 
      * @param colors 
      * @param scene 
      * @param interpolation 
      */
-    void _AddColors(TfToken name, VtVec3fArray& colors, ccl::Scene* scene,
-                    HdInterpolation interpolation);
+    void _AddColors(TfToken name, TfToken role, VtValue colors,
+                    ccl::Scene* scene, HdInterpolation interpolation);
 
 protected:
     struct PrimvarSource {
@@ -263,6 +265,8 @@ protected:
     int m_numNgons;
     int m_numCorners;
 
+    int m_numTriFaces;
+
     Hd_VertexAdjacency m_adjacency;
     bool m_adjacencyValid = false;
 
@@ -302,7 +306,12 @@ protected:
 
     bool m_hasVertexColors;
 
-    ccl::vector<ccl::Shader *> m_usedShaders;
+    ccl::vector<ccl::Shader*> m_usedShaders;
+
+public:
+    const VtIntArray& GetFaceVertexCounts() { return m_faceVertexCounts; }
+    const VtIntArray& GetFaceVertexIndices() { return m_faceVertexIndices; }
+    const TfToken& GetOrientation() { return m_orientation; }
 
 private:
     HdCyclesRenderDelegate* m_renderDelegate;
