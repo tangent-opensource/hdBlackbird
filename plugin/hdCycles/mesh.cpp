@@ -226,7 +226,7 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtVec2fArray& uvs, ccl::Scene* scene,
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
-    bool subdivide_uvs = false;
+    bool subdivide_uvs            = false;
 
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
@@ -447,16 +447,16 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         ccl::Attribute* attr_fvN = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* fvN         = attr_fvN->data_float3();
 
+        const float scale = (m_orientation == HdTokens->leftHanded) ? -1.f
+                                                                    : 1.f;
+
         int idx = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
-            ccl::float3 fNi = vec3f_to_float3(normals[i]);
-            if (m_orientation == HdTokens->leftHanded) {
-                fNi = -fNi;
-            }
+            const int vCount      = m_faceVertexCounts[i];
+            const ccl::float3 fNi = vec3f_to_float3(normals[i]) * scale;
 
-            for (int j = 1; j < vCount - 1; ++j) { // for each triangle
-                for (int k = 0; k < 3; ++k) { // for each corner
+            for (int j = 1; j < vCount - 1; ++j) {  // for each triangle
+                for (int k = 0; k < 3; ++k) {       // for each corner
                     fvN[idx++] = fNi;
                 }
             }
@@ -484,13 +484,11 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
             return;
         }
 
+        const float scale = (m_orientation == HdTokens->leftHanded) ? -1.f
+                                                                    : 1.f;
         for (size_t i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
             for (int j = 0; j < 3; ++j) {
-                fvN[i * 3 + j] = vec3f_to_float3(normals[i * 3 + j]);
-
-                if (m_orientation == HdTokens->leftHanded) {
-                    fvN[i * 3 + j] = -fvN[i * 3 + j];
-                }
+                fvN[i * 3 + j] = vec3f_to_float3(normals[i * 3 + j]) * scale;
             }
         }
     }
@@ -1217,8 +1215,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     GetInstancerId()))) {
             auto instanceTransforms = instancer->SampleInstanceTransforms(id);
             auto newNumInstances    = (instanceTransforms.count > 0)
-                                       ? instanceTransforms.values[0].size()
-                                       : 0;
+                                          ? instanceTransforms.values[0].size()
+                                          : 0;
             // Clear all instances...
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
