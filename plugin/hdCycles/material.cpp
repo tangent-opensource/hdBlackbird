@@ -19,6 +19,7 @@
 
 #include "material.h"
 
+#include "config.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
 #include "utils.h"
@@ -116,7 +117,7 @@ IsValidCyclesIdentifier(const std::string& identifier)
 
     // DEPRECATED:
     // Only needed for retroactive support of pre 0.8.0 cycles shaders
-    isvalid += identifier.rfind("cycles:") == 0;
+    isvalid += (bool)(identifier.rfind("cycles:") == 0);
 
     return isvalid;
 }
@@ -354,13 +355,11 @@ convertCyclesNode(HdMaterialNode& usd_node,
             switch (socket.type) {
             case ccl::SocketType::INT: {
                 cyclesNode->set(socket, params.second.Get<int>());
-                break;
-            }
+            } break;
 
             case ccl::SocketType::FLOAT: {
                 cyclesNode->set(socket, params.second.Get<float>());
-                break;
-            }
+            } break;
 
             case ccl::SocketType::FLOAT_ARRAY: {
                 if (params.second.IsHolding<VtFloatArray>()) {
@@ -372,8 +371,7 @@ convertCyclesNode(HdMaterialNode& usd_node,
                     }
                     cyclesNode->set(socket, val);
                 }
-                break;
-            }
+            } break;
 
             case ccl::SocketType::ENUM: {
                 if (params.second.IsHolding<int>()) {
@@ -384,6 +382,12 @@ convertCyclesNode(HdMaterialNode& usd_node,
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket,
                                     params.second.Get<std::string>().c_str());
+                } else if (params.second.IsHolding<TfToken>()) {
+                    // Arguably all enums should be strings, but at one point
+                    // our houdini material nodes output them as tokens so this
+                    // is more for backwards compat.
+                    cyclesNode->set(socket,
+                                    params.second.Get<TfToken>().GetText());
                 }
             } break;
 
@@ -414,11 +418,11 @@ convertCyclesNode(HdMaterialNode& usd_node,
                 } else if (params.second.IsHolding<TfToken>()) {
                     val = params.second.Get<TfToken>().GetString().c_str();
                     if (val.length() > 0)
-                        val = pxr::TfMakeValidIdentifier(val);
+                        val = TfMakeValidIdentifier(val);
                 } else if (params.second.IsHolding<std::string>()) {
                     val = std::string(params.second.Get<std::string>().c_str());
                     if (val.length() > 0)
-                        val = pxr::TfMakeValidIdentifier(val);
+                        val = TfMakeValidIdentifier(val);
                 }
 
                 cyclesNode->set(socket, val.c_str());
@@ -458,6 +462,12 @@ convertCyclesNode(HdMaterialNode& usd_node,
                     }
                     cyclesNode->set(socket, val);
                 }
+            } break;
+
+            default: {
+                std::cout << "HdCycles unsupported socket type. Node: "
+                          << node_id << " - Socket: " << socket.name.string()
+                          << " - Type: " << socket.type << '\n';
             } break;
             }
         }
@@ -529,7 +539,7 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
                         node.path, std::make_pair(&node, cycles_node)));
             }
 
-            for (const pxr::SdfPath& tPath : networkMap.terminals) {
+            for (const SdfPath& tPath : networkMap.terminals) {
                 if (node.path == tPath) {
                     output_node = cycles_node;
 
@@ -794,6 +804,8 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
         m_shader->tag_update(param->GetCyclesScene());
         m_shader->tag_used(param->GetCyclesScene());
         param->Interrupt();
+
+        _DumpGraph(m_shaderGraph, m_shader->name.c_str());
     }
 
     param->GetCyclesScene()->mutex.unlock();

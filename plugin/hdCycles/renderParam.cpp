@@ -105,6 +105,13 @@ HdCyclesRenderParam::_InitializeDefaults()
     m_useSquareSamples                  = config.use_square_samples.value;
     m_useTiledRendering                 = config.use_tiled_rendering;
 
+    m_upAxis = UpAxis::Z;
+    if (config.up_axis == "Z") {
+        m_upAxis = UpAxis::Z;
+    } else if (config.up_axis == "Y") {
+        m_upAxis = UpAxis::Y;
+    }
+
 #ifdef WITH_CYCLES_LOGGING
     if (config.cycles_enable_logging) {
         ccl::util_logging_start();

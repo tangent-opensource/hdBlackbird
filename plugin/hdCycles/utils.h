@@ -40,6 +40,10 @@
 
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
+#include <pxr/base/gf/vec2f.h>
+#include <pxr/base/gf/vec3f.h>
+#include <pxr/base/gf/vec4f.h>
+#include <pxr/base/tf/stringUtils.h>
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/mesh.h>
@@ -47,11 +51,15 @@
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
 
+#include <iostream>
+
 namespace ccl {
 class Mesh;
 }
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+class HdCyclesMesh;
 
 /* =========- Texture ========== */
 
@@ -80,6 +88,17 @@ HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
 
 ccl::Shader*
 HdCyclesCreateDefaultShader();
+
+
+/**
+ * @brief Helper function to dump shader graph if 
+ * CYCLES_DUMP_SHADER_GRAPH_DIR environment variable
+ * is set.
+ * 
+ * @return true if dumped
+ */
+bool
+_DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name);
 
 /* ========= Conversion ========= */
 
@@ -125,6 +144,62 @@ mat4d_to_transform(const GfMatrix4d& mat);
 ccl::Transform
 mat4f_to_transform(const GfMatrix4f& mat);
 
+
+template<typename T, typename U>
+inline U
+to_cycles(const T& vec) noexcept
+{
+}
+
+template<>
+inline float
+to_cycles<float, float>(const float& v) noexcept;
+template<>
+inline float
+to_cycles<double, float>(const double& v) noexcept;
+template<>
+inline float
+to_cycles<int, float>(const int& v) noexcept;
+
+template<>
+inline ccl::float2
+to_cycles<GfVec2f, ccl::float2>(const GfVec2f& v) noexcept;
+template<>
+inline ccl::float2
+to_cycles<GfVec2h, ccl::float2>(const GfVec2h& v) noexcept;
+template<>
+inline ccl::float2
+to_cycles<GfVec2d, ccl::float2>(const GfVec2d& v) noexcept;
+template<>
+inline ccl::float2
+to_cycles<GfVec2i, ccl::float2>(const GfVec2i& v) noexcept;
+
+template<>
+inline ccl::float3
+to_cycles<GfVec3f, ccl::float3>(const GfVec3f& v) noexcept;
+template<>
+inline ccl::float3
+to_cycles<GfVec3h, ccl::float3>(const GfVec3h& v) noexcept;
+template<>
+inline ccl::float3
+to_cycles<GfVec3d, ccl::float3>(const GfVec3d& v) noexcept;
+template<>
+inline ccl::float3
+to_cycles<GfVec3i, ccl::float3>(const GfVec3i& v) noexcept;
+
+template<>
+inline ccl::float4
+to_cycles<GfVec3f, ccl::float4>(const GfVec3f& v) noexcept;
+template<>
+inline ccl::float4
+to_cycles<GfVec3h, ccl::float4>(const GfVec3h& v) noexcept;
+template<>
+inline ccl::float4
+to_cycles<GfVec3d, ccl::float4>(const GfVec3d& v) noexcept;
+template<>
+inline ccl::float4
+to_cycles<GfVec3i, ccl::float4>(const GfVec3i& v) noexcept;
+
 /**
  * @brief Convert GfVec2i to Cycles int2 representation
  *
@@ -151,6 +226,24 @@ int2_to_vec2i(const ccl::int2& a_int);
  */
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec);
+
+/**
+ * @brief Convert GfVec2i to Cycles float2 representation
+ *
+ * @param a_vec
+ * @return Cycles float2
+ */
+ccl::float2
+vec2i_to_float2(const GfVec2i& a_vec);
+
+/**
+ * @brief Convert GfVec2d to Cycles float2 representation
+ *
+ * @param a_vec
+ * @return Cycles float2
+ */
+ccl::float2
+vec2d_to_float2(const GfVec2d& a_vec);
 
 /**
  * @brief Convert GfVec3f to Cycles float2 representation
@@ -189,6 +282,24 @@ ccl::float3
 vec3f_to_float3(const GfVec3f& a_vec);
 
 /**
+ * @brief Convert GfVec3i to Cycles float3 representation
+ *
+ * @param a_vec
+ * @return Cycles float3
+ */
+ccl::float3
+vec3i_to_float3(const GfVec3i& a_vec);
+
+/**
+ * @brief Convert GfVec3d to Cycles float3 representation
+ *
+ * @param a_vec
+ * @return Cycles float3
+ */
+ccl::float3
+vec3d_to_float3(const GfVec3d& a_vec);
+
+/**
  * @brief Lossy convert GfVec4f to Cycles float3 representation
  *
  * @param a_vec
@@ -196,6 +307,30 @@ vec3f_to_float3(const GfVec3f& a_vec);
  */
 ccl::float3
 vec4f_to_float3(const GfVec4f& a_vec);
+
+/**
+ * @brief Convert float to Cycles float4
+ * Fills all components with float
+ *
+ * @param a_vec
+ * @param a_alpha
+ * @return Cycles float4
+ */
+ccl::float4
+vec1f_to_float4(const float& a_vec);
+
+/**
+ * @brief Convert GfVec2f to Cycles float4
+ * Z is set to a default of 0
+ * Alpha is set to a default of 1
+ *
+ * @param a_vec
+ * @param a_z
+ * @param a_alpha
+ * @return Cycles float4
+ */
+ccl::float4
+vec2f_to_float4(const GfVec2f& a_vec, float a_z = 0.0f, float a_alpha = 1.0f);
 
 /**
  * @brief Convert GfVec3f to Cycles float4 representation with alpha option
@@ -267,8 +402,14 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
 using HdCyclesSampledPrimvarType
     = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
 
-/* ======== VtValue Utils ========= */
+/* ======= Attribute Utils ======== */
 
+void
+_PopulateAttribute(const TfToken& name, const TfToken& role,
+                   HdInterpolation interpolation, const VtValue& value,
+                   ccl::Attribute* attr, HdCyclesMesh* mesh);
+
+/* ======== VtValue Utils ========= */
 
 template<typename F>
 void
@@ -325,8 +466,8 @@ template<typename F>
 void
 _CheckForVec2iValue(const VtValue& value, F&& f)
 {
-    if (value.IsHolding<pxr::GfVec2i>()) {
-        f(value.UncheckedGet<pxr::GfVec2i>());
+    if (value.IsHolding<GfVec2i>()) {
+        f(value.UncheckedGet<GfVec2i>());
     }
 }
 

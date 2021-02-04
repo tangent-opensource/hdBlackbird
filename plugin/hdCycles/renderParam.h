@@ -155,6 +155,12 @@ protected:
     void _UpdateRenderTile(ccl::RenderTile& rtile, bool highlight);
 
 public:
+    // Up Axis. Z and Y currently supported.
+    enum UpAxis : uint8_t {
+        Z = 0,
+        Y = 1,
+    };
+
     /**
      * @brief Cycles general reset
      * 
@@ -385,6 +391,8 @@ private:
 
     bool m_useSquareSamples;
 
+    UpAxis m_upAxis;
+
 public:
     const bool& IsTiledRender() const { return m_useTiledRendering; }
 
@@ -411,6 +419,12 @@ public:
     ccl::Shader* default_vcol_surface;
 
     VtDictionary GetRenderStats() const;
+
+    /**
+     * @brief Get the up-axis that is set.
+     * 
+     */
+    UpAxis GetUpAxis() const { return m_upAxis; }
 
 private:
     ccl::Session* m_cyclesSession;
