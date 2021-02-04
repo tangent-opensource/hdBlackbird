@@ -681,6 +681,133 @@ HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
     _PopulateGenerated(scene);
 }
 
+#include <pxr/imaging/pxOsd/refinerFactory.h>
+#include <opensubdiv/far/stencilTableFactory.h>
+#include <opensubdiv/far/patchTableFactory.h>
+
+void HdCyclesMeshRefiner::_InitializeNormal(const HdMeshTopology& topology, int refine_level) {
+    if(RequiresFlipping()) {
+        size_t num_faces = topology.GetFaceVertexCounts().size();
+        size_t num_face_vertices = topology.GetFaceVertexIndices().size();
+
+        VtIntArray face_vertex_count(num_faces);
+        VtIntArray face_vertex_indices(num_face_vertices);
+
+        for (int face{}, offset{}; face < num_faces; ++face) {
+            size_t num_vertices = topology.GetFaceVertexCounts()[face];
+            face_vertex_count[face] = num_vertices;
+
+            for (size_t vertex = 0; vertex < num_vertices; ++vertex) {
+                size_t idx  = offset + vertex;
+                size_t ridx = offset + (num_vertices - vertex);
+
+                if (vertex == 0)
+                    face_vertex_indices[idx] = topology.GetFaceVertexIndices()[idx];
+                else
+                    face_vertex_indices[idx] = topology.GetFaceVertexIndices()[ridx];
+            }
+            offset += num_vertices;
+        }
+
+        m_topology = HdMeshTopology{
+            topology.GetScheme(),
+            HdTokens->rightHanded,
+            face_vertex_count,
+            face_vertex_indices
+        };
+    } else {
+        m_topology = topology; // pass through
+    }
+}
+
+void HdCyclesMeshRefiner::_InitializeSubdivided(const HdMeshTopology& topology, int refine_level) {
+    HD_TRACE_FUNCTION();
+
+    using namespace OpenSubdiv;
+
+    // passing topology through refiner converts cw to ccw
+    PxOsdTopologyRefinerSharedPtr refiner;
+    {
+        HD_TRACE_SCOPE("create refiner")
+
+        refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology());
+        Far::TopologyRefiner::UniformOptions refiner_options { refine_level };
+        refiner->RefineUniform(refiner_options);
+    }
+
+    // stencils required for primvar refinement
+    {
+        HD_TRACE_SCOPE("create stencil table")
+
+        Far::StencilTableFactory::Options options;
+        options.generateIntermediateLevels = false;
+        options.generateOffsets            = true;
+
+        options.interpolationMode          = Far::StencilTableFactory::INTERPOLATE_VERTEX;
+        m_vertex_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
+
+        options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
+        m_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
+    }
+
+    // patches for face and materials lookup
+    {
+        HD_TRACE_SCOPE("create patch table")
+
+        // by default Far will not generate patches for all levels, triangulate quads option works for uniform subdivision only
+        Far::PatchTableFactory::Options options(refine_level);
+        options.triangulateQuads = true; // !! Works only for uniform
+        m_patch_table = PatchTablePtr{Far::PatchTableFactory::Create(*refiner, options)};
+    }
+
+    // populate topology
+    size_t num_patches = m_patch_table->GetNumPatchesTotal();
+    size_t num_vertices = m_patch_table->GetNumControlVerticesTotal();
+
+    VtIntArray face_vertex_count(num_patches);
+    VtIntArray face_vertex_indices(num_vertices);
+
+    const Far::PatchTable::PatchVertsTable& patch_vertices =  m_patch_table->GetPatchControlVerticesTable();
+    Far::PatchDescriptor patch_desc = m_patch_table->GetPatchArrayDescriptor(0);
+    int patch_num_vertices = patch_desc.GetNumControlVertices();
+
+    assert(patch_num_vertices * num_patches == patch_vertices.size());
+
+    // memset, memcpy ?
+    for(size_t patch{}; patch < num_patches; ++patch) {
+        face_vertex_count[patch] = patch_num_vertices;
+    }
+    for(size_t vertex{}; vertex < num_vertices; ++vertex) {
+        face_vertex_indices[vertex] = patch_vertices[vertex];
+    }
+
+    m_topology = HdMeshTopology{
+        topology.GetScheme(),
+        HdTokens->rightHanded,
+        face_vertex_count,
+        face_vertex_indices
+    };
+}
+
+HdCyclesMeshRefiner::HdCyclesMeshRefiner(const HdMeshTopology& topology, int refine_level)
+    : m_ccw_flipping {topology.GetOrientation() == HdTokens->leftHanded}
+    , m_topology {topology}
+    , m_refine_level{refine_level} {
+
+    if(refine_level > 0) {
+        _InitializeSubdivided(topology, refine_level);
+
+        auto& vertex_count = topology.GetFaceVertexCounts();
+        m_num_triangles = vertex_count.empty() ? 0 : vertex_count[0] * topology.GetNumFaces();
+    } else {
+        _InitializeNormal(topology, refine_level);
+
+        for (auto& i : GetTopology().GetFaceVertexCounts()) {
+            m_num_triangles += i - 2;
+        }
+    }
+}
+
 void
 HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                    HdDirtyBits* dirtyBits, TfToken const& reprToken)
@@ -756,34 +883,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_geomSubsets       = m_topology.GetGeomSubsets();
         m_orientation       = m_topology.GetOrientation();
 
-        // TODO: We still dont handle leftHanded primvars properly.
-        // However this helps faces be aligned the correct way...
-        if (m_orientation == HdTokens->leftHanded) {
-            VtIntArray newIndices;
-            newIndices.resize(m_faceVertexIndices.size());
-            int tot = 0;
-            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-                int count = m_faceVertexCounts[i];
-
-                for (int j = 0; j < count; j++) {
-                    int idx  = tot + j;
-                    int ridx = tot + (count - j);
-
-                    if (j == 0)
-                        newIndices[idx] = m_faceVertexIndices[idx];
-                    else
-                        newIndices[idx] = m_faceVertexIndices[ridx];
-                }
-
-                tot += count;
-            }
-            m_faceVertexIndices = newIndices;
-        }
-
-        m_numMeshFaces = 0;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            m_numMeshFaces += m_faceVertexCounts[i] - 2;
-        }
+        m_numMeshFaces = mesh_refiner.GetNumTriangles();
 
         m_numNgons   = 0;
         m_numCorners = 0;
