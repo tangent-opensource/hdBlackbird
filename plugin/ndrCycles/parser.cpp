@@ -74,6 +74,18 @@ NdrNodeUniquePtr
 NdrCyclesParserPlugin::Parse(const NdrNodeDiscoveryResult& discoveryResult)
 {
     NdrPropertyUniquePtrVec properties;
+#if PXR_MINOR_VERSION >= 20 && PXR_PATCH_VERSION >= 5
+    return NdrNodeUniquePtr(
+        new SdrShaderNode(discoveryResult.identifier,     // identifier
+                            discoveryResult.version,        // version
+                            discoveryResult.name,           // name
+                            discoveryResult.family,         // family
+                            discoveryResult.discoveryType,  // context
+                            discoveryResult.sourceType,     // sourceType
+                            discoveryResult.uri,            // uri
+                            discoveryResult.uri,            // resolvedUri
+                            std::move(properties)));
+#else
     return NdrNodeUniquePtr(
         new SdrShaderNode(discoveryResult.identifier,     // identifier
                           discoveryResult.version,        // version
@@ -82,11 +94,8 @@ NdrCyclesParserPlugin::Parse(const NdrNodeDiscoveryResult& discoveryResult)
                           discoveryResult.discoveryType,  // context
                           discoveryResult.sourceType,     // sourceType
                           discoveryResult.uri,            // uri
-// TODO: Enable this when we move to 20.05
-#ifdef USD_HAS_NEW_SDR_NODE_CONSTRUCTOR
-                          discoveryResult.uri,  // resolvedUri
-#endif
                           std::move(properties)));
+#endif
 }
 
 const NdrTokenVec&
