@@ -69,7 +69,6 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
                            HdCyclesRenderDelegate* a_renderDelegate)
     : HdMesh(id, instancerId)
-    , m_renderDelegate(a_renderDelegate)
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
     , m_hasVertexColors(false)
@@ -83,6 +82,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_velocityScale(1.0f)
     , m_useMotionBlur(false)
     , m_useDeformMotionBlur(false)
+    , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_subdivision.eval(m_subdivEnabled, true);
@@ -169,7 +169,7 @@ HdCyclesMesh::GetPrimvarData(TfToken const& name,
                     out_data = value.UncheckedGet<VtArray<T>>();
                     if (primvarDescsEntry.first == HdInterpolationFaceVarying) {
                         out_indices.reserve(m_faceVertexIndices.size());
-                        for (int i = 0; i < m_faceVertexIndices.size(); ++i) {
+                        for (size_t i = 0; i < m_faceVertexIndices.size(); ++i) {
                             out_indices.push_back(i);
                         }
                     }
@@ -431,7 +431,7 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         ccl::float3* fN         = attr_fN->data_float3();
 
         int idx = 0;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+        for (size_t i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
 
             // This needs to be checked
@@ -519,7 +519,7 @@ void
 HdCyclesMesh::_PopulateVertices()
 {
     m_cyclesMesh->verts.reserve(m_numMeshVerts);
-    for (int i = 0; i < m_points.size(); i++) {
+    for (size_t i = 0; i < m_points.size(); i++) {
         m_cyclesMesh->verts.push_back_reserved(vec3f_to_float3(m_points[i]));
     }
 }
@@ -582,7 +582,7 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
     if (a_subdivide) {
         bool smooth = true;
         std::vector<int> vi;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+        for (size_t i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
             int materialId   = 0;
 
@@ -603,7 +603,7 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
             m_cyclesMesh->add_subd_face(&vi[0], vCount, materialId, true);
         }
     } else {
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+        for (size_t i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
             int materialId   = 0;
 
@@ -640,7 +640,7 @@ HdCyclesMesh::_PopulateCreases()
     m_cyclesMesh->subd_creases.resize(num_creases);
 
     ccl::Mesh::SubdEdgeCrease* crease = m_cyclesMesh->subd_creases.data();
-    for (int i = 0; i < num_creases; i++) {
+    for (size_t i = 0; i < num_creases; i++) {
         crease->v[0]   = m_creaseIndices[(i * 2) + 0];
         crease->v[1]   = m_creaseIndices[(i * 2) + 1];
         crease->crease = m_creaseWeights[i];
@@ -662,7 +662,7 @@ HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
         ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
 
         ccl::float3* generated = attr->data_float3();
-        for (int i = 0; i < m_cyclesMesh->verts.size(); i++) {
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
             generated[i] = m_cyclesMesh->verts[i] * size - loc;
         }
     }
@@ -762,7 +762,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             VtIntArray newIndices;
             newIndices.resize(m_faceVertexIndices.size());
             int tot = 0;
-            for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+            for (size_t i = 0; i < m_faceVertexCounts.size(); i++) {
                 int count = m_faceVertexCounts[i];
 
                 for (int j = 0; j < count; j++) {
@@ -781,14 +781,14 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         m_numMeshFaces = 0;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+        for (size_t i = 0; i < m_faceVertexCounts.size(); i++) {
             m_numMeshFaces += m_faceVertexCounts[i] - 2;
         }
 
         m_numNgons   = 0;
         m_numCorners = 0;
 
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
+        for (size_t i = 0; i < m_faceVertexCounts.size(); i++) {
             // TODO: This seems wrong, but works for now
             m_numNgons += 1;  // (m_faceVertexCounts[i] == 4) ? 0 : 1;
             m_numCorners += m_faceVertexCounts[i];
@@ -1231,7 +1231,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     }
                 }
 
-                for (int j = 0; j < newNumInstances; ++j) {
+                for (size_t j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = _CreateCyclesObject();
 
                     instanceObj->tfm = mat4d_to_transform(

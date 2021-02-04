@@ -85,7 +85,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         m_viewMtx = viewMtx;
 
         const float fov_rad = atan(1.0f / m_projMtx[1][1]) * 2.0f;
-        const float fov_deg = fov_rad / M_PI * 180.0f;
         hdCam->SetFOV(fov_rad);
 
         //hdCam->SetTransform(m_projMtx);
@@ -116,8 +115,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     const auto height    = static_cast<int>(vp[3]);
     const auto numPixels = static_cast<size_t>(width * height);
 
-    bool resized = false;
-
     if (width != m_width || height != m_height) {
         const auto oldNumPixels = static_cast<size_t>(m_width * m_height);
         m_width                 = width;
@@ -135,10 +132,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         }
 
         renderParam->Interrupt();
-
-        if (numPixels != oldNumPixels) {
-            resized = true;
-        }
     }
 
     if (renderParam->IsTiledRender())

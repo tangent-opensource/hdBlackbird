@@ -172,7 +172,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     delegate->SampleTransform(id, &xf);
 
-    int sampleCount = xf.count;
+    size_t sampleCount = xf.count;
 
     if (sampleCount == 0) {
         object->tfm = ccl::transform_identity();
@@ -181,7 +181,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     if (sampleCount > 1) {
         bool foundCenter = false;
-        for (int i = 0; i < sampleCount; i++) {
+        for (size_t i = 0; i < sampleCount; i++) {
             if (xf.times.data()[i] == 0.0f) {
                 object->tfm = mat4d_to_transform(xf.values.data()[i]);
                 foundCenter = true;
@@ -220,7 +220,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
         object->motion.resize(sampleCount, ccl::transform_empty());
 
-        for (int i = 0; i < sampleCount; i++) {
+        for (size_t i = 0; i < sampleCount; i++) {
             if (xf.times.data()[i] == 0.0f) {
                 object->tfm = mat4d_to_transform(xf.values.data()[i]);
             }
@@ -663,7 +663,7 @@ _PopulateAttribte_Vertex(const VtValue& value, ccl::Attribute* attr)
 
     char* data = attr->data();
 
-    for (int i = 0; i < arr_size; i++)
+    for (size_t i = 0; i < arr_size; i++)
         ((U*)data)[i] = to_cycles<T, U>(usd_data[i]);
 
     return true;
@@ -684,7 +684,7 @@ _PopulateAttribte_Uniform(const VtValue& value, ccl::Attribute* attr,
 
     int idx = 0;
     for (size_t i = 0; i < arr_size; i++)
-        for (size_t j = 0; j < (mesh->GetFaceVertexCounts()[i] - 2); j++, idx++)
+        for (int j = 0; j < (mesh->GetFaceVertexCounts()[i] - 2); j++, idx++)
             ((U*)data)[idx] = to_cycles<T, U>(usd_data[i]);
 
     return true;
@@ -705,7 +705,7 @@ _PopulateAttribte_FaceVarying(const VtValue& value, ccl::Attribute* attr,
     char* data = attr->data();
 
     int count = 0;
-    for (int i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
+    for (size_t i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
         const int vCount = mesh->GetFaceVertexCounts()[i];
 
         for (int j = 1; j < vCount - 1; ++j) {
