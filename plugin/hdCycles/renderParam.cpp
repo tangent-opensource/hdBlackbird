@@ -676,6 +676,7 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
     }*/
 
     config.enable_motion_blur.eval(integrator->motion_blur, a_forceInit);
+    integrator->motion_blur = true;
     printf("HDCYCLES Enable motion blur %d\n", (int)integrator->motion_blur);
 
     integrator->tag_update(m_cyclesScene);

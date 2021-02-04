@@ -148,6 +148,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
     delegate->SampleTransform(id, &xf);
 
     int sampleCount = xf.count;
+    printf("Sample count transforms %d\n", sampleCount);
 
     if (sampleCount == 0) {
         object->tfm = ccl::transform_identity();
