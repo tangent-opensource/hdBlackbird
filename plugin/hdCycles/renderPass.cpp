@@ -88,12 +88,11 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         const float fov_deg = fov_rad / M_PI * 180.0f;
         hdCam->SetFOV(fov_rad);
 
-        //hdCam->SetTransform(m_projMtx);
-
-        shouldUpdate += true;
+        shouldUpdate = true;
     }
 
-    shouldUpdate += hdCam->IsDirty();
+    if(!shouldUpdate)
+        shouldUpdate = hdCam->IsDirty();
 
     if (shouldUpdate) {
         hdCam->ApplyCameraSettings(active_camera);
@@ -109,7 +108,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
         active_camera->tag_update();
 
-        renderParam->Interrupt();
+        // DirectReset here instead of Interrupt for faster IPR camera orbits
+        renderParam->DirectReset();
     }
 
     const auto width     = static_cast<int>(vp[2]);
@@ -141,6 +141,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         }
     }
 
+    // Tiled renders early out because we do the blitting on render tile callback
     if (renderParam->IsTiledRender())
         return;
 
@@ -149,7 +150,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
     if (!renderParam->GetCyclesScene())
         return;
-
 
     ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
 
