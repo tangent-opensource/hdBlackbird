@@ -221,7 +221,8 @@ HdCyclesMesh::_ComputeTangents(bool needsign)
 
 void
 HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
-                        HdInterpolation interpolation)
+                        HdInterpolation interpolation, bool& need_tangent,
+                        bool& need_sign)
 {
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
                                         ? &m_cyclesMesh->subd_attributes
@@ -231,11 +232,12 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
 
+    // unused for now?
     bool need_uv = m_cyclesMesh->need_attribute(scene, uv_name)
                    || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV);
-    bool need_tangent
-        = m_cyclesMesh->need_attribute(scene, tangent_name)
-          || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+    need_tangent = m_cyclesMesh->need_attribute(scene, tangent_name)
+                   || m_cyclesMesh->need_attribute(scene,
+                                                   ccl::ATTR_STD_UV_TANGENT);
 
     // Forced true for now... Should be based on shader compilation needs
     need_tangent = true;
@@ -251,16 +253,13 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
     if (need_tangent) {
         ccl::ustring sign_name = ccl::ustring(name.GetString()
                                               + ".tangent_sign");
-        bool need_sign
+        need_sign
             = m_cyclesMesh->need_attribute(scene, sign_name)
               || m_cyclesMesh->need_attribute(scene,
                                               ccl::ATTR_STD_UV_TANGENT_SIGN);
 
-
         // Forced for now
         need_sign = true;
-        mikk_compute_tangents(name.GetString().c_str(), m_cyclesMesh, need_sign,
-                              true);
     }
 }
 
@@ -1029,6 +1028,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             subd_params.objecttoworld = ccl::transform_identity();
         }
 
+        bool need_tangent, need_sign;
+        std::string uv_name;  // can we get rid of this?
+
         // Ingest mesh primvars (data, not schema)
         for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
             for (auto& pv : primvarDescsEntry.second) {
@@ -1095,8 +1097,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     else if (pv.role
                              == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVSet(pv.name, value, scene,
-                                  primvarDescsEntry.first);
+                                  primvarDescsEntry.first, need_tangent,
+                                  need_sign);
 
+                        uv_name      = pv.name.GetString();
                         mesh_updated = true;
                     }
 
@@ -1115,6 +1119,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     }
                 }
             }
+        }
+
+        // Computing tangents after we are sure we have loaded the correct normals
+        if (need_tangent) {
+            mikk_compute_tangents(uv_name.c_str(), m_cyclesMesh, need_sign,
+                                  true);
         }
 
         // Apply existing shaders
