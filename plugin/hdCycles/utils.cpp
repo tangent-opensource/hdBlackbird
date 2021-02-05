@@ -1037,7 +1037,6 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
     const ccl::Mesh* mesh        = userdata->mesh;
     ccl::float3 vN;
 
-    // Indexing by corner is the same for subdivision surfaces or not
     if (mesh->subd_faces.size()) {
         const ccl::Mesh::SubdFace& face = mesh->subd_faces[face_num];
         if (userdata->corner_normal) {
