@@ -37,9 +37,6 @@
 #include <pxr/imaging/hd/vertexAdjacency.h>
 #include <pxr/pxr.h>
 
-#include <opensubdiv/far/stencilTable.h>
-#include <opensubdiv/far/patchTable.h>
-
 namespace ccl {
 class Scene;
 class Mesh;
@@ -49,48 +46,7 @@ class Object;
 PXR_NAMESPACE_OPEN_SCOPE
 
 class HdCyclesRenderDelegate;
-
-/**
- *  @brief
- */
-class HdCyclesMeshRefiner {
-public:
-    HdCyclesMeshRefiner(const HdMeshTopology& topology, int refine_level);
-
-    const HdMeshTopology& GetTopology() const {
-        return m_topology;
-    }
-
-    /// Estimated number of triangles.
-    size_t GetNumTriangles() const {
-        return m_num_triangles;
-    }
-
-    bool IsRefined() const {
-        return m_refine_level > 0;
-    }
-
-private:
-    using StencilTablePtr = std::unique_ptr<const OpenSubdiv::Far::StencilTable>;
-    using PatchTablePtr = std::unique_ptr<const OpenSubdiv::Far::PatchTable>;
-
-    bool RequiresFlipping() const {
-        return m_ccw_flipping;
-    }
-
-    void _InitializeNormal(const HdMeshTopology& topology, int refine_level);
-    void _InitializeSubdivided(const HdMeshTopology& topology, int refine_level);
-
-    bool m_ccw_flipping{false};
-    HdMeshTopology m_topology;
-    int m_refine_level{};
-
-    StencilTablePtr m_vertex_stencils;
-    StencilTablePtr m_varying_stencils;
-    PatchTablePtr m_patch_table;
-
-    size_t m_num_triangles{};
-};
+class HdCyclesMeshRefiner;
 
 /**
  * @brief HdCycles Mesh Rprim mapped to Cycles mesh
@@ -253,7 +209,7 @@ protected:
      * @brief Populate vertices of cycles mesh
      * 
      */
-    void _PopulateVertices();
+    void _PopulateVertices(HdSceneDelegate* sceneDelegate);
 
     void _PopulateMotion();
 
@@ -263,12 +219,11 @@ protected:
      * @param a_faceMaterials pregenerated array of subset materials
      * @param a_subdivide should faces be subdivided
      */
-    void _PopulateFaces(const std::vector<int>& a_faceMaterials,
-                        bool a_subdivide);
+    void _PopulateFaces(VtIntArray& a_faceMaterials);
 
     /**
      * @brief Populate subdiv creases
-     * 
+     *
      */
     void _PopulateCreases();
 
@@ -292,7 +247,7 @@ protected:
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
     HdMeshTopology m_topology;
-    HdGeomSubsets m_geomSubsets;
+    std::shared_ptr<HdCyclesMeshRefiner> m_refiner;
     VtIntArray m_faceVertexCounts;
     VtIntArray m_faceVertexIndices;
     TfToken m_orientation;
@@ -307,11 +262,6 @@ protected:
     bool m_subdivEnabled  = false;
     int m_maxSubdivision  = 12;
     float m_dicingRate    = 0.1f;
-
-    int m_numNgons;
-    int m_numCorners;
-
-    int m_numTriFaces;
 
     Hd_VertexAdjacency m_adjacency;
     bool m_adjacencyValid = false;

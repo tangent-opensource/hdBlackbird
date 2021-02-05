@@ -25,6 +25,7 @@
 #include "renderDelegate.h"
 #include "renderParam.h"
 #include "utils.h"
+#include "meshRefiner.h"
 
 #include "Mikktspace/mikktspace.h"
 
@@ -44,6 +45,8 @@
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/vec3i.h>
+#include <pxr/base/tf/hash.h>
+#include <pxr/base/tf/hashmap.h>
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/imaging/hd/mesh.h>
@@ -52,6 +55,7 @@
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/smoothNormals.h>
 #include <pxr/imaging/pxOsd/tokens.h>
+#include <pxr/imaging/hd/vtBufferSource.h>
 
 #ifdef USE_USD_CYCLES_SCHEMA
 #    include <usdCycles/tokens.h>
@@ -516,11 +520,13 @@ HdCyclesMesh::_CreateCyclesObject()
 }
 
 void
-HdCyclesMesh::_PopulateVertices()
+HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate)
 {
-    m_cyclesMesh->verts.reserve(m_numMeshVerts);
-    for (int i = 0; i < m_points.size(); i++) {
-        m_cyclesMesh->verts.push_back_reserved(vec3f_to_float3(m_points[i]));
+    auto points = GetPrimvar(sceneDelegate, HdTokens->points).Get<VtVec3fArray>();
+    m_refiner->RefineVertex(points);
+    for(size_t i{}; i < points.size(); ++i) {
+        auto& data = points[i];
+        m_cyclesMesh->add_vertex(ccl::make_float3(data[0], data[1], data[2]));
     }
 }
 
@@ -564,88 +570,23 @@ HdCyclesMesh::_PopulateMotion()
 }
 
 void
-HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
-                             bool a_subdivide)
+HdCyclesMesh::_PopulateFaces(VtIntArray& material_ids)
 {
-    if (a_subdivide) {
-        m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
-        m_cyclesMesh->reserve_subd_faces(m_numMeshFaces, m_numNgons,
-                                         m_numCorners);
-    } else {
-        m_cyclesMesh->reserve_mesh(m_numMeshVerts, m_numMeshFaces);
-    }
+    // allocate mesh
+    m_cyclesMesh->reserve_mesh(m_refiner->GetNumVertices(),
+                               m_refiner->GetNumTriangles());
 
-    VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+    // refine indices, has to be run first to precompute primitiveParam
+    VtVec3iArray indices;
+    m_refiner->RefineIndex(indices);
 
-    m_numTriFaces = 0;
+    // refine materials per face
+    m_refiner->RefineUniform(material_ids);
 
-    if (a_subdivide) {
-        bool smooth = true;
-        std::vector<int> vi;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
-            int materialId   = 0;
-
-            vi.resize(vCount);
-
-            if (m_orientation == HdTokens->rightHanded) {
-                for (int j = 0; j < vCount; ++j) {
-                    vi[j] = *(idxIt + j);
-                }
-            } else {
-                for (int j = vCount; j > 0; j--) {
-                    vi[j] = *(idxIt + j);
-                }
-            }
-
-            idxIt += vCount;
-
-            m_cyclesMesh->add_subd_face(&vi[0], vCount, materialId, true);
-        }
-    } else {
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
-            int materialId   = 0;
-
-            if (i < a_faceMaterials.size()) {
-                materialId = a_faceMaterials[i];
-            }
-
-            for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + j + 0);
-                int v2 = *(idxIt + j + 1);
-                if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
-                    && v2 < m_numMeshVerts) {
-                    if (m_orientation == HdTokens->rightHanded) {
-                        m_cyclesMesh->add_triangle(v0, v1, v2, materialId,
-                                                   true);
-                    } else {
-                        m_cyclesMesh->add_triangle(v0, v2, v1, materialId,
-                                                   true);
-                    }
-                    m_numTriFaces++;
-                }
-            }
-            idxIt += vCount;
-        }
-    }
-}
-
-void
-HdCyclesMesh::_PopulateCreases()
-{
-    size_t num_creases = m_creaseLengths.size();
-
-    m_cyclesMesh->subd_creases.resize(num_creases);
-
-    ccl::Mesh::SubdEdgeCrease* crease = m_cyclesMesh->subd_creases.data();
-    for (int i = 0; i < num_creases; i++) {
-        crease->v[0]   = m_creaseIndices[(i * 2) + 0];
-        crease->v[1]   = m_creaseIndices[(i * 2) + 1];
-        crease->crease = m_creaseWeights[i];
-
-        crease++;
+    for(size_t i{}; i < indices.size(); ++i) {
+        auto material_id = i < material_ids.size() ? material_ids[i] : 0;
+//        std::cout << material_id << std::endl;
+        m_cyclesMesh->add_triangle(indices[i][0], indices[i][1], indices[i][2], material_id, true);
     }
 }
 
@@ -681,133 +622,6 @@ HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
     _PopulateGenerated(scene);
 }
 
-#include <pxr/imaging/pxOsd/refinerFactory.h>
-#include <opensubdiv/far/stencilTableFactory.h>
-#include <opensubdiv/far/patchTableFactory.h>
-
-void HdCyclesMeshRefiner::_InitializeNormal(const HdMeshTopology& topology, int refine_level) {
-    if(RequiresFlipping()) {
-        size_t num_faces = topology.GetFaceVertexCounts().size();
-        size_t num_face_vertices = topology.GetFaceVertexIndices().size();
-
-        VtIntArray face_vertex_count(num_faces);
-        VtIntArray face_vertex_indices(num_face_vertices);
-
-        for (int face{}, offset{}; face < num_faces; ++face) {
-            size_t num_vertices = topology.GetFaceVertexCounts()[face];
-            face_vertex_count[face] = num_vertices;
-
-            for (size_t vertex = 0; vertex < num_vertices; ++vertex) {
-                size_t idx  = offset + vertex;
-                size_t ridx = offset + (num_vertices - vertex);
-
-                if (vertex == 0)
-                    face_vertex_indices[idx] = topology.GetFaceVertexIndices()[idx];
-                else
-                    face_vertex_indices[idx] = topology.GetFaceVertexIndices()[ridx];
-            }
-            offset += num_vertices;
-        }
-
-        m_topology = HdMeshTopology{
-            topology.GetScheme(),
-            HdTokens->rightHanded,
-            face_vertex_count,
-            face_vertex_indices
-        };
-    } else {
-        m_topology = topology; // pass through
-    }
-}
-
-void HdCyclesMeshRefiner::_InitializeSubdivided(const HdMeshTopology& topology, int refine_level) {
-    HD_TRACE_FUNCTION();
-
-    using namespace OpenSubdiv;
-
-    // passing topology through refiner converts cw to ccw
-    PxOsdTopologyRefinerSharedPtr refiner;
-    {
-        HD_TRACE_SCOPE("create refiner")
-
-        refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology());
-        Far::TopologyRefiner::UniformOptions refiner_options { refine_level };
-        refiner->RefineUniform(refiner_options);
-    }
-
-    // stencils required for primvar refinement
-    {
-        HD_TRACE_SCOPE("create stencil table")
-
-        Far::StencilTableFactory::Options options;
-        options.generateIntermediateLevels = false;
-        options.generateOffsets            = true;
-
-        options.interpolationMode          = Far::StencilTableFactory::INTERPOLATE_VERTEX;
-        m_vertex_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
-
-        options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
-        m_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
-    }
-
-    // patches for face and materials lookup
-    {
-        HD_TRACE_SCOPE("create patch table")
-
-        // by default Far will not generate patches for all levels, triangulate quads option works for uniform subdivision only
-        Far::PatchTableFactory::Options options(refine_level);
-        options.triangulateQuads = true; // !! Works only for uniform
-        m_patch_table = PatchTablePtr{Far::PatchTableFactory::Create(*refiner, options)};
-    }
-
-    // populate topology
-    size_t num_patches = m_patch_table->GetNumPatchesTotal();
-    size_t num_vertices = m_patch_table->GetNumControlVerticesTotal();
-
-    VtIntArray face_vertex_count(num_patches);
-    VtIntArray face_vertex_indices(num_vertices);
-
-    const Far::PatchTable::PatchVertsTable& patch_vertices =  m_patch_table->GetPatchControlVerticesTable();
-    Far::PatchDescriptor patch_desc = m_patch_table->GetPatchArrayDescriptor(0);
-    int patch_num_vertices = patch_desc.GetNumControlVertices();
-
-    assert(patch_num_vertices * num_patches == patch_vertices.size());
-
-    // memset, memcpy ?
-    for(size_t patch{}; patch < num_patches; ++patch) {
-        face_vertex_count[patch] = patch_num_vertices;
-    }
-    for(size_t vertex{}; vertex < num_vertices; ++vertex) {
-        face_vertex_indices[vertex] = patch_vertices[vertex];
-    }
-
-    m_topology = HdMeshTopology{
-        topology.GetScheme(),
-        HdTokens->rightHanded,
-        face_vertex_count,
-        face_vertex_indices
-    };
-}
-
-HdCyclesMeshRefiner::HdCyclesMeshRefiner(const HdMeshTopology& topology, int refine_level)
-    : m_ccw_flipping {topology.GetOrientation() == HdTokens->leftHanded}
-    , m_topology {topology}
-    , m_refine_level{refine_level} {
-
-    if(refine_level > 0) {
-        _InitializeSubdivided(topology, refine_level);
-
-        auto& vertex_count = topology.GetFaceVertexCounts();
-        m_num_triangles = vertex_count.empty() ? 0 : vertex_count[0] * topology.GetNumFaces();
-    } else {
-        _InitializeNormal(topology, refine_level);
-
-        for (auto& i : GetTopology().GetFaceVertexCounts()) {
-            m_num_triangles += i - 2;
-        }
-    }
-}
-
 void
 HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                    HdDirtyBits* dirtyBits, TfToken const& reprToken)
@@ -815,7 +629,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
 
-    scene->mutex.lock();
+    std::lock_guard<decltype(scene->mutex)> scene_lock{scene->mutex};
 
     const SdfPath& id = GetId();
 
@@ -855,52 +669,38 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         break;
     }
 
-    if (!pointsIsComputed
-        && HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
-        mesh_updated        = true;
-        VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
-        if (!pointsValue.IsEmpty()) {
-            m_points = pointsValue.Get<VtVec3fArray>();
-            if (m_points.size() > 0) {
-                m_numMeshVerts = m_points.size();
-
-                m_normalsValid = false;
-                newMesh        = true;
-            }
-
-            // TODO: Should we check if time varying?
-            // TODO: can we use this for m_points too?
-            sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
-        }
-    }
+//    if (!pointsIsComputed
+//        && HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
+//        mesh_updated        = true;
+//        VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
+//        if (!pointsValue.IsEmpty()) {
+//            m_points = pointsValue.Get<VtVec3fArray>();
+//            if (m_points.size() > 0) {
+//                m_numMeshVerts = m_points.size();
+//
+//                m_normalsValid = false;
+//                newMesh        = true;
+//            }
+//
+//            // TODO: Should we check if time varying?
+//            // TODO: can we use this for m_points too?
+//            sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
+//        }
+//    }
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-    if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
-        m_topology          = GetMeshTopology(sceneDelegate);
-        m_faceVertexCounts  = m_topology.GetFaceVertexCounts();
-        m_faceVertexIndices = m_topology.GetFaceVertexIndices();
-        m_geomSubsets       = m_topology.GetGeomSubsets();
-        m_orientation       = m_topology.GetOrientation();
+    if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id) ||
+        HdChangeTracker::IsSubdivTagsDirty(*dirtyBits, id) ||
+        HdChangeTracker::IsDisplayStyleDirty(*dirtyBits, id)) {
+        HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
 
-        m_numMeshFaces = mesh_refiner.GetNumTriangles();
-
-        m_numNgons   = 0;
-        m_numCorners = 0;
-
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            // TODO: This seems wrong, but works for now
-            m_numNgons += 1;  // (m_faceVertexCounts[i] == 4) ? 0 : 1;
-            m_numCorners += m_faceVertexCounts[i];
-        }
+        // topology can not outlive the refiner
+        m_topology = GetMeshTopology(sceneDelegate);
+        m_refiner = HdCyclesMeshRefiner::Create(m_topology, 2, id);
 
         m_adjacencyValid = false;
         m_normalsValid   = false;
-        if (m_subdivEnabled) {
-            m_useSubdivision = m_topology.GetScheme()
-                               == PxOsdOpenSubdivTokens->catmullClark;
-        }
-
         newMesh = true;
     }
 
@@ -938,17 +738,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-    if (HdChangeTracker::IsSubdivTagsDirty(*dirtyBits, id)) {
-        const PxOsdSubdivTags subdivTags = GetSubdivTags(sceneDelegate);
-
-        m_cornerIndices = subdivTags.GetCornerIndices();
-        m_cornerWeights = subdivTags.GetCornerWeights();
-        m_creaseIndices = subdivTags.GetCreaseIndices();
-        m_creaseLengths = subdivTags.GetCreaseLengths();
-        m_creaseWeights = subdivTags.GetCreaseWeights();
-
-        newMesh = true;
-    }
 
 #ifdef USE_USD_CYCLES_SCHEMA
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
@@ -1060,39 +849,31 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // -------------------------------------
     // -- Create Cycles Mesh
 
-    HdMeshUtil meshUtil(&m_topology, id);
+//    HdMeshUtil meshUtil(&m_topology, id);
     if (newMesh) {
         m_cyclesMesh->clear();
 
-        _PopulateVertices();
+        VtIntArray faceMaterials;
+        faceMaterials.resize(m_topology.GetNumFaces());
 
-        if (m_useMotionBlur && m_useDeformMotionBlur)
-            _PopulateMotion();
+        std::cout << m_topology.GetGeomSubsets().size() << std::endl;
 
-        std::vector<int> faceMaterials;
-        faceMaterials.resize(m_numMeshFaces);
-
-        for (auto const& subset : m_geomSubsets) {
+        for (auto const& subset : m_topology.GetGeomSubsets()) {
             int subsetMaterialIndex = 0;
 
             if (!subset.materialId.IsEmpty()) {
-                const HdCyclesMaterial* subMat
-                    = static_cast<const HdCyclesMaterial*>(
-                        sceneDelegate->GetRenderIndex().GetSprim(
-                            HdPrimTypeTokens->material, subset.materialId));
+
+                HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
+                HdSprim* state_prim = render_index.GetSprim(HdPrimTypeTokens->material, subset.materialId);
+                auto subMat = dynamic_cast<const HdCyclesMaterial*>(state_prim);
                 if (subMat && subMat->GetCyclesShader()) {
-                    if (m_materialMap.find(subset.materialId)
-                        == m_materialMap.end()) {
+                    if (m_materialMap.find(subset.materialId) == m_materialMap.end()) {
                         m_usedShaders.push_back(subMat->GetCyclesShader());
                         subMat->GetCyclesShader()->tag_update(scene);
-
-                        m_materialMap.insert(
-                            std::pair<SdfPath, int>(subset.materialId,
-                                                    m_usedShaders.size()));
+                        m_materialMap.emplace(subset.materialId, m_usedShaders.size());
                         subsetMaterialIndex = m_usedShaders.size();
                     } else {
-                        subsetMaterialIndex = m_materialMap.at(
-                            subset.materialId);
+                        subsetMaterialIndex = m_materialMap.at(subset.materialId);
                     }
                     m_cyclesMesh->used_shaders = m_usedShaders;
                 }
@@ -1103,119 +884,97 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             }
         }
 
-        _PopulateFaces(faceMaterials, (m_useSubdivision && m_subdivEnabled));
+        _PopulateFaces(faceMaterials);
+        _PopulateVertices(sceneDelegate);
 
-        if (m_useSubdivision && m_subdivEnabled) {
-            _PopulateCreases();
+        if (m_useMotionBlur && m_useDeformMotionBlur)
+            _PopulateMotion();
 
-            if (!m_cyclesMesh->subd_params) {
-                m_cyclesMesh->subd_params = new ccl::SubdParams(m_cyclesMesh);
-            }
-
-            ccl::SubdParams& subd_params = *m_cyclesMesh->subd_params;
-
-            subd_params.dicing_rate = m_dicingRate;
-            subd_params.max_level   = m_maxSubdivision;
-
-            // This allows us to dice based on USD refine level (low, medium, high, etc)
-            // However it is unclear if we want to support this, or if we want it off by default
-            // Disabled for now...
-            if (false) {
-                // Note: This math is abitrary and possible wrong
-                subd_params.dicing_rate = subd_params.dicing_rate
-                                          / ((m_refineLevel + 1) * 2.0f);
-            }
-
-            subd_params.objecttoworld = ccl::transform_identity();
-        }
-
-        // Ingest mesh primvars (data, not schema)
-        for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
-            for (auto& pv : primvarDescsEntry.second) {
-                if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
-                    auto value = GetPrimvar(sceneDelegate, pv.name);
-                    VtValue triangulated;
-
-                    // - Normals
-
-                    if (pv.name == HdTokens->normals
-                        || pv.role == HdPrimvarRoleTokens->normal) {
-                        VtVec3fArray normals;
-                        normals = value.UncheckedGet<VtArray<GfVec3f>>();
-
-                        if (primvarDescsEntry.first
-                            == HdInterpolationFaceVarying) {
-                            // Triangulate primvar normals
-                            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                normals.data(), normals.size(), HdTypeFloatVec3,
-                                &triangulated);
-                            normals = triangulated.Get<VtVec3fArray>();
-                        }
-
-                        _AddNormals(normals, primvarDescsEntry.first);
-                        mesh_updated = true;
-                    }
-
-                    // - Velocities
-
-                    // TODO: Properly implement
-                    else if (pv.name == HdTokens->velocities) {
-                        if (value.IsHolding<VtArray<GfVec3f>>()) {
-                            VtVec3fArray vels;
-                            vels = value.UncheckedGet<VtArray<GfVec3f>>();
-
-                            /*meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                            vels.data(), vels.size(), HdTypeFloatVec3,
-                            &triangulatedVal);
-                        VtVec3fArray m_vels_tri
-                            = triangulatedVal.Get<VtVec3fArray>();
-                        _AddVelocities(m_vels_tri, primvarDescsEntry.first);*/
-
-
-                            if (primvarDescsEntry.first
-                                == HdInterpolationFaceVarying) {
-                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                    vels.data(), vels.size(), HdTypeFloatVec3,
-                                    &triangulated);
-
-                                VtVec3fArray triangulatedVels
-                                    = triangulated.Get<VtVec3fArray>();
-
-                                //_AddVelocities(triangulatedVels,
-                                //               primvarDescsEntry.first);
-                            } else {
-                                //_AddVelocities(vels, primvarDescsEntry.first);
-                            }
-                        }
-                        mesh_updated = true;
-                    }
-
-                    // - Texture Coordinates
-
-                    else if (pv.role
-                             == HdPrimvarRoleTokens->textureCoordinate) {
-                        _AddUVSet(pv.name, value, scene,
-                                  primvarDescsEntry.first);
-
-                        mesh_updated = true;
-                    }
-
-                    // - Colors + other data
-
-                    else {
-                        _AddColors(pv.name, pv.role, value, scene,
-                                   primvarDescsEntry.first);
-
-                        // This swaps the default_surface to one that uses
-                        // displayColor for diffuse
-                        if (pv.name == HdTokens->displayColor) {
-                            m_hasVertexColors = true;
-                        }
-                        mesh_updated = true;
-                    }
-                }
-            }
-        }
+//        // Ingest mesh primvars (data, not schema)
+//        for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
+//            for (auto& pv : primvarDescsEntry.second) {
+//                if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+//                    auto value = GetPrimvar(sceneDelegate, pv.name);
+//                    VtValue triangulated;
+//
+//                    // - Normals
+//
+//                    if (pv.name == HdTokens->normals || pv.role == HdPrimvarRoleTokens->normal) {
+//                        VtVec3fArray normals = value.UncheckedGet<VtArray<GfVec3f>>();
+//
+//                        if (primvarDescsEntry.first == HdInterpolationFaceVarying) {
+//                            m_refiner->Refine()
+//                            // Triangulate primvar normals
+//                            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+//                                normals.data(), normals.size(), HdTypeFloatVec3,
+//                                &triangulated);
+//                            normals = triangulated.Get<VtVec3fArray>();
+//                        }
+//
+//                        _AddNormals(normals, primvarDescsEntry.first);
+//                        mesh_updated = true;
+//                    }
+//
+//                    // - Velocities
+//
+//                    // TODO: Properly implement
+//                    else if (pv.name == HdTokens->velocities) {
+//                        if (value.IsHolding<VtArray<GfVec3f>>()) {
+//                            VtVec3fArray vels;
+//                            vels = value.UncheckedGet<VtArray<GfVec3f>>();
+//
+//                            /*meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+//                            vels.data(), vels.size(), HdTypeFloatVec3,
+//                            &triangulatedVal);
+//                        VtVec3fArray m_vels_tri
+//                            = triangulatedVal.Get<VtVec3fArray>();
+//                        _AddVelocities(m_vels_tri, primvarDescsEntry.first);*/
+//
+//
+//                            if (primvarDescsEntry.first
+//                                == HdInterpolationFaceVarying) {
+//                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+//                                    vels.data(), vels.size(), HdTypeFloatVec3,
+//                                    &triangulated);
+//
+//                                VtVec3fArray triangulatedVels
+//                                    = triangulated.Get<VtVec3fArray>();
+//
+//                                //_AddVelocities(triangulatedVels,
+//                                //               primvarDescsEntry.first);
+//                            } else {
+//                                //_AddVelocities(vels, primvarDescsEntry.first);
+//                            }
+//                        }
+//                        mesh_updated = true;
+//                    }
+//
+//                    // - Texture Coordinates
+//
+//                    else if (pv.role
+//                             == HdPrimvarRoleTokens->textureCoordinate) {
+//                        _AddUVSet(pv.name, value, scene,
+//                                  primvarDescsEntry.first);
+//
+//                        mesh_updated = true;
+//                    }
+//
+//                    // - Colors + other data
+//
+//                    else {
+//                        _AddColors(pv.name, pv.role, value, scene,
+//                                   primvarDescsEntry.first);
+//
+//                        // This swaps the default_surface to one that uses
+//                        // displayColor for diffuse
+//                        if (pv.name == HdTokens->displayColor) {
+//                            m_hasVertexColors = true;
+//                        }
+//                        mesh_updated = true;
+//                    }
+//                }
+//            }
+//        }
 
         // Apply existing shaders
         if (m_usedShaders.size() > 0)
@@ -1380,8 +1139,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
-
-    scene->mutex.unlock();
 
     *dirtyBits = HdChangeTracker::Clean;
 }
