@@ -22,6 +22,9 @@
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/meshUtil.h>
+#include <pxr/base/gf/vec2f.h>
+#include <pxr/base/gf/matrix3f.h>
+#include <pxr/base/gf/matrix4f.h>
 
 #include <pxr/imaging/pxOsd/refinerFactory.h>
 #include <pxr/imaging/pxOsd/tokens.h>
@@ -40,22 +43,6 @@ using namespace OpenSubdiv;
 
 namespace {
 
-template<typename T>
-VtValue
-triangle_uniform_refinement(const VtValue& data, const VtIntArray& primitive_param) {
-    auto& input = data.UncheckedGet<VtArray<T>>();
-    VtArray<T> fine_array(primitive_param.size());
-
-    for(size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
-        int coarse_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(primitive_param[fine_id]);
-        assert(coarse_id < input.size());
-
-        fine_array[fine_id] = input[coarse_id];
-    }
-
-    return VtValue{fine_array};
-}
-
 ///
 /// \brief
 ///
@@ -66,6 +53,7 @@ public:
         , m_id{id} {
         HdMeshUtil mesh_util{&topology, m_id};
         mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_primitive_param);
+        m_triangle_counts = VtIntArray(m_primitive_param.size(), 3);
     }
 
     size_t GetNumVertices() const override {
@@ -80,6 +68,10 @@ public:
         return m_triangle_indices;
     }
 
+    const VtIntArray& RefinedCounts() const override {
+        return m_triangle_counts;
+    }
+
     VtValue RefineVertexData(const VtValue& data) const override {
         // vertex data has not changed, pass through
         return VtValue{data};
@@ -90,6 +82,21 @@ public:
         return VtValue{data};
     }
 
+    template<typename T>
+    VtValue uniform_refinement(const VtValue& data) const {
+        auto& input = data.UncheckedGet<VtArray<T>>();
+        VtArray<T> fine_array(m_primitive_param.size());
+
+        for(size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
+            int coarse_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(m_primitive_param[fine_id]);
+            assert(coarse_id < input.size());
+
+            fine_array[fine_id] = input[coarse_id];
+        }
+
+        return VtValue{fine_array};
+    }
+
     VtValue RefineUniformData(const VtValue& data) const override {
         if(data.GetArraySize() != m_topology->GetNumFaces()) {
             TF_CODING_ERROR("Unsupported input data size for uniform refinement");
@@ -98,10 +105,19 @@ public:
 
         switch(HdGetValueTupleType(data).type) {
         case HdTypeInt32: {
-            return triangle_uniform_refinement<int>(data, m_primitive_param);
+            return uniform_refinement<int>(data);
         }
         case HdTypeFloat: {
-            return triangle_uniform_refinement<float>(data, m_primitive_param);
+            return uniform_refinement<float>(data);
+        }
+        case HdTypeFloatVec2: {
+            return uniform_refinement<GfVec2f>(data);
+        }
+        case HdTypeFloatVec3: {
+            return uniform_refinement<GfVec3f>(data);
+        }
+        case HdTypeFloatVec4: {
+            return uniform_refinement<GfVec4f>(data);
         }
         default:
             TF_CODING_ERROR("Unsupported uniform refinement");
@@ -128,6 +144,7 @@ private:
     const HdMeshTopology* m_topology;
     const SdfPath& m_id;
     VtVec3iArray m_triangle_indices;
+    VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
     VtIntArray m_primitive_param;
 };
 
@@ -163,8 +180,9 @@ public:
             options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
             m_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
 
-            // TODO investigate segfault, it isn't okay to use stencils for face varying?
+            // TODO Initialize channels
 //            options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
+//            options.fvarChannel = 0;
 //            m_facevarying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
         }
 
@@ -186,6 +204,7 @@ public:
         m_triangle_indices.resize(num_triangles);
 
         memcpy(m_triangle_indices.data(),& vertices_table[0], num_vertices * sizeof(int));
+        m_triangle_counts = VtIntArray(num_triangles, 3);
     }
 
     size_t GetNumVertices() const override {
@@ -200,51 +219,79 @@ public:
         return m_triangle_indices;
     }
 
+    const VtIntArray& RefinedCounts() const override {
+        return m_triangle_counts;
+    }
+
     VtValue RefineUniformData(const VtValue& data) const override {
         return {};
     }
 
-    VtValue RefineVertexData(const VtValue& data) const override {
-        // no need to flip vertex data
-
+    template<typename T>
+    VtValue vertex_refinement(const VtValue& data, bool varying) const {
         size_t num_elements = data.GetArraySize();
         if (num_elements > m_vertex_stencils->GetNumControlVertices()) {
             num_elements = m_vertex_stencils->GetNumControlVertices();
         }
 
-        // TODO: Write OSD Vec3Array buffer wrapper to avoid memory allocation
-        size_t stride = 3;
-        auto vertex_buffer = OpenSubdiv::Osd::CpuVertexBuffer::Create(stride, GetNumVertices());
+        HdTupleType value_tuple_type = HdGetValueTupleType(data);
+        const size_t num_vertices = GetNumVertices();
+        const size_t stride = HdGetComponentCount(value_tuple_type.type);
 
-        auto input = data.Get<VtVec3fArray>();
+        // TODO: this allocation can be avoided if we make custom(non-owning) buffer
+        auto vertex_buffer = Osd::CpuVertexBuffer::Create(stride, num_vertices);
+
+        auto input = data.Get<VtArray<T>>();
         vertex_buffer->UpdateData(input.data()->data(), 0, num_elements);
+
         Osd::BufferDescriptor src_descriptor(0, stride, stride);
         Osd::BufferDescriptor dst_descriptor(num_elements * stride, stride, stride);
 
+        auto stencil_table = varying ? m_varying_stencils.get() : m_vertex_stencils.get();
         Osd::CpuEvaluator::EvalStencils(vertex_buffer, src_descriptor,
                                         vertex_buffer, dst_descriptor,
-                                        m_vertex_stencils.get());
+                                        stencil_table);
 
         // copy back, memcpy?
-        VtVec3fArray vertices;
-        vertices.resize(GetNumVertices());
-        for(size_t i{}, offset{}; i < GetNumVertices(); ++i, offset += stride) {
-            assert(offset + 0 < stride * GetNumVertices());
-            assert(offset + 1 < stride * GetNumVertices());
-            assert(offset + 2 < stride * GetNumVertices());
+        VtArray<T> refined_data;
+        refined_data.resize(num_vertices);
 
-            vertices[i][0] = vertex_buffer->BindCpuBuffer()[offset + 0];
-            vertices[i][1] = vertex_buffer->BindCpuBuffer()[offset + 1];
-            vertices[i][2] = vertex_buffer->BindCpuBuffer()[offset + 2];
+        for(size_t i{}, offset{}; i < GetNumVertices(); ++i, offset += stride) {
+            for(size_t j{}; j < stride; ++j) {
+                assert(offset + j < stride * GetNumVertices());
+
+                refined_data[i][j] = vertex_buffer->BindCpuBuffer()[offset + j];
+            }
         }
 
         delete vertex_buffer;
 
-        return VtValue{vertices};
+        return VtValue{refined_data};
+    }
+
+    VtValue refine_vertex_varying_data(const VtValue& data, bool varying) const {
+        switch(HdGetValueTupleType(data).type) {
+        case HdTypeFloatVec2: {
+            return vertex_refinement<GfVec2f>(data, varying);
+        }
+        case HdTypeFloatVec3: {
+            return vertex_refinement<GfVec3f>(data, varying);
+        }
+        case HdTypeFloatVec4: {
+            return vertex_refinement<GfVec4f>(data, varying);
+        }
+        default:
+            TF_CODING_ERROR("Unsupported osd vertex refinement");
+            return {};
+        }
+    }
+
+    VtValue RefineVertexData(const VtValue& data) const override {
+        return refine_vertex_varying_data(data, false);
     }
 
     VtValue RefineVaryingData(const VtValue& data) const override {
-        return {};
+        return refine_vertex_varying_data(data, true);
     }
 
     VtValue RefineFaceVaryingData(const VtValue& data) const override {
@@ -256,6 +303,7 @@ private:
     using PatchTablePtr = std::unique_ptr<const OpenSubdiv::Far::PatchTable>;
 
     VtVec3iArray m_triangle_indices;
+    VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
 
     StencilTablePtr m_vertex_stencils;
     StencilTablePtr m_varying_stencils;

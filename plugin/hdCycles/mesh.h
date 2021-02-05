@@ -248,8 +248,6 @@ protected:
 
     HdMeshTopology m_topology;
     std::shared_ptr<HdCyclesMeshRefiner> m_refiner;
-    VtIntArray m_faceVertexCounts;
-    VtIntArray m_faceVertexIndices;
     TfToken m_orientation;
 
     VtVec3fArray m_points;
@@ -305,8 +303,8 @@ protected:
     ccl::vector<ccl::Shader*> m_usedShaders;
 
 public:
-    const VtIntArray& GetFaceVertexCounts() { return m_faceVertexCounts; }
-    const VtIntArray& GetFaceVertexIndices() { return m_faceVertexIndices; }
+    const VtIntArray& GetFaceVertexCounts() const;
+    const VtVec3iArray& GetFaceVertexIndices() const;
     const TfToken& GetOrientation() { return m_orientation; }
 
 private:

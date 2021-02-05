@@ -165,6 +165,7 @@ HdCyclesMesh::GetPrimvarData(TfToken const& name,
     out_data.clear();
     out_indices.clear();
 
+    auto& vertex_indices = GetFaceVertexIndices();
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
             if (pv.name == name) {
@@ -172,8 +173,8 @@ HdCyclesMesh::GetPrimvarData(TfToken const& name,
                 if (value.IsHolding<VtArray<T>>()) {
                     out_data = value.UncheckedGet<VtArray<T>>();
                     if (primvarDescsEntry.first == HdInterpolationFaceVarying) {
-                        out_indices.reserve(m_faceVertexIndices.size());
-                        for (int i = 0; i < m_faceVertexIndices.size(); ++i) {
+                        out_indices.reserve(vertex_indices.size());
+                        for (int i = 0; i < vertex_indices.size(); ++i) {
                             out_indices.push_back(i);
                         }
                     }
@@ -335,9 +336,7 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
     if (colors.IsEmpty())
         return;
 
-    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
-                                        ? &m_cyclesMesh->subd_attributes
-                                        : &m_cyclesMesh->attributes;
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
 
     ccl::AttributeStandard vcol_std = ccl::ATTR_STD_VERTEX_COLOR;
     ccl::ustring vcol_name          = ccl::ustring(name.GetString());
@@ -433,8 +432,9 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         ccl::float3* fN         = attr_fN->data_float3();
 
         int idx = 0;
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
+        auto& vertex_counts = GetFaceVertexCounts();
+        for (int i = 0; i < vertex_counts.size(); i++) {
+            const int vCount = vertex_counts[i];
 
             // This needs to be checked
             for (int j = 1; j < vCount - 1; ++idx) {
@@ -993,7 +993,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         if (m_cyclesMesh) {
             m_cachedMaterialId = sceneDelegate->GetMaterialId(id);
-            if (m_faceVertexCounts.size() > 0) {
+            if (GetFaceVertexCounts().size() > 0) {
                 if (!m_cachedMaterialId.IsEmpty()) {
                     const HdCyclesMaterial* material
                         = static_cast<const HdCyclesMaterial*>(
@@ -1122,6 +1122,15 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     *dirtyBits = HdChangeTracker::Clean;
+}
+
+const VtIntArray& HdCyclesMesh::GetFaceVertexCounts() const
+{
+    return m_refiner->RefinedCounts();
+}
+
+const VtVec3iArray& HdCyclesMesh::GetFaceVertexIndices() const {
+    return m_refiner->RefinedIndices();
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

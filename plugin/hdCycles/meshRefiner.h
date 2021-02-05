@@ -47,6 +47,9 @@ public:
     /// \brief Refines arbitrary topology to triangles
     virtual const VtVec3iArray& RefinedIndices() const = 0;
 
+    /// \brief Refined counts for backward compatibility
+    virtual const VtIntArray& RefinedCounts() const = 0;
+
     /// @{ \brief Refine primvar data
     virtual VtValue RefineUniformData(const VtValue& data) const = 0;
     virtual VtValue RefineVertexData(const VtValue& data) const = 0;
