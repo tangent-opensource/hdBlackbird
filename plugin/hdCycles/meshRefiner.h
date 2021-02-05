@@ -39,21 +39,23 @@ public:
 
     virtual ~HdCyclesMeshRefiner();
 
+    /// @{ Refined topology information
     virtual size_t GetNumVertices() const = 0;
     virtual size_t GetNumTriangles() const = 0;
+    /// @}
 
     /// \brief Refines arbitrary topology to triangles
     virtual const VtVec3iArray& RefinedIndices() const = 0;
 
-    /// @{ \brief
+    /// @{ \brief Refine primvar data
     virtual VtValue RefineUniformData(const VtValue& data) const = 0;
     virtual VtValue RefineVertexData(const VtValue& data) const = 0;
     virtual VtValue RefineVaryingData(const VtValue& data) const = 0;
     virtual VtValue RefineFaceVaryingData(const VtValue& data) const = 0;
     /// @}
 
-    /// \brief
-    VtValue RefineData(const VtValue& data, const HdInterpolation& interpolation);
+    /// \brief Refine primvar with given interpolation
+    VtValue RefineData(const VtValue& data, const HdInterpolation& interpolation) const;
 
     HdCyclesMeshRefiner(const HdCyclesMeshRefiner&) = delete;
     HdCyclesMeshRefiner(HdCyclesMeshRefiner&&) noexcept = delete;
@@ -64,23 +66,6 @@ public:
 protected:
     HdCyclesMeshRefiner();
 };
-
-inline VtValue HdCyclesMeshRefiner::RefineData(const VtValue& data, const HdInterpolation& interpolation) {
-    switch(interpolation) {
-    case HdInterpolationUniform: {
-        return RefineUniformData(data);
-    }
-    case HdInterpolationVertex: {
-        return RefineVertexData(data);
-    }
-    case HdInterpolationFaceVarying: {
-        return RefineFaceVaryingData(data);
-    }
-    default: {
-        return {};
-    }
-    }
-}
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

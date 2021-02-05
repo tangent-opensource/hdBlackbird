@@ -280,5 +280,23 @@ HdCyclesMeshRefiner::HdCyclesMeshRefiner() = default;
 
 HdCyclesMeshRefiner::~HdCyclesMeshRefiner() = default;
 
+VtValue HdCyclesMeshRefiner::RefineData(const VtValue& data, const HdInterpolation& interpolation) const {
+    switch(interpolation) {
+    case HdInterpolationUniform: {
+        return RefineUniformData(data);
+    }
+    case HdInterpolationVertex: {
+        return RefineVertexData(data);
+    }
+    case HdInterpolationFaceVarying: {
+        return RefineFaceVaryingData(data);
+    }
+    default: {
+        TF_CODING_ERROR("Unsupported interpolation type for data refinement!");
+        return {};
+    }
+    }
+}
+
 
 

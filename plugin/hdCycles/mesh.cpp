@@ -902,84 +902,58 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 }
 
                 auto value = GetPrimvar(sceneDelegate, pv.name);
-                VtValue triangulated;
+                auto& interpolation = primvarDescsEntry.first;
 
-                    // - Normals
-
+                // - Normals
                 if (pv.name == HdTokens->normals || pv.role == HdPrimvarRoleTokens->normal) {
-                    VtVec3fArray normals = value.UncheckedGet<VtArray<GfVec3f>>();
+                    auto refined_value = m_refiner->RefineData(value, interpolation);
+                    if(refined_value.GetArraySize() > 0 && refined_value.IsHolding<VtVec3fArray>()) {
+                        auto normals = refined_value.Get<VtVec3fArray>();
+                        _AddNormals(normals, primvarDescsEntry.first);
+                        mesh_updated = true;
+                    } else {
+                        TF_CODING_WARNING("Failed to compute normals!");
+                    }
 
-//                    if (primvarDescsEntry.first == HdInterpolationFaceVarying) {
-//                        // Triangulate primvar normals
-//                        meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-//                            normals.data(), normals.size(), HdTypeFloatVec3,
-//                            &triangulated);
-//                        normals = triangulated.Get<VtVec3fArray>();
-//                    }
-
-//                    m_refiner->Refine()
-
-//                    _AddNormals(normals, primvarDescsEntry.first);
-                    mesh_updated = true;
+                    continue;
                 }
-//
-//                    // - Velocities
-//
-//                    // TODO: Properly implement
-//                    else if (pv.name == HdTokens->velocities) {
-//                        if (value.IsHolding<VtArray<GfVec3f>>()) {
-//                            VtVec3fArray vels;
-//                            vels = value.UncheckedGet<VtArray<GfVec3f>>();
-//
-//                            /*meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-//                            vels.data(), vels.size(), HdTypeFloatVec3,
-//                            &triangulatedVal);
-//                        VtVec3fArray m_vels_tri
-//                            = triangulatedVal.Get<VtVec3fArray>();
-//                        _AddVelocities(m_vels_tri, primvarDescsEntry.first);*/
-//
-//
-//                            if (primvarDescsEntry.first
-//                                == HdInterpolationFaceVarying) {
-//                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-//                                    vels.data(), vels.size(), HdTypeFloatVec3,
-//                                    &triangulated);
-//
-//                                VtVec3fArray triangulatedVels
-//                                    = triangulated.Get<VtVec3fArray>();
-//
-//                                //_AddVelocities(triangulatedVels,
-//                                //               primvarDescsEntry.first);
-//                            } else {
-//                                //_AddVelocities(vels, primvarDescsEntry.first);
-//                            }
-//                        }
-//                        mesh_updated = true;
-//                    }
-//
-//                    // - Texture Coordinates
-//
-//                    else if (pv.role
-//                             == HdPrimvarRoleTokens->textureCoordinate) {
-//                        _AddUVSet(pv.name, value, scene,
-//                                  primvarDescsEntry.first);
-//
-//                        mesh_updated = true;
-//                    }
-//
-//                    // - Colors + other data
-//
-//                    else {
-//                        _AddColors(pv.name, pv.role, value, scene,
-//                                   primvarDescsEntry.first);
-//
-//                        // This swaps the default_surface to one that uses
-//                        // displayColor for diffuse
-//                        if (pv.name == HdTokens->displayColor) {
-//                            m_hasVertexColors = true;
-//                        }
-//                        mesh_updated = true;
-//                    }
+
+                // - Velocities
+                if(pv.name == HdTokens->velocities) {
+
+                    continue;
+                }
+
+                // - Texture Coordinates
+                if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
+                    auto refined_value = m_refiner->RefineData(value, interpolation);
+                    if(refined_value.GetArraySize() >= value.GetArraySize()) {
+                        _AddUVSet(pv.name, refined_value, scene, primvarDescsEntry.first);
+                        mesh_updated = true;
+                    } else {
+                        TF_CODING_WARNING("Failed to compute texture coordinates!");
+                    }
+
+                    continue;
+                }
+
+                // - Colors
+                if(pv.name == HdTokens->displayColor || pv.role == HdPrimvarRoleTokens->color) {
+                    auto refined_value = m_refiner->RefineData(value, interpolation);
+                    if(refined_value.GetArraySize() >= value.GetArraySize()) {
+                        _AddColors(pv.name, pv.role, refined_value, scene, interpolation);
+                    } else {
+                        TF_CODING_WARNING("Failed to compute colors!");
+                    }
+
+                    // This swaps the default_surface to one that uses displayColor for diffuse
+                    if (pv.name == HdTokens->displayColor) {
+                        m_hasVertexColors = true;
+                    }
+                    mesh_updated = true;
+
+                    continue;
+                }
             }
         }
 
