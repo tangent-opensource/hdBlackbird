@@ -216,10 +216,10 @@ protected:
     /**
      * @brief Populate faces of cycles mesh
      * 
-     * @param a_faceMaterials pregenerated array of subset materials
+     * @param input_material_ids pregenerated array of subset materials
      * @param a_subdivide should faces be subdivided
      */
-    void _PopulateFaces(VtIntArray& a_faceMaterials);
+    void _PopulateFaces(VtIntArray& input_material_ids);
 
     /**
      * @brief Populate subdiv creases

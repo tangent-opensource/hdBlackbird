@@ -227,9 +227,7 @@ void
 HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
                         HdInterpolation interpolation)
 {
-    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
-                                        ? &m_cyclesMesh->subd_attributes
-                                        : &m_cyclesMesh->attributes;
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
     bool subdivide_uvs = false;
 
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
@@ -522,8 +520,14 @@ HdCyclesMesh::_CreateCyclesObject()
 void
 HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate)
 {
-    auto points = GetPrimvar(sceneDelegate, HdTokens->points).Get<VtVec3fArray>();
-    m_refiner->RefineVertex(points);
+    auto points_value = GetPrimvar(sceneDelegate, HdTokens->points);
+
+    VtVec3fArray points;
+    VtValue refined_points_value = m_refiner->RefineVertexData(points_value);
+    if(refined_points_value.IsHolding<VtVec3fArray>()) {
+        points = refined_points_value.Get<VtVec3fArray>();
+    }
+
     for(size_t i{}; i < points.size(); ++i) {
         auto& data = points[i];
         m_cyclesMesh->add_vertex(ccl::make_float3(data[0], data[1], data[2]));
@@ -570,23 +574,28 @@ HdCyclesMesh::_PopulateMotion()
 }
 
 void
-HdCyclesMesh::_PopulateFaces(VtIntArray& material_ids)
+HdCyclesMesh::_PopulateFaces(VtIntArray& input_material_ids)
 {
     // allocate mesh
     m_cyclesMesh->reserve_mesh(m_refiner->GetNumVertices(),
                                m_refiner->GetNumTriangles());
 
-    // refine indices, has to be run first to precompute primitiveParam
-    VtVec3iArray indices;
-    m_refiner->RefineIndex(indices);
+    // refine refined_indices, has to be run first to precompute primitiveParam
+    const VtVec3iArray& refined_indices = m_refiner->RefinedIndices();
 
     // refine materials per face
-    m_refiner->RefineUniform(material_ids);
+    VtIntArray material_ids;
+    auto refined_materials_value = m_refiner->RefineUniformData(VtValue{ input_material_ids });
+    if(refined_materials_value.IsHolding<VtIntArray>()) {
+        material_ids =refined_materials_value.Get<VtIntArray>();
+    }
 
-    for(size_t i{}; i < indices.size(); ++i) {
+    for(size_t i{}; i < refined_indices.size(); ++i) {
         auto material_id = i < material_ids.size() ? material_ids[i] : 0;
-//        std::cout << material_id << std::endl;
-        m_cyclesMesh->add_triangle(indices[i][0], indices[i][1], indices[i][2], material_id, true);
+        m_cyclesMesh->add_triangle(refined_indices[i][0],
+                                   refined_indices[i][1],
+                                   refined_indices[i][2],
+                                   material_id, true);
     }
 }
 
@@ -849,20 +858,15 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // -------------------------------------
     // -- Create Cycles Mesh
 
-//    HdMeshUtil meshUtil(&m_topology, id);
     if (newMesh) {
         m_cyclesMesh->clear();
 
         VtIntArray faceMaterials;
         faceMaterials.resize(m_topology.GetNumFaces());
-
-        std::cout << m_topology.GetGeomSubsets().size() << std::endl;
-
         for (auto const& subset : m_topology.GetGeomSubsets()) {
             int subsetMaterialIndex = 0;
 
             if (!subset.materialId.IsEmpty()) {
-
                 HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
                 HdSprim* state_prim = render_index.GetSprim(HdPrimTypeTokens->material, subset.materialId);
                 auto subMat = dynamic_cast<const HdCyclesMaterial*>(state_prim);
@@ -890,30 +894,34 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (m_useMotionBlur && m_useDeformMotionBlur)
             _PopulateMotion();
 
-//        // Ingest mesh primvars (data, not schema)
-//        for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
-//            for (auto& pv : primvarDescsEntry.second) {
-//                if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
-//                    auto value = GetPrimvar(sceneDelegate, pv.name);
-//                    VtValue triangulated;
-//
-//                    // - Normals
-//
-//                    if (pv.name == HdTokens->normals || pv.role == HdPrimvarRoleTokens->normal) {
-//                        VtVec3fArray normals = value.UncheckedGet<VtArray<GfVec3f>>();
-//
-//                        if (primvarDescsEntry.first == HdInterpolationFaceVarying) {
-//                            m_refiner->Refine()
-//                            // Triangulate primvar normals
-//                            meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-//                                normals.data(), normals.size(), HdTypeFloatVec3,
-//                                &triangulated);
-//                            normals = triangulated.Get<VtVec3fArray>();
-//                        }
-//
-//                        _AddNormals(normals, primvarDescsEntry.first);
-//                        mesh_updated = true;
+        // Ingest mesh primvars (data, not schema)
+        for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
+            for (auto& pv : primvarDescsEntry.second) {
+                if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                    continue;
+                }
+
+                auto value = GetPrimvar(sceneDelegate, pv.name);
+                VtValue triangulated;
+
+                    // - Normals
+
+                if (pv.name == HdTokens->normals || pv.role == HdPrimvarRoleTokens->normal) {
+                    VtVec3fArray normals = value.UncheckedGet<VtArray<GfVec3f>>();
+
+//                    if (primvarDescsEntry.first == HdInterpolationFaceVarying) {
+//                        // Triangulate primvar normals
+//                        meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
+//                            normals.data(), normals.size(), HdTypeFloatVec3,
+//                            &triangulated);
+//                        normals = triangulated.Get<VtVec3fArray>();
 //                    }
+
+//                    m_refiner->Refine()
+
+//                    _AddNormals(normals, primvarDescsEntry.first);
+                    mesh_updated = true;
+                }
 //
 //                    // - Velocities
 //
@@ -972,9 +980,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 //                        }
 //                        mesh_updated = true;
 //                    }
-//                }
-//            }
-//        }
+            }
+        }
 
         // Apply existing shaders
         if (m_usedShaders.size() > 0)

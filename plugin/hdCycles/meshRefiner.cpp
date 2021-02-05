@@ -19,20 +19,20 @@
 
 #include "meshRefiner.h"
 
-#include <pxr/imaging/hd/tokens.h>
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/meshUtil.h>
 
 #include <pxr/imaging/pxOsd/refinerFactory.h>
 #include <pxr/imaging/pxOsd/tokens.h>
+
+#include <render/mesh.h>
+
 #include <opensubdiv/osd/cpuEvaluator.h>
 #include <opensubdiv/osd/cpuVertexBuffer.h>
-
 #include <opensubdiv/far/stencilTableFactory.h>
 #include <opensubdiv/far/patchTableFactory.h>
 
-#include <render/mesh.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE;
 
@@ -40,12 +40,28 @@ using namespace OpenSubdiv;
 
 namespace {
 
+template<typename T>
+VtValue
+triangle_uniform_refinement(const VtValue& data, const VtIntArray& primitive_param) {
+    auto& input = data.UncheckedGet<VtArray<T>>();
+    VtArray<T> fine_array(primitive_param.size());
+
+    for(size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
+        int coarse_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(primitive_param[fine_id]);
+        assert(coarse_id < input.size());
+
+        fine_array[fine_id] = input[coarse_id];
+    }
+
+    return VtValue{fine_array};
+}
+
 ///
 /// \brief
 ///
-class HdCyclesSimpleMeshRefiner : public HdCyclesMeshRefiner {
+class HdCyclesTriangleRefiner : public HdCyclesMeshRefiner {
 public:
-    HdCyclesSimpleMeshRefiner(const HdMeshTopology& topology, int refine_level, const SdfPath& id)
+    HdCyclesTriangleRefiner(const HdMeshTopology& topology, int refine_level, const SdfPath& id)
         : m_topology{&topology}
         , m_id{id} {
         HdMeshUtil mesh_util{&topology, m_id};
@@ -60,25 +76,52 @@ public:
         return m_primitive_param.size();
     }
 
-    bool RefineIndex(VtVec3iArray& triangle_indices) override {
-        triangle_indices.assign(m_triangle_indices.begin(), m_triangle_indices.end());
+    const VtVec3iArray& RefinedIndices() const override {
+        return m_triangle_indices;
     }
 
-    bool RefineVertex(VtVec3fArray& input_array) override {
-        // for triangulated mesh input_array stay the same, do nothing
-        return true;
+    VtValue RefineVertexData(const VtValue& data) const override {
+        // vertex data has not changed, pass through
+        return VtValue{data};
     }
 
-    bool RefineUniform(VtIntArray& coarse_array) const override {
-        // mapping fine_face_id -> coarse_face_id
-        VtIntArray fine_array(GetNumTriangles());
-        for(size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
-            int coarse_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(m_primitive_param[fine_id]);
-            assert(coarse_id < coarse_array.size());
+    VtValue RefineVaryingData(const VtValue& data) const override {
+        // vertex data has not changed, pass through
+        return VtValue{data};
+    }
 
-            fine_array[fine_id] = coarse_array[coarse_id];
+    VtValue RefineUniformData(const VtValue& data) const override {
+        if(data.GetArraySize() != m_topology->GetNumFaces()) {
+            TF_CODING_ERROR("Unsupported input data size for uniform refinement");
+            return {};
         }
-        coarse_array = fine_array;
+
+        switch(HdGetValueTupleType(data).type) {
+        case HdTypeInt32: {
+            return triangle_uniform_refinement<int>(data, m_primitive_param);
+        }
+        case HdTypeFloat: {
+            return triangle_uniform_refinement<float>(data, m_primitive_param);
+        }
+        default:
+            TF_CODING_ERROR("Unsupported uniform refinement");
+            return {};
+        }
+    }
+
+    VtValue RefineFaceVaryingData(const VtValue& data)const override {
+        // only float and double can be interpolated
+        HdMeshUtil mesh_util{m_topology, m_id};
+        VtValue triangulated;
+        if(!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(data),
+                                                             data.GetArraySize(),
+                                                             HdGetValueTupleType(data).type,
+                                                             &triangulated)) {
+            TF_CODING_ERROR("Unsupported uniform refinement");
+            return {};
+        }
+
+        return triangulated;
     }
 
 private:
@@ -119,6 +162,10 @@ public:
 
             options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
             m_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
+
+            // TODO investigate segfault, it isn't okay to use stencils for face varying?
+//            options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
+//            m_facevarying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
         }
 
         // patches for face and materials lookup
@@ -132,25 +179,13 @@ public:
         }
 
         // populate topology
-        size_t num_patches = m_patch_table->GetNumPatchesTotal();
-        size_t num_vertices = m_patch_table->GetNumControlVerticesTotal();
+        const Far::PatchTable::PatchVertsTable& vertices_table = m_patch_table->GetPatchControlVerticesTable();
 
-        VtIntArray face_vertex_count(num_patches);
-        VtIntArray face_vertex_indices(num_vertices);
+        size_t num_vertices = vertices_table.size();
+        size_t num_triangles = num_vertices / 3;
+        m_triangle_indices.resize(num_triangles);
 
-        const Far::PatchTable::PatchVertsTable& patch_vertices =  m_patch_table->GetPatchControlVerticesTable();
-        Far::PatchDescriptor patch_desc = m_patch_table->GetPatchArrayDescriptor(0);
-        int patch_num_vertices = patch_desc.GetNumControlVertices();
-
-        assert(patch_num_vertices * num_patches == patch_vertices.size());
-
-        // memset, memcpy ?
-        for(size_t patch{}; patch < num_patches; ++patch) {
-            face_vertex_count[patch] = patch_num_vertices;
-        }
-        for(size_t vertex{}; vertex < num_vertices; ++vertex) {
-            face_vertex_indices[vertex] = patch_vertices[vertex];
-        }
+        memcpy(m_triangle_indices.data(),& vertices_table[0], num_vertices * sizeof(int));
     }
 
     size_t GetNumVertices() const override {
@@ -161,20 +196,18 @@ public:
         return m_patch_table->GetNumPatchesTotal();
     }
 
-    bool RefineIndex(VtVec3iArray& triangle_indices) override {
-        const Far::PatchTable::PatchVertsTable& vertices_table = m_patch_table->GetPatchControlVerticesTable();
-
-        size_t num_vertices = vertices_table.size();
-        size_t num_triangles = num_vertices / 3;
-        triangle_indices.resize(num_triangles);
-
-        memcpy(triangle_indices.data(),& vertices_table[0], num_vertices * sizeof(int));
+    const VtVec3iArray& RefinedIndices() const override {
+        return m_triangle_indices;
     }
 
-    bool RefineVertex(VtVec3fArray& vertices) override {
+    VtValue RefineUniformData(const VtValue& data) const override {
+        return {};
+    }
+
+    VtValue RefineVertexData(const VtValue& data) const override {
         // no need to flip vertex data
 
-        size_t num_elements = vertices.size();
+        size_t num_elements = data.GetArraySize();
         if (num_elements > m_vertex_stencils->GetNumControlVertices()) {
             num_elements = m_vertex_stencils->GetNumControlVertices();
         }
@@ -183,7 +216,8 @@ public:
         size_t stride = 3;
         auto vertex_buffer = OpenSubdiv::Osd::CpuVertexBuffer::Create(stride, GetNumVertices());
 
-        vertex_buffer->UpdateData(vertices.data()->data(), 0, num_elements);
+        auto input = data.Get<VtVec3fArray>();
+        vertex_buffer->UpdateData(input.data()->data(), 0, num_elements);
         Osd::BufferDescriptor src_descriptor(0, stride, stride);
         Osd::BufferDescriptor dst_descriptor(num_elements * stride, stride, stride);
 
@@ -192,6 +226,7 @@ public:
                                         m_vertex_stencils.get());
 
         // copy back, memcpy?
+        VtVec3fArray vertices;
         vertices.resize(GetNumVertices());
         for(size_t i{}, offset{}; i < GetNumVertices(); ++i, offset += stride) {
             assert(offset + 0 < stride * GetNumVertices());
@@ -205,20 +240,26 @@ public:
 
         delete vertex_buffer;
 
-        return true;
+        return VtValue{vertices};
     }
 
-    bool RefineUniform(VtIntArray& input_array) const override {
+    VtValue RefineVaryingData(const VtValue& data) const override {
+        return {};
+    }
 
+    VtValue RefineFaceVaryingData(const VtValue& data) const override {
+        return {};
     }
 
 private:
     using StencilTablePtr = std::unique_ptr<const OpenSubdiv::Far::StencilTable>;
     using PatchTablePtr = std::unique_ptr<const OpenSubdiv::Far::PatchTable>;
 
+    VtVec3iArray m_triangle_indices;
+
     StencilTablePtr m_vertex_stencils;
     StencilTablePtr m_varying_stencils;
-    // TODO face varying stencil table?
+    StencilTablePtr m_facevarying_stencils;
 
     PatchTablePtr m_patch_table;
 };
@@ -229,7 +270,7 @@ std::shared_ptr<HdCyclesMeshRefiner>
 HdCyclesMeshRefiner::Create(const HdMeshTopology& topology, int refine_level, const SdfPath& id) {
     if(topology.GetScheme() == PxOsdOpenSubdivTokens->none ||
         refine_level == 0) {
-        return std::make_shared<HdCyclesSimpleMeshRefiner>(topology, refine_level, id);
+        return std::make_shared<HdCyclesTriangleRefiner>(topology, refine_level, id);
     }
 
     return std::make_shared<HdCyclesOsdMeshRefiner>(topology, refine_level);

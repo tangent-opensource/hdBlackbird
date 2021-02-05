@@ -22,12 +22,9 @@
 
 #include <pxr/imaging/hd/meshTopology.h>
 #include <pxr/imaging/hd/enums.h>
+#include <pxr/imaging/hd/bufferSource.h>
 
 #include <memory>
-
-namespace ccl {
-class Mesh;
-}
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -45,14 +42,18 @@ public:
     virtual size_t GetNumVertices() const = 0;
     virtual size_t GetNumTriangles() const = 0;
 
-    virtual bool RefineIndex(VtVec3iArray& indices) = 0;
-    virtual bool RefineVertex(VtVec3fArray& vertices) = 0;
-    virtual bool RefineUniform(VtIntArray& input_array) const = 0;
+    /// \brief Refines arbitrary topology to triangles
+    virtual const VtVec3iArray& RefinedIndices() const = 0;
 
-    //virtual bool RefineVaryingData() const = 0;
-    //virtual bool RefineFaceVaryingData() const = 0;
+    /// @{ \brief
+    virtual VtValue RefineUniformData(const VtValue& data) const = 0;
+    virtual VtValue RefineVertexData(const VtValue& data) const = 0;
+    virtual VtValue RefineVaryingData(const VtValue& data) const = 0;
+    virtual VtValue RefineFaceVaryingData(const VtValue& data) const = 0;
+    /// @}
 
-    bool Refine(const HdInterpolation& interpolation);
+    /// \brief
+    VtValue RefineData(const VtValue& data, const HdInterpolation& interpolation);
 
     HdCyclesMeshRefiner(const HdCyclesMeshRefiner&) = delete;
     HdCyclesMeshRefiner(HdCyclesMeshRefiner&&) noexcept = delete;
@@ -64,8 +65,21 @@ protected:
     HdCyclesMeshRefiner();
 };
 
-
-inline bool HdCyclesMeshRefiner::Refine(const HdInterpolation& interpolation) {
+inline VtValue HdCyclesMeshRefiner::RefineData(const VtValue& data, const HdInterpolation& interpolation) {
+    switch(interpolation) {
+    case HdInterpolationUniform: {
+        return RefineUniformData(data);
+    }
+    case HdInterpolationVertex: {
+        return RefineVertexData(data);
+    }
+    case HdInterpolationFaceVarying: {
+        return RefineFaceVaryingData(data);
+    }
+    default: {
+        return {};
+    }
+    }
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
