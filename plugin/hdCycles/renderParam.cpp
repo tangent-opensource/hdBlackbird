@@ -1484,7 +1484,6 @@ void
 HdCyclesRenderParam::CommitResources()
 {
     if (m_shouldUpdate) {
-        std::cout << "m_numDomeLights: " << m_numDomeLights << '\n';
         if (m_cyclesScene->lights.size() > 0) {
             if (m_numDomeLights <= 0)
                 SetBackgroundShader(nullptr, false);
