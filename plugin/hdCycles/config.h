@@ -63,8 +63,7 @@ template<typename T> struct HdCyclesEnvValue {
 
         if (hasOverride) {
             a_previous = value;
-            std::cout << "[" << envName << "] has been set: " << a_previous
-                      << '\n';
+            TF_STATUS("[%s] has been set %s", envName, a_previous);
         }
 
         return hasOverride;
@@ -127,7 +126,7 @@ public:
      * @brief Set custom up axis (Z or Y currently supported)
      *
      */
-    std::string up_axis;
+    HdCyclesEnvValue<std::string> up_axis;
 
     /**
      * @brief If enabled, HdCycles will populate object's motion and enable motion blur

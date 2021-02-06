@@ -411,9 +411,9 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
             displayColor = vec4f_to_float4(
                 colors.UncheckedGet<VtArray<GfVec4f>>()[0]);
         } else {
-            std::cout
-                << "Invalid color size. Only float, vec2, vec3, and vec4 are supported. Found"
-                << colors.GetTypeName() << "\n";
+            TF_WARN(
+                "Invalid color size. Only float, vec2, vec3, and vec4 are supported. Found %s.",
+                colors.GetTypeName());
         }
 
         m_cyclesObject->color = ccl::make_float3(displayColor.x, displayColor.y,

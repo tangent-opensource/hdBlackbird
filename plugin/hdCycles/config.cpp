@@ -92,9 +92,6 @@ TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
 TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
                       "Use Tiled Rendering (Experimental)");
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_UP_AXIS, "Z",
-                      "Set custom up axis (Z or Y currently supported)");
-
 // HdCycles Constructor
 HdCyclesConfig::HdCyclesConfig()
 {
@@ -111,7 +108,7 @@ HdCyclesConfig::HdCyclesConfig()
     enable_logging  = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);
     enable_progress = TfGetEnvSetting(HD_CYCLES_ENABLE_PROGRESS);
 
-    up_axis = TfGetEnvSetting(HD_CYCLES_UP_AXIS);
+    up_axis = HdCyclesEnvValue<std::string>("HD_CYCLES_UP_AXIS", "Z");
 
     enable_motion_blur = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR",
                                                 false);

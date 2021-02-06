@@ -51,7 +51,7 @@ public:
             file.open();
             this->grid = file.readGrid(grid_name);
         } catch (const openvdb::IoError& e) {
-            std::cout << "LOAD ERROR\n";
+            TF_RUNTIME_ERROR("VDB LOAD ERROR");
         }
     }
 };

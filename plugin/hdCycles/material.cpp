@@ -358,7 +358,7 @@ convertCyclesNode(HdMaterialNode& usd_node,
                     cyclesNode->set(socket, params.second.Get<bool>());
                 } else if (params.second.IsHolding<int>()) {
                     cyclesNode->set(socket, (bool)params.second.Get<int>());
-                } 
+                }
             } break;
 
             case ccl::SocketType::INT: {
@@ -473,9 +473,9 @@ convertCyclesNode(HdMaterialNode& usd_node,
             } break;
 
             default: {
-                std::cout << "HdCycles unsupported socket type. Node: "
-                          << node_id << " - Socket: " << socket.name.string()
-                          << " - Type: " << socket.type << '\n';
+                TF_WARN(
+                    "HdCycles unsupported socket type. Node: %s - Socket: %s - Type: %s",
+                    node_id, socket.name.string(), socket.type);
             } break;
             }
         }

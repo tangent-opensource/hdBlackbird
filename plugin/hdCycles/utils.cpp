@@ -143,12 +143,14 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
         std::string dump_location = config.cycles_shader_graph_dump_dir + "/"
                                     + TfMakeValidIdentifier(name)
                                     + "_graph.txt";
-        std::cout << "Dumping shader graph: " << dump_location << '\n';
+
+        TF_STATUS("Dumping shader graph: %s", dump_location);
+
         try {
             shaderGraph->dump_graph(dump_location.c_str());
             return true;
         } catch (...) {
-            std::cout << "Couldn't dump shadergraph: " << dump_location << "\n";
+            TF_WARN("Couldn't dump shadergraph: %s", dump_location);
         }
     }
     return false;
@@ -737,8 +739,7 @@ _PopulateAttribte_Constant(const VtValue& value, ccl::Attribute* attr)
     VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
     size_t arr_size     = value.GetArraySize();
     if (arr_size != 1) {
-        std::cout << "Constant attribute, incompatible size: " << arr_size
-                  << '\n';
+        TF_WARN("Constant attribute, incompatible size: %s", arr_size);
         return false;
     }
 
@@ -790,7 +791,7 @@ _PopulateAttribute(const TfToken& name, const TfToken& role,
 
     } else if (interpolation == HdInterpolationUniform) {
         if (value.GetArraySize() > mesh->GetFaceVertexCounts().size()) {
-            std::cout << "Oversized...\n";
+            TF_WARN("Oversized...");
             return;
         }
 
@@ -899,8 +900,8 @@ _PopulateAttribute(const TfToken& name, const TfToken& role,
             _PopulateAttribte_Constant<GfVec4i, ccl::float4>(value, attr);
         }
     } else {
-        std::cout << "HdCycles WARNING: Interpolation unsupported: "
-                  << interpolation << '\n';
+        TF_WARN("HdCycles WARNING: Interpolation unsupported: %s",
+                interpolation);
     }
 }
 

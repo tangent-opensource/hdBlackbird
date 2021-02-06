@@ -106,9 +106,9 @@ HdCyclesRenderParam::_InitializeDefaults()
     m_useTiledRendering                 = config.use_tiled_rendering;
 
     m_upAxis = UpAxis::Z;
-    if (config.up_axis == "Z") {
+    if (config.up_axis.value == "Z") {
         m_upAxis = UpAxis::Z;
-    } else if (config.up_axis == "Y") {
+    } else if (config.up_axis.value == "Y") {
         m_upAxis = UpAxis::Y;
     }
 
@@ -185,7 +185,7 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateSessionFromConfig();
 
     if (!_CreateSession()) {
-        std::cout << "COULD NOT CREATE CYCLES SESSION\n";
+        TF_RUNTIME_ERROR("COULD NOT CREATE CYCLES SESSION");
         // Couldn't create session, big issue
         return false;
     }
@@ -196,7 +196,7 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateSceneFromConfig();
 
     if (!_CreateScene()) {
-        std::cout << "COULD NOT CREATE CYCLES SCENE\n";
+        TF_RUNTIME_ERROR("COULD NOT CREATE CYCLES SCENE\n");
         // Couldn't create scene, big issue
         return false;
     }
