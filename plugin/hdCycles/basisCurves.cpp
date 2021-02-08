@@ -486,6 +486,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
         if (HdCyclesIsPrimvarExists(HdTokens->widths, pdpi,
                                     &m_widthsInterpolation)) {
+            // Even when no widths are authored, Hydra gives us a VtFloatArray with a constant width of 1
             m_widths
                 = sceneDelegate->Get(id, HdTokens->widths).Get<VtFloatArray>();
         } else {
@@ -510,7 +511,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         TfToken curveShape = usdCyclesTokens->ribbon;
 
         // Left for now due to other immediate bugs.
-        // This should be unified, as should potentially all primvar 
+        // This should be unified, as should potentially all primvar
         // accessors...
         for (auto& entry : pdpi) {
             for (auto& pv : entry.second) {
@@ -742,12 +743,24 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 
             ccl::float3 usd_location = vec3f_to_float3(m_points[idx]);
 
+            // Widths
+
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
-            if (idx < m_widths.size())
-                radius = m_widths[idx] / 2.0f;
+
+            int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+
+            if (m_widthsInterpolation == HdInterpolationUniform)
+                width_idx = std::min(i, (int)(m_widths.size() - 1));
+            else if (m_widthsInterpolation == HdInterpolationConstant)
+                width_idx = 0;
+
+            if (m_widths.size() > 0)
+                radius = m_widths[width_idx] / 2.0f;
 
             m_cyclesHair->add_curve_key(usd_location, radius);
+
+            // Intercept
 
             if (attr_intercept)
                 attr_intercept->add(time);
@@ -824,10 +837,20 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
         ccl::float3 ickey_loc = vec3f_to_float3(m_points[0]);
 
+        // Widths
+
         // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
+
+        int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+
+        if (m_widthsInterpolation == HdInterpolationUniform)
+            width_idx = std::min(i, (int)(m_widths.size() - 1));
+        else if (m_widthsInterpolation == HdInterpolationConstant)
+            width_idx = 0;
+
         if (m_widths.size() > 0)
-            radius = m_widths[0] / 2.0f;
+            radius = m_widths[width_idx] / 2.0f;
 
         v1 = vec3f_to_float3(m_points[1] - m_points[0]);
         if (isCameraOriented) {
@@ -863,10 +886,20 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
                 v1 = vec3f_to_float3(m_points[idx + 1] - m_points[idx - 1]);
             }
 
+            // Widths
+
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
-            if (idx < m_widths.size())
-                radius = m_widths[idx] / 2.0f;
+
+            int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+
+            if (m_widthsInterpolation == HdInterpolationUniform)
+                width_idx = std::min(i, (int)(m_widths.size() - 1));
+            else if (m_widthsInterpolation == HdInterpolationConstant)
+                width_idx = 0;
+
+            if (m_widths.size() > 0)
+                radius = m_widths[width_idx] / 2.0f;
 
             if (isCameraOriented) {
                 if (is_ortho)
@@ -997,10 +1030,20 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
             // Add vertex in circle
 
+            // Widths
+
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
-            if (idx < m_widths.size())
-                radius = m_widths[idx] / 2.0f;
+
+            int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+
+            if (m_widthsInterpolation == HdInterpolationUniform)
+                width_idx = std::min(i, (int)(m_widths.size() - 1));
+            else if (m_widthsInterpolation == HdInterpolationConstant)
+                width_idx = 0;
+
+            if (m_widths.size() > 0)
+                radius = m_widths[width_idx] / 2.0f;
 
             float angle = M_2PI_F / (float)m_curveResolution;
 
