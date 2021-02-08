@@ -291,6 +291,12 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_cyclesLight->strength *= m_finalIntensity;
         }
 
+        // Light cast shadow
+        m_cyclesLight->cast_shadow
+            = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                           HdLightTokens->shadowEnable,
+                                           true);
+
         // TODO:
         // These two params have no direct mapping. Kept for future implementation
 
@@ -571,11 +577,6 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
 #ifdef USE_USD_CYCLES_SCHEMA
-
-    m_cyclesLight->cast_shadow
-        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
-                                       usdCyclesTokens->cyclesLightCast_shadow,
-                                       m_cyclesLight->cast_shadow);
 
     m_cyclesLight->use_diffuse
         = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
