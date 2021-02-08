@@ -91,6 +91,7 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_meshUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
+    , m_numDomeLights(0)
 {
     _InitializeDefaults();
 }
@@ -1484,7 +1485,7 @@ HdCyclesRenderParam::CommitResources()
 {
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
-            if (!m_hasDomeLight)
+            if (m_numDomeLights <= 0)
                 SetBackgroundShader(nullptr, false);
         } else {
             SetBackgroundShader(nullptr, true);
@@ -1695,14 +1696,7 @@ HdCyclesRenderParam::AddLight(ccl::Light* a_light)
     m_cyclesScene->lights.push_back(a_light);
 
     if (a_light->type == ccl::LIGHT_BACKGROUND) {
-        m_hasDomeLight = true;
-    }
-
-    if (m_cyclesScene->lights.size() > 0) {
-        if (!m_hasDomeLight)
-            SetBackgroundShader(nullptr, false);
-    } else {
-        SetBackgroundShader(nullptr, true);
+        m_numDomeLights += 1;
     }
 }
 
@@ -1801,14 +1795,15 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 {
-    if (a_light->type == ccl::LIGHT_BACKGROUND) {
-        m_hasDomeLight = false;
-    }
-
     for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin();
          it != m_cyclesScene->lights.end();) {
         if (a_light == *it) {
             it = m_cyclesScene->lights.erase(it);
+
+            // TODO: This doesnt respect multiple dome lights
+            if (a_light->type == ccl::LIGHT_BACKGROUND) {
+                m_numDomeLights = std::max(0, m_numDomeLights - 1);
+            }
 
             m_lightsUpdated = true;
 
@@ -1818,12 +1813,6 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         }
     }
 
-    if (m_cyclesScene->lights.size() > 0) {
-        if (!m_hasDomeLight)
-            SetBackgroundShader(nullptr, false);
-    } else {
-        SetBackgroundShader(nullptr, true);
-    }
 
     if (m_lightsUpdated)
         Interrupt();
