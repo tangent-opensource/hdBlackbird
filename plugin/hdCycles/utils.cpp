@@ -26,6 +26,7 @@
 #include <subd/subd_dice.h>
 #include <subd/subd_split.h>
 #include <util/util_path.h>
+#include <util/util_transform.h>
 
 #include <pxr/base/tf/stringUtils.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
@@ -170,6 +171,8 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> xf {};
 
+    // P.S. I don't see any guarantee in the documentation that the 
+    // transforms are ordered in time, but they seem to be.
     delegate->SampleTransform(id, &xf);
 
     int sampleCount = xf.count;
@@ -180,36 +183,26 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         return xf;
     }
 
-    if (sampleCount > 1) {
-        bool foundCenter = false;
-        for (int i = 0; i < sampleCount; i++) {
-            if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
-                foundCenter = true;
-            }
-        }
-        if (!foundCenter)
-            object->tfm = mat4d_to_transform(xf.values.data()[0]);
-    } else {
+    if (sampleCount == 1) { 
         object->tfm = mat4d_to_transform(xf.values.data()[0]);
+        return xf;
     }
 
     if (!use_motion) {
         return xf;
     }
 
+    // todo: If there are extra transform we should do something with them.
     object->motion.clear();
     if (object->geometry) {
         if (object->geometry->use_motion_blur
             && object->geometry->motion_steps != sampleCount) {
+            object->motion.clear(); // Not assuming it's empty
             object->motion.resize(object->geometry->motion_steps, object->tfm);
             return xf;
         }
     }
 
-    // TODO: This might still be wrong on some edge cases...
-    // The order of point sampling and transform sampling is the only reason
-    // that this works
     if (object->geometry && object->geometry->motion_steps == sampleCount) {
         object->geometry->use_motion_blur = true;
 
@@ -218,21 +211,43 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
             if (mesh->transform_applied)
                 mesh->need_update = true;
         }
+    }
+
+
+    // This needs to be revised when multi-segment (>3) blur is finalized.
+    if (sampleCount % 2) { // odd
+        // Recalculating the middle frame only for now
+        const int midFrameIdx = sampleCount / 2;
+        assert(midFrameIdx > 0);
 
         object->motion.resize(sampleCount, ccl::transform_empty());
+        for (int i = 0; i < sampleCount; ++i) {
+            if (i == midFrameIdx) {
+                ccl::Transform xfPrev = mat4d_to_transform(xf.values.data()[i - 1]);
+                ccl::Transform xfNext = mat4d_to_transform(xf.values.data()[i + 1]);
 
-        for (int i = 0; i < sampleCount; i++) {
-            if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+                ccl::DecomposedTransform dxf[2];
+                transform_motion_decompose(dxf + 0, &xfPrev, 1);
+                transform_motion_decompose(dxf + 1, &xfNext, 1);
+
+                transform_motion_array_interpolate(&object->motion[i], dxf, 2, 0.5f);
+                // Original transform
+                //object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+            } else {
+                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
             }
 
-            int idx = i;
-            if (object->geometry)
-                object->geometry->motion_step(xf.times.data()[i]);
-
-            object->motion[idx] = mat4d_to_transform(xf.values.data()[i]);
+            // Setting the transform to the middle frame
+            if (xf.times.data()[i] == 0.0f) {
+                object->tfm = object->motion[i];
+            }
         }
-    }
+        //object->tfm = object->motion[1];
+    } else { // even
+        // Adding a transform in the middle to guarantee
+        // an odd number of transforms
+
+    } 
 
     return xf;
 }
