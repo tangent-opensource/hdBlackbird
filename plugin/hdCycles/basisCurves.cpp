@@ -842,7 +842,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
         // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
 
-        int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+        int width_idx = std::min(i, (int)(m_widths.size() - 1));
 
         if (m_widthsInterpolation == HdInterpolationUniform)
             width_idx = std::min(i, (int)(m_widths.size() - 1));
