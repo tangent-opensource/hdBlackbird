@@ -58,7 +58,6 @@ HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType,
 HdCyclesLight::~HdCyclesLight()
 {
     if (m_hdLightType == HdPrimTypeTokens->domeLight) {
-        m_renderDelegate->GetCyclesRenderParam()->SetBackgroundShader(nullptr);
         m_renderDelegate->GetCyclesRenderParam()->Interrupt();
     }
 
@@ -249,7 +248,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // there is any nodes used, re-create...
         if (shaderGraphBits || 
             shaderGraphBits != m_shaderGraphBits) {
-            graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND ? true : false);
+            graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND);
             outNode = (ccl::ShaderNode*)graph->output()->input("Surface")->link->parent;
             m_shaderGraphBits = shaderGraphBits;
         } else {

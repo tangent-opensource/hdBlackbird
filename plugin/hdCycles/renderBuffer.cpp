@@ -81,6 +81,7 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(
     , m_mappers(0)
     , m_converged(false)
     , m_renderDelegate(renderDelegate)
+    , m_wasUpdated(false)
 {
 }
 
@@ -314,6 +315,7 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y,
 void
 HdCyclesRenderBuffer::_Deallocate()
 {
+    m_wasUpdated = true;
     m_width  = 0;
     m_height = 0;
     m_format = HdFormatInvalid;
