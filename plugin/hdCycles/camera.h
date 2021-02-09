@@ -239,6 +239,7 @@ private:
     bool m_useDof;
 
     bool m_useMotionBlur;
+    float m_fps;
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 

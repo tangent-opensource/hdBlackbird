@@ -111,7 +111,7 @@ HdCyclesVolume::_CreateObject()
     ccl::Object* object = new ccl::Object();
 
     object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
-
+    object->velocity_scale = 1.0f;
     return object;
 }
 
@@ -196,7 +196,6 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
                                            : m_cyclesVolume->attributes.add(
                                                name, ccl::TypeDesc::TypeFloat,
                                                ccl::ATTR_ELEMENT_VOXEL);
-
                 ccl::ImageLoader* loader
                     = new HdCyclesVolumeLoader(filepath.c_str(), name.c_str());
                 ccl::ImageParams params;
