@@ -58,7 +58,7 @@ public:
 #endif
 
 
-/// Utility class for translating Hydra Openvdb Asset to Arnold Volume.
+/// Utility class for translating Hydra Openvdb Asset to Cycles Volume.
 class HdCyclesOpenvdbAsset : public HdField {
 public:
     /// Constructor for HdCyclesOpenvdbAsset
@@ -68,15 +68,15 @@ public:
     HDCYCLES_API
     HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* delegate, const SdfPath& id);
 
-    /// Syncing the Hydra Openvdb Asset to the Arnold Volume.
+    /// Syncing the Hydra Openvdb Asset to the Cycles Volume.
     ///
     /// The functions main purpose is to dirty every Volume primitive's
     /// topology, so the grid definitions on the volume can be rebuilt, since
     /// changing the the grid name on the openvdb asset doesn't dirty the
-    /// volume primitive, which holds the arnold volume shape.
+    /// volume primitive, which holds the cycles volume shape.
     ///
     /// @param sceneDelegate Pointer to the Hydra Scene Delegate.
-    /// @param renderParam Pointer to a HdArnoldRenderParam instance.
+    /// @param renderParam Pointer to a HdCyclesRenderParam instance.
     /// @param dirtyBits Dirty Bits to sync.
     HDCYCLES_API
     void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
@@ -88,7 +88,7 @@ public:
     HDCYCLES_API
     HdDirtyBits GetInitialDirtyBitsMask() const override;
 
-    /// Tracks a HdArnoldVolume primitive.
+    /// Tracks a HdCyclesVolume primitive.
     ///
     /// Hydra separates the volume definitions from the grids each volume
     /// requires, so we need to make sure each grid definition, which can be
