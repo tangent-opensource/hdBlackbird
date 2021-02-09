@@ -69,12 +69,13 @@ struct HdCyclesDefaultAov {
 
 std::vector<HdCyclesDefaultAov> DefaultAovs = {
     { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4 },
-    //{ "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32 },
-    //{ "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec4 },
-    //{ "DiffDir", ccl::PASS_DIFFUSE_DIRECT, HdCyclesAovTokens->DiffDir, HdFormatFloat32Vec4 },
-    //{ "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32 },
-    //{ "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32 },
-
+    { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32 },
+    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec4 },
+    { "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32 },
+    { "IndexMA", ccl::PASS_MATERIAL_ID, HdCyclesAovTokens->IndexMA, HdFormatFloat32 },
+    { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32 },
+    { "Emission", ccl::PASS_EMISSION, HdCyclesAovTokens->Emit, HdFormatFloat32Vec4 },
+    { "Shadow", ccl::PASS_SHADOW, HdCyclesAovTokens->Shadow, HdFormatFloat32 },
 };
 
 HdCyclesRenderParam::HdCyclesRenderParam()
@@ -92,6 +93,7 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
     , m_numDomeLights(0)
+    , m_displayAovName("Combined")
 {
     _InitializeDefaults();
 }
@@ -1273,13 +1275,7 @@ HdCyclesRenderParam::_HandlePasses()
     // TODO: These might need to live elsewhere when we fully implement aovs/passes
     m_bufferParams.passes.clear();
 
-    if (m_useTiledRendering) {
-        for (HdCyclesDefaultAov& aov : DefaultAovs) {
-            ccl::Pass::add(aov.type, m_bufferParams.passes, aov.name.c_str());
-        }
-    } else {
-        ccl::Pass::add(ccl::PASS_COMBINED, m_bufferParams.passes, "Combined");
-    }
+    ccl::Pass::add(ccl::PASS_COMBINED, m_bufferParams.passes, "Combined");
 
     m_cyclesScene->film->tag_passes_update(m_cyclesScene,
                                            m_bufferParams.passes);
@@ -1953,6 +1949,52 @@ HdCyclesRenderParam::GetRenderStats() const
         { "numCompletedSamples", VtValue(0) }
 
     };
+}
+
+void
+HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
+{
+    m_aovs = a_aovs;
+    m_bufferParams.passes.clear();
+    bool has_combined = false;
+
+    for(HdRenderPassAovBinding aov : m_aovs) {
+        for(HdCyclesDefaultAov& cyclesAov : DefaultAovs) {
+            if(aov.aovName == cyclesAov.token) {
+                if (cyclesAov.type == ccl::PASS_COMBINED) {
+                    has_combined = true;
+                }
+                ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, cyclesAov.name.c_str());
+            }
+        }
+    }
+
+    if (!has_combined) {
+        ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str());
+    }
+    m_cyclesScene->film->display_pass = m_bufferParams.passes[0].type;
+    m_cyclesScene->film->passes = m_bufferParams.passes;
+
+    m_cyclesScene->film->tag_update(m_cyclesScene);
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& aov)
+{
+    if(!m_aovs.empty()) {
+        m_cyclesScene->film->display_pass = DefaultAovs[0].type;
+        m_displayAovName =DefaultAovs[0].token;
+        for (HdCyclesDefaultAov& cyclesAov : DefaultAovs) {
+            if (aov.aovName == cyclesAov.token) {
+                m_cyclesScene->film->display_pass = cyclesAov.type;
+                m_displayAovName = aov.aovName;
+                break;
+            }
+        }
+        m_cyclesScene->film->tag_update(m_cyclesScene);
+        Interrupt();
+    }
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

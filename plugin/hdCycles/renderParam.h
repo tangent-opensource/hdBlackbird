@@ -441,13 +441,16 @@ private:
     std::mutex m_shaders_mutex;
 
     HdRenderPassAovBindingVector m_aovs;
+    std::string m_displayAovName;
 
 public:
-    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
+    void SetDisplayAov(HdRenderPassAovBinding const& aov);
+    const std::string &GetDisplayAovName() const
     {
-        m_aovs = a_aovs;
+        return m_displayAovName;
     }
 
+    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs);
     HdRenderPassAovBindingVector const& GetAovBindings() const
     {
         return m_aovs;
