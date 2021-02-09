@@ -92,6 +92,7 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useSquareSamples(false)
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
+    , m_numDomeLights(0)
 {
     _InitializeDefaults();
 }
@@ -515,6 +516,8 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
     sceneParams->bvh_type = ccl::SceneParams::BVH_DYNAMIC;
     if (config.bvh_type.value == "STATIC")
         sceneParams->bvh_type = ccl::SceneParams::BVH_STATIC;
+
+    sceneParams->bvh_layout = ccl::BVH_LAYOUT_EMBREE;
 
     sceneParams->persistent_data = true;
 
@@ -1479,7 +1482,7 @@ HdCyclesRenderParam::CommitResources()
 {
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
-            if (!m_hasDomeLight)
+            if (m_numDomeLights <= 0)
                 SetBackgroundShader(nullptr, false);
         } else {
             SetBackgroundShader(nullptr, true);
@@ -1687,19 +1690,10 @@ HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 
     m_lightsUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->lights.push_back(a_light);
-    m_cyclesScene->mutex.unlock();
 
     if (a_light->type == ccl::LIGHT_BACKGROUND) {
-        m_hasDomeLight = true;
-    }
-
-    if (m_cyclesScene->lights.size() > 0) {
-        if (!m_hasDomeLight)
-            SetBackgroundShader(nullptr, false);
-    } else {
-        SetBackgroundShader(nullptr, true);
+        m_numDomeLights += 1;
     }
 }
 
@@ -1728,9 +1722,7 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 
     m_geometryUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->geometry.push_back(a_geometry);
-    m_cyclesScene->mutex.unlock();
 
     Interrupt();
 }
@@ -1745,9 +1737,7 @@ HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
 
     m_meshUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->geometry.push_back(a_mesh);
-    m_cyclesScene->mutex.unlock();
 
     Interrupt();
 }
@@ -1762,9 +1752,7 @@ HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
 
     m_curveUpdated = true;
 
-    m_cyclesScene->mutex.lock();
     m_cyclesScene->geometry.push_back(a_curve);
-    m_cyclesScene->mutex.unlock();
 
     Interrupt();
 }
@@ -1788,11 +1776,9 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
     for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin();
          it != m_cyclesScene->objects.end();) {
         if (a_object == *it) {
-            m_cyclesScene->mutex.lock();
             it = m_cyclesScene->objects.erase(it);
 
             m_objectsUpdated = true;
-            m_cyclesScene->mutex.unlock();
             break;
         } else {
             ++it;
@@ -1806,20 +1792,17 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 {
-    if (a_light->type == ccl::LIGHT_BACKGROUND) {
-        m_hasDomeLight = false;
-    }
-
     for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin();
          it != m_cyclesScene->lights.end();) {
         if (a_light == *it) {
-            m_cyclesScene->mutex.lock();
-
             it = m_cyclesScene->lights.erase(it);
 
-            m_lightsUpdated = true;
+            // TODO: This doesnt respect multiple dome lights
+            if (a_light->type == ccl::LIGHT_BACKGROUND) {
+                m_numDomeLights = std::max(0, m_numDomeLights - 1);
+            }
 
-            m_cyclesScene->mutex.unlock();
+            m_lightsUpdated = true;
 
             break;
         } else {
@@ -1827,12 +1810,6 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         }
     }
 
-    if (m_cyclesScene->lights.size() > 0) {
-        if (!m_hasDomeLight)
-            SetBackgroundShader(nullptr, false);
-    } else {
-        SetBackgroundShader(nullptr, true);
-    }
 
     if (m_lightsUpdated)
         Interrupt();
@@ -1845,13 +1822,9 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
          = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
         if (a_mesh == *it) {
-            m_cyclesScene->mutex.lock();
-
             it = m_cyclesScene->geometry.erase(it);
 
             m_meshUpdated = true;
-
-            m_cyclesScene->mutex.unlock();
 
             break;
         } else {
@@ -1870,13 +1843,9 @@ HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
          = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
         if (a_hair == *it) {
-            m_cyclesScene->mutex.lock();
-
             it = m_cyclesScene->geometry.erase(it);
 
             m_curveUpdated = true;
-
-            m_cyclesScene->mutex.unlock();
 
             break;
         } else {
@@ -1894,13 +1863,9 @@ HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
     for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin();
          it != m_cyclesScene->shaders.end();) {
         if (a_shader == *it) {
-            m_cyclesScene->mutex.lock();
-
             it = m_cyclesScene->shaders.erase(it);
 
             m_shadersUpdated = true;
-
-            m_cyclesScene->mutex.unlock();
 
             break;
         } else {

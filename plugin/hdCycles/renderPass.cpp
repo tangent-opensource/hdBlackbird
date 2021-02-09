@@ -87,12 +87,11 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         const float fov_rad = atan(1.0f / m_projMtx[1][1]) * 2.0f;
         hdCam->SetFOV(fov_rad);
 
-        //hdCam->SetTransform(m_projMtx);
-
-        shouldUpdate += true;
+        shouldUpdate = true;
     }
 
-    shouldUpdate += hdCam->IsDirty();
+    if(!shouldUpdate)
+        shouldUpdate = hdCam->IsDirty();
 
     if (shouldUpdate) {
         hdCam->ApplyCameraSettings(active_camera);
@@ -108,7 +107,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
         active_camera->tag_update();
 
-        renderParam->Interrupt();
+        // DirectReset here instead of Interrupt for faster IPR camera orbits
+        renderParam->DirectReset();
     }
 
     const auto width     = static_cast<int>(vp[2]);
@@ -134,7 +134,14 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         renderParam->Interrupt();
     }
 
+    // Tiled renders early out because we do the blitting on render tile callback
     if (renderParam->IsTiledRender())
+        return;
+
+    if (!renderParam->GetCyclesSession())
+        return;
+
+    if (!renderParam->GetCyclesScene())
         return;
 
     ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
@@ -156,6 +163,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     int w = display->draw_width;
     int h = display->draw_height;
 
+    if (w == 0 || h == 0)
+        return;
+
     // Blit
     if (!aovBindings.empty()) {
         // Blit from the framebuffer to currently selected aovs...
@@ -167,9 +177,16 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
             rb->SetConverged(m_isConverged);
 
-            if (aov.aovName == HdAovTokens->color) {
-                rb->Blit(colorFormat, w, h, 0, w,
-                         reinterpret_cast<uint8_t*>(hpixels));
+            // Needed as a stopgap, because Houdini dellocates renderBuffers
+            // when changing render settings. This causes the current blit to
+            // fail (Probably can be fixed with proper render thread management)
+            if (!rb->WasUpdated()) {
+                if (aov.aovName == HdAovTokens->color) {
+                    rb->Blit(colorFormat, w, h, 0, w,
+                             reinterpret_cast<uint8_t*>(hpixels));
+                }
+            } else {
+                rb->SetWasUpdated(false);
             }
         }
     }

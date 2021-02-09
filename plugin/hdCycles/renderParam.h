@@ -387,7 +387,7 @@ private:
 
     bool m_shouldUpdate;
 
-    bool m_hasDomeLight;
+    int m_numDomeLights;
 
     bool m_useSquareSamples;
 
