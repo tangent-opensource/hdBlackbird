@@ -38,6 +38,8 @@
 #include <util/util_math_float3.h>
 #include <util/util_transform.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/gf/vec2f.h>
@@ -50,6 +52,7 @@
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
+#pragma GCC diagnostic pop
 
 #include <iostream>
 

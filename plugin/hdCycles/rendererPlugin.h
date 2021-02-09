@@ -22,8 +22,11 @@
 
 #include "api.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/imaging/hd/rendererPlugin.h>
 #include <pxr/pxr.h>
+#pragma GCC diagnostic pop
 
 PXR_NAMESPACE_OPEN_SCOPE
 

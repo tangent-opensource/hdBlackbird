@@ -23,17 +23,23 @@
 #include "api.h"
 #include <pxr/pxr.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/imaging/hd/field.h>
+#pragma GCC diagnostic pop
 
 #include "renderDelegate.h"
 
 #include <mutex>
 #include <unordered_set>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
 #ifdef WITH_OPENVDB
 #    include <render/image_vdb.h>
 #    include <openvdb/openvdb.h>
 #endif
+#pragma GCC diagnostic pop
 
 PXR_NAMESPACE_OPEN_SCOPE
 

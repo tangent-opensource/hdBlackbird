@@ -26,6 +26,8 @@
 
 #include <util/util_array.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/base/gf/range1f.h>
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/vt/dictionary.h>
@@ -33,6 +35,7 @@
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
+#pragma GCC diagnostic pop
 
 namespace ccl {
 class Camera;

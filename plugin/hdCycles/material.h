@@ -22,8 +22,11 @@
 
 #include "api.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/imaging/hd/material.h>
 #include <pxr/pxr.h>
+#pragma GCC diagnostic pop
 
 namespace ccl {
 class Object;

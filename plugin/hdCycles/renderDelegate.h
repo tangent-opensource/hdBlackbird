@@ -23,7 +23,10 @@
 #include "api.h"
 
 #include <pxr/base/tf/staticTokens.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/imaging/hd/renderDelegate.h>
+#pragma GCC diagnostic pop
 #include <pxr/imaging/hd/resourceRegistry.h>
 #include <pxr/pxr.h>
 
@@ -34,6 +37,8 @@ class HdCyclesRenderPass;
 class HdCyclesRenderDelegate;
 
 // clang-format off
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
 TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((useDefaultBackground, "useDefaultBackground"))
     ((device, "device"))
@@ -80,6 +85,7 @@ TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((pixelFilterBox, "pixelFilter:box"))
     ((pixelFilterGaussian, "pixelFilter:gaussian"))
 );
+#pragma GCC diagnostic pop
 
 #define HDCYCLES_INTEGRATOR_TOKENS  \
     (BranchedPathTracing)           \

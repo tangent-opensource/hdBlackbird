@@ -19,6 +19,9 @@
 
 #include "discovery.h"
 
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/base/arch/fileSystem.h>
 #include <pxr/base/tf/envSetting.h>
 #include <pxr/base/tf/getenv.h>
@@ -26,6 +29,7 @@
 #include <pxr/base/tf/stringUtils.h>
 #include <pxr/usd/usd/prim.h>
 #include <pxr/usd/usd/primRange.h>
+#pragma GCC diagnostic pop
 
 PXR_NAMESPACE_OPEN_SCOPE
 

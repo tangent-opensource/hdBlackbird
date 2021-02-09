@@ -36,10 +36,13 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignore "-Wunused-variable"
 TF_DEFINE_PRIVATE_TOKENS(_tokens, 
     (color)
     (depth)
 );
+#pragma GCC diagnostic pop
 // clang-format on
 
 HdCyclesRenderPass::HdCyclesRenderPass(HdCyclesRenderDelegate* delegate,

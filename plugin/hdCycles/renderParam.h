@@ -28,8 +28,11 @@
 #include <render/session.h>
 #include <render/tile.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/imaging/hd/renderDelegate.h>
 #include <pxr/pxr.h>
+#pragma GCC diagnostic pop
 
 namespace ccl {
 class Session;
