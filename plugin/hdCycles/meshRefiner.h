@@ -20,18 +20,24 @@
 #ifndef HDCYCLES_MESHREFINER_H
 #define HDCYCLES_MESHREFINER_H
 
-#include <pxr/imaging/hd/meshTopology.h>
 #include <pxr/imaging/hd/enums.h>
-#include <pxr/imaging/hd/bufferSource.h>
+#include <pxr/base/vt/array.h>
 
 #include <memory>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
 class HdMeshTopology;
+class VtValue;
+class TfToken;
+class SdfPath;
 
 ///
+/// \brief Refines mesh to triangles
 ///
+/// Refiner's job is to prepare geometry for Cycles. That includes following requirements
+///  * topology refinement - triangulation
+//// * primvar refinement - data conversion to float and refinement
 ///
 class HdCyclesMeshRefiner {
 public:
@@ -39,26 +45,28 @@ public:
 
     virtual ~HdCyclesMeshRefiner();
 
-    /// @{ Refined topology information
-    virtual size_t GetNumVertices() const = 0;
-    virtual size_t GetNumTriangles() const = 0;
-    /// @}
+    /// \brief Number of mesh vertices
+    virtual size_t GetNumRefinedVertices() const = 0;
 
-    /// \brief Refines arbitrary topology to triangles
-    virtual const VtVec3iArray& RefinedIndices() const = 0;
-
-    /// \brief Refined counts for backward compatibility
-    virtual const VtIntArray& RefinedCounts() const = 0;
+    /// \brief Compact information about triangle vertices
+    virtual const VtVec3iArray& GetRefinedIndices() const = 0;
 
     /// @{ \brief Refine primvar data
-    virtual VtValue RefineUniformData(const VtValue& data) const = 0;
-    virtual VtValue RefineVertexData(const VtValue& data) const = 0;
-    virtual VtValue RefineVaryingData(const VtValue& data) const = 0;
-    virtual VtValue RefineFaceVaryingData(const VtValue& data) const = 0;
+    virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     /// @}
 
     /// \brief Refine primvar with given interpolation
-    VtValue RefineData(const VtValue& data, const HdInterpolation& interpolation) const;
+    VtValue RefineData(const TfToken& name, const TfToken& role, const VtValue& data, const HdInterpolation& interpolation) const;
+
+    /// \brief Refined counts for backward compatibility, TODO: remove
+    virtual const VtIntArray& GetRefinedCounts() const = 0;
+
+    /// \brief
+    size_t GetNumTriangles() const;
 
     HdCyclesMeshRefiner(const HdCyclesMeshRefiner&) = delete;
     HdCyclesMeshRefiner(HdCyclesMeshRefiner&&) noexcept = delete;
