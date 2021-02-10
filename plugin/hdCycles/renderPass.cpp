@@ -37,7 +37,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignore "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-variable"
 TF_DEFINE_PRIVATE_TOKENS(_tokens, 
     (color)
     (depth)
