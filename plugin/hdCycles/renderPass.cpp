@@ -116,10 +116,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
     const auto width     = static_cast<int>(vp[2]);
     const auto height    = static_cast<int>(vp[3]);
-    const auto numPixels = static_cast<size_t>(width * height);
 
     if (width != m_width || height != m_height) {
-        const auto oldNumPixels = static_cast<size_t>(m_width * m_height);
         m_width                 = width;
         m_height                = height;
 

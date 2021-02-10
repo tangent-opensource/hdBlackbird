@@ -60,10 +60,13 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
 TF_DEFINE_PRIVATE_TOKENS(_tokens, 
     (st)
     (uv)
 );
+#pragma GCC diagnostic pop
 // clang-format on
 
 HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
@@ -585,7 +588,6 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
     m_numTriFaces = 0;
 
     if (a_subdivide) {
-        bool smooth = true;
         std::vector<int> vi;
         for (size_t i = 0; i < m_faceVertexCounts.size(); i++) {
             const int vCount = m_faceVertexCounts[i];
@@ -752,8 +754,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
         m_topology          = GetMeshTopology(sceneDelegate);
         m_faceVertexCounts  = m_topology.GetFaceVertexCounts();
@@ -831,13 +831,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // -------------------------------------
     // -- Resolve Drawstyles
 
-    bool isRefineLevelDirty = false;
     if (*dirtyBits & HdChangeTracker::DirtyDisplayStyle) {
         mesh_updated = true;
 
         m_displayStyle = sceneDelegate->GetDisplayStyle(id);
         if (m_refineLevel != m_displayStyle.refineLevel) {
-            isRefineLevelDirty = true;
             m_refineLevel      = m_displayStyle.refineLevel;
             newMesh            = true;
         }

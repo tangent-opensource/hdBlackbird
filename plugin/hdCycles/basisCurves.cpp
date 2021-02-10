@@ -953,8 +953,6 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
     // For every curve
     for (size_t i = 0; i < curveVertexCounts.size(); i++) {
-        int subv = 1;
-
         ccl::float3 firstxbasis = ccl::cross(ccl::make_float3(1.0f, 0.0f, 0.0f),
                                              vec3f_to_float3(m_points[1])
                                                  - vec3f_to_float3(m_points[0]));

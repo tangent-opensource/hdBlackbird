@@ -690,9 +690,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
     param->GetCyclesScene()->mutex.lock();
     bool material_updated = false;
 
-    HdDirtyBits bits = *dirtyBits;
-
-
     if (*dirtyBits & HdMaterial::DirtyResource) {
         VtValue vtMat = sceneDelegate->GetMaterialResource(id);
 

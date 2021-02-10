@@ -259,7 +259,6 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y,
         return;
     }
 
-    const auto numPixels = static_cast<size_t>(m_width * m_height);
     size_t pixelSize     = HdDataSizeOfFormat(format);
 
     if (m_format == format) {

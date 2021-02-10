@@ -235,7 +235,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     ccl::Scene* scene = param->GetCyclesScene();
 
     HdCyclesPDPIMap pdpi;
-    bool generate_new_curve = false;
     bool update_volumes     = false;
 
     ccl::vector<int> old_voxel_slots = get_voxel_image_slots(m_cyclesVolume);

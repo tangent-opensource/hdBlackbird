@@ -178,8 +178,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
-    ccl::Scene* scene = param->GetCyclesScene();
-
     if (*dirtyBits & HdCamera::DirtyClipPlanes) {
         bool has_clippingRange
             = EvalCameraParam(&m_clippingRange, HdCameraTokens->clippingRange,
