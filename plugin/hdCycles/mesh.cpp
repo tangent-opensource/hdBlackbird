@@ -617,9 +617,9 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
             }
 
             for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + j + 0);
-                int v2 = *(idxIt + j + 1);
+                size_t v0 = *idxIt;
+                size_t v1 = *(idxIt + j + 0);
+                size_t v2 = *(idxIt + j + 1);
                 if (v0 < m_numMeshVerts && v1 < m_numMeshVerts
                     && v2 < m_numMeshVerts) {
                     if (m_orientation == HdTokens->rightHanded) {

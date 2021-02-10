@@ -186,7 +186,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
     ccl::ustring attribName = ccl::ustring(name.GetString());
 
     int vecSize   = 0;
-    int numColors = 0;
+    size_t numColors = 0;
 
     VtFloatArray colors1f;
     VtVec2fArray colors2f;
@@ -258,7 +258,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
 
             if (fdata) {
                 int curveOffset = 0;
-                for (int i = 0; i < curveVertexCounts.size(); i++) {
+                for (size_t i = 0; i < curveVertexCounts.size(); i++) {
                     ccl::float3 color;
 
                     switch (vecSize) {
@@ -364,7 +364,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 uv = attr_uv->data_float2();
                 if (uv) {
                     int curveOffset = 0;
-                    for (int i = 0; i < curveVertexCounts.size(); i++) {
+                    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
                         uv[i] = vec2f_to_float2(uvs[curveOffset]);
                         curveOffset += curveVertexCounts[i];
                     }
@@ -388,7 +388,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 uv = attr_uv->data_float2();
                 if (uv) {
                     int curveOffset = 0;
-                    for (int i = 0; i < curveVertexCounts.size(); i++) {
+                    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
                         uv[i] = vec3f_to_float2(uvs[curveOffset]);
                         curveOffset += curveVertexCounts[i];
                     }
@@ -702,10 +702,10 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     TfToken curveBasis           = m_topology.GetCurveBasis();
     TfToken curveWrap            = m_topology.GetCurveWrap();
 
-    int num_curves = curveVertexCounts.size();
-    int num_keys   = 0;
+    size_t num_curves = curveVertexCounts.size();
+    size_t num_keys   = 0;
 
-    for (int i = 0; i < num_curves; i++) {
+    for (size_t i = 0; i < num_curves; i++) {
         num_keys += curveVertexCounts[i];
     }
 
@@ -727,12 +727,12 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     int currentPointCount = 0;
 
     // For every curve
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         size_t num_curve_keys = 0;
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int idx = j + currentPointCount;
+            size_t idx = j + currentPointCount;
 
             const float time = (float)j / (float)(curveVertexCounts[i] - 1);
 
@@ -748,10 +748,10 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
 
-            int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+            int width_idx = std::min(idx, m_widths.size() - 1);
 
             if (m_widthsInterpolation == HdInterpolationUniform)
-                width_idx = std::min(i, (int)(m_widths.size() - 1));
+                width_idx = std::min(i, m_widths.size() - 1);
             else if (m_widthsInterpolation == HdInterpolationConstant)
                 width_idx = 0;
 
@@ -820,7 +820,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
     int num_vertices = 0;
     int num_tris     = 0;
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         num_vertices += curveVertexCounts[i] * 2;
         num_tris += ((curveVertexCounts[i] - 1) * 2);
     }
@@ -831,7 +831,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
     m_cyclesMesh->reserve_mesh(num_vertices, num_tris);
 
     // For every curve
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         ccl::float3 xbasis;
         ccl::float3 v1;
 
@@ -842,10 +842,10 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
         // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
 
-        int width_idx = std::min(i, (int)(m_widths.size() - 1));
+        int width_idx = std::min(i, m_widths.size() - 1);
 
         if (m_widthsInterpolation == HdInterpolationUniform)
-            width_idx = std::min(i, (int)(m_widths.size() - 1));
+            width_idx = std::min(i, m_widths.size() - 1);
         else if (m_widthsInterpolation == HdInterpolationConstant)
             width_idx = 0;
 
@@ -894,7 +894,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
             int width_idx = std::min(idx, (int)(m_widths.size() - 1));
 
             if (m_widthsInterpolation == HdInterpolationUniform)
-                width_idx = std::min(i, (int)(m_widths.size() - 1));
+                width_idx = std::min(i, m_widths.size() - 1);
             else if (m_widthsInterpolation == HdInterpolationConstant)
                 width_idx = 0;
 
@@ -941,7 +941,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
     int num_vertices = 0;
     int num_tris     = 0;
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         num_vertices += curveVertexCounts[i] * m_curveResolution;
         num_tris += ((curveVertexCounts[i] - 1) * 2 * m_curveResolution);
     }
@@ -952,7 +952,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
     m_cyclesMesh->reserve_mesh(num_vertices, num_tris);
 
     // For every curve
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         int subv = 1;
 
         ccl::float3 firstxbasis = ccl::cross(ccl::make_float3(1.0f, 0.0f, 0.0f),
@@ -1038,7 +1038,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             int width_idx = std::min(idx, (int)(m_widths.size() - 1));
 
             if (m_widthsInterpolation == HdInterpolationUniform)
-                width_idx = std::min(i, (int)(m_widths.size() - 1));
+                width_idx = std::min(i, m_widths.size() - 1);
             else if (m_widthsInterpolation == HdInterpolationConstant)
                 width_idx = 0;
 

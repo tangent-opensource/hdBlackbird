@@ -343,7 +343,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (shutterCurve.size() > 0) {
             m_shutterCurve.resize(shutterCurve.size());
 
-            for (int i = 0; i < shutterCurve.size(); i++) {
+            for (size_t i = 0; i < shutterCurve.size(); i++) {
                 m_shutterCurve[i] = shutterCurve[i];
             }
         }
@@ -526,7 +526,7 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
         a_camera->motion.resize(m_transformSamples.count,
                                 ccl::transform_identity());
 
-        for (int i = 0; i < m_transformSamples.count; i++) {
+        for (size_t i = 0; i < m_transformSamples.count; i++) {
             if (m_transformSamples.times.data()[i] == 0.0f) {
                 a_camera->matrix = mat4d_to_transform(ConvertCameraTransform(
                     m_transformSamples.values.data()[i]));
