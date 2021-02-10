@@ -55,13 +55,6 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     SdfPath const& id, SdfPath const& instancerId,
     HdCyclesRenderDelegate* a_renderDelegate)
     : HdBasisCurves(id, instancerId)
-    , m_cyclesObject(nullptr)
-    , m_cyclesMesh(nullptr)
-    , m_cyclesGeometry(nullptr)
-    , m_cyclesHair(nullptr)
-    , m_curveShape(ccl::CURVE_THICK)
-    , m_curveResolution(5)
-    , m_renderDelegate(a_renderDelegate)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
@@ -69,6 +62,13 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_visScatter(true)
     , m_visShadow(true)
     , m_visTransmission(true)
+    , m_curveShape(ccl::CURVE_THICK)
+    , m_curveResolution(5)
+    , m_cyclesObject(nullptr)
+    , m_cyclesMesh(nullptr)
+    , m_cyclesHair(nullptr)
+    , m_cyclesGeometry(nullptr)
+    , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_motion_blur.eval(m_useMotionBlur, true);

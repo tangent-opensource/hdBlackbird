@@ -111,16 +111,22 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_shutterOpen(0.0f)
     , m_shutterClose(0.0f)
     , m_clippingRange(0.1f, 100000.0f)
-    , m_renderDelegate(a_renderDelegate)
-    , m_needsUpdate(false)
+//  , m_projectionType
+//  , m_projMtx
+//  , m_fov
+//  , m_transform
     , m_shutterTime(1.0f)
     , m_rollingShutterTime(0.1f)
+//  , m_apertureRatio
+//  , m_blades
+//  , m_bladesRotation
+//  , m_apertureSize
     , m_motionPosition(ccl::Camera::MOTION_POSITION_CENTER)
     , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
     , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
     , m_stereoEye(ccl::Camera::STEREO_NONE)
     , m_offscreenDicingScale(0.0f)
-
+//  , m_shutterCurve
     , m_fisheyeFov(M_PI_F)
     , m_fisheyeLens(10.5f)
     , m_latMin(-M_PI_2_F)
@@ -128,12 +134,17 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_longMin(-M_PI_F)
     , m_longMax(M_PI_F)
     , m_useSphericalStereo(false)
-
     , m_interocularDistance(0.065f)
     , m_convergenceDistance(30.0f * 0.065f)
     , m_usePoleMerge(false)
     , m_poleMergeAngleFrom(60.0f * M_PI_F / 180.0f)
     , m_poleMergeAngleTo(75.0f * M_PI_F / 180.0f)
+    , m_useDof(false)
+    , m_useMotionBlur(false)
+//  , m_transformSamples
+    , m_cyclesCamera(nullptr)
+    , m_renderDelegate(a_renderDelegate)
+    , m_needsUpdate(false)
 {
     m_cyclesCamera
         = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->camera;

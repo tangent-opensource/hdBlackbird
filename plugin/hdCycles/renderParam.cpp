@@ -88,10 +88,10 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
     , m_shouldUpdate(false)
+    , m_numDomeLights(0)
     , m_useSquareSamples(false)
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
-    , m_numDomeLights(0)
 {
     _InitializeDefaults();
 }

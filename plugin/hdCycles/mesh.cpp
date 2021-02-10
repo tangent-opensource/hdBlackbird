@@ -71,7 +71,14 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     : HdMesh(id, instancerId)
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
-    , m_hasVertexColors(false)
+//  , m_cyclesInstances
+//  , m_materialMap
+//  , m_cachedMaterialId
+//  , m_numTransformSamples
+//  , m_transformSamples
+    , m_velocityScale(1.0f)
+    , m_useMotionBlur(false)
+    , m_useDeformMotionBlur(false)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
@@ -79,9 +86,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_visScatter(true)
     , m_visShadow(true)
     , m_visTransmission(true)
-    , m_velocityScale(1.0f)
-    , m_useMotionBlur(false)
-    , m_useDeformMotionBlur(false)
+    , m_hasVertexColors(false)
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
