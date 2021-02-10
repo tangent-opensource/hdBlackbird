@@ -176,15 +176,18 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
     delegate->SampleTransform(id, &xf);
 
     int sampleCount = xf.count;
-    printf("Sample count transforms %d\n", sampleCount);
+    printf("Sample count transforms %d use_motion %d\n", sampleCount, use_motion);
+    for (int i = 0; i < sampleCount; ++i){
+        std::cout << xf.values.data()[i] << std::endl;
+    }
 
     if (sampleCount == 0) {
         object->tfm = ccl::transform_identity();
         return xf;
     }
 
+    object->tfm = mat4d_to_transform(xf.values.data()[0]);
     if (sampleCount == 1) { 
-        object->tfm = mat4d_to_transform(xf.values.data()[0]);
         return xf;
     }
 
@@ -197,11 +200,14 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
     if (object->geometry) {
         if (object->geometry->use_motion_blur
             && object->geometry->motion_steps != sampleCount) {
+            printf("Mismatching motion steps and sample count\n");
             object->motion.clear(); // Not assuming it's empty
             object->motion.resize(object->geometry->motion_steps, object->tfm);
             return xf;
         }
     }
+
+    printf("Geometry motion steps %d\n", object->geometry->motion_steps);
 
     if (object->geometry && object->geometry->motion_steps == sampleCount) {
         object->geometry->use_motion_blur = true;
@@ -211,43 +217,60 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
             if (mesh->transform_applied)
                 mesh->need_update = true;
         }
+
+        // This needs to be revised when multi-segment (>3) blur is finalized.
+        if (sampleCount % 2) { // odd
+            // Recalculating the middle frame only for now
+            const int midFrameIdx = sampleCount / 2;
+            assert(midFrameIdx > 0);
+
+            object->motion.resize(sampleCount, ccl::transform_empty());
+            for (int i = 0; i < sampleCount; ++i) {
+                if (i == midFrameIdx) {
+                    ccl::Transform xfPrev = mat4d_to_transform(xf.values.data()[i - 1]);
+                    ccl::Transform xfNext = mat4d_to_transform(xf.values.data()[i + 1]);
+
+                    ccl::DecomposedTransform dxf[2];
+                    transform_motion_decompose(dxf + 0, &xfPrev, 1);
+                    transform_motion_decompose(dxf + 1, &xfNext, 1);
+
+                    transform_motion_array_interpolate(&object->motion[i], dxf, 2, 0.5f);
+                    // Original transform
+                    //object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+                } else {
+                    object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+                }
+
+                // Setting the transform to the middle frame
+                if (xf.times.data()[i] == 0.0f) {
+                    object->tfm = object->motion[i];
+                }
+            }
+            //object->tfm = object->motion[1];
+        } else { // even
+            const int midFrameIdx = sampleCount / 2 - 1;
+            assert(midFrameIdx > 0);
+
+            object->motion.resize(sampleCount + 1, ccl::transform_empty());
+            for (int i = 0; i <= sampleCount; ++i) {
+                if (i == midFrameIdx) {
+                    ccl::Transform xfPrev = mat4d_to_transform(xf.values.data()[i]);
+                    ccl::Transform xfNext = mat4d_to_transform(xf.values.data()[i + 1]);
+
+                    ccl::DecomposedTransform dxf[2];
+                    transform_motion_decompose(dxf + 0, &xfPrev, 1);
+                    transform_motion_decompose(dxf + 1, &xfNext, 1);
+
+                    ccl::Transform xfMid;
+                    object->motion[i++] = xfPrev;                 
+                    transform_motion_array_interpolate(&object->motion[i], dxf, 2, 0.5f);
+                    object->tfm = object->motion[i];
+                } else {
+                    object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+                }
+            }
+        } 
     }
-
-
-    // This needs to be revised when multi-segment (>3) blur is finalized.
-    if (sampleCount % 2) { // odd
-        // Recalculating the middle frame only for now
-        const int midFrameIdx = sampleCount / 2;
-        assert(midFrameIdx > 0);
-
-        object->motion.resize(sampleCount, ccl::transform_empty());
-        for (int i = 0; i < sampleCount; ++i) {
-            if (i == midFrameIdx) {
-                ccl::Transform xfPrev = mat4d_to_transform(xf.values.data()[i - 1]);
-                ccl::Transform xfNext = mat4d_to_transform(xf.values.data()[i + 1]);
-
-                ccl::DecomposedTransform dxf[2];
-                transform_motion_decompose(dxf + 0, &xfPrev, 1);
-                transform_motion_decompose(dxf + 1, &xfNext, 1);
-
-                transform_motion_array_interpolate(&object->motion[i], dxf, 2, 0.5f);
-                // Original transform
-                //object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
-            } else {
-                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
-            }
-
-            // Setting the transform to the middle frame
-            if (xf.times.data()[i] == 0.0f) {
-                object->tfm = object->motion[i];
-            }
-        }
-        //object->tfm = object->motion[1];
-    } else { // even
-        // Adding a transform in the middle to guarantee
-        // an odd number of transforms
-
-    } 
 
     return xf;
 }

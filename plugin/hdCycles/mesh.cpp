@@ -527,6 +527,7 @@ HdCyclesMesh::_PopulateVertices()
 void
 HdCyclesMesh::_PopulateMotion()
 {
+    printf("HDCYCLES _PopulateMotion pointSamples %d\n", m_pointSamples.count);
     if (m_pointSamples.count <= 1) {
         return;
     }
