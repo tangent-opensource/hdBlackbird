@@ -365,94 +365,71 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
         && interpolation == HdInterpolationConstant) {
         ccl::float4 displayColor;
 
-        if (colors.IsHolding<VtArray<float>>()) {
-            displayColor = vec1f_to_float4(
-                colors.UncheckedGet<VtArray<float>>()[0]);
-        } else if (colors.IsHolding<VtArray<GfVec2f>>()) {
-            displayColor = vec2f_to_float4(
-                colors.UncheckedGet<VtArray<GfVec2f>>()[0]);
+bool
+HdCyclesMesh::_PopulateNormals(const VtValue& data, HdInterpolation interpolation, const SdfPath& id)
+{
+    // not supported interpolation types
+    if(interpolation == HdInterpolationConstant) {
+        TF_WARN("Constant normals are not implemented!");
+        return false;
+    } else if(interpolation == HdInterpolationVarying) {
+        TF_WARN("Varying normals are not implemented!");
+        return false;
+    } else if (interpolation == HdInterpolationFaceVarying) {
+        TF_WARN("Face varying normals are not implemented!");
+        return false;
+    }
 
-        } else if (colors.IsHolding<VtArray<GfVec3f>>()) {
-            displayColor = vec3f_to_float4(
-                colors.UncheckedGet<VtArray<GfVec3f>>()[0]);
+    VtValue normals_value = data;
 
-        } else if (colors.IsHolding<VtArray<GfVec4f>>()) {
-            displayColor = vec4f_to_float4(
-                colors.UncheckedGet<VtArray<GfVec4f>>()[0]);
-        } else {
-            std::cout
-                << "Invalid color size. Only float, vec2, vec3, and vec4 are supported. Found"
-                << colors.GetTypeName() << "\n";
+    if(!normals_value.IsHolding<VtVec3fArray>()) {
+        if(!normals_value.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid normals data! Can not convert normals for: %s", id.GetText());
+            return false;
         }
 
-        m_cyclesObject->color = ccl::make_float3(displayColor.x, displayColor.y,
-                                                 displayColor.z);
+        normals_value = normals_value.Cast<VtVec3fArray>();
     }
-}
 
-void
-HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
-{
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
     if (interpolation == HdInterpolationUniform) {
-        ccl::Attribute* attr_fN = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
-        ccl::float3* fN         = attr_fN->data_float3();
+        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
+        ccl::float3* normal_data    = normal_attr->data_float3();
 
-        int idx = 0;
-        auto& vertex_counts = GetFaceVertexCounts();
-        for (int i = 0; i < vertex_counts.size(); i++) {
-            const int vCount = vertex_counts[i];
+        const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
+        memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
-            // This needs to be checked
-            for (int j = 1; j < vCount - 1; ++idx) {
-                fN[idx] = vec3f_to_float3(normals[idx]);
-            }
+        VtValue refined_value = m_refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+        if(refined_value.GetArraySize() != num_triangles) {
+            TF_WARN("Invalid uniform normals for: %s", id.GetText());
+            return false;
         }
 
+        VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
+        for (int i = 0; i < num_triangles; i++) {
+            normal_data[i] = vec3f_to_float3(refined_normals[i]);
+        }
     } else if (interpolation == HdInterpolationVertex) {
-        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        ccl::float3* cdata   = attr->data_float3();
+        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::float3* normal_data = normal_attr->data_float3();
 
-        memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+        const size_t num_vertices = m_refiner->GetNumRefinedVertices();
+        memset(normal_data, 0, num_vertices * sizeof(ccl::float3));
 
-        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
-            ccl::float3 n = vec3f_to_float3(normals[i]);
-            if (m_orientation == HdTokens->leftHanded)
-                n = -n;
-            cdata[i] = n;
+        VtValue refined_value = m_refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+        if(refined_value.GetArraySize() != num_vertices) {
+            TF_WARN("Invalid vertex normals for: %s", id.GetText());
+            return false;
         }
 
-    } else if (interpolation == HdInterpolationFaceVarying) {
-        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        //ccl::float3* cdata   = attr->data_float3();
-
-        // TODO: For now, this method produces very wrong results. Some other solution will be needed
-
-        m_cyclesMesh->add_face_normals();
-        m_cyclesMesh->add_vertex_normals();
-
-        return;
-
-        //memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
-
-        // Although looping through all faces, normals are averaged per
-        // vertex. This seems to be a limitation of cycles. Not allowing
-        // face varying/loop_normals/corner_normals natively.
-
-        // For now, we add all corner normals and normalize separately.
-        // TODO: Update when Cycles supports corner_normals
-        /*for (size_t i = 0; i < m_numMeshFaces; i++) {
-            for (size_t j = 0; j < 3; j++) {
-                ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
-                cdata[m_cyclesMesh->get_triangle(i).v[j]] += n;
-            }
+        VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
+        for(size_t i{}; i < num_vertices; ++i) {
+            normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
-
-        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
-            cdata[i] = ccl::normalize(cdata[i]);
-        }*/
     }
+
+    return true;
 }
 
 ccl::Mesh*
