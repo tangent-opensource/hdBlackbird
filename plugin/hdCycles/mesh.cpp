@@ -213,9 +213,7 @@ void
 HdCyclesMesh::_ComputeTangents(bool needsign)
 {
     // This is likely deprecated now
-    const ccl::AttributeSet& attributes = (m_useSubdivision && m_subdivEnabled)
-                                              ? m_cyclesMesh->subd_attributes
-                                              : m_cyclesMesh->attributes;
+    const ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
     ccl::Attribute* attr = attributes.find(ccl::ATTR_STD_UV);
     if (attr) {
@@ -271,10 +269,7 @@ void
 HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                              HdInterpolation interpolation)
 {
-    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
-                                        ? &m_cyclesMesh->subd_attributes
-                                        : &m_cyclesMesh->attributes;
-
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
     m_cyclesMesh->use_motion_blur = true;
     m_cyclesMesh->motion_steps    = 3;
 
@@ -541,9 +536,7 @@ HdCyclesMesh::_PopulateMotion()
         return;
     }
 
-    ccl::AttributeSet* attributes = (m_useSubdivision)
-                                        ? &m_cyclesMesh->subd_attributes
-                                        : &m_cyclesMesh->attributes;
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
 
     m_cyclesMesh->use_motion_blur = true;
 
@@ -606,9 +599,7 @@ HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
         ccl::float3 loc, size;
         HdCyclesMeshTextureSpace(m_cyclesMesh, loc, size);
 
-        ccl::AttributeSet* attributes = (m_useSubdivision)
-                                            ? &m_cyclesMesh->subd_attributes
-                                            : &m_cyclesMesh->attributes;
+        ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
         ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
 
         ccl::float3* generated = attr->data_float3();
