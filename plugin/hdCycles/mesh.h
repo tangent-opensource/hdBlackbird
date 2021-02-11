@@ -209,7 +209,7 @@ protected:
      * @brief Populate vertices of cycles mesh
      * 
      */
-    void _PopulateVertices(HdSceneDelegate* sceneDelegate);
+    bool _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     void _PopulateMotion();
 

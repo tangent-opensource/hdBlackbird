@@ -513,23 +513,6 @@ HdCyclesMesh::_CreateCyclesObject()
 }
 
 void
-HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate)
-{
-    auto points_value = GetPrimvar(sceneDelegate, HdTokens->points);
-
-    VtVec3fArray points;
-    VtValue refined_points_value = m_refiner->RefineVertexData(points_value);
-    if(refined_points_value.IsHolding<VtVec3fArray>()) {
-        points = refined_points_value.Get<VtVec3fArray>();
-    }
-
-    for(size_t i{}; i < points.size(); ++i) {
-        auto& data = points[i];
-        m_cyclesMesh->add_vertex(ccl::make_float3(data[0], data[1], data[2]));
-    }
-}
-
-void
 HdCyclesMesh::_PopulateMotion()
 {
     if (m_pointSamples.count <= 1) {
@@ -590,6 +573,47 @@ HdCyclesMesh::_PopulateFaces(VtIntArray& input_material_ids)
                                    refined_indices[i][2],
                                    material_id, true);
     }
+}
+
+bool
+HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id)
+{
+    VtValue points_value = GetPrimvar(sceneDelegate, HdTokens->points);
+
+    if(!points_value.IsHolding<VtVec3fArray>()) {
+        if(!points_value.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid points data! Can not convert points for: %s", id.GetText());
+            return false;
+        }
+
+        points_value = points_value.Cast<VtVec3fArray>();
+    }
+
+    if(!points_value.IsHolding<VtVec3fArray>()) {
+        if(!points_value.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid point data! Can not convert points for: %s", id.GetText());
+            return false;
+        }
+
+        points_value = points_value.Cast<VtVec3fArray>();
+    }
+
+    VtVec3fArray points;
+    VtValue refined_points_value = m_refiner->RefineVertexData(HdTokens->points,
+                                                               HdPrimvarRoleTokens->point,
+                                                               points_value);
+    if(refined_points_value.IsHolding<VtVec3fArray>()) {
+        points = refined_points_value.Get<VtVec3fArray>();
+    }
+
+    for(size_t i{}; i < points.size(); ++i) {
+        auto& data = points[i];
+        m_cyclesMesh->add_vertex(ccl::make_float3(data[0], data[1], data[2]));
+    }
+
+    // TODO: populate motion ?
+
+    return true;
 }
 
 void
@@ -702,6 +726,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         newMesh = true;
     }
 
+    // dirty points, check for velocities too
+    if(*dirtyBits & HdChangeTracker::DirtyPoints) {
+        _PopulateVertices(sceneDelegate, id);
+        mesh_updated = true;
+    }
     std::map<HdInterpolation, HdPrimvarDescriptorVector>
         primvarDescsPerInterpolation = {
             { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(
