@@ -94,31 +94,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     config.max_subdivision.eval(m_maxSubdivision, true);
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
-    m_cyclesObject = _CreateCyclesObject();
-
-    m_cyclesMesh = _CreateCyclesMesh();
-
-    m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
-
-    if (m_useMotionBlur) {
-        // Motion steps are currently a static const compile time
-        // variable... This is likely an issue...
-        // TODO: Get this from usdCycles schema
-        //m_motionSteps = config.motion_steps;
-        m_motionSteps = m_numTransformSamples;
-
-        // Hardcoded for now until schema PR
-        m_useDeformMotionBlur = true;
-
-        // TODO: Needed when we properly handle motion_verts
-        m_cyclesMesh->motion_steps    = m_motionSteps;
-        m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
-    }
-
-    m_cyclesObject->geometry = m_cyclesMesh;
-
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    _InitializeNewCyclesMesh();
 }
 
 HdCyclesMesh::~HdCyclesMesh()
@@ -695,6 +671,44 @@ HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
     m_cyclesMesh->compute_bounds();
 
     _PopulateGenerated(scene);
+}
+
+void
+HdCyclesMesh::_InitializeNewCyclesMesh()
+{
+    if (m_cyclesMesh) {
+        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        delete m_cyclesMesh;
+    }
+
+    if (m_cyclesObject) {
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        delete m_cyclesObject;
+    }
+
+    m_cyclesObject = _CreateCyclesObject();
+    m_cyclesMesh = _CreateCyclesMesh();
+    m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
+
+    if (m_useMotionBlur) {
+        // Motion steps are currently a static const compile time
+        // variable... This is likely an issue...
+        // TODO: Get this from usdCycles schema
+        //m_motionSteps = config.motion_steps;
+        m_motionSteps = m_numTransformSamples;
+
+        // Hardcoded for now until schema PR
+        m_useDeformMotionBlur = true;
+
+        // TODO: Needed when we properly handle motion_verts
+        m_cyclesMesh->motion_steps    = m_motionSteps;
+        m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
+    }
+
+    m_cyclesObject->geometry = m_cyclesMesh;
+
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
 }
 
 void

@@ -95,6 +95,9 @@ public:
               HdDirtyBits* dirtyBits, TfToken const& reprToken) override;
 
 protected:
+
+    void _InitializeNewCyclesMesh();
+
     /**
      * @brief Create the cycles mesh representation
      * 
