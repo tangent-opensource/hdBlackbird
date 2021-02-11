@@ -219,7 +219,7 @@ protected:
      * @param input_material_ids pregenerated array of subset materials
      * @param a_subdivide should faces be subdivided
      */
-    void _PopulateFaces(VtIntArray& input_material_ids);
+    bool _PopulateTopology(const SdfPath& id);
 
     /**
      * @brief Populate subdiv creases

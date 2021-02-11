@@ -549,29 +549,24 @@ HdCyclesMesh::_PopulateMotion()
     }
 }
 
-void
-HdCyclesMesh::_PopulateFaces(VtIntArray& input_material_ids)
+bool
+HdCyclesMesh::_PopulateTopology(const SdfPath& id)
 {
-    // allocate mesh
-    m_cyclesMesh->reserve_mesh(m_refiner->GetNumVertices(),
-                               m_refiner->GetNumTriangles());
+    // allocate new mesh
+    m_cyclesMesh->clear();
+    m_cyclesMesh->reserve_mesh(m_refiner->GetNumRefinedVertices(),
+                               m_refiner->GetNumRefinedTriangles());
 
-    // refine refined_indices, has to be run first to precompute primitiveParam
-    const VtVec3iArray& refined_indices = m_refiner->RefinedIndices();
-
-    // refine materials per face
-    VtIntArray material_ids;
-    auto refined_materials_value = m_refiner->RefineUniformData(VtValue{ input_material_ids });
-    if(refined_materials_value.IsHolding<VtIntArray>()) {
-        material_ids =refined_materials_value.Get<VtIntArray>();
+    // push refined indices
+    for(const GfVec3i& triangle_indices : m_refiner->GetRefinedIndices()) {
+        m_cyclesMesh->add_triangle(triangle_indices[0],
+                                   triangle_indices[1],
+                                   triangle_indices[2],
+                                   0, true);
     }
 
-    for(size_t i{}; i < refined_indices.size(); ++i) {
-        auto material_id = i < material_ids.size() ? material_ids[i] : 0;
-        m_cyclesMesh->add_triangle(refined_indices[i][0],
-                                   refined_indices[i][1],
-                                   refined_indices[i][2],
-                                   material_id, true);
+    return true;
+}
     }
 }
 
@@ -720,6 +715,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // topology can not outlive the refiner
         m_topology = GetMeshTopology(sceneDelegate);
         m_refiner = HdCyclesMeshRefiner::Create(m_topology, 2, id);
+        _PopulateTopology(id);
 
         m_adjacencyValid = false;
         m_normalsValid   = false;
