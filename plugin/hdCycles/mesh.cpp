@@ -1113,13 +1113,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     *dirtyBits = HdChangeTracker::Clean;
 }
 
-const VtIntArray& HdCyclesMesh::GetFaceVertexCounts() const
-{
-    return m_refiner->RefinedCounts();
+const VtIntArray& HdCyclesMesh::GetFaceVertexCounts() const {
+    return m_refiner->GetRefinedCounts();
 }
 
 const VtVec3iArray& HdCyclesMesh::GetFaceVertexIndices() const {
-    return m_refiner->RefinedIndices();
+    return m_refiner->GetRefinedIndices();
 }
 
 namespace {
