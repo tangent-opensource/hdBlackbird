@@ -567,7 +567,63 @@ HdCyclesMesh::_PopulateTopology(const SdfPath& id)
 
     return true;
 }
+
+bool
+HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
+{
+    HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
+
+    // collect unrefined material ids for each face
+    TfHashMap<SdfPath, int, SdfPath::Hash> material_map; // faster search
+    VtIntArray face_materials(m_topology.GetNumFaces(), 0);
+
+    for(auto& subset : m_topology.GetGeomSubsets()) {
+        int subset_material_id = 0;
+
+        if(!subset.materialId.IsEmpty()) {
+            HdSprim* state_prim = render_index.GetSprim(HdPrimTypeTokens->material, subset.materialId);
+            auto sub_mat = dynamic_cast<const HdCyclesMaterial*>(state_prim);
+
+            if(!sub_mat) continue;
+            if(!sub_mat->GetCyclesShader()) continue;
+
+            auto search_it = material_map.find(subset.materialId);
+            if(search_it == material_map.end()) {
+                m_usedShaders.push_back(sub_mat->GetCyclesShader());
+                sub_mat->GetCyclesShader()->tag_update(scene);
+                material_map[subset.materialId] = m_usedShaders.size();
+                subset_material_id = m_usedShaders.size();
+            } else {
+                subset_material_id = search_it->second;
+            }
+        }
+
+        for (int i : subset.indices) {
+            face_materials[i] = std::max(subset_material_id - 1, 0);
+        }
     }
+
+    // refine material ids and assign them to refined geometry
+    VtValue refined_value = m_refiner->RefineUniformData(HdTokens->materialParams,
+                                                         HdPrimvarRoleTokens->none,
+                                                         VtValue{face_materials});
+
+    if(refined_value.GetArraySize() != m_cyclesMesh->shader.size()) {
+        TF_WARN("Failed to refine and assign materials for: %s", id.GetText());
+        return false;
+    }
+
+    auto refined_material_ids = refined_value.UncheckedGet<VtIntArray>();
+    for(size_t i{}; i < refined_material_ids.size(); ++i) {
+        m_cyclesMesh->shader[i] = refined_material_ids[i];
+    }
+
+    // update mesh's materials
+    if (!m_usedShaders.empty()) {
+        m_cyclesMesh->used_shaders = m_usedShaders;
+    }
+
+    return true;
 }
 
 bool
@@ -716,6 +772,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_topology = GetMeshTopology(sceneDelegate);
         m_refiner = HdCyclesMeshRefiner::Create(m_topology, 2, id);
         _PopulateTopology(id);
+        _PopulateMaterials(sceneDelegate, scene, id);
 
         m_adjacencyValid = false;
         m_normalsValid   = false;
@@ -873,37 +930,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // -- Create Cycles Mesh
 
     if (newMesh) {
-        m_cyclesMesh->clear();
-
-        VtIntArray faceMaterials;
-        faceMaterials.resize(m_topology.GetNumFaces());
-        for (auto const& subset : m_topology.GetGeomSubsets()) {
-            int subsetMaterialIndex = 0;
-
-            if (!subset.materialId.IsEmpty()) {
-                HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
-                HdSprim* state_prim = render_index.GetSprim(HdPrimTypeTokens->material, subset.materialId);
-                auto subMat = dynamic_cast<const HdCyclesMaterial*>(state_prim);
-                if (subMat && subMat->GetCyclesShader()) {
-                    if (m_materialMap.find(subset.materialId) == m_materialMap.end()) {
-                        m_usedShaders.push_back(subMat->GetCyclesShader());
-                        subMat->GetCyclesShader()->tag_update(scene);
-                        m_materialMap.emplace(subset.materialId, m_usedShaders.size());
-                        subsetMaterialIndex = m_usedShaders.size();
-                    } else {
-                        subsetMaterialIndex = m_materialMap.at(subset.materialId);
-                    }
-                    m_cyclesMesh->used_shaders = m_usedShaders;
-                }
-            }
-
-            for (int i : subset.indices) {
-                faceMaterials[i] = std::max(subsetMaterialIndex - 1, 0);
-            }
-        }
-
-        _PopulateFaces(faceMaterials);
-        _PopulateVertices(sceneDelegate);
 
         if (m_useMotionBlur && m_useDeformMotionBlur)
             _PopulateMotion();
@@ -971,9 +997,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             }
         }
 
-        // Apply existing shaders
-        if (m_usedShaders.size() > 0)
-            m_cyclesMesh->used_shaders = m_usedShaders;
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {

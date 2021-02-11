@@ -220,6 +220,7 @@ protected:
      * @param a_subdivide should faces be subdivided
      */
     bool _PopulateTopology(const SdfPath& id);
+    bool _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
 
     /**
      * @brief Populate subdiv creases
@@ -236,8 +237,6 @@ protected:
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
     std::vector<ccl::Object*> m_cyclesInstances;
-
-    std::map<SdfPath, int> m_materialMap;
 
     size_t m_numMeshVerts = 0;
     size_t m_numMeshFaces = 0;
