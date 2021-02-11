@@ -638,8 +638,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
     ccl::Scene* scene          = param->GetCyclesScene();
 
-    std::lock_guard<decltype(scene->mutex)> scene_lock{scene->mutex};
-
     const SdfPath& id = GetId();
 
     // -------------------------------------
