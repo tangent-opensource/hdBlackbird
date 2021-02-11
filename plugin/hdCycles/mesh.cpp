@@ -1116,7 +1116,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (!_sharedData.visible)
             m_cyclesObject->visibility = 0;
 
-        m_cyclesMesh->tag_update(scene, false);
+        m_cyclesMesh->tag_update(scene, true);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
