@@ -18,7 +18,6 @@
 //  limitations under the License.
 
 #include "meshRefiner.h"
-#include "valueConverters.h"
 
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/bufferSource.h>
@@ -34,8 +33,6 @@
 #include <opensubdiv/osd/cpuVertexBuffer.h>
 #include <opensubdiv/far/stencilTableFactory.h>
 #include <opensubdiv/far/patchTableFactory.h>
-#include <opensubdiv/far/ptexIndices.h>
-
 
 PXR_NAMESPACE_USING_DIRECTIVE;
 
@@ -81,9 +78,6 @@ public:
             return {};
         }
 
-        if(!HdIsTypeFloat(data)) {
-            return HdConvertToFloat(data);
-        }
         return data;
     }
 
@@ -140,9 +134,6 @@ public:
             return {};
         }
 
-        if(!HdIsTypeFloat(data)) {
-            return HdConvertToFloat(data);
-        }
         return data;
     }
 
@@ -199,7 +190,19 @@ public:
             Far::TopologyRefiner::UniformOptions refiner_options { refine_level };
             refiner->RefineUniform(refiner_options);
 
-            m_ptex_indices = std::make_unique<Far::PtexIndices>(*refiner);
+            // compute offset table, to map between ptex face to coarse face:
+            // https://github.com/PixarAnimationStudios/OpenSubdiv/issues/1121
+            const Far::TopologyLevel& base_level = refiner->GetLevel(0);
+            m_ptex_face_to_coarse_face.reserve(base_level.GetNumFaces()); // assumption all faces are quads
+            for (int base_face = 0; base_face < base_level.GetNumFaces(); ++base_face) {
+                int num_base_face_verts = base_level.GetFaceVertices(base_face).size();
+
+                int num_ptex_faces = (num_base_face_verts == 4) ? 1 : num_base_face_verts;
+                for (int j = 0; j < num_ptex_faces; ++j) {
+                    m_ptex_face_to_coarse_face.push_back(base_face);
+                }
+            }
+            m_ptex_face_to_coarse_face.shrink_to_fit();
         }
 
         // stencils required for primvar refinement
@@ -268,14 +271,13 @@ public:
             return {};
         }
 
-        const Far::PatchParamTable& patch_param_table = m_patch_table->GetPatchParamTable();
-
         auto& input = data.UncheckedGet<VtArray<T>>();
+        const Far::PatchParamTable& patch_param_table = m_patch_table->GetPatchParamTable();
         VtArray<T> fine_array(patch_param_table.size());
 
         for(size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
             const Far::PatchParam& patch_param = patch_param_table[fine_id];
-            int coarse_id = patch_param.GetFaceId();
+            int coarse_id = m_ptex_face_to_coarse_face[patch_param.GetFaceId()];
             assert(coarse_id < input.size());
 
             fine_array[fine_id] = input[coarse_id];
@@ -404,11 +406,10 @@ private:
     VtVec3iArray m_triangle_indices;
     VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
 
+    std::vector<int> m_ptex_face_to_coarse_face;
     StencilTablePtr m_vertex_stencils;
     StencilTablePtr m_varying_stencils;
     StencilTablePtr m_face_varying_stencils;
-
-    std::unique_ptr<Far::PtexIndices> m_ptex_indices;
 
     PatchTablePtr m_patch_table;
 };
@@ -452,7 +453,7 @@ HdCyclesMeshRefiner::RefineData(const TfToken& name, const TfToken& role,
     }
 }
 
-size_t HdCyclesMeshRefiner::GetNumTriangles() const
+size_t HdCyclesMeshRefiner::GetNumRefinedTriangles() const
 {
     return GetRefinedIndices().size();
 }

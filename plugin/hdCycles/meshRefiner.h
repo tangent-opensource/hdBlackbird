@@ -66,7 +66,7 @@ public:
     virtual const VtIntArray& GetRefinedCounts() const = 0;
 
     /// \brief
-    size_t GetNumTriangles() const;
+    size_t GetNumRefinedTriangles() const;
 
     HdCyclesMeshRefiner(const HdCyclesMeshRefiner&) = delete;
     HdCyclesMeshRefiner(HdCyclesMeshRefiner&&) noexcept = delete;
