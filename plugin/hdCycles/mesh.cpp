@@ -442,9 +442,6 @@ HdCyclesMesh::_CreateCyclesMesh()
         mesh->use_motion_blur = true;
     }
 
-    m_numMeshVerts = 0;
-    m_numMeshFaces = 0;
-
     mesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
     return mesh;
 }
@@ -493,7 +490,7 @@ HdCyclesMesh::_PopulateMotion()
         VtVec3fArray pp;
         pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
 
-        for (size_t j = 0; j < m_numMeshVerts; ++j, ++mP) {
+        for (size_t j = 0; j < m_refiner->GetNumRefinedVertices(); ++j, ++mP) {
             *mP = vec3f_to_float3(pp[j]);
         }
     }

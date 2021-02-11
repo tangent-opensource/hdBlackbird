@@ -241,9 +241,6 @@ protected:
     ccl::Object* m_cyclesObject;
     std::vector<ccl::Object*> m_cyclesInstances;
 
-    size_t m_numMeshVerts = 0;
-    size_t m_numMeshFaces = 0;
-
     SdfPath m_cachedMaterialId;
     int m_numTransformSamples;
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
