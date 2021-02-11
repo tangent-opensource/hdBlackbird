@@ -219,9 +219,6 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
 
     ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV, uv_name);
 
-    if (m_useSubdivision && subdivide_uvs && m_subdivEnabled)
-        attr->flags |= ccl::ATTR_SUBDIVIDED;
-
     _PopulateAttribute(name, HdPrimvarRoleTokens->textureCoordinate,
                        interpolation, uvs, attr, this);
 
@@ -1019,9 +1016,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
                                                   id, m_useMotionBlur);
 
-        if (m_cyclesMesh && m_cyclesMesh->subd_params) {
-            m_cyclesMesh->subd_params->objecttoworld = m_cyclesObject->tfm;
-        }
 
         mesh_updated = true;
     }
