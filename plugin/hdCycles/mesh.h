@@ -142,7 +142,7 @@ protected:
      * @param normals 
      * @param interpolation 
      */
-    void _AddNormals(VtVec3fArray& normals, HdInterpolation interpolation);
+    bool _PopulateNormals(const VtValue& data, HdInterpolation interpolation, const SdfPath& id);
 
     /**
      * @brief Add vertex velocities (Not tested)
@@ -162,8 +162,8 @@ protected:
      * @param scene 
      * @param interpolation 
      */
-    void _AddColors(TfToken name, TfToken role, VtValue colors,
-                    ccl::Scene* scene, HdInterpolation interpolation);
+    void _PopulateColors(const TfToken& name, const TfToken& role, const VtValue& data, ccl::Scene* scene,
+                    HdInterpolation interpolation, const SdfPath& id);
 
 protected:
     struct PrimvarSource {

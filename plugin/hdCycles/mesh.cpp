@@ -203,8 +203,6 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
                         HdInterpolation interpolation)
 {
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
-    bool subdivide_uvs = false;
-
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
 
@@ -255,34 +253,6 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
     if (!attr_mP) {
         attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     }
-    //ccl::float3* vdata = attr_mP->data_float3();
-
-    /*if (interpolation == HdInterpolationVertex) {
-        VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
-
-        // TODO: Add support for subd faces?
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
-
-            for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + j + 0);
-                int v2 = *(idxIt + j + 1);
-
-                if (m_orientation == HdTokens->leftHanded) {
-                    int temp = v2;
-                    v2       = v0;
-                    v0       = temp;
-                }
-
-                vdata[0] = vec3f_to_float3(velocities[v0]);
-                vdata[1] = vec3f_to_float3(velocities[v1]);
-                vdata[2] = vec3f_to_float3(velocities[v2]);
-                vdata += 3;
-            }
-            idxIt += vCount;
-        }
-    } else {*/
 
     ccl::float3* mP = attr_mP->data_float3();
 
@@ -690,6 +660,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     ccl::Scene* scene          = param->GetCyclesScene();
 
     const SdfPath& id = GetId();
+    if(!m_cyclesMesh) {
+        TF_WARN("Invalid Cycles mesh! Failed to convert mesh: %s", id.GetText());
+        return;
+    }
 
     // -------------------------------------
     // -- Pull scene data
@@ -746,16 +720,15 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 //        }
 //    }
 
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id) ||
         HdChangeTracker::IsSubdivTagsDirty(*dirtyBits, id) ||
         HdChangeTracker::IsDisplayStyleDirty(*dirtyBits, id)) {
-        HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
 
         // topology can not outlive the refiner
+        HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
         m_topology = GetMeshTopology(sceneDelegate);
-        m_refiner = HdCyclesMeshRefiner::Create(m_topology, 2, id);
+        m_refiner = HdCyclesMeshRefiner::Create(m_topology, display_style.refineLevel, id);
+
         _PopulateTopology(id);
         _PopulateMaterials(sceneDelegate, scene, id);
 
