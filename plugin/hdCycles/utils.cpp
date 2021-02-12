@@ -162,6 +162,11 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 // UPDATE:
 // This causes a known slowdown to deforming motion blur renders
 // This will be addressed in an upcoming PR
+// UPDATE:
+// The function is more robust and renders more correctly.
+// It's missing resampling at uniform intervals when >3
+// samples are present to be more correct. I think this can wait
+// until a use case arises.
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -171,15 +176,9 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> xf {};
 
-    // P.S. I don't see any guarantee in the documentation that the 
-    // transforms are ordered in time, but they seem to be.
+    // Assumes that they are ordered
     delegate->SampleTransform(id, &xf);
-
     int sampleCount = xf.count;
-    printf("Sample count transforms %d use_motion %d\n", sampleCount, use_motion);
-    for (int i = 0; i < sampleCount; ++i){
-        std::cout << xf.values.data()[i] << std::endl;
-    }
 
     if (sampleCount == 0) {
         object->tfm = ccl::transform_identity();
@@ -187,7 +186,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
     }
 
     object->tfm = mat4d_to_transform(xf.values.data()[0]);
-    if (sampleCount == 1) { 
+    if (sampleCount == 1) {
         return xf;
     }
 
@@ -200,14 +199,11 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
     if (object->geometry) {
         if (object->geometry->use_motion_blur
             && object->geometry->motion_steps != sampleCount) {
-            printf("Mismatching motion steps and sample count\n");
-            object->motion.clear(); // Not assuming it's empty
+            object->motion.clear();  // Not assuming it's empty
             object->motion.resize(object->geometry->motion_steps, object->tfm);
             return xf;
         }
     }
-
-    printf("Geometry motion steps %d\n", object->geometry->motion_steps);
 
     if (object->geometry && object->geometry->motion_steps == sampleCount) {
         object->geometry->use_motion_blur = true;
@@ -218,62 +214,46 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 mesh->need_update = true;
         }
 
-        // For more than three samples this needs to be revised to include resampling
-        // at even intervals. 
-        if (sampleCount % 2) { // odd
-            // Recalculating the middle frame only for now
-            const int midFrameIdx = sampleCount / 2;
-            assert(midFrameIdx > 0);
+        // The code assumes that the transforms are authored at uniform 
+        // intervals with respect to the camera shutter interval.
+        const int sampleOffset   = (sampleCount % 2) ? 0 : 1;
+        const int numMotionSteps = sampleCount + sampleOffset;
+        const int midFrameIdx    = sampleCount / 2 - sampleOffset;
+        object->motion.resize(numMotionSteps, ccl::transform_empty());
 
-            object->motion.resize(sampleCount, ccl::transform_empty());
-            for (int i = 0; i < sampleCount; ++i) {
-                if (i == midFrameIdx) {
-                    ccl::Transform xfPrev = mat4d_to_transform(xf.values.data()[i - 1]);
-                    ccl::Transform xfNext = mat4d_to_transform(xf.values.data()[i + 1]);
+        // Even when we have 3 samples, we resample the middle frame. 
+        // This avoids artifacts in the render caused by the linear 
+        // interpolation of the boundary intervals.
+        // (see related PR for examples)
+        for (int i = 0; i < numMotionSteps; ++i) {
+            if (i == midFrameIdx) {
+                ccl::Transform xfPrev = mat4d_to_transform(
+                    xf.values.data()[i - 1 + sampleOffset]);
+                ccl::Transform xfNext = mat4d_to_transform(
+                    xf.values.data()[i + 1]);
 
-                    ccl::DecomposedTransform dxf[2];
-                    transform_motion_decompose(dxf + 0, &xfPrev, 1);
-                    transform_motion_decompose(dxf + 1, &xfNext, 1);
+                ccl::DecomposedTransform dxf[2];
+                transform_motion_decompose(dxf + 0, &xfPrev, 1);
+                transform_motion_decompose(dxf + 1, &xfNext, 1);
 
-                    // Preferring the smaller rotation difference
-                    if (ccl::len_squared(dxf[0].x - dxf[1].x) > ccl::len_squared(dxf[0].x + dxf[1].x)) {
-                        dxf[1].x = -dxf[1].x;
-                    }
-
-                    transform_motion_array_interpolate(&object->motion[i], dxf, 2, 0.5f);
-                } else {
-                    object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+                // Preferring the smaller rotation difference
+                if (ccl::len_squared(dxf[0].x - dxf[1].x)
+                    > ccl::len_squared(dxf[0].x + dxf[1].x)) {
+                    dxf[1].x = -dxf[1].x;
                 }
 
-                // Setting the transform to the middle frame
-                if (xf.times.data()[i] == 0.0f) {
-                    object->tfm = object->motion[i];
+                // Always replacing the center sample
+                if (sampleOffset) {
+                    object->motion[i++] = xfPrev;
                 }
+
+                transform_motion_array_interpolate(&object->motion[i], dxf, 2,
+                                                   0.5f);
+                object->tfm = object->motion[i];
+            } else {
+                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
             }
-            //object->tfm = object->motion[1];
-        } else { // even
-            const int midFrameIdx = sampleCount / 2 - 1;
-            assert(midFrameIdx > 0);
-
-            object->motion.resize(sampleCount + 1, ccl::transform_empty());
-            for (int i = 0; i <= sampleCount; ++i) {
-                if (i == midFrameIdx) {
-                    ccl::Transform xfPrev = mat4d_to_transform(xf.values.data()[i]);
-                    ccl::Transform xfNext = mat4d_to_transform(xf.values.data()[i + 1]);
-
-                    ccl::DecomposedTransform dxf[2];
-                    transform_motion_decompose(dxf + 0, &xfPrev, 1);
-                    transform_motion_decompose(dxf + 1, &xfNext, 1);
-
-                    ccl::Transform xfMid;
-                    object->motion[i++] = xfPrev;                 
-                    transform_motion_array_interpolate(&object->motion[i], dxf, 2, 0.5f);
-                    object->tfm = object->motion[i];
-                } else {
-                    object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
-                }
-            }
-        } 
+        }
     }
 
     return xf;
