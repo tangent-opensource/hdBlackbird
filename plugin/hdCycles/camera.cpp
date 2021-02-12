@@ -148,9 +148,6 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     if (use_motion_blur) {
         m_useMotionBlur = true;
     }
-
-    printf("HDCYCLES - Camera using motion blur %d\n", m_useMotionBlur);
-    m_useMotionBlur = true;
 }
 
 HdCyclesCamera::~HdCyclesCamera() {}
@@ -518,8 +515,6 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
         a_camera->motion.resize(m_transformSamples.count,
                                 ccl::transform_identity());
 
-        printf("HDCYCLES motion blur shutter time %.3f motion samples %d\n", 
-            a_camera->shuttertime, (int)a_camera->motion.size());
         for (int i = 0; i < m_transformSamples.count; i++) {
             if (m_transformSamples.times.data()[i] == 0.0f) {
                 a_camera->matrix = mat4d_to_transform(ConvertCameraTransform(

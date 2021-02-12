@@ -194,7 +194,6 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         return xf;
     }
 
-    // todo: If there are extra transform we should do something with them.
     object->motion.clear();
     if (object->geometry) {
         if (object->geometry->use_motion_blur

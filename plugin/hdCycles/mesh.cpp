@@ -965,8 +965,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_cyclesMesh->clear();
 
         _PopulateVertices();
-        printf("HDCYCLES MESH Number of points %d faces %d\n", m_numMeshVerts,
-               m_numMeshFaces);
 
         if (m_useMotionBlur && m_useDeformMotionBlur)
             _PopulateMotion();
