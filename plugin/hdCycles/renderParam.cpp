@@ -212,14 +212,10 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateIntegratorFromRenderSettings(settingsMap);
     _UpdateIntegratorFromConfig();
 
-
     // -- Background
     _UpdateBackgroundFromConfig(true);
     _UpdateBackgroundFromRenderSettings(settingsMap);
     _UpdateBackgroundFromConfig();
-
-    printf("HDCYCLES RENDERPARAMS use_motion_blur %d\n", m_cyclesScene->integrator->motion_blur);
-    m_cyclesScene->integrator->motion_blur = true;
 
     _HandlePasses();
 
@@ -686,8 +682,6 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
     }*/
 
     config.enable_motion_blur.eval(integrator->motion_blur, a_forceInit);
-    integrator->motion_blur = true;
-    printf("HDCYCLES Enable motion blur %d\n", (int)integrator->motion_blur);
 
     integrator->tag_update(m_cyclesScene);
 }
