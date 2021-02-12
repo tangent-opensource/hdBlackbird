@@ -218,7 +218,8 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 mesh->need_update = true;
         }
 
-        // This needs to be revised when multi-segment (>3) blur is finalized.
+        // For more than three samples this needs to be revised to include resampling
+        // at even intervals. 
         if (sampleCount % 2) { // odd
             // Recalculating the middle frame only for now
             const int midFrameIdx = sampleCount / 2;
@@ -234,9 +235,12 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                     transform_motion_decompose(dxf + 0, &xfPrev, 1);
                     transform_motion_decompose(dxf + 1, &xfNext, 1);
 
+                    // Preferring the smaller rotation difference
+                    if (ccl::len_squared(dxf[0].x - dxf[1].x) > ccl::len_squared(dxf[0].x + dxf[1].x)) {
+                        dxf[1].x = -dxf[1].x;
+                    }
+
                     transform_motion_array_interpolate(&object->motion[i], dxf, 2, 0.5f);
-                    // Original transform
-                    //object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
                 } else {
                     object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
                 }
