@@ -132,6 +132,25 @@ HdCyclesCreateDefaultShader()
     return shader;
 }
 
+ccl::Shader*
+HdCyclesCreateObjectDisplayColorSurface()
+{
+    auto shader = new ccl::Shader();
+    shader->graph = new ccl::ShaderGraph();
+
+    auto oi = new ccl::ObjectInfoNode{};
+    auto bsdf = new ccl::PrincipledBsdfNode();
+
+    shader->graph->add(bsdf);
+    shader->graph->add(oi);
+
+    ccl::ShaderNode* out = shader->graph->output();
+    shader->graph->connect(oi->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
+
+    return shader;
+}
+
 bool
 _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 {

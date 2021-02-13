@@ -1427,10 +1427,13 @@ HdCyclesRenderParam::_CreateScene()
     m_bufferParams.full_width  = m_width;
     m_bufferParams.full_height = m_height;
 
-    default_vcol_surface = HdCyclesCreateDefaultShader();
+    default_vertex_display_color_surface = HdCyclesCreateDefaultShader();
+    default_vertex_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_vertex_display_color_surface);
 
-    default_vcol_surface->tag_update(m_cyclesScene);
-    m_cyclesScene->shaders.push_back(default_vcol_surface);
+    default_object_display_color_surface = HdCyclesCreateObjectDisplayColorSurface();
+    default_object_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_object_display_color_surface);
 
     SetBackgroundShader(nullptr);
 

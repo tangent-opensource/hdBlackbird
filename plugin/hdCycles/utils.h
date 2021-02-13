@@ -89,6 +89,8 @@ HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
 ccl::Shader*
 HdCyclesCreateDefaultShader();
 
+ccl::Shader*
+HdCyclesCreateObjectDisplayColorSurface();
 
 /**
  * @brief Helper function to dump shader graph if 
