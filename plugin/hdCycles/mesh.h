@@ -209,8 +209,10 @@ protected:
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
-    bool _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
 
+    void _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
+    void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
+    void _PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
 
     /**
      * @brief Populate generated coordinates attribute
@@ -222,7 +224,9 @@ protected:
     ccl::Object* m_cyclesObject;
     std::vector<ccl::Object*> m_cyclesInstances;
 
-    SdfPath m_cachedMaterialId;
+    ccl::Shader* m_object_display_color_shader;
+    ccl::Shader* m_attrib_display_color_shader;
+
     int m_numTransformSamples;
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
@@ -256,10 +260,6 @@ protected:
     bool m_visScatter;
     bool m_visShadow;
     bool m_visTransmission;
-
-    bool m_hasVertexColors;
-
-    ccl::vector<ccl::Shader*> m_usedShaders;
 
 public:
     const VtIntArray& GetFaceVertexCounts() const;

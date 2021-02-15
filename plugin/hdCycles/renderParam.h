@@ -416,7 +416,7 @@ public:
      * TODO: Refactor this somewhere else
      * 
      */
-    ccl::Shader* default_vertex_display_color_surface;
+    ccl::Shader* default_attrib_display_color_surface;
     ccl::Shader* default_object_display_color_surface;
 
     VtDictionary GetRenderStats() const;

@@ -133,7 +133,7 @@ HdCyclesCreateDefaultShader()
 }
 
 ccl::Shader*
-HdCyclesCreateObjectDisplayColorSurface()
+HdCyclesCreateObjectColorSurface()
 {
     auto shader = new ccl::Shader();
     shader->graph = new ccl::ShaderGraph();
@@ -146,6 +146,26 @@ HdCyclesCreateObjectDisplayColorSurface()
 
     ccl::ShaderNode* out = shader->graph->output();
     shader->graph->connect(oi->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
+
+    return shader;
+}
+
+ccl::Shader*
+HdCyclesCreateAttribColorSurface() {
+    auto shader = new ccl::Shader();
+    shader->graph = new ccl::ShaderGraph();
+
+    auto attrib = new ccl::AttributeNode{};
+    attrib->attribute = "displayColor";
+
+    auto bsdf = new ccl::PrincipledBsdfNode();
+
+    shader->graph->add(bsdf);
+    shader->graph->add(attrib);
+
+    ccl::ShaderNode* out = shader->graph->output();
+    shader->graph->connect(attrib->output("Color"), bsdf->input("Base Color"));
     shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
 
     return shader;

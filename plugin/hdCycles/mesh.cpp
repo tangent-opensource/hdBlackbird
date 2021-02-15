@@ -45,7 +45,6 @@
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/vec3i.h>
-#include <pxr/base/tf/hash.h>
 #include <pxr/base/tf/hashmap.h>
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
@@ -76,7 +75,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_renderDelegate(a_renderDelegate)
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
-    , m_hasVertexColors(false)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
@@ -488,20 +486,80 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
     }
 }
 
-bool
+// TODO: Presence of material mutex must be reviewed
+static std::mutex material_mutex;
+
+void
 HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
+{
+    // Any topology change will mark MaterialId as dirty and automatically trigger material discovery.
+    // During topology population process, material id for each face is set to 0.
+    // That means default shader must be always present under 0 index in the shader table.
+    // Object material discovery overrides the default shader.
+    // SubSet material discovery appends to the shaders table and overrides materials ids for subset faces.
+    // This behaviour is to cover a corner case, where there is no object material, but there is a sub set,
+    // that does not assign materials to all faces.
+    m_cyclesMesh->used_shaders = {scene->default_surface};
+
+    _PopulateObjectMaterial(sceneDelegate, scene, id);
+    _PopulateSubSetsMaterials(sceneDelegate, scene, id);
+
+    std::lock_guard<std::mutex> lock{material_mutex};
+    for(auto& shader : m_cyclesMesh->used_shaders) {
+        shader->tag_update(scene);
+    }
+}
+
+void
+HdCyclesMesh::_PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
 {
     HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
 
+    // object material overrides face materials
+    auto& used_shaders = m_cyclesMesh->used_shaders;
+
+    const SdfPath& material_id = sceneDelegate->GetMaterialId(id);
+    if(material_id.IsEmpty()) {
+        return;
+    }
+
+    // search for state primitive that contains cycles shader
+    const HdSprim* material = render_index.GetSprim(HdPrimTypeTokens->material, material_id);
+    auto cycles_material = dynamic_cast<const HdCyclesMaterial*>(material);
+    if(!cycles_material) {
+        TF_WARN("Invalid HdCycles material %s", material_id.GetText());
+        return;
+    }
+
+    ccl::Shader* cycles_shader = cycles_material->GetCyclesShader();
+    if(!cycles_shader) {
+        return;
+    }
+
+    // override default material
+    used_shaders[0] = cycles_shader;
+}
+
+void
+HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
+{
+    // optimization to avoid unnecessary allocations
+    if(m_topology.GetGeomSubsets().empty()) {
+        return;
+    }
+
+    HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
+
     // collect unrefined material ids for each face
-    TfHashMap<SdfPath, int, SdfPath::Hash> material_map; // faster search
     VtIntArray face_materials(m_topology.GetNumFaces(), 0);
 
+    auto& used_shaders = m_cyclesMesh->used_shaders;
+    TfHashMap<SdfPath, int, SdfPath::Hash> material_map;
     for(auto& subset : m_topology.GetGeomSubsets()) {
         int subset_material_id = 0;
 
         if(!subset.materialId.IsEmpty()) {
-            HdSprim* state_prim = render_index.GetSprim(HdPrimTypeTokens->material, subset.materialId);
+            const HdSprim* state_prim = render_index.GetSprim(HdPrimTypeTokens->material, subset.materialId);
             auto sub_mat = dynamic_cast<const HdCyclesMaterial*>(state_prim);
 
             if(!sub_mat) continue;
@@ -509,10 +567,9 @@ HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* sce
 
             auto search_it = material_map.find(subset.materialId);
             if(search_it == material_map.end()) {
-                m_usedShaders.push_back(sub_mat->GetCyclesShader());
-                sub_mat->GetCyclesShader()->tag_update(scene);
-                material_map[subset.materialId] = m_usedShaders.size();
-                subset_material_id = m_usedShaders.size();
+                used_shaders.push_back(sub_mat->GetCyclesShader());
+                material_map[subset.materialId] = used_shaders.size();
+                subset_material_id = used_shaders.size();
             } else {
                 subset_material_id = search_it->second;
             }
@@ -523,27 +580,28 @@ HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* sce
         }
     }
 
+    // no subset materials discovered, no refinement required
+    if(used_shaders.empty()) {
+        return;
+    }
+
     // refine material ids and assign them to refined geometry
     VtValue refined_value = m_refiner->RefineUniformData(HdTokens->materialParams,
                                                          HdPrimvarRoleTokens->none,
                                                          VtValue{face_materials});
 
     if(refined_value.GetArraySize() != m_cyclesMesh->shader.size()) {
-        TF_WARN("Failed to refine and assign materials for: %s", id.GetText());
-        return false;
+        TF_WARN("Failed to assign refined materials for: %s", id.GetText());
+        return;
     }
 
     auto refined_material_ids = refined_value.UncheckedGet<VtIntArray>();
     for(size_t i{}; i < refined_material_ids.size(); ++i) {
         m_cyclesMesh->shader[i] = refined_material_ids[i];
     }
+}
 
-    // update mesh's materials
-    if (!m_usedShaders.empty()) {
-        m_cyclesMesh->used_shaders = m_usedShaders;
-    }
 
-    return true;
 }
 
 void

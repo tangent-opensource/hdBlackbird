@@ -90,7 +90,10 @@ ccl::Shader*
 HdCyclesCreateDefaultShader();
 
 ccl::Shader*
-HdCyclesCreateObjectDisplayColorSurface();
+HdCyclesCreateObjectColorSurface();
+
+ccl::Shader*
+HdCyclesCreateAttribColorSurface();
 
 /**
  * @brief Helper function to dump shader graph if 
