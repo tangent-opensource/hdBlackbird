@@ -130,50 +130,6 @@ HdCyclesMesh::GetInitialDirtyBitsMask() const
            | HdChangeTracker::DirtyPrimID | HdChangeTracker::DirtyDisplayStyle
            | HdChangeTracker::DirtyDoubleSided;
 }
-template<typename T>
-bool
-HdCyclesMesh::GetPrimvarData(TfToken const& name,
-                             HdSceneDelegate* sceneDelegate,
-                             std::map<HdInterpolation, HdPrimvarDescriptorVector>
-                                 primvarDescsPerInterpolation,
-                             VtArray<T>& out_data, VtIntArray& out_indices)
-{
-    out_data.clear();
-    out_indices.clear();
-
-    auto& vertex_indices = GetFaceVertexIndices();
-    for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
-        for (auto& pv : primvarDescsEntry.second) {
-            if (pv.name == name) {
-                auto value = GetPrimvar(sceneDelegate, name);
-                if (value.IsHolding<VtArray<T>>()) {
-                    out_data = value.UncheckedGet<VtArray<T>>();
-                    if (primvarDescsEntry.first == HdInterpolationFaceVarying) {
-                        out_indices.reserve(vertex_indices.size());
-                        for (int i = 0; i < vertex_indices.size(); ++i) {
-                            out_indices.push_back(i);
-                        }
-                    }
-                    return true;
-                }
-                return false;
-            }
-        }
-    }
-
-    return false;
-}
-template bool
-HdCyclesMesh::GetPrimvarData<GfVec2f>(
-    TfToken const&, HdSceneDelegate*,
-    std::map<HdInterpolation, HdPrimvarDescriptorVector>, VtArray<GfVec2f>&,
-    VtIntArray&);
-template bool
-HdCyclesMesh::GetPrimvarData<GfVec3f>(
-    TfToken const&, HdSceneDelegate*,
-    std::map<HdInterpolation, HdPrimvarDescriptorVector>, VtArray<GfVec3f>&,
-    VtIntArray&);
-
 HdDirtyBits
 HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
 {
