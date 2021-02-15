@@ -164,9 +164,7 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 // This will be addressed in an upcoming PR
 // UPDATE:
 // The function is more robust and renders more correctly.
-// It's missing resampling at uniform intervals when >3
-// samples are present to be more correct. I think this can wait
-// until a use case arises.
+// It resamples the transforms at uniform intervals.
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -194,16 +192,6 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         return xf;
     }
 
-    object->motion.clear();
-    if (object->geometry) {
-        if (object->geometry->use_motion_blur
-            && object->geometry->motion_steps != sampleCount) {
-            object->motion.clear();  // Not assuming it's empty
-            object->motion.resize(object->geometry->motion_steps, object->tfm);
-            return xf;
-        }
-    }
-
     if (object->geometry && object->geometry->motion_steps == sampleCount) {
         object->geometry->use_motion_blur = true;
 
@@ -213,23 +201,63 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 mesh->need_update = true;
         }
 
-        // The code assumes that the transforms are authored at uniform 
+        // The code assumes that the transforms are authored at uniform
         // intervals with respect to the camera shutter interval.
-        const int sampleOffset   = (sampleCount % 2) ? 0 : 1;
-        const int numMotionSteps = sampleCount + sampleOffset;
-        const int midFrameIdx    = sampleCount / 2 - sampleOffset;
+        const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
+        const int numMotionSteps   = sampleCount + sampleOffset;
+        const float motionStepSize = (xf.times.back() - xf.times.front())
+                                     / (numMotionSteps - 1);
+        const int midFrameIdx = sampleCount / 2 - sampleOffset;
         object->motion.resize(numMotionSteps, ccl::transform_empty());
 
-        // Even when we have 3 samples, we resample the middle frame. 
-        // This avoids artifacts in the render caused by the linear 
+        // Even when we have 3 samples, we resample the middle frame.
+        // This avoids artifacts in the render caused by the linear
         // interpolation of the boundary intervals.
         // (see related PR for examples)
         for (int i = 0; i < numMotionSteps; ++i) {
-            if (i == midFrameIdx) {
+            const float stepTime = xf.times.front() + motionStepSize * i;
+
+            // We always have the transforms at the boundaries
+            if (i == 0 || i == numMotionSteps - 1) {
+                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+                continue;
+            }
+
+            // Find neighboring samples
+            float prevTimeDiff = -INFINITY, nextTimeDiff = INFINITY;
+            int iXfPrev = -1, iXfNext = -1;
+            for (int j = 0; j < sampleCount; ++j) {
+                if (i != midFrameIdx
+                    && (xf.times.data()[j] - stepTime) < 1e-5) {
+                    iXfPrev = iXfNext = j;
+                    break;
+                }
+
+                const float stepTimeDiff = xf.times.data()[j] - stepTime;
+                if (stepTimeDiff < 0 && stepTimeDiff > prevTimeDiff) {
+                    iXfPrev      = j;
+                    prevTimeDiff = stepTimeDiff;
+                } else if (stepTimeDiff > 0 && stepTimeDiff < nextTimeDiff) {
+                    iXfNext      = j;
+                    nextTimeDiff = stepTimeDiff;
+                }
+            }
+            assert(iXfPrev != -1 && iXfNext != -1);
+
+            // If there is an authored sample for this specific timestep
+            // we copy it.
+            if (iXfPrev == iXfNext) {
+                object->motion[i] = mat4d_to_transform(
+                    xf.values.data()[iXfPrev]);
+            }
+
+            // Otherwise we interpolate the neighboring matrices
+            else {
+                // Should the type conversion be precomputed?
                 ccl::Transform xfPrev = mat4d_to_transform(
-                    xf.values.data()[i - 1 + sampleOffset]);
+                    xf.values.data()[iXfPrev]);
                 ccl::Transform xfNext = mat4d_to_transform(
-                    xf.values.data()[i + 1]);
+                    xf.values.data()[iXfNext]);
 
                 ccl::DecomposedTransform dxf[2];
                 transform_motion_decompose(dxf + 0, &xfPrev, 1);
@@ -249,8 +277,10 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 transform_motion_array_interpolate(&object->motion[i], dxf, 2,
                                                    0.5f);
                 object->tfm = object->motion[i];
-            } else {
-                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+            }
+
+            if (::std::fabs(stepTime) < 1e-5) {
+                object->tfm = object->motion[i];
             }
         }
     }
