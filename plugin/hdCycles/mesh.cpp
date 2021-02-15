@@ -221,72 +221,107 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
 }
 
 void
-HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
-                         ccl::Scene* scene, HdInterpolation interpolation)
+HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const VtValue& data, ccl::Scene* scene,
+                              HdInterpolation interpolation, const SdfPath& id)
 {
-    if (colors.IsEmpty())
+    VtValue colors_value = data;
+
+    if(!colors_value.IsHolding<VtVec3fArray>()) {
+        if(!colors_value.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid color data! Can not convert color for: %s", id.GetText());
+            return;
+        }
+
+        colors_value = colors_value.Cast<VtVec3fArray>();
+    }
+
+    auto override_default_shader = [scene](ccl::Mesh* mesh, ccl::Shader* new_default_shader) {
+        if(mesh->used_shaders.empty()) {
+            mesh->used_shaders.push_back(new_default_shader);
+        } else {
+            // only override if shader is a default shader
+            if(mesh->used_shaders[0] == scene->default_surface) {
+                mesh->used_shaders[0] = new_default_shader;
+            }
+        }
+    };
+
+    // Object color
+
+    if(interpolation == HdInterpolationConstant && name == HdTokens->displayColor) {
+        auto colors = colors_value.UncheckedGet<VtVec3fArray>();
+        if(colors.empty()) {
+            TF_WARN("Empty colors can not be assigned to an object!");
+            return;
+        }
+
+        m_cyclesObject->color = ccl::make_float3(colors[0][0], colors[0][1], colors[0][2]);
+        override_default_shader(m_cyclesMesh, m_object_display_color_shader);
         return;
+    }
+
+    // Primvar color attributes
 
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
 
-    ccl::AttributeStandard vcol_std = ccl::ATTR_STD_VERTEX_COLOR;
-    ccl::ustring vcol_name          = ccl::ustring(name.GetString());
+    if(interpolation == HdInterpolationUniform) {
+        ccl::ustring attrib_name{name.GetString().c_str(), name.GetString().size()};
+        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor,ccl::ATTR_ELEMENT_FACE);
 
-    const bool need_vcol = m_cyclesMesh->need_attribute(scene, vcol_name)
-                           || m_cyclesMesh->need_attribute(scene, vcol_std);
-
-    // TODO: Maybe we move this to _PopulateAttributes as well?
-    // seems generic enough. Although different types (uv/vel/cols)
-    // require different handling...
-
-    ccl::TypeDesc ctype;
-
-    ccl::AttributeElement celem = ccl::ATTR_ELEMENT_NONE;
-
-    switch (interpolation) {
-    case HdInterpolationConstant: celem = ccl::ATTR_ELEMENT_MESH; break;
-    case HdInterpolationVertex:
-        if (attributes->geometry->type == ccl::Geometry::HAIR) {
-            celem = ccl::ATTR_ELEMENT_CURVE_KEY;
-        } else {
-            celem = ccl::ATTR_ELEMENT_VERTEX;
+        VtValue refined_value = m_refiner->RefineUniformData(name, role, data);
+        if(refined_value.GetArraySize() != m_cyclesMesh->num_triangles()) {
+            TF_WARN("Empty colors can not be assigned to an faces!");
+            return;
         }
-        break;
-    case HdInterpolationVarying:
-    case HdInterpolationFaceVarying: celem = ccl::ATTR_ELEMENT_CORNER; break;
-    case HdInterpolationUniform: celem = ccl::ATTR_ELEMENT_FACE; break;
-    default: break;
+
+        auto refined_colors = VtValue::Cast<VtVec3fArray>(refined_value).UncheckedGet<VtVec3fArray>();
+        ccl::float3* cycles_colors = color_attrib->data_float3();
+        for(size_t i{}; i < m_cyclesMesh->num_triangles(); ++i) {
+            cycles_colors[i][0] = refined_colors[i][0];
+            cycles_colors[i][1] = refined_colors[i][1];
+            cycles_colors[i][2] = refined_colors[i][2];
+        }
+
+        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
+        return;
     }
 
-    if (colors.IsHolding<VtArray<float>>()
-        || colors.IsHolding<VtArray<double>>()
-        || colors.IsHolding<VtArray<int>>()
-        || colors.IsHolding<VtArray<bool>>()) {
-        ctype = ccl::TypeDesc::TypeFloat;
-    } else if (colors.IsHolding<VtArray<GfVec2f>>()
-               || colors.IsHolding<VtArray<GfVec2d>>()
-               || colors.IsHolding<VtArray<GfVec2i>>()) {
-        ctype = ccl::TypeFloat2;
-    } else if (colors.IsHolding<VtArray<GfVec3f>>()
-               || colors.IsHolding<VtArray<GfVec3d>>()
-               || colors.IsHolding<VtArray<GfVec3i>>()) {
-        ctype = ccl::TypeDesc::TypeColor;
+    auto add_vertex_or_varying_attrib = [&](const VtValue& refined_value) {
+        if(!refined_value.GetArraySize()) {
+            TF_WARN("Empty colors can not be assigned to an vertices!");
+            return;
+        }
 
-    } else if (colors.IsHolding<VtArray<GfVec4f>>()
-               || colors.IsHolding<VtArray<GfVec4d>>()
-               || colors.IsHolding<VtArray<GfVec4i>>()) {
-        ctype = ccl::TypeDesc::TypeVector;
+        ccl::ustring attrib_name{name.GetString().c_str(), name.GetString().size()};
+        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor,ccl::ATTR_ELEMENT_VERTEX);
+
+        auto refined_colors = VtValue::Cast<VtVec3fArray>(refined_value).UncheckedGet<VtVec3fArray>();
+
+        ccl::float3* cycles_colors = color_attrib->data_float3();
+        for(size_t i{}; i < m_cyclesMesh->verts.size(); ++i) {
+            cycles_colors[i][0] = refined_colors[i][0];
+            cycles_colors[i][1] = refined_colors[i][1];
+            cycles_colors[i][2] = refined_colors[i][2];
+        }
+
+        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
+    };
+
+    // varying/vertex is assigned to vertices
+    if (interpolation == HdInterpolationVertex && name == HdTokens->displayColor) {
+        VtValue refined_value = m_refiner->RefineVertexData(name, role, data);
+        add_vertex_or_varying_attrib(refined_value);
+        return;
     }
 
-    ccl::Attribute* vcol_attr = NULL;
-    vcol_attr                 = attributes->add(vcol_name, ctype, celem);
+    if (interpolation == HdInterpolationVarying && name == HdTokens->displayColor) {
+        VtValue refined_value = m_refiner->RefineVaryingData(name, role, data);
+        add_vertex_or_varying_attrib(refined_value);
+        return;
+    }
 
-    _PopulateAttribute(name, HdPrimvarRoleTokens->vector, interpolation, colors,
-                       vcol_attr, this);
-
-    if (name == HdTokens->displayColor
-        && interpolation == HdInterpolationConstant) {
-        ccl::float4 displayColor;
+    TF_WARN("Unsupported displayColor interpolation for primitive: %s", id.GetText());
+}
 
 bool
 HdCyclesMesh::_PopulateNormals(const VtValue& data, HdInterpolation interpolation, const SdfPath& id)
