@@ -163,8 +163,8 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 // This causes a known slowdown to deforming motion blur renders
 // This will be addressed in an upcoming PR
 // UPDATE:
-// The function is more robust and renders more correctly.
-// It resamples the transforms at uniform intervals.
+// The function now resamples the transforms at uniform intervals
+// rendering more correctly. 
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -201,8 +201,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 mesh->need_update = true;
         }
 
-        // The code assumes that the transforms are authored at uniform
-        // intervals with respect to the camera shutter interval.
+        // Rounding to odd number of samples to have one in the center
         const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
         const int numMotionSteps   = sampleCount + sampleOffset;
         const float motionStepSize = (xf.times.back() - xf.times.front())
@@ -210,10 +209,8 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         const int midFrameIdx = sampleCount / 2 - sampleOffset;
         object->motion.resize(numMotionSteps, ccl::transform_empty());
 
-        // Even when we have 3 samples, we resample the middle frame.
-        // This avoids artifacts in the render caused by the linear
-        // interpolation of the boundary intervals.
-        // (see related PR for examples)
+        // For each step, we use the available data from the neighbors
+        // to calculate the transforms at uniform steps
         for (int i = 0; i < numMotionSteps; ++i) {
             const float stepTime = xf.times.front() + motionStepSize * i;
 
@@ -223,12 +220,14 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 continue;
             }
 
-            // Find neighboring samples
+            // Find closest left/right neighbors 
             float prevTimeDiff = -INFINITY, nextTimeDiff = INFINITY;
             int iXfPrev = -1, iXfNext = -1;
             for (int j = 0; j < sampleCount; ++j) {
-                if (i != midFrameIdx
-                    && (xf.times.data()[j] - stepTime) < 1e-5) {
+                // If we only have three samples, we prefer to recalculate 
+                // the intermediate one as the left/right are calculated 
+                // using linear interpolation, leading to artifacts
+                if (i != 1 && (xf.times.data()[j] - stepTime) < 1e-5) {
                     iXfPrev = iXfNext = j;
                     break;
                 }
@@ -250,7 +249,6 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 object->motion[i] = mat4d_to_transform(
                     xf.values.data()[iXfPrev]);
             }
-
             // Otherwise we interpolate the neighboring matrices
             else {
                 // Should the type conversion be precomputed?
@@ -269,14 +267,13 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                     dxf[1].x = -dxf[1].x;
                 }
 
-                // Always replacing the center sample
-                if (sampleOffset) {
-                    object->motion[i++] = xfPrev;
-                }
+                // Weighting by distance to sample
+                const float timeDiff = xf.times.data()[iXfNext]
+                                       - xf.times.data()[iXfPrev];
+                const float t = (stepTime - xf.times.data()[iXfPrev]) / timeDiff;
 
                 transform_motion_array_interpolate(&object->motion[i], dxf, 2,
-                                                   0.5f);
-                object->tfm = object->motion[i];
+                                                   t);
             }
 
             if (::std::fabs(stepTime) < 1e-5) {
