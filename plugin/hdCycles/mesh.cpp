@@ -115,27 +115,6 @@ HdCyclesMesh::~HdCyclesMesh()
     }
 }
 
-HdDirtyBits
-HdCyclesMesh::GetInitialDirtyBitsMask() const
-{
-    return HdChangeTracker::Clean | HdChangeTracker::DirtyPoints
-           | HdChangeTracker::DirtyTransform | HdChangeTracker::DirtyPrimvar
-           | HdChangeTracker::DirtyTopology | HdChangeTracker::DirtyVisibility
-           | HdChangeTracker::DirtyMaterialId | HdChangeTracker::DirtySubdivTags
-           | HdChangeTracker::DirtyPrimID | HdChangeTracker::DirtyDisplayStyle
-           | HdChangeTracker::DirtyDoubleSided;
-}
-HdDirtyBits
-HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
-{
-    return bits;
-}
-
-void
-HdCyclesMesh::_InitRepr(TfToken const& reprToken, HdDirtyBits* dirtyBits)
-{
-}
-
 void
 HdCyclesMesh::_ComputeTangents(bool needsign)
 {
@@ -601,7 +580,43 @@ HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, ccl::Sce
     }
 }
 
+void
+HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id,
+                                HdDirtyBits* dirtyBits)
+{
+    // collect prim var descriptions
+    std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
+        { HdInterpolationConstant, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationConstant) },
+        { HdInterpolationUniform, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
+        { HdInterpolationVertex, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
+        { HdInterpolationVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVarying) },
+        { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
+    };
 
+    for (auto& interpolation_description : primvarDescsPerInterpolation) {
+        for (const HdPrimvarDescriptor& description : interpolation_description.second) {
+
+            // ignore special primvars that are handled separately
+            if(description.name == HdTokens->points) {
+                continue;
+            }
+
+            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
+                continue;
+            }
+
+            auto interpolation = interpolation_description.first;
+            auto value = GetPrimvar(sceneDelegate, description.name);
+
+            // colors
+            if(description.name == HdTokens->displayColor || description.role == HdPrimvarRoleTokens->color) {
+                _PopulateColors(description.name, description.role, value, scene, interpolation, id);
+                continue;
+            }
+
+            // normals
+        }
+    }
 }
 
 void
@@ -712,129 +727,124 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
 }
 
 void
+HdCyclesMesh::_InitRepr(TfToken const& reprToken, HdDirtyBits* dirtyBits)
+{
+}
+
+HdDirtyBits
+HdCyclesMesh::GetInitialDirtyBitsMask() const
+{
+    return HdChangeTracker::Clean | HdChangeTracker::DirtyPoints
+           | HdChangeTracker::DirtyTransform | HdChangeTracker::DirtyPrimvar
+           | HdChangeTracker::DirtyTopology | HdChangeTracker::DirtyVisibility
+           | HdChangeTracker::DirtyMaterialId | HdChangeTracker::DirtySubdivTags
+           | HdChangeTracker::DirtyPrimID | HdChangeTracker::DirtyDisplayStyle
+           | HdChangeTracker::DirtyDoubleSided;
+}
+
+HdDirtyBits
+HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
+{
+    // subdivision request requires full topology update
+    if (bits & HdChangeTracker::DirtySubdivTags) {
+        bits |= (HdChangeTracker::DirtyPoints   |
+                 HdChangeTracker::DirtyNormals  |
+                 HdChangeTracker::DirtyPrimvar  |
+                 HdChangeTracker::DirtyTopology |
+                 HdChangeTracker::DirtyDisplayStyle);
+    }
+
+    // We manage face sets materials, when topology changes we need to trigger
+    // face materials update
+    if(bits & HdChangeTracker::DirtyTopology) {
+        bits |= HdChangeTracker::DirtyMaterialId;
+    }
+
+    if (bits & HdChangeTracker::DirtyMaterialId) {
+        bits |= (HdChangeTracker::DirtyPoints   |
+                 HdChangeTracker::DirtyNormals  |
+                 HdChangeTracker::DirtyPrimvar  |
+                 HdChangeTracker::DirtyTopology);
+    }
+
+    return bits;
+}
+
+void
 HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                    HdDirtyBits* dirtyBits, TfToken const& reprToken)
 {
-    HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
+    auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
+    m_object_display_color_shader = param->default_object_display_color_surface;
+    m_attrib_display_color_shader = param->default_attrib_display_color_surface;
+
     ccl::Scene* scene          = param->GetCyclesScene();
-
     const SdfPath& id = GetId();
-    if(!m_cyclesMesh) {
-        TF_WARN("Invalid Cycles mesh! Failed to convert mesh: %s", id.GetText());
-        return;
-    }
-
-    // -------------------------------------
-    // -- Pull scene data
-
-    bool mesh_updated = false;
 
     bool newMesh = false;
 
-    bool pointsIsComputed = false;
-
-    // This is needed for USD Skel, however is currently buggy...
-    auto extComputationDescs
-        = sceneDelegate->GetExtComputationPrimvarDescriptors(
-            id, HdInterpolationVertex);
-    for (auto& desc : extComputationDescs) {
-        if (desc.name != HdTokens->points)
-            continue;
-
-        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, desc.name)) {
-            mesh_updated    = true;
-            auto valueStore = HdExtComputationUtils::GetComputedPrimvarValues(
-                { desc }, sceneDelegate);
-            auto pointValueIt = valueStore.find(desc.name);
-            if (pointValueIt != valueStore.end()) {
-                if (!pointValueIt->second.IsEmpty()) {
-                    m_points       = pointValueIt->second.Get<VtVec3fArray>();
-                    m_numMeshVerts = m_points.size();
-
-                    m_normalsValid   = false;
-                    pointsIsComputed = true;
-                    newMesh          = true;
-                }
-            }
-        }
-        break;
-    }
-
-//    if (!pointsIsComputed
-//        && HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
-//        mesh_updated        = true;
-//        VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
-//        if (!pointsValue.IsEmpty()) {
-//            m_points = pointsValue.Get<VtVec3fArray>();
-//            if (m_points.size() > 0) {
-//                m_numMeshVerts = m_points.size();
+//    // This is needed for USD Skel, however is currently buggy...
+//    auto extComputationDescs
+//        = sceneDelegate->GetExtComputationPrimvarDescriptors(
+//            id, HdInterpolationVertex);
+//    for (auto& desc : extComputationDescs) {
+//        if (desc.name != HdTokens->points)
+//            continue;
 //
-//                m_normalsValid = false;
-//                newMesh        = true;
+//        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, desc.name)) {
+//            mesh_updated    = true;
+//            auto valueStore = HdExtComputationUtils::GetComputedPrimvarValues(
+//                { desc }, sceneDelegate);
+//            auto pointValueIt = valueStore.find(desc.name);
+//            if (pointValueIt != valueStore.end()) {
+//                if (!pointValueIt->second.IsEmpty()) {
+//                    m_points       = pointValueIt->second.Get<VtVec3fArray>();
+//                    m_numMeshVerts = m_points.size();
+//
+//                    m_normalsValid   = false;
+//                    pointsIsComputed = true;
+//                    newMesh          = true;
+//                }
 //            }
-//
-//            // TODO: Should we check if time varying?
-//            // TODO: can we use this for m_points too?
-//            sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
 //        }
+//        break;
 //    }
 
-    if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id) ||
-        HdChangeTracker::IsSubdivTagsDirty(*dirtyBits, id) ||
-        HdChangeTracker::IsDisplayStyleDirty(*dirtyBits, id)) {
-
-        // topology can not outlive the refiner
-        HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-        m_topology = GetMeshTopology(sceneDelegate);
-        m_refiner = HdCyclesMeshRefiner::Create(m_topology, display_style.refineLevel, id);
-
-        _PopulateTopology(id);
-        _PopulateMaterials(sceneDelegate, scene, id);
-
-        m_adjacencyValid = false;
-        m_normalsValid   = false;
-        newMesh = true;
+    if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
+        _PopulateTopology(sceneDelegate, scene, id);
     }
-
-    // dirty points, check for velocities too
-    if(*dirtyBits & HdChangeTracker::DirtyPoints) {
-        _PopulateVertices(sceneDelegate, id);
-        mesh_updated = true;
-    }
-    std::map<HdInterpolation, HdPrimvarDescriptorVector>
-        primvarDescsPerInterpolation = {
-            { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(
-                                              id, HdInterpolationFaceVarying) },
-            { HdInterpolationVertex,
-              sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
-            { HdInterpolationConstant,
-              sceneDelegate->GetPrimvarDescriptors(id,
-                                                   HdInterpolationConstant) },
-            { HdInterpolationUniform,
-              sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
-
-        };
 
     if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
-        mesh_updated  = true;
-        m_doubleSided = sceneDelegate->GetDoubleSided(id);
+        // m_doubleSided = sceneDelegate->GetDoubleSided(id);
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
+        _PopulateMaterials(sceneDelegate, scene, id);
+    }
+
+    if(*dirtyBits & HdChangeTracker::DirtyPoints) {
+        _PopulateVertices(sceneDelegate, id);
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
+    }
+
+    if(*dirtyBits & HdChangeTracker::DirtyPrimvar) {
+        _PopulatePrimvars(sceneDelegate, scene, id, dirtyBits);
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
+        // Offset of 1 added because Cycles primId pass needs to be shifted down to -1
+        m_cyclesObject->pass_id = this->GetPrimId() + 1;
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
+        _sharedData.visible = sceneDelegate->GetVisible(id);
     }
 
     // -------------------------------------
     // -- Resolve Drawstyles
-
-    bool isRefineLevelDirty = false;
-    if (*dirtyBits & HdChangeTracker::DirtyDisplayStyle) {
-        mesh_updated = true;
-
-        m_displayStyle = sceneDelegate->GetDisplayStyle(id);
-        if (m_refineLevel != m_displayStyle.refineLevel) {
-            isRefineLevelDirty = true;
-            m_refineLevel      = m_displayStyle.refineLevel;
-            newMesh            = true;
-        }
-    }
-
 
 #ifdef USE_USD_CYCLES_SCHEMA
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
@@ -919,137 +929,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 #endif
 
     // -------------------------------------
-    // -- Create Cycles Mesh
-
-    if (newMesh) {
-
-        if (m_useMotionBlur && m_useDeformMotionBlur)
-            _PopulateMotion();
-
-        // Ingest mesh primvars (data, not schema)
-        for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
-            for (auto& pv : primvarDescsEntry.second) {
-                if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
-                    continue;
-                }
-
-                auto value = GetPrimvar(sceneDelegate, pv.name);
-                auto& interpolation = primvarDescsEntry.first;
-
-                // - Normals
-                if (pv.name == HdTokens->normals || pv.role == HdPrimvarRoleTokens->normal) {
-                    auto refined_value = m_refiner->RefineData(value, interpolation);
-                    if(refined_value.GetArraySize() > 0 && refined_value.IsHolding<VtVec3fArray>()) {
-                        auto normals = refined_value.Get<VtVec3fArray>();
-                        _AddNormals(normals, primvarDescsEntry.first);
-                        mesh_updated = true;
-                    } else {
-                        TF_CODING_WARNING("Failed to compute normals!");
-                    }
-
-                    continue;
-                }
-
-                // - Velocities
-                if(pv.name == HdTokens->velocities) {
-
-                    continue;
-                }
-
-                // - Texture Coordinates
-                if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
-                    auto refined_value = m_refiner->RefineData(value, interpolation);
-                    if(refined_value.GetArraySize() >= value.GetArraySize()) {
-                        _AddUVSet(pv.name, refined_value, scene, primvarDescsEntry.first);
-                        mesh_updated = true;
-                    } else {
-                        TF_CODING_WARNING("Failed to compute texture coordinates!");
-                    }
-
-                    continue;
-                }
-
-                // - Colors
-                if(pv.name == HdTokens->displayColor || pv.role == HdPrimvarRoleTokens->color) {
-                    auto refined_value = m_refiner->RefineData(value, interpolation);
-                    if(refined_value.GetArraySize() >= value.GetArraySize()) {
-                        _AddColors(pv.name, pv.role, refined_value, scene, interpolation);
-                    } else {
-                        TF_CODING_WARNING("Failed to compute colors!");
-                    }
-
-                    // This swaps the default_surface to one that uses displayColor for diffuse
-                    if (pv.name == HdTokens->displayColor) {
-                        m_hasVertexColors = true;
-                    }
-                    mesh_updated = true;
-
-                    continue;
-                }
-            }
-        }
-
-    }
-
-    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        // This causes a known slowdown to deforming motion blur renders
-        // This will be addressed in an upcoming PR
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
-                                                  id, m_useMotionBlur);
-
-
-        mesh_updated = true;
-    }
-
-    ccl::Shader* fallbackShader = scene->default_surface;
-
-    if (m_hasVertexColors) {
-        fallbackShader = param->default_vcol_surface;
-    }
-
-    if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
-        // Offset of 1 added because Cycles primId pass needs to be shifted down to -1
-        m_cyclesObject->pass_id = this->GetPrimId() + 1;
-    }
-
-    if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
-        // We probably need to clear this array, however putting this here,
-        // breaks some IPR sessions
-        // m_usedShaders.clear();
-
-        if (m_cyclesMesh) {
-            m_cachedMaterialId = sceneDelegate->GetMaterialId(id);
-            if (GetFaceVertexCounts().size() > 0) {
-                if (!m_cachedMaterialId.IsEmpty()) {
-                    const HdCyclesMaterial* material
-                        = static_cast<const HdCyclesMaterial*>(
-                            sceneDelegate->GetRenderIndex().GetSprim(
-                                HdPrimTypeTokens->material, m_cachedMaterialId));
-
-                    if (material && material->GetCyclesShader()) {
-                        m_usedShaders.push_back(material->GetCyclesShader());
-
-                        material->GetCyclesShader()->tag_update(scene);
-                    } else {
-                        m_usedShaders.push_back(fallbackShader);
-                    }
-                } else {
-                    m_usedShaders.push_back(fallbackShader);
-                }
-
-                m_cyclesMesh->used_shaders = m_usedShaders;
-            }
-        }
-    }
-
-    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-        mesh_updated        = true;
-        _sharedData.visible = sceneDelegate->GetVisible(id);
-    }
-
-    // -------------------------------------
     // -- Handle point instances
-
     if (newMesh || (*dirtyBits & HdChangeTracker::DirtyInstancer)) {
         mesh_updated = true;
         if (auto instancer = static_cast<HdCyclesInstancer*>(
@@ -1137,7 +1017,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         _FinishMesh(scene);
     }
 
-    if (mesh_updated || newMesh) {
+    if (true) {
         m_cyclesObject->visibility = m_visibilityFlags;
         if (!_sharedData.visible)
             m_cyclesObject->visibility = 0;

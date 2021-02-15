@@ -214,6 +214,8 @@ protected:
     void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
     void _PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
 
+    void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id, HdDirtyBits* dirtyBits);
+
     /**
      * @brief Populate generated coordinates attribute
      * 
@@ -238,15 +240,6 @@ protected:
     HdCyclesSampledPrimvarType m_pointSamples;
 
     float m_velocityScale;
-
-    VtVec3fArray m_normals;
-    VtIntArray m_normalIndices;
-    bool m_normalsValid    = false;
-    bool m_authoredNormals = false;
-    bool m_smoothNormals   = false;
-
-    VtVec2fArray m_uvs;
-    VtIntArray m_uvIndices;
 
     bool m_useMotionBlur;
     bool m_useDeformMotionBlur;
