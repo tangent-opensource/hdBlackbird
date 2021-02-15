@@ -33,6 +33,7 @@
 #include <opensubdiv/osd/cpuVertexBuffer.h>
 #include <opensubdiv/far/stencilTableFactory.h>
 #include <opensubdiv/far/patchTableFactory.h>
+#include <opensubdiv/far/ptexIndices.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE;
 
@@ -190,19 +191,7 @@ public:
             Far::TopologyRefiner::UniformOptions refiner_options { refine_level };
             refiner->RefineUniform(refiner_options);
 
-            // compute offset table, to map between ptex face to coarse face:
-            // https://github.com/PixarAnimationStudios/OpenSubdiv/issues/1121
-            const Far::TopologyLevel& base_level = refiner->GetLevel(0);
-            m_ptex_face_to_coarse_face.reserve(base_level.GetNumFaces()); // assumption all faces are quads
-            for (int base_face = 0; base_face < base_level.GetNumFaces(); ++base_face) {
-                int num_base_face_verts = base_level.GetFaceVertices(base_face).size();
-
-                int num_ptex_faces = (num_base_face_verts == 4) ? 1 : num_base_face_verts;
-                for (int j = 0; j < num_ptex_faces; ++j) {
-                    m_ptex_face_to_coarse_face.push_back(base_face);
-                }
-            }
-            m_ptex_face_to_coarse_face.shrink_to_fit();
+            m_ptex_indices = std::make_unique<Far::PtexIndices>(*refiner);
         }
 
         // stencils required for primvar refinement
@@ -277,7 +266,7 @@ public:
 
         for(size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
             const Far::PatchParam& patch_param = patch_param_table[fine_id];
-            int coarse_id = m_ptex_face_to_coarse_face[patch_param.GetFaceId()];
+            const int coarse_id = m_ptex_indices->GetFaceId(patch_param.GetFaceId());
             assert(coarse_id < input.size());
 
             fine_array[fine_id] = input[coarse_id];
@@ -400,13 +389,13 @@ private:
     const HdMeshTopology* m_topology;
     const SdfPath& m_id;
 
-    using StencilTablePtr = std::unique_ptr<const OpenSubdiv::Far::StencilTable>;
-    using PatchTablePtr = std::unique_ptr<const OpenSubdiv::Far::PatchTable>;
+    using StencilTablePtr = std::unique_ptr<const Far::StencilTable>;
+    using PatchTablePtr = std::unique_ptr<const Far::PatchTable>;
 
     VtVec3iArray m_triangle_indices;
     VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
 
-    std::vector<int> m_ptex_face_to_coarse_face;
+    std::unique_ptr<const Far::PtexIndices> m_ptex_indices;
     StencilTablePtr m_vertex_stencils;
     StencilTablePtr m_varying_stencils;
     StencilTablePtr m_face_varying_stencils;
