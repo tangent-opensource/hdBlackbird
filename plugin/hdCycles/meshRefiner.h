@@ -59,9 +59,6 @@ public:
     virtual VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     /// @}
 
-    /// \brief Refine primvar with given interpolation
-    VtValue RefineData(const TfToken& name, const TfToken& role, const VtValue& data, const HdInterpolation& interpolation) const;
-
     /// \brief Refined counts for backward compatibility, TODO: remove
     virtual const VtIntArray& GetRefinedCounts() const = 0;
 

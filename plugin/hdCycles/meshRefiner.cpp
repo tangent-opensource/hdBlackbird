@@ -428,31 +428,6 @@ HdCyclesMeshRefiner::HdCyclesMeshRefiner() = default;
 
 HdCyclesMeshRefiner::~HdCyclesMeshRefiner() = default;
 
-VtValue
-HdCyclesMeshRefiner::RefineData(const TfToken& name, const TfToken& role,
-                                const VtValue& data,
-                                const HdInterpolation& interpolation) const {
-    switch(interpolation) {
-    case HdInterpolationConstant: {
-        return RefineConstantData(name, role, data);
-    }
-    case HdInterpolationUniform: {
-        return RefineUniformData(name, role, data);
-    }
-    case HdInterpolationVertex: {
-        return RefineVertexData(name, role, data);
-    }
-    case HdInterpolationFaceVarying: {
-        return RefineFaceVaryingData(name, role, data);
-    }
-    // HdInterpolationInstance ?
-    default: {
-        TF_CODING_ERROR("Unsupported interpolation type for data refinement!");
-        return {};
-    }
-    }
-}
-
 size_t HdCyclesMeshRefiner::GetNumRefinedTriangles() const
 {
     return GetRefinedIndices().size();
