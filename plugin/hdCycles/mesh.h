@@ -209,19 +209,8 @@ protected:
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
-    /**
-     * @brief Populate faces of cycles mesh
-     * 
-     * @param input_material_ids pregenerated array of subset materials
-     * @param a_subdivide should faces be subdivided
-     */
     bool _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
 
-    /**
-     * @brief Populate subdiv creases
-     *
-     */
-    void _PopulateCreases();
 
     /**
      * @brief Populate generated coordinates attribute
@@ -238,8 +227,7 @@ protected:
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
     HdMeshTopology m_topology;
-    std::shared_ptr<HdCyclesMeshRefiner> m_refiner;
-    TfToken m_orientation;
+    std::shared_ptr<const HdCyclesMeshRefiner> m_refiner;
 
     VtVec3fArray m_points;
 
@@ -247,29 +235,14 @@ protected:
 
     float m_velocityScale;
 
-    Hd_VertexAdjacency m_adjacency;
-    bool m_adjacencyValid = false;
-
     VtVec3fArray m_normals;
     VtIntArray m_normalIndices;
     bool m_normalsValid    = false;
     bool m_authoredNormals = false;
     bool m_smoothNormals   = false;
 
-    VtIntArray m_cornerIndices;
-    VtFloatArray m_cornerWeights;
-    VtIntArray m_creaseIndices;
-    VtIntArray m_creaseLengths;
-    VtFloatArray m_creaseWeights;
-
-    TfToken m_normalInterpolation;
-
     VtVec2fArray m_uvs;
     VtIntArray m_uvIndices;
-
-    HdDisplayStyle m_displayStyle;
-    int m_refineLevel  = 0;
-    bool m_doubleSided = false;
 
     bool m_useMotionBlur;
     bool m_useDeformMotionBlur;
