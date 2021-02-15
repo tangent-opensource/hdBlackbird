@@ -208,13 +208,14 @@ protected:
 
     void _PopulateMotion();
 
+    void _PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
+    void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     /**
      * @brief Populate faces of cycles mesh
      * 
      * @param input_material_ids pregenerated array of subset materials
      * @param a_subdivide should faces be subdivided
      */
-    bool _PopulateTopology(const SdfPath& id);
     bool _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
 
     /**

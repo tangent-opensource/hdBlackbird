@@ -419,23 +419,38 @@ HdCyclesMesh::_PopulateMotion()
     }
 }
 
-bool
-HdCyclesMesh::_PopulateTopology(const SdfPath& id)
+void
+HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
 {
-    // allocate new mesh
+    // Refiner holds pointer to topology therefore refiner can't outlive the topology
+    m_topology = GetMeshTopology(sceneDelegate);
+    m_topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
+
+    HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
+    auto refiner = HdCyclesMeshRefiner::Create(m_topology, display_style.refineLevel, id);
+    m_refiner = refiner;
+
+    // Mesh is independently updated in two stages, faces(topology) and vertices(data).
+    // Because process of updating vertices can fail for unknown reason,
+    // we can end up with an empty vertex array. Indices must point to a valid vertex array(resize).
     m_cyclesMesh->clear();
-    m_cyclesMesh->reserve_mesh(m_refiner->GetNumRefinedVertices(),
-                               m_refiner->GetNumRefinedTriangles());
+    m_cyclesMesh->resize_mesh(m_refiner->GetNumRefinedVertices(),
+                              m_refiner->GetNumRefinedTriangles());
 
-    // push refined indices
-    for(const GfVec3i& triangle_indices : m_refiner->GetRefinedIndices()) {
-        m_cyclesMesh->add_triangle(triangle_indices[0],
-                                   triangle_indices[1],
-                                   triangle_indices[2],
-                                   0, true);
+
+    auto& refined_indices = m_refiner->GetRefinedIndices();
+    for(size_t i{}; i < refined_indices.size(); ++i) {
+        const GfVec3i& triangle_indices = refined_indices[i];
+
+        // TODO: Consider using Vt_ArrayForeignDataSource and refine vertices directly on memory allocated by Cycles
+        m_cyclesMesh->triangles[i * 3 + 0] = triangle_indices[0];
+        m_cyclesMesh->triangles[i * 3 + 1] = triangle_indices[1];
+        m_cyclesMesh->triangles[i * 3 + 2] = triangle_indices[2];
+
+        constexpr int default_shader_id = 0;
+        m_cyclesMesh->shader[i] = default_shader_id;
+        m_cyclesMesh->smooth[i] = true;
     }
-
-    return true;
 }
 
 bool
@@ -496,7 +511,7 @@ HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* sce
     return true;
 }
 
-bool
+void
 HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     VtValue points_value = GetPrimvar(sceneDelegate, HdTokens->points);
@@ -504,7 +519,7 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
     if(!points_value.IsHolding<VtVec3fArray>()) {
         if(!points_value.CanCast<VtVec3fArray>()) {
             TF_WARN("Invalid points data! Can not convert points for: %s", id.GetText());
-            return false;
+            return;
         }
 
         points_value = points_value.Cast<VtVec3fArray>();
@@ -513,7 +528,7 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
     if(!points_value.IsHolding<VtVec3fArray>()) {
         if(!points_value.CanCast<VtVec3fArray>()) {
             TF_WARN("Invalid point data! Can not convert points for: %s", id.GetText());
-            return false;
+            return;
         }
 
         points_value = points_value.Cast<VtVec3fArray>();
@@ -528,13 +543,11 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     for(size_t i{}; i < points.size(); ++i) {
-        auto& data = points[i];
-        m_cyclesMesh->add_vertex(ccl::make_float3(data[0], data[1], data[2]));
+        auto& point            = points[i];
+        m_cyclesMesh->verts[i] = ccl::make_float3(point[0], point[1], point[2]);
     }
 
     // TODO: populate motion ?
-
-    return true;
 }
 
 void
