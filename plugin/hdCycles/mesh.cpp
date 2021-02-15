@@ -89,9 +89,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
     , m_useDeformMotionBlur(false)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.enable_subdivision.eval(m_subdivEnabled, true);
-    config.subdivision_dicing_rate.eval(m_dicingRate, true);
-    config.max_subdivision.eval(m_maxSubdivision, true);
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     _InitializeNewCyclesMesh();
@@ -751,30 +748,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectMblurSteps, m_motionSteps);
 
-            TfToken subdivisionType = usdCyclesTokens->catmull_clark;
-
-            subdivisionType = _HdCyclesGetMeshParam<TfToken>(
-                pv, dirtyBits, id, this, sceneDelegate,
-                usdCyclesTokens->primvarsCyclesMeshSubdivision_type,
-                subdivisionType);
-
-            if (subdivisionType == usdCyclesTokens->catmull_clark) {
-                m_cyclesMesh->subdivision_type
-                    = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
-            } else if (subdivisionType == usdCyclesTokens->linear) {
-                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_LINEAR;
-            } else {
-                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
-            }
-
-            m_dicingRate = _HdCyclesGetMeshParam<float>(
-                pv, dirtyBits, id, this, sceneDelegate,
-                usdCyclesTokens->primvarsCyclesMeshDicingRate, m_dicingRate);
-
-            m_maxSubdivision = _HdCyclesGetMeshParam<int>(
-                pv, dirtyBits, id, this, sceneDelegate,
-                usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level,
-                m_maxSubdivision);
 
             // Object Generic
 

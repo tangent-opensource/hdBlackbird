@@ -247,11 +247,6 @@ protected:
 
     float m_velocityScale;
 
-    bool m_useSubdivision = false;
-    bool m_subdivEnabled  = false;
-    int m_maxSubdivision  = 12;
-    float m_dicingRate    = 0.1f;
-
     Hd_VertexAdjacency m_adjacency;
     bool m_adjacencyValid = false;
 
