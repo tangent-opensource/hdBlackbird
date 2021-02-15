@@ -172,14 +172,6 @@ protected:
     };
     TfHashMap<TfToken, PrimvarSource, TfToken::HashFunctor> _primvarSourceMap;
 
-private:
-    template<typename T>
-    bool GetPrimvarData(TfToken const& name, HdSceneDelegate* sceneDelegate,
-                        std::map<HdInterpolation, HdPrimvarDescriptorVector>
-                            primvarDescsPerInterpolation,
-                        VtArray<T>& out_data, VtIntArray& out_indices);
-
-protected:
     /**
      * @brief Initialize the given representation of this Rprim.
      * This is called prior to syncing the prim.
