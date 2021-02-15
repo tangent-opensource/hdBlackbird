@@ -204,7 +204,6 @@ protected:
      * @brief Populate vertices of cycles mesh
      * 
      */
-    bool _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     void _PopulateMotion();
 
@@ -291,8 +290,7 @@ protected:
 
 public:
     const VtIntArray& GetFaceVertexCounts() const;
-    const VtVec3iArray& GetFaceVertexIndices() const;
-    const TfToken& GetOrientation() { return m_orientation; }
+    const TfToken& GetOrientation() { return m_topology.GetOrientation(); }
 
 private:
     HdCyclesRenderDelegate* m_renderDelegate;

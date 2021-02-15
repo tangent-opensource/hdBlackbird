@@ -761,7 +761,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectMblurSteps, m_motionSteps);
 
-
             // Object Generic
 
             m_cyclesObject->is_shadow_catcher = _HdCyclesGetMeshParam<bool>(
@@ -1060,10 +1059,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 const VtIntArray& HdCyclesMesh::GetFaceVertexCounts() const {
     return m_refiner->GetRefinedCounts();
-}
-
-const VtVec3iArray& HdCyclesMesh::GetFaceVertexIndices() const {
-    return m_refiner->GetRefinedIndices();
 }
 
 namespace {
