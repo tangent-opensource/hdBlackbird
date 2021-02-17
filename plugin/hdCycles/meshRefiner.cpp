@@ -187,7 +187,8 @@ public:
         {
             HD_TRACE_SCOPE("create refiner")
 
-            refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology());
+            std::vector<VtIntArray> face_varying_topologies{m_topology->GetFaceVertexIndices()};
+            refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology(), face_varying_topologies);
             Far::TopologyRefiner::UniformOptions refiner_options { refine_level };
             refiner->RefineUniform(refiner_options);
 
@@ -208,10 +209,8 @@ public:
             options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
             m_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
 
-            // TODO Initialize channels
-//            options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
-//            options.fvarChannel = 0;
-//            m_facevarying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
+            options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
+            m_face_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
         }
 
         // patches for face and materials lookup
@@ -300,37 +299,36 @@ public:
     }
 
     template<typename T>
-    VtValue vertex_refinement(const VtValue& data, bool varying) const {
-        size_t num_elements = data.GetArraySize();
-        if (num_elements > m_vertex_stencils->GetNumControlVertices()) {
-            num_elements = m_vertex_stencils->GetNumControlVertices();
+    VtValue osd_refinement(const VtValue& data, const Far::StencilTable* stencil_table) const {
+        size_t input_size = data.GetArraySize();
+        if (input_size > stencil_table->GetNumControlVertices()) {
+            input_size = stencil_table->GetNumControlVertices();
         }
 
         HdTupleType value_tuple_type = HdGetValueTupleType(data);
-        const size_t num_vertices = GetNumRefinedVertices();
         const size_t stride = HdGetComponentCount(value_tuple_type.type);
 
         // TODO: this allocation can be avoided if we make custom(non-owning) buffer
-        auto vertex_buffer = Osd::CpuVertexBuffer::Create(stride, num_vertices);
+        const size_t output_size = stencil_table->GetNumControlVertices() + stencil_table->GetNumStencils();
+        auto vertex_buffer = Osd::CpuVertexBuffer::Create(stride, output_size);
 
         auto input = data.Get<VtArray<T>>();
-        vertex_buffer->UpdateData(input.data()->data(), 0, num_elements);
+        vertex_buffer->UpdateData(input.data()->data(), 0, input_size);
 
         Osd::BufferDescriptor src_descriptor(0, stride, stride);
-        Osd::BufferDescriptor dst_descriptor(num_elements * stride, stride, stride);
+        Osd::BufferDescriptor dst_descriptor(input_size * stride, stride, stride);
 
-        auto stencil_table = varying ? m_varying_stencils.get() : m_vertex_stencils.get();
         Osd::CpuEvaluator::EvalStencils(vertex_buffer, src_descriptor,
                                         vertex_buffer, dst_descriptor,
                                         stencil_table);
 
         // copy back, memcpy?
         VtArray<T> refined_data;
-        refined_data.resize(num_vertices);
+        refined_data.resize(output_size);
 
-        for(size_t i{}, offset{}; i < GetNumRefinedVertices(); ++i, offset += stride) {
+        for(size_t i{}, offset{}; i < output_size; ++i, offset += stride) {
             for(size_t j{}; j < stride; ++j) {
-                assert(offset + j < stride * GetNumRefinedVertices());
+                assert(offset + j < stride * output_size);
 
                 refined_data[i][j] = vertex_buffer->BindCpuBuffer()[offset + j];
             }
@@ -341,19 +339,19 @@ public:
         return VtValue{refined_data};
     }
 
-    VtValue refine_vertex_varying_data(const VtValue& data, bool varying) const {
+    VtValue osd_refine(const VtValue& data, const Far::StencilTable* stencil_table) const {
         switch(HdGetValueTupleType(data).type) {
         case HdTypeFloatVec2: {
-            return vertex_refinement<GfVec2f>(data, varying);
+            return osd_refinement<GfVec2f>(data, stencil_table);
         }
         case HdTypeFloatVec3: {
-            return vertex_refinement<GfVec3f>(data, varying);
+            return osd_refinement<GfVec3f>(data, stencil_table);
         }
         case HdTypeFloatVec4: {
-            return vertex_refinement<GfVec4f>(data, varying);
+            return osd_refinement<GfVec4f>(data, stencil_table);
         }
         default:
-            TF_CODING_ERROR("Unsupported osd vertex refinement");
+            TF_CODING_ERROR("Unsupported osd refinement");
             return {};
         }
     }
@@ -366,7 +364,7 @@ public:
             return {};
         }
 
-        return refine_vertex_varying_data(data, true);
+        return osd_refine(data, m_varying_stencils.get());
     }
 
     VtValue RefineVertexData(const TfToken& name, const TfToken& role,
@@ -377,7 +375,7 @@ public:
             return {};
         }
 
-        return refine_vertex_varying_data(data, false);
+        return osd_refine(data, m_vertex_stencils.get());
     }
 
     VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role,
