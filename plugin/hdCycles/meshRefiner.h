@@ -33,6 +33,17 @@ class TfToken;
 class SdfPath;
 
 ///
+/// \brief Controls behaviour of underlying resolver.
+///
+/// By turning off features we can save space and computational space
+///
+struct HdCyclesRefinerOptions {
+    bool use_uniform{false};
+    bool use_varying{false};
+    bool use_face_varying{false};
+};
+
+///
 /// \brief Refines mesh to triangles
 ///
 /// Refiner's job is to prepare geometry for Cycles. That includes following requirements
@@ -49,9 +60,9 @@ public:
     virtual size_t GetNumRefinedVertices() const = 0;
 
     /// \brief Compact information about triangle vertices
-    virtual const VtVec3iArray& GetRefinedIndices() const = 0;
+    virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
 
-    /// @{ \brief Refine primvar data
+    /// @{ \brief RefineArray primvar data
     virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
