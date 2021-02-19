@@ -33,17 +33,6 @@ class TfToken;
 class SdfPath;
 
 ///
-/// \brief Controls behaviour of underlying resolver.
-///
-/// By turning off features we can save space and computational space
-///
-struct HdCyclesRefinerOptions {
-    bool use_uniform{false};
-    bool use_varying{false};
-    bool use_face_varying{false};
-};
-
-///
 /// \brief Refines mesh to triangles
 ///
 /// Refiner's job is to prepare geometry for Cycles. That includes following requirements

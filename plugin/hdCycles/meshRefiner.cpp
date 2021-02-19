@@ -190,19 +190,39 @@ private:
     T* _data;
 };
 
+///
+/// \brief Refines uniform data
+///
 class SubdUniformRefiner {
 public:
     explicit SubdUniformRefiner(const Far::TopologyRefiner& refiner)
-        : m_ptex_indices(refiner)
-    {
+        : m_ptex_indices(refiner) {
     }
 
-    template<typename T>
     VtValue RefineArray(const VtValue& input,
                         const Far::PatchTable& patch_table,
                         const VtIntArray& prim_param) const {
-        auto refined = RefineArray(input.UncheckedGet<VtArray<T>>(), patch_table, prim_param);
-        return VtValue{refined};
+
+        switch(HdGetValueTupleType(input).type) {
+        case HdTypeInt32: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<int>>(), patch_table, prim_param)};
+        }
+        case HdTypeFloat: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<float>>(), patch_table, prim_param)};
+        }
+        case HdTypeFloatVec2: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<GfVec2f>>(), patch_table, prim_param)};
+        }
+        case HdTypeFloatVec3: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<GfVec3f>>(), patch_table, prim_param)};
+        }
+        case HdTypeFloatVec4: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<GfVec4f>>(), patch_table, prim_param)};
+        }
+        default:
+            TF_CODING_ERROR("Unsupported uniform refinement");
+            return {};
+        }
     }
 
 private:
@@ -230,22 +250,199 @@ private:
         return refined_data;
     }
 
-
     Far::PtexIndices m_ptex_indices;
 };
 
 
-class HdCyclesSubdVertexRefiner {
+template<typename T>
+VtArray<T>
+RefineArrayWithStencils(const VtArray<T>& input, const Far::StencilTable* stencil_table, size_t stride) {
+    VtArray<T> refined_array(stencil_table->GetNumStencils());
+    Osd::BufferDescriptor src_descriptor(0, stride, stride);
+    Osd::BufferDescriptor dst_descriptor(0, stride, stride);
+
+    RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
+    RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_array.data()));
+
+    Osd::CpuEvaluator::EvalStencils(&src_buffer, src_descriptor, &dst_buffer, dst_descriptor, stencil_table);
+    return refined_array;
+}
+
+VtValue
+RefineWithStencils(const VtValue& input, const Far::StencilTable* stencil_table) {
+    HdTupleType value_tuple_type = HdGetValueTupleType(input);
+    size_t stride = HdGetComponentCount(value_tuple_type.type);
+
+    switch(value_tuple_type.type) {
+    case HdTypeFloat: {
+        return VtValue{RefineArrayWithStencils(input.UncheckedGet<VtArray<float>>(), stencil_table, stride)};
+    }
+    case HdTypeFloatVec2: {
+        return VtValue{RefineArrayWithStencils(input.UncheckedGet<VtArray<GfVec2f>>(), stencil_table, stride)};
+    }
+    case HdTypeFloatVec3: {
+        return VtValue{RefineArrayWithStencils(input.UncheckedGet<VtArray<GfVec3f>>(), stencil_table, stride)};
+    }
+    case HdTypeFloatVec4: {
+        return VtValue{RefineArrayWithStencils(input.UncheckedGet<VtArray<GfVec4f>>(), stencil_table, stride)};
+    }
+    default:
+        TF_CODING_ERROR("Unsupported osd refinement");
+        return {};
+    }
+}
+
+///
+///
+///
+class SubdVertexRefiner {
 public:
+    SubdVertexRefiner(const Far::TopologyRefiner& refiner, Far::StencilTableFactory::Options options) {
+        options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VERTEX;
+        auto table = Far::StencilTableFactory::Create(refiner, options);
+        m_stencils                = std::unique_ptr<const Far::StencilTable>(table);
+    }
+
+    VtValue RefineArray(const VtValue& input) const {
+        return RefineWithStencils(input, m_stencils.get());
+    }
+
+    size_t Size() const {
+        return m_stencils->GetNumStencils();
+    }
+
 private:
+    std::unique_ptr<const Far::StencilTable> m_stencils;
 };
 
-class HdCyclesSubdVaryingRefiner {
+///
+///
+///
+class SubdVaryingRefiner {
 public:
+    SubdVaryingRefiner(const Far::TopologyRefiner& refiner, Far::StencilTableFactory::Options options) {
+        options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
+        auto table = Far::StencilTableFactory::Create(refiner, options);
+        m_stencils                = std::unique_ptr<const Far::StencilTable>(table);
+    }
+
+    VtValue RefineArray(const VtValue& input) const {
+        return RefineWithStencils(input, m_stencils.get());
+    }
+
 private:
+    std::unique_ptr<const Far::StencilTable> m_stencils;
 };
 
-class hdCyclesSubdFaceVaryingRefiner {
+class SubdFVarRefiner {
+public:
+    SubdFVarRefiner(const Far::TopologyRefiner& refiner,
+                    const Far::PatchTable& patch_table,
+                    Far::StencilTableFactory::Options options) {
+        options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
+        auto table = Far::StencilTableFactory::Create(refiner, options);
+        m_stencils = std::unique_ptr<const Far::StencilTable>(table);
+
+        Far::PatchMap patch_map{patch_table};
+        m_patch_coords.reserve(patch_table.GetNumControlVerticesTotal());
+        for (int array=0; array < patch_table.GetNumPatchArrays(); ++array) {
+            for (int patch=0; patch < patch_table.GetNumPatches(array); ++patch) {
+                Far::PatchParam patch_param = patch_table.GetPatchParam(array, patch);
+
+                float u,v;
+                const Far::PatchTable::PatchHandle* handle{};
+
+                u = 0.0f; v = 0.0f;
+                patch_param.Unnormalize(u, v);
+                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
+                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
+
+
+                u = 1.0f; v = 0.0f;
+                patch_param.Unnormalize(u, v);
+                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
+                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
+
+                u = 1.0f; v = 1.0f;
+                patch_param.Unnormalize(u, v);
+                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
+                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
+
+
+                u = 0.0f; v = 1.0f;
+                patch_param.Unnormalize(u, v);
+                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
+                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
+            }
+        }
+
+        m_patch_table = std::unique_ptr<Osd::CpuPatchTable>(Osd::CpuPatchTable::Create(&patch_table));
+    }
+
+    VtValue RefineArray(const VtValue& input, const Far::PatchTable& patch_table) const {
+        HdTupleType value_tuple_type = HdGetValueTupleType(input);
+        size_t stride = HdGetComponentCount(value_tuple_type.type);
+
+        switch(value_tuple_type.type) {
+        case HdTypeFloat: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<float>>(), patch_table, stride)};
+        }
+        case HdTypeFloatVec2: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<GfVec2f>>(), patch_table, stride)};
+        }
+        case HdTypeFloatVec3: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<GfVec3f>>(), patch_table, stride)};
+        }
+        case HdTypeFloatVec4: {
+            return VtValue{RefineArray(input.UncheckedGet<VtArray<GfVec4f>>(), patch_table, stride)};
+        }
+        default:
+            TF_CODING_ERROR("Unsupported uniform refinement");
+            return {};
+        }
+    }
+
+private:
+    template<typename T>
+    VtArray<T> RefineArray(const VtArray<T>& input,
+                           const Far::PatchTable& patch_table,
+                           size_t stride) const {
+        //
+        VtArray<T> eval_data(m_stencils->GetNumStencils());
+        {
+            Osd::BufferDescriptor src_descriptor(0, stride, stride);
+            Osd::BufferDescriptor dst_descriptor(0, stride, stride);
+
+            RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
+            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(eval_data.data()));
+
+            Osd::CpuEvaluator::EvalStencils(&src_buffer, src_descriptor,
+                                            &dst_buffer, dst_descriptor,
+                                            m_stencils.get());
+        }
+
+        // build patch coord for evaluating patch
+        VtArray<T> refined_data(patch_table.GetNumControlVerticesTotal());
+        {
+            Osd::BufferDescriptor src_descriptor(0, stride, stride);
+            Osd::BufferDescriptor dst_descriptor(0, stride, stride);
+
+            RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(eval_data.data()));
+            RawCpuBufferWrapper<const Osd::PatchCoord> patch_coord_buffer{m_patch_coords.data()};
+            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_data.data()));
+
+            Osd::CpuEvaluator::EvalPatchesFaceVarying(&src_buffer, src_descriptor,
+                                                      &dst_buffer, dst_descriptor,
+                                                      m_patch_coords.size(), &patch_coord_buffer,
+                                                      m_patch_table.get(), 0);
+        }
+
+        return refined_data;
+    }
+
+    std::unique_ptr<const Far::StencilTable> m_stencils;
+    VtArray<Osd::PatchCoord> m_patch_coords;
+    std::unique_ptr<const Osd::CpuPatchTable> m_patch_table;
 
 };
 
@@ -265,16 +462,17 @@ public:
         {
             HD_TRACE_SCOPE("create refiner")
 
+            std::vector<VtIntArray> fvar_topologies;
+
             VtIntArray fvar_indices(m_topology->GetFaceVertexIndices().size());
             std::iota(fvar_indices.begin(), fvar_indices.end(), 0);
-            std::vector<VtIntArray> fvar_topologies {fvar_indices};
+            fvar_topologies.push_back(fvar_indices);
+
             refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology(), fvar_topologies);
 
             Far::TopologyRefiner::UniformOptions uniform_options { refine_level };
             uniform_options.fullTopologyInLastLevel = true;
             refiner->RefineUniform(uniform_options);
-
-            m_ptex_indices = std::make_unique<Far::PtexIndices>(*refiner);
         }
 
         // patches for face and materials lookup
@@ -290,26 +488,22 @@ public:
             int channel = 0;
             patch_options.fvarChannelIndices = &channel;
 
-            m_patch_table = PatchTablePtr{Far::PatchTableFactory::Create(*refiner, patch_options)};
-            m_patch_map = std::make_unique<Far::PatchMap>(*m_patch_table);
+            auto patch_table = Far::PatchTableFactory::Create(*refiner, patch_options);
+            m_patch_table = std::unique_ptr<Far::PatchTable>{patch_table};
         }
 
         // stencils required for primvar refinement
         {
             HD_TRACE_SCOPE("create stencil table")
 
-            Far::StencilTableFactory::Options options;
-            options.generateIntermediateLevels = false;
-            options.generateOffsets            = true;
+            Far::StencilTableFactory::Options stencil_options;
+            stencil_options.generateIntermediateLevels = false;
+            stencil_options.generateOffsets            = true;
 
-            options.interpolationMode          = Far::StencilTableFactory::INTERPOLATE_VERTEX;
-            m_vertex_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
-
-            options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
-            m_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
-
-            options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
-            m_face_varying_stencils = StencilTablePtr{Far::StencilTableFactory::Create(*refiner, options)};
+            m_uniform = std::make_unique<SubdUniformRefiner>(*refiner);
+            m_vertex = std::make_unique<SubdVertexRefiner>(*refiner, stencil_options);
+            m_varying = std::make_unique<SubdVaryingRefiner>(*refiner, stencil_options);
+            m_fvar = std::make_unique<SubdFVarRefiner>(*refiner, *m_patch_table, stencil_options);
         }
 
         // create Osd topology
@@ -337,11 +531,10 @@ public:
             m_triangle_counts = VtIntArray(m_triangle_indices.size(), 3);
         }
 
-        m_uniform = std::make_unique<SubdUniformRefiner>(*refiner);
     }
 
     size_t GetNumRefinedVertices() const override {
-        return m_vertex_stencils->GetNumStencils();
+        return m_vertex->Size();
     }
 
     const VtVec3iArray& GetRefinedVertexIndices() const override {
@@ -357,35 +550,6 @@ public:
         return {data};
     }
 
-    template<typename T>
-    VtValue uniform_refinement(const TfToken& name, const TfToken& role, const VtValue& data) const {
-        if(data.GetArraySize() != m_topology->GetNumFaces()) {
-            TF_WARN("Unsupported input data size for uniform refinement for primvar %s at %s",
-                    name.GetText(), m_id.GetPrimPath().GetString().c_str());
-            return {};
-        }
-
-        auto& input = data.UncheckedGet<VtArray<T>>();
-        VtArray<T> fine_array(m_prim_param.size());
-
-        const Far::PatchParamTable& patch_param_table = m_patch_table->GetPatchParamTable();
-        for(size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
-            // triangulated patch id -> patch id
-            const int patch_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(m_prim_param[fine_id]);
-            assert(patch_id < patch_param_table.size());
-
-            // patch id -> coarse id
-            const Far::PatchParam& patch_param = patch_param_table[patch_id];
-            const int coarse_id = m_ptex_indices->GetFaceId(patch_param.GetFaceId());
-            assert(coarse_id < input.size());
-
-            // lookup the data from coarse id
-            fine_array[fine_id] = input[coarse_id];
-        }
-
-        return VtValue{fine_array};
-    }
-
     VtValue RefineUniformData(const TfToken& name, const TfToken& role,
                               const VtValue& data) const override {
         if(data.GetArraySize() != m_topology->GetNumFaces()) {
@@ -394,79 +558,7 @@ public:
             return {};
         }
 
-        switch(HdGetValueTupleType(data).type) {
-        case HdTypeInt32: {
-            return m_uniform->RefineArray<int>(data, *m_patch_table, m_prim_param);
-//            return uniform_refinement<int>(name, role, data);
-        }
-        case HdTypeFloat: {
-            return m_uniform->RefineArray<float>(data, *m_patch_table, m_prim_param);
-            //return uniform_refinement<float>(name, role, data);
-        }
-        case HdTypeFloatVec2: {
-            return m_uniform->RefineArray<GfVec2f>(data, *m_patch_table, m_prim_param);
-//            return uniform_refinement<GfVec2f>(name, role, data);
-        }
-        case HdTypeFloatVec3: {
-            return m_uniform->RefineArray<GfVec3f>(data, *m_patch_table, m_prim_param);
-//            return uniform_refinement<GfVec3f>(name, role, data);
-        }
-        case HdTypeFloatVec4: {
-            return m_uniform->RefineArray<GfVec4f>(data, *m_patch_table, m_prim_param);
-//            return uniform_refinement<GfVec4f>(name, role, data);
-        }
-        default:
-            TF_CODING_ERROR("Unsupported uniform refinement");
-            return {};
-        }
-    }
-
-    template<typename T>
-    VtValue eval_stencils(const VtValue& data, const Far::StencilTable* stencil_table) const {
-        HdTupleType value_tuple_type = HdGetValueTupleType(data);
-        const size_t stride = HdGetComponentCount(value_tuple_type.type);
-
-        VtArray<T> refined_array(stencil_table->GetNumStencils());
-        Osd::BufferDescriptor src_descriptor(0, stride, stride);
-        Osd::BufferDescriptor dst_descriptor(0, stride, stride);
-
-        RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(HdGetValueData(data)));
-        RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_array.data()));
-
-        Osd::CpuEvaluator::EvalStencils(&src_buffer, src_descriptor,
-                                        &dst_buffer, dst_descriptor,
-                                        stencil_table);
-        return VtValue{ refined_array };
-    }
-
-    VtValue refine(const VtValue& data, const Far::StencilTable* stencil_table) const {
-        switch(HdGetValueTupleType(data).type) {
-        case HdTypeFloat: {
-            return eval_stencils<float>(data, stencil_table);
-        }
-        case HdTypeFloatVec2: {
-            return eval_stencils<GfVec2f>(data, stencil_table);
-        }
-        case HdTypeFloatVec3: {
-            return eval_stencils<GfVec3f>(data, stencil_table);
-        }
-        case HdTypeFloatVec4: {
-            return eval_stencils<GfVec4f>(data, stencil_table);
-        }
-        default:
-            TF_CODING_ERROR("Unsupported osd refinement");
-            return {};
-        }
-    }
-
-    VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const override {
-        if(data.GetArraySize() != m_topology->GetNumPoints()) {
-            TF_WARN("Unsupported input data size for varying refinement for primvar %s at %s",
-                    name.GetText(), m_id.GetPrimPath().GetString().c_str());
-            return {};
-        }
-
-        return refine(data, m_varying_stencils.get());
+        return m_uniform->RefineArray(data, *m_patch_table, m_prim_param);
     }
 
     VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const override {
@@ -476,7 +568,17 @@ public:
             return {};
         }
 
-        return refine(data, m_vertex_stencils.get());
+        return m_vertex->RefineArray(data);
+    }
+
+    VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const override {
+        if(data.GetArraySize() != m_topology->GetNumPoints()) {
+            TF_WARN("Unsupported input data size for varying refinement for primvar %s at %s",
+                    name.GetText(), m_id.GetPrimPath().GetString().c_str());
+            return {};
+        }
+
+        return m_varying->RefineArray(data);
     }
 
     VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& source) const override {
@@ -486,72 +588,9 @@ public:
             return {};
         }
 
-        //
-        VtArray<GfVec3f> eval_data(m_face_varying_stencils->GetNumStencils());
-        {
-            Osd::BufferDescriptor src_descriptor(0, 3, 3);
-            Osd::BufferDescriptor dst_descriptor(0, 3, 3);
-
-            RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(HdGetValueData(source)));
-            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(eval_data.data()));
-
-            Osd::CpuEvaluator::EvalStencils(&src_buffer, src_descriptor,
-                                            &dst_buffer, dst_descriptor,
-                                            m_face_varying_stencils.get());
-        }
-
-        // build patch coord for evaluating patch
-        VtVec3fArray refined_data(m_patch_table->GetNumControlVerticesTotal(), {1,0,0});
-        {
-            VtArray<Osd::PatchCoord> patch_coords;
-            for (int array=0; array < m_patch_table->GetNumPatchArrays(); ++array) {
-                for (int patch=0; patch < m_patch_table->GetNumPatches(array); ++patch) {
-                    Far::PatchParam patch_param = m_patch_table->GetPatchParam(array, patch);
-
-                    float u,v;
-                    const Far::PatchTable::PatchHandle* handle{};
-
-                    u = 0.0f; v = 0.0f;
-                    patch_param.Unnormalize(u, v);
-                    handle = m_patch_map->FindPatch(patch_param.GetFaceId(), u, v);
-                    patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-
-
-                    u = 1.0f; v = 0.0f;
-                    patch_param.Unnormalize(u, v);
-                    handle = m_patch_map->FindPatch(patch_param.GetFaceId(), u, v);
-                    patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-
-                    u = 1.0f; v = 1.0f;
-                    patch_param.Unnormalize(u, v);
-                    handle = m_patch_map->FindPatch(patch_param.GetFaceId(), u, v);
-                    patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-
-
-                    u = 0.0f; v = 1.0f;
-                    patch_param.Unnormalize(u, v);
-                    handle = m_patch_map->FindPatch(patch_param.GetFaceId(), u, v);
-                    patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-                }
-            }
-
-            Osd::BufferDescriptor src_descriptor(0, 3, 3);
-            Osd::BufferDescriptor dst_descriptor(0, 3, 3);
-
-            RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(eval_data.data()));
-            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_data.data()));
-
-            Osd::CpuPatchTable * evalPatchTable = Osd::CpuPatchTable::Create(m_patch_table.get());
-            RawCpuBufferWrapper<Osd::PatchCoord> patch_coord_buffer{patch_coords.data()};
-
-            Osd::CpuEvaluator::EvalPatchesFaceVarying(&src_buffer, src_descriptor,
-                                                      &dst_buffer, dst_descriptor,
-                                                      patch_coords.size(), &patch_coord_buffer,
-                                                      evalPatchTable, 0);
-        }
+        auto refined_value = m_fvar->RefineArray(source, *m_patch_table);
 
         // triangulate refinement
-        VtValue refined_value { refined_data };
         HdMeshUtil mesh_util{&m_osd_topology, m_id};
         VtValue triangulated;
         if(!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(refined_value),
@@ -575,24 +614,14 @@ private:
     VtIntArray m_prim_param;
     VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
 
-    // Osd
-
-    std::unique_ptr<SubdUniformRefiner> m_uniform;
-
-    std::unique_ptr<const Far::PtexIndices> m_ptex_indices;
-
     // patch helpers
-    using PatchTablePtr = std::unique_ptr<const Far::PatchTable>;
-    PatchTablePtr m_patch_table;
+    std::unique_ptr<const Far::PatchTable> m_patch_table;
 
-    std::unique_ptr<const Far::PatchMap> m_patch_map;
-
-    // stencils
-    using StencilTablePtr = std::unique_ptr<const Far::StencilTable>;
-    StencilTablePtr m_vertex_stencils;
-    StencilTablePtr m_varying_stencils;
-    StencilTablePtr m_face_varying_stencils;
-    std::vector<Osd::PatchCoord> m_face_varying_patch_coords;
+    // Osd
+    std::unique_ptr<SubdUniformRefiner> m_uniform;
+    std::unique_ptr<SubdVertexRefiner> m_vertex;
+    std::unique_ptr<SubdVaryingRefiner> m_varying;
+    std::unique_ptr<SubdFVarRefiner> m_fvar;
 };
 
 } // namespace
