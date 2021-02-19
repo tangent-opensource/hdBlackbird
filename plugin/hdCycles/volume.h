@@ -147,7 +147,7 @@ private:
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    ccl::vector<ccl::Shader *> m_usedShaders;
+    ccl::array<ccl::Node *> m_usedShaders;
 
     //openvdb::VolumeGridVector* grids;
 };

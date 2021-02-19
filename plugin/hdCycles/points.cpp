@@ -176,10 +176,10 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     ccl::transform_translate(vec3f_to_float3(points[i])),
                     m_cyclesMesh);
 
-                pointObject->random_id = i;
+                pointObject->set_random_id(i);
                 pointObject->name
                     = ccl::ustring::format("%s@%08x", pointObject->name,
-                                           pointObject->random_id);
+                                           pointObject->get_random_id());
                 m_cyclesObjects.push_back(pointObject);
                 param->AddObject(pointObject);
             }
@@ -191,9 +191,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                                                id);
 
         for (int i = 0; i < m_cyclesObjects.size(); i++) {
-            m_cyclesObjects[i]->tfm = ccl::transform_inverse(m_transform)
-                                      * m_cyclesObjects[i]->tfm;
-            m_cyclesObjects[i]->tfm = newTransform * m_cyclesObjects[i]->tfm;
+            m_cyclesObjects[i]->set_tfm(ccl::transform_inverse(m_transform)
+                                      * m_cyclesObjects[i]->get_tfm());
+            m_cyclesObjects[i]->set_tfm(newTransform * m_cyclesObjects[i]->get_tfm());
         }
 
         m_transform = newTransform;
@@ -213,9 +213,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 for (int i = 0; i < widths.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
                         float w                 = widths[i];
-                        m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm
+                        m_cyclesObjects[i]->set_tfm(m_cyclesObjects[i]->get_tfm()
                                                   * ccl::transform_scale(w, w,
-                                                                         w);
+                                                                         w));
                     }
                 }
             }
@@ -242,9 +242,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                                             normals[i][1],
                                                             normals[i][2]));
                         float angle = atan2f(ccl::len(rotAxis), d);
-                        m_cyclesObjects[i]->tfm
-                            = m_cyclesObjects[i]->tfm
-                              * ccl::transform_rotate((angle), rotAxis);
+                        m_cyclesObjects[i]->set_tfm(
+                            m_cyclesObjects[i]->get_tfm()
+                              * ccl::transform_rotate((angle), rotAxis));
                     }
                 }
             } else {
@@ -259,9 +259,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool visible = sceneDelegate->GetVisible(id);
         for (int i = 0; i < m_cyclesObjects.size(); i++) {
             if (visible) {
-                m_cyclesObjects[i]->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
+                m_cyclesObjects[i]->set_visibility(m_cyclesObjects[i]->get_visibility() | ccl::PATH_RAY_ALL_VISIBILITY);
             } else {
-                m_cyclesObjects[i]->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+                m_cyclesObjects[i]->set_visibility(m_cyclesObjects[i]->get_visibility() & ~ccl::PATH_RAY_ALL_VISIBILITY);
             }
         }
     }
@@ -293,21 +293,19 @@ void
 HdCyclesPoints::_CreateDiscMesh()
 {
     m_cyclesMesh->clear();
-    m_cyclesMesh->name             = ccl::ustring("generated_disc");
-    m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+    m_cyclesMesh->name = ccl::ustring("generated_disc");
+    m_cyclesMesh->set_subdivision_type(ccl::Mesh::SUBDIVISION_NONE);
 
     int numVerts = m_pointResolution;
     int numFaces = m_pointResolution - 2;
 
     m_cyclesMesh->reserve_mesh(numVerts, numFaces);
 
-    m_cyclesMesh->verts.reserve(numVerts);
-
     for (int i = 0; i < m_pointResolution; i++) {
         float d = ((float)i / (float)m_pointResolution) * 2.0f * M_PI;
         float x = sin(d) * 0.5f;
         float y = cos(d) * 0.5f;
-        m_cyclesMesh->verts.push_back_reserved(ccl::make_float3(x, y, 0.0f));
+        m_cyclesMesh->add_vertex(ccl::make_float3(x, y, 0.0f));
     }
 
     for (int i = 1; i < m_pointResolution - 1; i++) {
@@ -329,8 +327,8 @@ HdCyclesPoints::_CreateSphereMesh()
     int stackCount  = m_pointResolution;
 
     m_cyclesMesh->clear();
-    m_cyclesMesh->name             = ccl::ustring("generated_sphere");
-    m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+    m_cyclesMesh->name = ccl::ustring("generated_sphere");
+    m_cyclesMesh->set_subdivision_type(ccl::Mesh::SUBDIVISION_NONE);
 
     float z, xy;
 
@@ -346,7 +344,7 @@ HdCyclesPoints::_CreateSphereMesh()
         for (int j = 0; j <= sectorCount; ++j) {
             sectorAngle = j * sectorStep;
 
-            m_cyclesMesh->verts.push_back_slow(
+            m_cyclesMesh->add_vertex_slow(
                 ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle),
                                  z));
             // TODO: Add normals and uvs
@@ -378,9 +376,9 @@ HdCyclesPoints::_CreatePointsObject(const ccl::Transform& transform,
 {
     /* create object*/
     ccl::Object* object = new ccl::Object();
-    object->geometry    = mesh;
-    object->tfm         = transform;
-    object->motion.clear();
+    object->set_geometry(mesh);
+    object->set_tfm(transform);
+    object->get_motion().clear();
 
     return object;
 }

@@ -102,11 +102,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         bool is_ortho = round(m_projMtx[3][3]) == 1.0;
 
         if (is_ortho) {
-            active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+            active_camera->set_camera_type(ccl::CameraType::CAMERA_ORTHOGRAPHIC);
         } else
-            active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
-
-        active_camera->tag_update();
+            active_camera->set_camera_type(ccl::CameraType::CAMERA_PERSPECTIVE);
 
         // DirectReset here instead of Interrupt for faster IPR camera orbits
         renderParam->DirectReset();

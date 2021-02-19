@@ -29,6 +29,7 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/shader.h>
+#include <render/volume.h>
 
 #include <render/image.h>
 #include <render/mesh.h>
@@ -72,7 +73,7 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId,
     m_cyclesVolume = _CreateVolume();
     m_renderDelegate->GetCyclesRenderParam()->AddMesh(m_cyclesVolume);
 
-    m_cyclesObject->geometry = m_cyclesVolume;
+    m_cyclesObject->set_geometry(m_cyclesVolume);
 }
 
 HdCyclesVolume::~HdCyclesVolume()
@@ -110,7 +111,7 @@ HdCyclesVolume::_CreateObject()
     // Create container object
     ccl::Object* object = new ccl::Object();
 
-    object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
+    object->set_visibility(ccl::PATH_RAY_ALL_VISIBILITY);
 
     return object;
 }
@@ -119,11 +120,11 @@ ccl::Mesh*
 HdCyclesVolume::_CreateVolume()
 {
     // Create container object
-    ccl::Mesh* volume = new ccl::Mesh();
+    ccl::Volume* volume = new ccl::Volume();
 
-    volume->volume_clipping     = 0.001f;
-    volume->volume_step_size    = 0.0f;
-    volume->volume_object_space = true;
+    volume->set_clipping(0.001f);
+    volume->set_step_size(0.0f);
+    volume->set_object_space(true);
 
     return volume;
 }
@@ -249,9 +250,9 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         update_volumes = true;
         if (sceneDelegate->GetVisible(id)) {
-            m_cyclesObject->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
+            m_cyclesObject->set_visibility(m_cyclesObject->get_visibility() | ccl::PATH_RAY_ALL_VISIBILITY);
         } else {
-            m_cyclesObject->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+            m_cyclesObject->set_visibility(m_cyclesObject->get_visibility() & ~ccl::PATH_RAY_ALL_VISIBILITY);
         }
     }
 
@@ -285,12 +286,12 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         HdPrimTypeTokens->material, materialId));
 
             if (material && material->GetCyclesShader()) {
-                m_usedShaders.push_back(material->GetCyclesShader());
+                m_usedShaders.push_back_slow(material->GetCyclesShader());
                 material->GetCyclesShader()->tag_update(scene);
             } else {
-                m_usedShaders.push_back(scene->default_volume);
+                m_usedShaders.push_back_slow(scene->default_volume);
             }
-            m_cyclesVolume->used_shaders = m_usedShaders;
+            m_cyclesVolume->set_used_shaders(m_usedShaders);
             update_volumes               = true;
         }
     }

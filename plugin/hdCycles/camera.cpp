@@ -144,7 +144,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
 
     bool use_motion_blur = m_renderDelegate->GetCyclesRenderParam()
                                ->GetCyclesScene()
-                               ->integrator->motion_blur;
+                               ->integrator->get_motion_blur();
     if (use_motion_blur) {
         m_useMotionBlur = true;
     }
@@ -438,8 +438,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (m_needsUpdate) {
-        m_cyclesCamera->tag_update();
-        m_cyclesCamera->need_update = true;
         param->Interrupt();
     }
 
@@ -451,55 +449,53 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 bool
 HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 {
-    a_camera->matrix = mat4d_to_transform(m_transform);
-    a_camera->fov    = m_fov;
+    a_camera->set_matrix(mat4d_to_transform(m_transform));
+    a_camera->set_fov(m_fov);
 
-    a_camera->aperturesize   = m_apertureSize;
-    a_camera->blades         = m_blades;
-    a_camera->bladesrotation = m_bladesRotation;
-    a_camera->focaldistance  = m_focusDistance;
-    a_camera->aperture_ratio = m_apertureRatio;
+    a_camera->set_aperturesize(m_apertureSize);
+    a_camera->set_blades(m_blades);
+    a_camera->set_bladesrotation(m_bladesRotation);
+    a_camera->set_focaldistance(m_focusDistance);
+    a_camera->set_aperture_ratio(m_apertureRatio);
 
-    a_camera->shutter_curve = m_shutterCurve;
+    a_camera->set_shutter_curve(m_shutterCurve);
 
-    a_camera->offscreen_dicing_scale = m_offscreenDicingScale;
+    a_camera->set_offscreen_dicing_scale(m_offscreenDicingScale);
 
-    a_camera->fisheye_fov  = m_fisheyeFov;
-    a_camera->fisheye_lens = m_fisheyeLens;
+    a_camera->set_fisheye_fov(m_fisheyeFov);
+    a_camera->set_fisheye_lens(m_fisheyeLens);
 
-    a_camera->latitude_min  = m_latMin;
-    a_camera->latitude_max  = m_latMin;
-    a_camera->longitude_min = m_latMax;
-    a_camera->longitude_max = m_longMax;
+    a_camera->set_latitude_min(m_latMin);
+    a_camera->set_latitude_max(m_latMin);
+    a_camera->set_longitude_min(m_latMax);
+    a_camera->set_longitude_max(m_longMax);
 
-    a_camera->use_spherical_stereo = m_useSphericalStereo;
+    a_camera->set_use_spherical_stereo(m_useSphericalStereo);
 
-    a_camera->interocular_distance = m_interocularDistance;
-    a_camera->convergence_distance = m_convergenceDistance;
-    a_camera->use_pole_merge       = m_usePoleMerge;
+    a_camera->set_interocular_distance(m_interocularDistance);
+    a_camera->set_convergence_distance(m_convergenceDistance);
+    a_camera->set_use_pole_merge(m_usePoleMerge);
 
-    a_camera->pole_merge_angle_from = m_poleMergeAngleFrom;
-    a_camera->pole_merge_angle_to   = m_poleMergeAngleTo;
+    a_camera->set_pole_merge_angle_from(m_poleMergeAngleFrom);
+    a_camera->set_pole_merge_angle_to(m_poleMergeAngleTo);
 
-    a_camera->nearclip = m_clippingRange.GetMin();
-    a_camera->farclip  = m_clippingRange.GetMax();
+    a_camera->set_nearclip(m_clippingRange.GetMin());
+    a_camera->set_farclip(m_clippingRange.GetMax());
 
-    a_camera->shuttertime = m_shutterTime;
-    a_camera->motion_position
-        = ccl::Camera::MotionPosition::MOTION_POSITION_CENTER;
+    a_camera->set_shuttertime(m_shutterTime);
+    a_camera->set_motion_position(ccl::Camera::MotionPosition::MOTION_POSITION_CENTER);
 
-    a_camera->rolling_shutter_duration = m_rollingShutterTime;
+    a_camera->set_rolling_shutter_duration(m_rollingShutterTime);
 
-    a_camera->rolling_shutter_type
-        = (ccl::Camera::RollingShutterType)m_rollingShutterType;
-    a_camera->panorama_type   = (ccl::PanoramaType)m_panoramaType;
-    a_camera->motion_position = (ccl::Camera::MotionPosition)m_motionPosition;
-    a_camera->stereo_eye      = (ccl::Camera::StereoEye)m_stereoEye;
+    a_camera->set_rolling_shutter_type((ccl::Camera::RollingShutterType)m_rollingShutterType);
+    a_camera->set_panorama_type((ccl::PanoramaType)m_panoramaType);
+    a_camera->set_motion_position((ccl::Camera::MotionPosition)m_motionPosition);
+    a_camera->set_stereo_eye((ccl::Camera::StereoEye)m_stereoEye);
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
-        a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+        a_camera->set_camera_type(ccl::CameraType::CAMERA_ORTHOGRAPHIC);
     } else {
-        a_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+        a_camera->set_camera_type(ccl::CameraType::CAMERA_PERSPECTIVE);
     }
 
     bool shouldUpdate = m_needsUpdate;
@@ -511,19 +507,19 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     // We likely need to ensure motion_position is respected when
     // populating the camera->motion array.
     if (m_useMotionBlur) {
-        a_camera->motion.clear();
-        a_camera->motion.resize(m_transformSamples.count,
-                                ccl::transform_identity());
+        ccl::array<ccl::Transform> motion;
+        motion.resize(m_transformSamples.count, ccl::transform_identity());
 
         for (int i = 0; i < m_transformSamples.count; i++) {
             if (m_transformSamples.times.data()[i] == 0.0f) {
-                a_camera->matrix = mat4d_to_transform(ConvertCameraTransform(
-                    m_transformSamples.values.data()[i]));
+                a_camera->set_matrix(mat4d_to_transform(ConvertCameraTransform(
+                    m_transformSamples.values.data()[i])));
             }
 
-            a_camera->motion[i] = mat4d_to_transform(
+            motion[i] = mat4d_to_transform(
                 ConvertCameraTransform(m_transformSamples.values.data()[i]));
         }
+        a_camera->set_motion(motion);
     }
 
     return shouldUpdate;

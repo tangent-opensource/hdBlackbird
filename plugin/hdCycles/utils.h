@@ -69,7 +69,7 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath);
 
 HDCYCLES_API
 void
-HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles);
+HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::array<int>& a_tiles);
 
 /**
  * @brief Cycles specific conversion required to get generated coord offsets

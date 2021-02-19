@@ -306,7 +306,7 @@ protected:
 
     bool m_hasVertexColors;
 
-    ccl::vector<ccl::Shader*> m_usedShaders;
+    ccl::array<ccl::Node*> m_usedShaders;
 
 public:
     const VtIntArray& GetFaceVertexCounts() { return m_faceVertexCounts; }

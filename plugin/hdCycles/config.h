@@ -21,10 +21,13 @@
 #define HD_CYCLES_CONFIG_H
 
 #include "api.h"
+#include <graph/node.h>
+#include <iostream>
 
 #include <pxr/base/gf/vec2i.h>
 #include <pxr/base/tf/singleton.h>
 #include <pxr/pxr.h>
+
 
 // TODO: Create a proper HdCycles Logger
 #include <iostream>
@@ -64,6 +67,24 @@ template<typename T> struct HdCyclesEnvValue {
         if (hasOverride) {
             a_previous = value;
             std::cout << "[" << envName << "] has been set: " << a_previous
+                      << '\n';
+        }
+
+        return hasOverride;
+    }
+
+    bool eval(ccl::Node* node, const ccl::SocketType* a_previous, bool a_forceInit = false) const
+    {
+        assert(node);
+        assert(a_previous);
+        if (a_forceInit) {
+            node->set(*a_previous, value);
+            return true;
+        }
+
+        if (hasOverride) {
+            node->set(*a_previous, value);
+            std::cout << "[" << envName << "] has been set: " << value
                       << '\n';
         }
 

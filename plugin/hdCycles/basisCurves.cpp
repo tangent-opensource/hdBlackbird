@@ -115,7 +115,7 @@ HdCyclesBasisCurves::_CreateObject()
     // Create container object
     ccl::Object* object = new ccl::Object();
 
-    object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
+    object->set_visibility(ccl::PATH_RAY_ALL_VISIBILITY);
 
     return object;
 }
@@ -144,7 +144,7 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
     }
 
     if (m_usedShaders.size() > 0)
-        m_cyclesGeometry->used_shaders = m_usedShaders;
+        m_cyclesGeometry->set_used_shaders(m_usedShaders);
 }
 
 void
@@ -153,9 +153,9 @@ HdCyclesBasisCurves::_PopulateMotion()
     if (m_pointSamples.count <= 1)
         return;
 
-    m_cyclesGeometry->use_motion_blur = true;
+    m_cyclesGeometry->set_use_motion_blur(true);
 
-    m_cyclesGeometry->motion_steps = m_pointSamples.count + 1;
+    m_cyclesGeometry->set_motion_steps(m_pointSamples.count + 1);
 
     ccl::Attribute* attr_mP = m_cyclesGeometry->attributes.find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
@@ -239,12 +239,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
             }
         } else {
             // @TODO: Unhandled support for deprecated curve mesh geo
-            ccl::Attribute* attr_vcol
-                = m_cyclesMesh->attributes.add(attribName,
-                                               ccl::TypeDesc::TypeColor,
-                                               ccl::ATTR_ELEMENT_CORNER_BYTE);
-
-            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+            assert(0);
         }
     } else if (interpolation == HdInterpolationVertex) {
         VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
@@ -283,12 +278,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
             }
         } else {
             // @TODO: Unhandled support for deprecated curve mesh geo
-            ccl::Attribute* attr_vcol
-                = m_cyclesMesh->attributes.add(attribName,
-                                               ccl::TypeDesc::TypeColor,
-                                               ccl::ATTR_ELEMENT_CORNER_BYTE);
-
-            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+            assert(0);
         }
     }
 }
@@ -321,10 +311,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 }
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                assert(0);
             }
         } else if (value.IsHolding<VtArray<GfVec3f>>()) {
             VtVec3fArray uvs;
@@ -343,10 +330,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 }
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                assert(0);
             }
         }
     } else if (interpolation == HdInterpolationVertex) {
@@ -371,10 +355,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 }
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                assert(0);
             }
         } else if (value.IsHolding<VtArray<GfVec3f>>()) {
             VtVec3fArray uvs;
@@ -395,10 +376,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 }
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                assert(0);
             }
         }
     }
@@ -418,8 +396,8 @@ HdCyclesBasisCurves::_PopulateGenerated()
             ccl::ATTR_STD_GENERATED);
         ccl::float3* generated = attr_generated->data_float3();
 
-        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++)
-            generated[i] = m_cyclesMesh->verts[i] * size - loc;
+        for (size_t i = 0; i < m_cyclesMesh->get_verts().size(); i++)
+            generated[i] = m_cyclesMesh->get_verts()[i] * size - loc;
     } else {
         HdCyclesMeshTextureSpace(m_cyclesHair, loc, size);
         ccl::Attribute* attr_generated = m_cyclesHair->attributes.add(
@@ -428,7 +406,7 @@ HdCyclesBasisCurves::_PopulateGenerated()
 
         for (size_t i = 0; i < m_cyclesHair->num_curves(); i++) {
             ccl::float3 co
-                = m_cyclesHair->curve_keys[m_cyclesHair->get_curve(i).first_key];
+                = m_cyclesHair->get_curve_keys()[m_cyclesHair->get_curve(i).first_key];
             generated[i] = co * size - loc;
         }
     }
@@ -532,20 +510,20 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             update_curve = true;
         }
 
-        m_cyclesObject->is_shadow_catcher = _HdCyclesGetCurveParam<bool>(
+        m_cyclesObject->set_is_shadow_catcher(_HdCyclesGetCurveParam<bool>(
             dirtyBits, id, this, sceneDelegate,
             usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
-            m_cyclesObject->is_shadow_catcher);
+            m_cyclesObject->get_is_shadow_catcher()));
 
-        m_cyclesObject->pass_id = _HdCyclesGetCurveParam<bool>(
+        m_cyclesObject->set_pass_id(_HdCyclesGetCurveParam<bool>(
             dirtyBits, id, this, sceneDelegate,
             usdCyclesTokens->primvarsCyclesObjectPass_id,
-            m_cyclesObject->pass_id);
+            m_cyclesObject->get_pass_id()));
 
-        m_cyclesObject->use_holdout = _HdCyclesGetCurveParam<bool>(
+        m_cyclesObject->set_use_holdout(_HdCyclesGetCurveParam<bool>(
             dirtyBits, id, this, sceneDelegate,
             usdCyclesTokens->primvarsCyclesObjectUse_holdout,
-            m_cyclesObject->use_holdout);
+            m_cyclesObject->get_use_holdout()));
 
         // Visibility
 
@@ -612,7 +590,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
-            m_cyclesObject->geometry = m_cyclesGeometry;
+            m_cyclesObject->set_geometry(m_cyclesGeometry);
 
             m_cyclesGeometry->compute_bounds();
 
@@ -663,14 +641,14 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
                         HdPrimTypeTokens->material, materialId));
 
             if (material && material->GetCyclesShader()) {
-                m_usedShaders.push_back(material->GetCyclesShader());
+                m_usedShaders.push_back_slow(material->GetCyclesShader());
 
                 material->GetCyclesShader()->tag_update(scene);
             } else {
-                m_usedShaders.push_back(scene->default_surface);
+                m_usedShaders.push_back_slow(scene->default_surface);
             }
 
-            m_cyclesGeometry->used_shaders = m_usedShaders;
+            m_cyclesGeometry->set_used_shaders(m_usedShaders);
             update_curve                   = true;
         }
     }
@@ -678,9 +656,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     if (generate_new_curve || update_curve) {
         m_cyclesHair->curve_shape = m_curveShape;
 
-        m_cyclesObject->visibility = m_visibilityFlags;
+        m_cyclesObject->set_visibility(m_visibilityFlags);
         if (!_sharedData.visible)
-            m_cyclesObject->visibility = 0;
+            m_cyclesObject->set_visibility(0);
 
         m_cyclesGeometry->tag_update(scene, true);
         m_cyclesObject->tag_update(scene);
@@ -778,7 +756,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         num_curves++;
     }
 
-    if ((m_cyclesHair->curve_keys.size() != num_keys)
+    if ((m_cyclesHair->get_curve_keys().size() != num_keys)
         || (m_cyclesHair->num_curves() != num_curves)) {
         TF_WARN("Allocation failed. Clearing data");
 
@@ -799,16 +777,16 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
     if (m_normals.size() <= 0) {
         if (a_camera != nullptr) {
             isCameraOriented     = true;
-            ccl::Transform& ctfm = a_camera->matrix;
-            if (a_camera->type == ccl::CAMERA_ORTHOGRAPHIC) {
+            const ccl::Transform& ctfm = a_camera->get_matrix();
+            if (a_camera->get_camera_type() == ccl::CAMERA_ORTHOGRAPHIC) {
                 RotCam = -ccl::make_float3(ctfm.x.z, ctfm.y.z, ctfm.z.z);
             } else {
-                ccl::Transform tfm  = m_cyclesObject->tfm;
+                ccl::Transform tfm  = m_cyclesObject->get_tfm();
                 ccl::Transform itfm = ccl::transform_quick_inverse(tfm);
                 RotCam              = ccl::transform_point(
                     &itfm, ccl::make_float3(ctfm.x.w, ctfm.y.w, ctfm.z.w));
             }
-            is_ortho = a_camera->type == ccl::CAMERA_ORTHOGRAPHIC;
+            is_ortho = a_camera->get_camera_type() == ccl::CAMERA_ORTHOGRAPHIC;
         }
     }
 

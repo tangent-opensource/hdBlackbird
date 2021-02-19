@@ -62,9 +62,9 @@ HdCyclesLight::~HdCyclesLight()
     }
 
     if (m_cyclesLight) {
-        if (m_cyclesLight->shader) {
-            m_renderDelegate->GetCyclesRenderParam()->RemoveShader(m_cyclesLight->shader);
-            delete m_cyclesLight->shader;
+        if (m_cyclesLight->get_shader()) {
+            m_renderDelegate->GetCyclesRenderParam()->RemoveShader(m_cyclesLight->get_shader());
+            delete m_cyclesLight->get_shader();
         }
         m_renderDelegate->GetCyclesRenderParam()->RemoveLight(m_cyclesLight);
         delete m_cyclesLight;
@@ -87,27 +87,27 @@ HdCyclesLight::_CreateCyclesLight(SdfPath const& id,
 
     ccl::Shader *shader = new ccl::Shader();
 
-    m_cyclesLight->shader = shader;
+    m_cyclesLight->set_shader(shader);
 
     if (m_hdLightType == HdPrimTypeTokens->domeLight) {
-        m_cyclesLight->type = ccl::LIGHT_BACKGROUND;
+        m_cyclesLight->set_light_type(ccl::LIGHT_BACKGROUND);
         shader->set_graph(_GetDefaultShaderGraph(true));
         renderParam->SetBackgroundShader(shader);
     } else {
         if (m_hdLightType == HdPrimTypeTokens->diskLight) {
-            m_cyclesLight->type  = ccl::LIGHT_AREA;
-            m_cyclesLight->round = true;
+            m_cyclesLight->set_light_type(ccl::LIGHT_AREA);
+            m_cyclesLight->set_round(true);
 
-            m_cyclesLight->size = 1.0f;
+            m_cyclesLight->set_size(1.0f);
         } else if (m_hdLightType == HdPrimTypeTokens->sphereLight) {
-            m_cyclesLight->type = ccl::LIGHT_POINT;
+            m_cyclesLight->set_light_type(ccl::LIGHT_POINT);
         } else if (m_hdLightType == HdPrimTypeTokens->distantLight) {
-            m_cyclesLight->type = ccl::LIGHT_DISTANT;
+            m_cyclesLight->set_light_type(ccl::LIGHT_DISTANT);
         } else if (m_hdLightType == HdPrimTypeTokens->rectLight) {
-            m_cyclesLight->type  = ccl::LIGHT_AREA;
-            m_cyclesLight->round = false;
+            m_cyclesLight->set_light_type(ccl::LIGHT_AREA);
+            m_cyclesLight->set_round(false);
 
-            m_cyclesLight->size = 1.0f;
+            m_cyclesLight->set_size(1.0f);
         }
 
         shader->set_graph(_GetDefaultShaderGraph());
@@ -118,17 +118,17 @@ HdCyclesLight::_CreateCyclesLight(SdfPath const& id,
     renderParam->AddShader(shader);
 
     // Set defaults
-    m_cyclesLight->use_diffuse      = true;
-    m_cyclesLight->use_glossy       = true;
-    m_cyclesLight->use_transmission = true;
-    m_cyclesLight->use_scatter      = true;
-    m_cyclesLight->cast_shadow      = true;
-    m_cyclesLight->use_mis          = true;
-    m_cyclesLight->is_portal        = false;
-    m_cyclesLight->max_bounces      = 1024;
+    m_cyclesLight->set_use_diffuse(true);
+    m_cyclesLight->set_use_glossy(true);
+    m_cyclesLight->set_use_transmission(true);
+    m_cyclesLight->set_use_scatter(true);
+    m_cyclesLight->set_cast_shadow(true);
+    m_cyclesLight->set_use_mis(true);
+    m_cyclesLight->set_is_portal(false);
+    m_cyclesLight->set_max_bounces(1024);
 
-    m_cyclesLight->random_id
-        = ccl::hash_uint2(ccl::hash_string(m_cyclesLight->name.c_str()), 0);
+    m_cyclesLight->set_random_id(
+        ccl::hash_uint2(ccl::hash_string(m_cyclesLight->name.c_str()), 0));
 
     shader->tag_update(scene);
     m_cyclesLight->tag_update(scene);
@@ -140,20 +140,20 @@ HdCyclesLight::_SetTransform(const ccl::Transform& a_transform)
     if (!m_cyclesLight)
         return;
 
-    m_cyclesLight->tfm = a_transform;
+    m_cyclesLight->set_tfm(a_transform);
 
-    if (m_cyclesLight->type == ccl::LIGHT_BACKGROUND) {
+    if (m_cyclesLight->get_light_type() == ccl::LIGHT_BACKGROUND) {
         ccl::TextureCoordinateNode *backgroundTransform = 
             (ccl::TextureCoordinateNode*)_FindShaderNode(
-            m_cyclesLight->shader->graph, ccl::TextureCoordinateNode::node_type);
+            m_cyclesLight->get_shader()->graph, ccl::TextureCoordinateNode::node_type);
         if (backgroundTransform)
-            backgroundTransform->ob_tfm = a_transform;
+            backgroundTransform->set_ob_tfm(a_transform);
     } else {
         // Set the area light transforms
-        m_cyclesLight->axisu = ccl::transform_get_column(&a_transform, 0);
-        m_cyclesLight->axisv = ccl::transform_get_column(&a_transform, 1);
-        m_cyclesLight->co    = ccl::transform_get_column(&a_transform, 3);
-        m_cyclesLight->dir   = -ccl::transform_get_column(&a_transform, 2);
+        m_cyclesLight->set_axisu(ccl::transform_get_column(&a_transform, 0));
+        m_cyclesLight->set_axisv(ccl::transform_get_column(&a_transform, 1));
+        m_cyclesLight->set_co(ccl::transform_get_column(&a_transform, 3));
+        m_cyclesLight->set_dir(ccl::transform_get_column(&a_transform, 2));
     }
 }
 
@@ -163,9 +163,9 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
     ccl::ShaderGraph *graph = new ccl::ShaderGraph();
     if (isBackground) {
         ccl::BackgroundNode *backgroundNode = new ccl::BackgroundNode();
-        backgroundNode->color = ccl::make_float3(0.0f, 0.0f, 0.0f);
+        backgroundNode->set_color(ccl::make_float3(0.0f, 0.0f, 0.0f));
 
-        backgroundNode->strength = 1.0f;
+        backgroundNode->set_strength(1.0f);
         graph->add(backgroundNode);
 
         ccl::ShaderNode* out = graph->output();
@@ -173,8 +173,8 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
                        out->input("Surface"));
     } else {
         ccl::EmissionNode *emissionNode = new ccl::EmissionNode();
-        emissionNode->color    = ccl::make_float3(1.0f, 1.0f, 1.0f);
-        emissionNode->strength = 1.0f;
+        emissionNode->set_color(ccl::make_float3(1.0f, 1.0f, 1.0f));
+        emissionNode->set_strength(1.0f);
         graph->add(emissionNode);
 
         ccl::ShaderNode* out = graph->output();
@@ -209,7 +209,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (*dirtyBits & HdLight::DirtyParams) {
         light_updated = true;
-        ccl::ShaderGraph *oldGraph = m_cyclesLight->shader->graph;
+        ccl::ShaderGraph *oldGraph = m_cyclesLight->get_shader()->graph;
 
         // Check if we need to rebuild the graph
         ShaderGraphBits shaderGraphBits = ShaderGraphBits::Default;
@@ -248,7 +248,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // there is any nodes used, re-create...
         if (shaderGraphBits || 
             shaderGraphBits != m_shaderGraphBits) {
-            graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND);
+            graph = _GetDefaultShaderGraph(m_cyclesLight->get_light_type() == ccl::LIGHT_BACKGROUND);
             outNode = (ccl::ShaderNode*)graph->output()->input("Surface")->link->parent;
             m_shaderGraphBits = shaderGraphBits;
         } else {
@@ -262,7 +262,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             = sceneDelegate->GetLightParamValue(id, HdLightTokens->color);
         if (lightColor.IsHolding<GfVec3f>()) {
             GfVec3f v               = lightColor.UncheckedGet<GfVec3f>();
-            m_cyclesLight->strength = ccl::make_float3(v[0], v[1], v[2]);
+            m_cyclesLight->set_strength(ccl::make_float3(v[0], v[1], v[2]));
         }
 
         // Normalize
@@ -287,14 +287,14 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             = sceneDelegate->GetLightParamValue(id, HdLightTokens->intensity);
         if (intensity.IsHolding<float>()) {
             m_finalIntensity = intensity.UncheckedGet<float>() * exposure;
-            m_cyclesLight->strength *= m_finalIntensity;
+            m_cyclesLight->set_strength(m_cyclesLight->get_strength() * m_finalIntensity);
         }
 
         // Light cast shadow
-        m_cyclesLight->cast_shadow
-            = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+        m_cyclesLight->set_cast_shadow(
+            _HdCyclesGetLightParam<bool>(id, sceneDelegate,
                                            HdLightTokens->shadowEnable,
-                                           true);
+                                           true));
 
         // TODO:
         // These two params have no direct mapping. Kept for future implementation
@@ -335,7 +335,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         oldGraph, ccl::BlackbodyNode::node_type);
                 }
                 assert(blackbodyNode != nullptr);
-                blackbodyNode->temperature = temperature.UncheckedGet<float>();
+                blackbodyNode->set_temperature(temperature.UncheckedGet<float>());
             }
         }
 
@@ -351,8 +351,8 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             if (graph) {
                 ccl::TextureCoordinateNode *iesTransform = 
                     new ccl::TextureCoordinateNode();
-                iesTransform->use_transform = true;
-                iesTransform->ob_tfm = m_cyclesLight->tfm;
+                iesTransform->set_use_transform(true);
+                iesTransform->set_ob_tfm(m_cyclesLight->get_tfm());
                 graph->add(iesTransform);
 
                 iesNode = new ccl::IESLightNode();
@@ -370,24 +370,24 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     oldGraph, ccl::IESLightNode::node_type);
             }
             assert(iesNode != nullptr);
-            iesNode->filename = iesfilepath;
+            iesNode->set_filename(ccl::ustring(iesfilepath.c_str()));
         }
 
         if (m_hdLightType == HdPrimTypeTokens->rectLight) {
-            m_cyclesLight->axisu
-                = ccl::transform_get_column(&m_cyclesLight->tfm, 0);
-            m_cyclesLight->axisv
-                = ccl::transform_get_column(&m_cyclesLight->tfm, 1);
+            m_cyclesLight->set_axisu(
+                ccl::transform_get_column(&m_cyclesLight->get_tfm(), 0));
+            m_cyclesLight->set_axisv(
+                ccl::transform_get_column(&m_cyclesLight->get_tfm(), 1));
 
             VtValue width
                 = sceneDelegate->GetLightParamValue(id, HdLightTokens->width);
             if (width.IsHolding<float>())
-                m_cyclesLight->sizeu = width.UncheckedGet<float>();
+                m_cyclesLight->set_sizeu(width.UncheckedGet<float>());
 
             VtValue height
                 = sceneDelegate->GetLightParamValue(id, HdLightTokens->height);
             if (height.IsHolding<float>())
-                m_cyclesLight->sizev = height.UncheckedGet<float>();
+                m_cyclesLight->set_sizev(height.UncheckedGet<float>());
 
             if (shaderGraphBits & ShaderGraphBits::Texture) {
                 SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
@@ -406,7 +406,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
                     if ((shaderGraphBits & ShaderGraphBits::Temperature) && blackbodyNode) {
                         ccl::VectorMathNode *vecMathNode = new ccl::VectorMathNode();
-                        vecMathNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                        vecMathNode->set_math_type(ccl::NODE_VECTOR_MATH_MULTIPLY);
                         graph->add(vecMathNode);
 
                         graph->connect(
@@ -431,7 +431,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         oldGraph, ccl::ImageTextureNode::node_type);
                 }
                 assert(textureNode != nullptr);
-                textureNode->filename = filepath;
+                textureNode->set_filename(ccl::ustring(filepath.c_str()));
             }
         }
 
@@ -449,16 +449,16 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             // if(height.IsHolding<float>())
             //     m_cyclesLight->sizev = height.UncheckedGet<float>();
 
-            m_cyclesLight->axisu
-                = ccl::transform_get_column(&m_cyclesLight->tfm, 0);
-            m_cyclesLight->axisv
-                = ccl::transform_get_column(&m_cyclesLight->tfm, 1);
+            m_cyclesLight->set_axisu(
+                ccl::transform_get_column(&m_cyclesLight->get_tfm(), 0));
+            m_cyclesLight->set_axisv(
+                ccl::transform_get_column(&m_cyclesLight->get_tfm(), 1));
 
             VtValue radius
                 = sceneDelegate->GetLightParamValue(id, HdLightTokens->radius);
             if (radius.IsHolding<float>()) {
-                m_cyclesLight->sizeu = radius.UncheckedGet<float>() * 2.0f;
-                m_cyclesLight->sizev = radius.UncheckedGet<float>() * 2.0f;
+                m_cyclesLight->set_sizeu(radius.UncheckedGet<float>() * 2.0f);
+                m_cyclesLight->set_sizev(radius.UncheckedGet<float>() * 2.0f);
             }
         }
 
@@ -471,24 +471,24 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             VtValue radius
                 = sceneDelegate->GetLightParamValue(id, HdLightTokens->radius);
             if (radius.IsHolding<float>())
-                m_cyclesLight->size = radius.UncheckedGet<float>();
+                m_cyclesLight->set_size(radius.UncheckedGet<float>());
 
             //Spot shaping
             VtValue shapingConeAngle = sceneDelegate->GetLightParamValue(
                 id, HdLightTokens->shapingConeAngle);
             if (shapingConeAngle.IsHolding<float>()) {
-                m_cyclesLight->spot_angle
-                    = shapingConeAngle.UncheckedGet<float>()
-                      * ((float)M_PI / 180.0f) * 2.0f;
-                m_cyclesLight->type = ccl::LIGHT_SPOT;
+                m_cyclesLight->set_spot_angle(
+                    shapingConeAngle.UncheckedGet<float>()
+                      * ((float)M_PI / 180.0f) * 2.0f);
+                m_cyclesLight->set_light_type(ccl::LIGHT_SPOT);
             }
 
             VtValue shapingConeSoftness = sceneDelegate->GetLightParamValue(
                 id, HdLightTokens->shapingConeSoftness);
             if (shapingConeSoftness.IsHolding<float>()) {
-                m_cyclesLight->spot_smooth
-                    = shapingConeSoftness.UncheckedGet<float>();
-                m_cyclesLight->type = ccl::LIGHT_SPOT;
+                m_cyclesLight->set_spot_smooth(
+                    shapingConeSoftness.UncheckedGet<float>());
+                m_cyclesLight->set_light_type(ccl::LIGHT_SPOT);
             }
         }
 
@@ -497,14 +497,14 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             VtValue angle
                 = sceneDelegate->GetLightParamValue(id, HdLightTokens->angle);
             if (angle.IsHolding<float>())
-                m_cyclesLight->angle = angle.UncheckedGet<float>();
+                m_cyclesLight->set_angle(angle.UncheckedGet<float>());
         }
 
         if (m_hdLightType == HdPrimTypeTokens->domeLight) {
             ccl::BackgroundNode *backroundNode = (ccl::BackgroundNode*)outNode;
-            backroundNode->color = m_cyclesLight->strength;
+            backroundNode->set_color(m_cyclesLight->get_strength());
 
-            backroundNode->strength = m_finalIntensity;
+            backroundNode->set_strength(m_finalIntensity);
 
             if (shaderGraphBits & ShaderGraphBits::Texture) {
                 SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
@@ -515,8 +515,8 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // Add environment texture nodes
                     ccl::TextureCoordinateNode *backgroundTransform = 
                         new ccl::TextureCoordinateNode();
-                    backgroundTransform->use_transform = true;
-                    backgroundTransform->ob_tfm = m_cyclesLight->tfm;
+                    backgroundTransform->set_use_transform(true);
+                    backgroundTransform->set_ob_tfm(m_cyclesLight->get_tfm());
                     graph->add(backgroundTransform);
 
                     backgroundTexture = 
@@ -541,7 +541,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
                     if ((shaderGraphBits & ShaderGraphBits::Temperature) && blackbodyNode) {
                         ccl::VectorMathNode *vecMathNode = new ccl::VectorMathNode();
-                        vecMathNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                        vecMathNode->set_math_type(ccl::NODE_VECTOR_MATH_MULTIPLY);
                         graph->add(vecMathNode);
 
                         graph->connect(
@@ -566,55 +566,55 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         oldGraph, ccl::EnvironmentTextureNode::node_type);
                 }
                 assert(backgroundTexture != nullptr);
-                backgroundTexture->filename = filepath;
+                backgroundTexture->set_filename(ccl::ustring(filepath.c_str()));
             }
         }
 
         if (graph) {
-            m_cyclesLight->shader->set_graph(graph);
+            m_cyclesLight->get_shader()->set_graph(graph);
         }
     }
 
 #ifdef USE_USD_CYCLES_SCHEMA
 
-    m_cyclesLight->use_diffuse
-        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+    m_cyclesLight->set_use_diffuse(
+        _HdCyclesGetLightParam<bool>(id, sceneDelegate,
                                        usdCyclesTokens->cyclesLightUse_diffuse,
-                                       m_cyclesLight->use_diffuse);
+                                       m_cyclesLight->get_use_diffuse()));
 
-    m_cyclesLight->use_glossy
-        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+    m_cyclesLight->set_use_glossy(
+        _HdCyclesGetLightParam<bool>(id, sceneDelegate,
                                        usdCyclesTokens->cyclesLightUse_glossy,
-                                       m_cyclesLight->use_glossy);
+                                       m_cyclesLight->get_use_glossy()));
 
-    m_cyclesLight->use_transmission = _HdCyclesGetLightParam<bool>(
+    m_cyclesLight->set_use_transmission(_HdCyclesGetLightParam<bool>(
         id, sceneDelegate, usdCyclesTokens->cyclesLightUse_transmission,
-        m_cyclesLight->use_transmission);
+        m_cyclesLight->get_use_transmission()));
 
-    m_cyclesLight->use_scatter
-        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+    m_cyclesLight->set_use_scatter(
+        _HdCyclesGetLightParam<bool>(id, sceneDelegate,
                                        usdCyclesTokens->cyclesLightUse_scatter,
-                                       m_cyclesLight->use_scatter);
+                                       m_cyclesLight->get_use_scatter()));
 
-    m_cyclesLight->use_mis
-        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+    m_cyclesLight->set_use_mis(
+        _HdCyclesGetLightParam<bool>(id, sceneDelegate,
                                        usdCyclesTokens->cyclesLightUse_mis,
-                                       m_cyclesLight->use_mis);
+                                       m_cyclesLight->get_use_mis()));
 
-    m_cyclesLight->is_portal
-        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+    m_cyclesLight->set_is_portal(
+        _HdCyclesGetLightParam<bool>(id, sceneDelegate,
                                        usdCyclesTokens->cyclesLightIs_portal,
-                                       m_cyclesLight->is_portal);
+                                       m_cyclesLight->get_is_portal()));
 
-    m_cyclesLight->samples
-        = _HdCyclesGetLightParam<int>(id, sceneDelegate,
+    m_cyclesLight->set_samples(
+        _HdCyclesGetLightParam<int>(id, sceneDelegate,
                                       usdCyclesTokens->cyclesLightSamples,
-                                      m_cyclesLight->samples);
+                                      m_cyclesLight->get_samples()));
 
-    m_cyclesLight->max_bounces
-        = _HdCyclesGetLightParam<int>(id, sceneDelegate,
+    m_cyclesLight->set_max_bounces(
+        _HdCyclesGetLightParam<int>(id, sceneDelegate,
                                       usdCyclesTokens->cyclesLightMax_bounces,
-                                      m_cyclesLight->max_bounces);
+                                      m_cyclesLight->get_max_bounces()));
 
 #endif
 
@@ -622,7 +622,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // TODO: Light is_enabled doesn't seem to have any effect
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         light_updated             = true;
-        m_cyclesLight->is_enabled = sceneDelegate->GetVisible(id);
+        m_cyclesLight->set_is_enabled(sceneDelegate->GetVisible(id));
     }
 
     if (*dirtyBits & HdLight::DirtyTransform) {
@@ -631,7 +631,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (light_updated) {
-        m_cyclesLight->shader->tag_update(scene);
+        m_cyclesLight->get_shader()->tag_update(scene);
         m_cyclesLight->tag_update(scene);
 
         param->Interrupt();

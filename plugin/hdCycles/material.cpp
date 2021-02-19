@@ -160,13 +160,13 @@ matConvertUSDPrimvarReader(HdMaterialNode& usd_node,
                            ccl::ShaderGraph* cycles_shader_graph)
 {
     ccl::UVMapNode* uvmap = new ccl::UVMapNode();
-    uvmap->attribute      = ccl::ustring("st");
+    uvmap->set_attribute(ccl::ustring("st"));
 
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
         if (params.first == _tokens->varname) {
             if (params.second.IsHolding<TfToken>()) {
-                uvmap->attribute = ccl::ustring(
-                    params.second.Get<TfToken>().GetString().c_str());
+                uvmap->set_attribute(ccl::ustring(
+                    params.second.Get<TfToken>().GetString().c_str()));
             }
         }
     }
@@ -208,15 +208,16 @@ matConvertUSDUVTexture(HdMaterialNode& usd_node,
                                                .c_str());
                 }
 #endif
-                imageTexture->filename = ccl::ustring(filepath.c_str());
+                imageTexture->set_filename(ccl::ustring(filepath.c_str()));
             }
         }
     }
 
     // Handle udim tiles
-    if (HdCyclesPathIsUDIM(imageTexture->filename.string())) {
-        HdCyclesParseUDIMS(imageTexture->filename.string(),
-                           imageTexture->tiles);
+    if (HdCyclesPathIsUDIM(imageTexture->get_filename().string())) {
+        ccl::array<int> tiles;
+        HdCyclesParseUDIMS(imageTexture->get_filename().string(), tiles);
+        imageTexture->set_tiles(tiles);
     }
     cycles_shader_graph->add(imageTexture);
     return imageTexture;
@@ -227,41 +228,41 @@ matConvertUSDPreviewSurface(HdMaterialNode& usd_node,
                             ccl::ShaderGraph* cycles_shader_graph)
 {
     ccl::PrincipledBsdfNode* principled = new ccl::PrincipledBsdfNode();
-    principled->base_color              = ccl::make_float3(1.0f, 1.0f, 1.0f);
+    principled->set_base_color(ccl::make_float3(1.0f, 1.0f, 1.0f));
 
     // Convert params
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
         if (params.first == _tokens->diffuseColor) {
             if (params.second.IsHolding<GfVec3f>()) {
-                principled->base_color = vec3f_to_float3(
-                    params.second.UncheckedGet<GfVec3f>());
+                principled->set_base_color(vec3f_to_float3(
+                    params.second.UncheckedGet<GfVec3f>()));
             } else if (params.second.IsHolding<GfVec4f>()) {
-                principled->base_color = vec4f_to_float3(
-                    params.second.UncheckedGet<GfVec4f>());
+                principled->set_base_color(vec4f_to_float3(
+                    params.second.UncheckedGet<GfVec4f>()));
             }
 
         } else if (params.first == _tokens->emissiveColor) {
             if (params.second.IsHolding<GfVec3f>()) {
-                principled->emission = vec3f_to_float3(
-                    params.second.UncheckedGet<GfVec3f>());
+                principled->set_emission(vec3f_to_float3(
+                    params.second.UncheckedGet<GfVec3f>()));
             } else if (params.second.IsHolding<GfVec4f>()) {
-                principled->emission = vec4f_to_float3(
-                    params.second.UncheckedGet<GfVec4f>());
+                principled->set_emission(vec4f_to_float3(
+                    params.second.UncheckedGet<GfVec4f>()));
             }
 
         } else if (params.first == _tokens->roughness) {
             if (params.second.IsHolding<float>()) {
-                principled->roughness = params.second.UncheckedGet<float>();
+                principled->set_roughness(params.second.UncheckedGet<float>());
             }
 
         } else if (params.first == _tokens->metallic) {
             if (params.second.IsHolding<float>()) {
-                principled->metallic = params.second.UncheckedGet<float>();
+                principled->set_metallic(params.second.UncheckedGet<float>());
             }
 
         } else if (params.first == _tokens->specular) {
             if (params.second.IsHolding<float>()) {
-                principled->specular = params.second.UncheckedGet<float>();
+                principled->set_specular(params.second.UncheckedGet<float>());
             }
         }
     }
@@ -486,8 +487,10 @@ convertCyclesNode(HdMaterialNode& usd_node,
         ccl::ImageTextureNode* tex = (ccl::ImageTextureNode*)cyclesNode;
 
         // Handle udim tiles
-        if (HdCyclesPathIsUDIM(tex->filename.string())) {
-            HdCyclesParseUDIMS(tex->filename.string(), tex->tiles);
+        if (HdCyclesPathIsUDIM(tex->get_filename().string())) {
+            ccl::array<int> tiles;
+            HdCyclesParseUDIMS(tex->get_filename().string(), tiles);
+            tex->set_tiles(tiles);
         }
     }
 
@@ -748,45 +751,45 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
             usdCyclesTokens->cyclesMaterialDisplacement_method,
             usdCyclesTokens->displacement_bump);
 
-        if (m_shader->displacement_method
+        if (m_shader->get_displacement_method()
             != DISPLACEMENT_CONVERSION[displacementMethod]) {
-            m_shader->displacement_method
-                = DISPLACEMENT_CONVERSION[displacementMethod];
+            m_shader->set_displacement_method(
+                DISPLACEMENT_CONVERSION[displacementMethod]);
         }
 
-        m_shader->pass_id
-            = _HdCyclesGetParam<int>(sceneDelegate, id,
+        m_shader->set_pass_id(
+            _HdCyclesGetParam<int>(sceneDelegate, id,
                                      usdCyclesTokens->cyclesMaterialPass_id,
-                                     m_shader->pass_id);
+                                     m_shader->get_pass_id()));
 
-        m_shader->use_mis
-            = _HdCyclesGetParam<bool>(sceneDelegate, id,
+        m_shader->set_use_mis(
+            _HdCyclesGetParam<bool>(sceneDelegate, id,
                                       usdCyclesTokens->cyclesMaterialUse_mis,
-                                      m_shader->use_mis);
+                                      m_shader->get_use_mis()));
 
-        m_shader->use_transparent_shadow = _HdCyclesGetParam<bool>(
+        m_shader->set_use_transparent_shadow(_HdCyclesGetParam<bool>(
             sceneDelegate, id,
             usdCyclesTokens->cyclesMaterialUse_transparent_shadow,
-            m_shader->use_transparent_shadow);
+            m_shader->get_use_transparent_shadow()));
 
-        m_shader->heterogeneous_volume = _HdCyclesGetParam<bool>(
+        m_shader->set_heterogeneous_volume(_HdCyclesGetParam<bool>(
             sceneDelegate, id,
             usdCyclesTokens->cyclesMaterialHeterogeneous_volume,
-            m_shader->heterogeneous_volume);
+            m_shader->get_heterogeneous_volume()));
 
-        m_shader->volume_step_rate = _HdCyclesGetParam<float>(
+        m_shader->set_volume_step_rate(_HdCyclesGetParam<float>(
             sceneDelegate, id, usdCyclesTokens->cyclesMaterialVolume_step_rate,
-            m_shader->volume_step_rate);
+            m_shader->get_volume_step_rate()));
 
         TfToken volume_interpolation = _HdCyclesGetParam<TfToken>(
             sceneDelegate, id,
             usdCyclesTokens->cyclesMaterialVolume_interpolation_method,
             usdCyclesTokens->volume_interpolation_linear);
 
-        if (m_shader->volume_interpolation_method
+        if (m_shader->get_volume_interpolation_method()
             != VOLUME_INTERPOLATION_CONVERSION[volume_interpolation]) {
-            m_shader->volume_interpolation_method
-                = VOLUME_INTERPOLATION_CONVERSION[volume_interpolation];
+            m_shader->set_volume_interpolation_method(
+                VOLUME_INTERPOLATION_CONVERSION[volume_interpolation]);
         }
 
         TfToken volume_sampling = _HdCyclesGetParam<TfToken>(
@@ -794,10 +797,10 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
             usdCyclesTokens->cyclesMaterialVolume_sampling_method,
             usdCyclesTokens->volume_sampling_multiple_importance);
 
-        if (m_shader->volume_sampling_method
+        if (m_shader->get_volume_sampling_method()
             != VOLUME_SAMPLING_CONVERSION[volume_sampling]) {
-            m_shader->volume_sampling_method
-                = VOLUME_SAMPLING_CONVERSION[volume_sampling];
+            m_shader->set_volume_sampling_method(
+                VOLUME_SAMPLING_CONVERSION[volume_sampling]);
         }
         material_updated = true;
 

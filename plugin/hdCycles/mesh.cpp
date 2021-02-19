@@ -107,11 +107,11 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
         m_useDeformMotionBlur = true;
 
         // TODO: Needed when we properly handle motion_verts
-        m_cyclesMesh->motion_steps    = m_motionSteps;
-        m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
+        m_cyclesMesh->set_motion_steps(m_motionSteps);
+        m_cyclesMesh->set_use_motion_blur(m_useDeformMotionBlur);
     }
 
-    m_cyclesObject->geometry = m_cyclesMesh;
+    m_cyclesObject->set_geometry(m_cyclesMesh);
 
     m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
     m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
@@ -272,8 +272,8 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
-    m_cyclesMesh->use_motion_blur = true;
-    m_cyclesMesh->motion_steps    = 3;
+    m_cyclesMesh->set_use_motion_blur(true);
+    m_cyclesMesh->set_motion_steps(3);
 
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
@@ -315,7 +315,7 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
 
     ccl::float3* mP = attr_mP->data_float3();
 
-    for (size_t i = 0; i < m_cyclesMesh->motion_steps; ++i) {
+    for (size_t i = 0; i < m_cyclesMesh->get_motion_steps(); ++i) {
         //VtVec3fArray pp;
         //pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
 
@@ -354,7 +354,7 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
     switch (interpolation) {
     case HdInterpolationConstant: celem = ccl::ATTR_ELEMENT_MESH; break;
     case HdInterpolationVertex:
-        if (attributes->geometry->type == ccl::Geometry::HAIR) {
+        if (attributes->geometry->geometry_type == ccl::Geometry::HAIR) {
             celem = ccl::ATTR_ELEMENT_CURVE_KEY;
         } else {
             celem = ccl::ATTR_ELEMENT_VERTEX;
@@ -416,8 +416,8 @@ HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
                 << colors.GetTypeName() << "\n";
         }
 
-        m_cyclesObject->color = ccl::make_float3(displayColor.x, displayColor.y,
-                                                 displayColor.z);
+        m_cyclesObject->set_color(ccl::make_float3(displayColor.x, displayColor.y,
+                                                 displayColor.z));
     }
 }
 
@@ -444,9 +444,9 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* cdata   = attr->data_float3();
 
-        memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
+        memset(cdata, 0, m_cyclesMesh->get_verts().size() * sizeof(ccl::float3));
 
-        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
+        for (size_t i = 0; i < m_cyclesMesh->get_verts().size(); i++) {
             ccl::float3 n = vec3f_to_float3(normals[i]);
             if (m_orientation == HdTokens->leftHanded)
                 n = -n;
@@ -492,13 +492,13 @@ HdCyclesMesh::_CreateCyclesMesh()
     mesh->clear();
 
     if (m_useMotionBlur && m_useDeformMotionBlur) {
-        mesh->use_motion_blur = true;
+        mesh->set_use_motion_blur(true);
     }
 
     m_numMeshVerts = 0;
     m_numMeshFaces = 0;
 
-    mesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+    mesh->set_subdivision_type(ccl::Mesh::SUBDIVISION_NONE);
     return mesh;
 }
 
@@ -507,10 +507,10 @@ HdCyclesMesh::_CreateCyclesObject()
 {
     ccl::Object* object = new ccl::Object();
 
-    object->tfm     = ccl::transform_identity();
-    object->pass_id = -1;
+    object->set_tfm(ccl::transform_identity());
+    object->set_pass_id(-1);
 
-    object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
+    object->set_visibility(ccl::PATH_RAY_ALL_VISIBILITY);
 
     return object;
 }
@@ -518,9 +518,8 @@ HdCyclesMesh::_CreateCyclesObject()
 void
 HdCyclesMesh::_PopulateVertices()
 {
-    m_cyclesMesh->verts.reserve(m_numMeshVerts);
     for (int i = 0; i < m_points.size(); i++) {
-        m_cyclesMesh->verts.push_back_reserved(vec3f_to_float3(m_points[i]));
+        m_cyclesMesh->add_vertex(vec3f_to_float3(m_points[i]));
     }
 }
 
@@ -535,9 +534,9 @@ HdCyclesMesh::_PopulateMotion()
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
-    m_cyclesMesh->use_motion_blur = true;
+    m_cyclesMesh->set_use_motion_blur(true);
 
-    m_cyclesMesh->motion_steps = m_pointSamples.count + 1;
+    m_cyclesMesh->set_motion_steps(m_pointSamples.count + 1);
 
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
@@ -568,7 +567,7 @@ HdCyclesMesh::_PopulateFaces(const std::vector<int>& a_faceMaterials,
                              bool a_subdivide)
 {
     if (a_subdivide) {
-        m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
+        m_cyclesMesh->set_subdivision_type(ccl::Mesh::SUBDIVISION_CATMULL_CLARK);
         m_cyclesMesh->reserve_subd_faces(m_numMeshFaces, m_numNgons,
                                          m_numCorners);
     } else {
@@ -637,15 +636,10 @@ HdCyclesMesh::_PopulateCreases()
 {
     size_t num_creases = m_creaseLengths.size();
 
-    m_cyclesMesh->subd_creases.resize(num_creases);
+    m_cyclesMesh->reserve_subd_creases(num_creases);
 
-    ccl::Mesh::SubdEdgeCrease* crease = m_cyclesMesh->subd_creases.data();
     for (int i = 0; i < num_creases; i++) {
-        crease->v[0]   = m_creaseIndices[(i * 2) + 0];
-        crease->v[1]   = m_creaseIndices[(i * 2) + 1];
-        crease->crease = m_creaseWeights[i];
-
-        crease++;
+        m_cyclesMesh->add_crease(m_creaseIndices[(i * 2) + 0], m_creaseIndices[(i * 2) + 1], m_creaseWeights[i]);
     }
 }
 
@@ -662,8 +656,8 @@ HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
         ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_GENERATED);
 
         ccl::float3* generated = attr->data_float3();
-        for (int i = 0; i < m_cyclesMesh->verts.size(); i++) {
-            generated[i] = m_cyclesMesh->verts[i] * size - loc;
+        for (int i = 0; i < m_cyclesMesh->get_verts().size(); i++) {
+            generated[i] = m_cyclesMesh->get_verts()[i] * size - loc;
         }
     }
 }
@@ -876,12 +870,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 subdivisionType);
 
             if (subdivisionType == usdCyclesTokens->catmull_clark) {
-                m_cyclesMesh->subdivision_type
-                    = ccl::Mesh::SUBDIVISION_CATMULL_CLARK;
+                m_cyclesMesh->set_subdivision_type(
+                    ccl::Mesh::SUBDIVISION_CATMULL_CLARK);
             } else if (subdivisionType == usdCyclesTokens->linear) {
-                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_LINEAR;
+                m_cyclesMesh->set_subdivision_type(ccl::Mesh::SUBDIVISION_LINEAR);
             } else {
-                m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
+                m_cyclesMesh->set_subdivision_type(ccl::Mesh::SUBDIVISION_NONE);
             }
 
             m_dicingRate = _HdCyclesGetMeshParam<float>(
@@ -895,20 +889,20 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
             // Object Generic
 
-            m_cyclesObject->is_shadow_catcher = _HdCyclesGetMeshParam<bool>(
+            m_cyclesObject->set_is_shadow_catcher(_HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
-                m_cyclesObject->is_shadow_catcher);
+                m_cyclesObject->get_is_shadow_catcher()));
 
-            m_cyclesObject->pass_id = _HdCyclesGetMeshParam<bool>(
+            m_cyclesObject->set_pass_id(_HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectPass_id,
-                m_cyclesObject->pass_id);
+                m_cyclesObject->get_pass_id()));
 
-            m_cyclesObject->use_holdout = _HdCyclesGetMeshParam<bool>(
+            m_cyclesObject->set_use_holdout(_HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectUse_holdout,
-                m_cyclesObject->use_holdout);
+                m_cyclesObject->get_use_holdout()));
 
             // Visibility
 
@@ -983,7 +977,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 if (subMat && subMat->GetCyclesShader()) {
                     if (m_materialMap.find(subset.materialId)
                         == m_materialMap.end()) {
-                        m_usedShaders.push_back(subMat->GetCyclesShader());
+                        m_usedShaders.push_back_slow(subMat->GetCyclesShader());
                         subMat->GetCyclesShader()->tag_update(scene);
 
                         m_materialMap.insert(
@@ -994,7 +988,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         subsetMaterialIndex = m_materialMap.at(
                             subset.materialId);
                     }
-                    m_cyclesMesh->used_shaders = m_usedShaders;
+                    m_cyclesMesh->set_used_shaders(m_usedShaders);
                 }
             }
 
@@ -1008,25 +1002,19 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (m_useSubdivision && m_subdivEnabled) {
             _PopulateCreases();
 
-            if (!m_cyclesMesh->subd_params) {
-                m_cyclesMesh->subd_params = new ccl::SubdParams(m_cyclesMesh);
-            }
-
-            ccl::SubdParams& subd_params = *m_cyclesMesh->subd_params;
-
-            subd_params.dicing_rate = m_dicingRate;
-            subd_params.max_level   = m_maxSubdivision;
+            m_cyclesMesh->set_subd_dicing_rate(m_dicingRate);
+            m_cyclesMesh->set_subd_max_level(m_maxSubdivision);
 
             // This allows us to dice based on USD refine level (low, medium, high, etc)
             // However it is unclear if we want to support this, or if we want it off by default
             // Disabled for now...
             if (false) {
                 // Note: This math is abitrary and possible wrong
-                subd_params.dicing_rate = subd_params.dicing_rate
-                                          / ((m_refineLevel + 1) * 2.0f);
+                m_cyclesMesh->set_subd_dicing_rate(m_cyclesMesh->get_subd_dicing_rate()
+                                          / ((m_refineLevel + 1) * 2.0f));
             }
 
-            subd_params.objecttoworld = ccl::transform_identity();
+            m_cyclesMesh->set_subd_objecttoworld(ccl::transform_identity());
         }
 
         // Ingest mesh primvars (data, not schema)
@@ -1119,7 +1107,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         // Apply existing shaders
         if (m_usedShaders.size() > 0)
-            m_cyclesMesh->used_shaders = m_usedShaders;
+            m_cyclesMesh->set_used_shaders(m_usedShaders);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
@@ -1128,9 +1116,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
                                                   id, m_useMotionBlur);
 
-        if (m_cyclesMesh && m_cyclesMesh->subd_params) {
-            m_cyclesMesh->subd_params->objecttoworld = m_cyclesObject->tfm;
-        }
+        m_cyclesMesh->set_subd_objecttoworld(m_cyclesObject->get_tfm());
 
         mesh_updated = true;
     }
@@ -1143,7 +1129,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
         // Offset of 1 added because Cycles primId pass needs to be shifted down to -1
-        m_cyclesObject->pass_id = this->GetPrimId() + 1;
+        m_cyclesObject->set_pass_id(this->GetPrimId() + 1);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
@@ -1161,17 +1147,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                 HdPrimTypeTokens->material, m_cachedMaterialId));
 
                     if (material && material->GetCyclesShader()) {
-                        m_usedShaders.push_back(material->GetCyclesShader());
+                        m_usedShaders.push_back_slow(material->GetCyclesShader());
 
                         material->GetCyclesShader()->tag_update(scene);
                     } else {
-                        m_usedShaders.push_back(fallbackShader);
+                        m_usedShaders.push_back_slow(fallbackShader);
                     }
                 } else {
-                    m_usedShaders.push_back(fallbackShader);
+                    m_usedShaders.push_back_slow(fallbackShader);
                 }
 
-                m_cyclesMesh->used_shaders = m_usedShaders;
+                m_cyclesMesh->set_used_shaders(m_usedShaders);
             }
         }
     }
@@ -1234,9 +1220,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 for (int j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = _CreateCyclesObject();
 
-                    instanceObj->tfm = mat4d_to_transform(
-                        combinedTransforms[j].data()[0]);
-                    instanceObj->geometry = m_cyclesMesh;
+                    instanceObj->set_tfm(mat4d_to_transform(
+                        combinedTransforms[j].data()[0]));
+                    instanceObj->set_geometry(m_cyclesMesh);
 
                     // TODO: Implement motion blur for point instanced objects
                     /*if (m_useMotionBlur) {
@@ -1272,9 +1258,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (mesh_updated || newMesh) {
-        m_cyclesObject->visibility = m_visibilityFlags;
+        m_cyclesObject->set_visibility(m_visibilityFlags);
         if (!_sharedData.visible)
-            m_cyclesObject->visibility = 0;
+            m_cyclesObject->set_visibility(0);
 
         m_cyclesMesh->tag_update(scene, false);
         m_cyclesObject->tag_update(scene);

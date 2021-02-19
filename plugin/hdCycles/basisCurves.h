@@ -175,7 +175,7 @@ protected:
     ccl::CurveShapeType m_curveShape;
     int m_curveResolution;
 
-    ccl::vector<ccl::Shader *> m_usedShaders;
+    ccl::array<ccl::Node *> m_usedShaders;
 
 private:
     /**

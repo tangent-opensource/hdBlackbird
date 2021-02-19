@@ -59,7 +59,7 @@ HdCyclesPathIsUDIM(const ccl::string& a_filepath)
 // tiles based on uv primvars, but I have a feeling the material loading happens
 // before the mesh syncing. More rnd needs to be done.
 void
-HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
+HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::array<int>& a_tiles)
 {
     BOOST_NS::filesystem::path filepath(a_filepath);
 
@@ -85,7 +85,7 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
     a_tiles.clear();
 
     for (std::string file : files) {
-        a_tiles.push_back(atoi(file.substr(offset, offset + 3).c_str()));
+        a_tiles.push_back_slow(atoi(file.substr(offset, offset + 3).c_str()));
     }
 }
 
@@ -117,7 +117,7 @@ HdCyclesCreateDefaultShader()
     shader->graph = new ccl::ShaderGraph();
 
     ccl::VertexColorNode* vc = new ccl::VertexColorNode();
-    vc->layer_name           = ccl::ustring("displayColor");
+    vc->set_layer_name(ccl::ustring("displayColor"));
 
     ccl::PrincipledBsdfNode* bsdf = new ccl::PrincipledBsdfNode();
 
@@ -175,7 +175,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
     int sampleCount = xf.count;
 
     if (sampleCount == 0) {
-        object->tfm = ccl::transform_identity();
+        object->set_tfm(ccl::transform_identity());
         return xf;
     }
 
@@ -183,25 +183,25 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         bool foundCenter = false;
         for (int i = 0; i < sampleCount; i++) {
             if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+                object->set_tfm(mat4d_to_transform(xf.values.data()[i]));
                 foundCenter = true;
             }
         }
         if (!foundCenter)
-            object->tfm = mat4d_to_transform(xf.values.data()[0]);
+            object->set_tfm(mat4d_to_transform(xf.values.data()[0]));
     } else {
-        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+        object->set_tfm(mat4d_to_transform(xf.values.data()[0]));
     }
 
     if (!use_motion) {
         return xf;
     }
 
-    object->motion.clear();
-    if (object->geometry) {
-        if (object->geometry->use_motion_blur
-            && object->geometry->motion_steps != sampleCount) {
-            object->motion.resize(object->geometry->motion_steps, object->tfm);
+    object->get_motion().clear();
+    if (object->get_geometry()) {
+        if (object->get_geometry()->get_use_motion_blur()
+            && object->get_geometry()->get_motion_steps() != sampleCount) {
+            object->get_motion().resize(object->get_geometry()->get_motion_steps(), object->get_tfm());
             return xf;
         }
     }
@@ -209,27 +209,21 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
     // TODO: This might still be wrong on some edge cases...
     // The order of point sampling and transform sampling is the only reason
     // that this works
-    if (object->geometry && object->geometry->motion_steps == sampleCount) {
-        object->geometry->use_motion_blur = true;
+    if (object->get_geometry() && object->get_geometry()->get_motion_steps() == sampleCount) {
+        object->get_geometry()->set_use_motion_blur(true);
 
-        if (object->geometry->type == ccl::Geometry::MESH) {
-            ccl::Mesh* mesh = (ccl::Mesh*)object->geometry;
-            if (mesh->transform_applied)
-                mesh->need_update = true;
-        }
-
-        object->motion.resize(sampleCount, ccl::transform_empty());
+        object->get_motion().resize(sampleCount, ccl::transform_empty());
 
         for (int i = 0; i < sampleCount; i++) {
             if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+                object->set_tfm(mat4d_to_transform(xf.values.data()[i]));
             }
 
             int idx = i;
-            if (object->geometry)
-                object->geometry->motion_step(xf.times.data()[i]);
+            if (object->get_geometry())
+                object->get_geometry()->motion_step(xf.times.data()[i]);
 
-            object->motion[idx] = mat4d_to_transform(xf.values.data()[i]);
+            object->get_motion()[idx] = mat4d_to_transform(xf.values.data()[i]);
         }
     }
 
@@ -915,7 +909,7 @@ struct MikkUserData {
         , tangent(tangent)
         , tangent_sign(tangent_sign)
     {
-        const ccl::AttributeSet& attributes = (mesh->subd_faces.size())
+        const ccl::AttributeSet& attributes = (mesh->get_num_subd_faces())
                                                   ? mesh->subd_attributes
                                                   : mesh->attributes;
 
@@ -947,8 +941,8 @@ int
 mikk_get_num_faces(const SMikkTSpaceContext* context)
 {
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
-    if (userdata->mesh->subd_faces.size()) {
-        return userdata->mesh->subd_faces.size();
+    if (userdata->mesh->get_num_subd_faces()) {
+        return userdata->mesh->get_num_subd_faces();
     } else {
         return userdata->mesh->num_triangles();
     }
@@ -959,9 +953,9 @@ mikk_get_num_verts_of_face(const SMikkTSpaceContext* context,
                            const int face_num)
 {
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
-    if (userdata->mesh->subd_faces.size()) {
+    if (userdata->mesh->get_num_subd_faces()) {
         const ccl::Mesh* mesh = userdata->mesh;
-        return mesh->subd_faces[face_num].num_corners;
+        return mesh->get_subd_num_corners()[face_num];
     } else {
         return 3;
     }
@@ -970,19 +964,19 @@ mikk_get_num_verts_of_face(const SMikkTSpaceContext* context,
 int
 mikk_vertex_index(const ccl::Mesh* mesh, const int face_num, const int vert_num)
 {
-    if (mesh->subd_faces.size()) {
-        const ccl::Mesh::SubdFace& face = mesh->subd_faces[face_num];
-        return mesh->subd_face_corners[face.start_corner + vert_num];
+    if (mesh->get_num_subd_faces()) {
+        const ccl::Mesh::SubdFace& face = mesh->get_subd_face(face_num);
+        return mesh->get_subd_face_corners()[face.start_corner + vert_num];
     } else {
-        return mesh->triangles[face_num * 3 + vert_num];
+        return mesh->get_triangles()[face_num * 3 + vert_num];
     }
 }
 
 int
 mikk_corner_index(const ccl::Mesh* mesh, const int face_num, const int vert_num)
 {
-    if (mesh->subd_faces.size()) {
-        const ccl::Mesh::SubdFace& face = mesh->subd_faces[face_num];
+    if (mesh->get_num_subd_faces()) {
+        const ccl::Mesh::SubdFace& face = mesh->get_subd_face(face_num);
         return face.start_corner + vert_num;
     } else {
         return face_num * 3 + vert_num;
@@ -996,7 +990,7 @@ mikk_get_position(const SMikkTSpaceContext* context, float P[3],
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     const ccl::Mesh* mesh        = userdata->mesh;
     const int vertex_index       = mikk_vertex_index(mesh, face_num, vert_num);
-    const ccl::float3 vP         = mesh->verts[vertex_index];
+    const ccl::float3 vP         = mesh->get_verts()[vertex_index];
     P[0]                         = vP.x;
     P[1]                         = vP.y;
     P[2]                         = vP.z;
@@ -1026,8 +1020,8 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     const ccl::Mesh* mesh        = userdata->mesh;
     ccl::float3 vN;
-    if (mesh->subd_faces.size()) {
-        const ccl::Mesh::SubdFace& face = mesh->subd_faces[face_num];
+    if (mesh->get_num_subd_faces()) {
+        const ccl::Mesh::SubdFace& face = mesh->get_subd_face(face_num);
         if (face.smooth) {
             const int vertex_index = mikk_vertex_index(mesh, face_num,
                                                        vert_num);
@@ -1036,13 +1030,13 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
             vN = face.normal(mesh);
         }
     } else {
-        if (mesh->smooth[face_num]) {
+        if (mesh->get_smooth()[face_num]) {
             const int vertex_index = mikk_vertex_index(mesh, face_num,
                                                        vert_num);
             vN                     = userdata->vertex_normal[vertex_index];
         } else {
             const ccl::Mesh::Triangle tri = mesh->get_triangle(face_num);
-            vN                            = tri.compute_normal(&mesh->verts[0]);
+            vN                            = tri.compute_normal(&mesh->get_verts()[0]);
         }
     }
     N[0] = vN.x;
@@ -1068,7 +1062,7 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
                       bool active_render)
 {
     /* Create tangent attributes. */
-    ccl::AttributeSet& attributes = (mesh->subd_faces.size())
+    ccl::AttributeSet& attributes = (mesh->get_num_subd_faces())
                                         ? mesh->subd_attributes
                                         : mesh->attributes;
     ccl::Attribute* attr;
