@@ -226,7 +226,7 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
-    bool subdivide_uvs = false;
+    bool subdivide_uvs            = false;
 
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
@@ -283,19 +283,19 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
     m_cyclesMesh->use_motion_blur = true;
 
     // If no accelerations are present then there is no point in having more than 3 samples
-    m_cyclesMesh->motion_steps    = 3;
+    m_cyclesMesh->motion_steps = 3;
 
     // If motion data has been populated, we only issue a warning for now.
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
     if (attr_mP) {
-        printf("HDCYCLES Velocities will be ignored since motion points exist.\n");
+        printf(
+            "HDCYCLES Velocities will be ignored since motion points exist.\n");
         return;
     }
 
     // Copying the velocities
-    printf("HDCYCLES copying %d velocities into %d vertices\n", (int)(velocities.size()), m_cyclesMesh->verts.size());
     ccl::Attribute* attr_V = attributes->add(ccl::ATTR_STD_VERTEX_VELOCITY);
     if (!attr_V) {
         attr_V = attributes->add(ccl::ATTR_STD_VERTEX_VELOCITY);
@@ -735,6 +735,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
+    bool topologyIsDirty = false;
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
         m_topology          = GetMeshTopology(sceneDelegate);
         m_faceVertexCounts  = m_topology.GetFaceVertexCounts();
@@ -787,7 +788,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                == PxOsdOpenSubdivTokens->catmullClark;
         }
 
-        newMesh = true;
+        newMesh         = true;
+        topologyIsDirty = true;
     }
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector>
@@ -840,7 +842,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
             // Mesh Specific
-            
             m_useMotionBlur = _HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
@@ -958,6 +959,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         std::vector<int> faceMaterials;
         faceMaterials.resize(m_numMeshFaces);
 
+        // Rebuilding is triggered anyway in the first iteration
+        m_cyclesMesh->need_update_rebuild = topologyIsDirty;
+
         for (auto const& subset : m_geomSubsets) {
             int subsetMaterialIndex = 0;
 
@@ -1047,22 +1051,19 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     // TODO: Properly implement
                     else if (pv.name == HdTokens->velocities) {
                         if (value.IsHolding<VtArray<GfVec3f>>()) {
-                            printf("HDCYCLES Found velocities\n");
                             VtVec3fArray vels;
                             vels = value.UncheckedGet<VtArray<GfVec3f>>();
 
                             if (primvarDescsEntry.first
                                 == HdInterpolationFaceVarying) {
-                                printf(
-                                    "HDCYCLES velocities are face varying\n");
                                 meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
                                     vels.data(), vels.size(), HdTypeFloatVec3,
                                     &triangulated);
 
                                 vels = triangulated.Get<VtVec3fArray>();
-                            } 
-                            
-                            _AddVelocities(vels, primvarDescsEntry.first);
+                            }
+
+                            //_AddVelocities(vels, primvarDescsEntry.first);
                             mesh_updated = true;
                         }
                     }
@@ -1168,8 +1169,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     GetInstancerId()))) {
             auto instanceTransforms = instancer->SampleInstanceTransforms(id);
             auto newNumInstances    = (instanceTransforms.count > 0)
-                                       ? instanceTransforms.values[0].size()
-                                       : 0;
+                                          ? instanceTransforms.values[0].size()
+                                          : 0;
             // Clear all instances...
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
