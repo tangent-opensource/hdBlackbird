@@ -267,9 +267,7 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
 /*
     Setting velocities for each vertex and letting Cycles take care
     of interpolating them once the shuttertime is known.
-    Since velocities are really only meaningful for geometry with 
-    varying topology, ATTR_STD_MOTION_VERTEX_POSITION should not 
-    be preset
+
 */
 void
 HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
@@ -279,38 +277,102 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
-
+    // Enabling motion blur if velocities are present
     m_cyclesMesh->use_motion_blur = true;
-
-    // If no accelerations are present then there is no point in having more than 3 samples
-    m_cyclesMesh->motion_steps = 3;
+    m_cyclesMesh->motion_steps    = 3;
 
     // If motion data has been populated, we only issue a warning for now.
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
     if (attr_mP) {
-        printf(
-            "HDCYCLES Velocities will be ignored since motion points exist.\n");
+        TFWARN("Velocities will be ignored since motion positions exist");
         return;
     }
 
     // Copying the velocities
-    ccl::Attribute* attr_V = attributes->add(ccl::ATTR_STD_VERTEX_VELOCITY);
+    ccl::Attribute* attr_V = attributes->find(ccl::ATTR_STD_VERTEX_VELOCITY);
     if (!attr_V) {
         attr_V = attributes->add(ccl::ATTR_STD_VERTEX_VELOCITY);
     }
 
     if (interpolation == HdInterpolationVertex) {
+        assert(velocities.size() == m_cyclesMesh->verts.size());
+
         ccl::float3* V = attr_V->data_float3();
 
         for (size_t i = 0; i < velocities.size(); ++i) {
             V[i] = vec3f_to_float3(velocities[i]);
+            //printf("Adding velocity %.3f %.3f %.3f - %.3f %.3f %.3f\n", V[i].x, V[i].y, V[i].z,
+            //velocities[i][0], velocities[i][1], velocities[i][2]);
         }
     } else {
-        printf("HDCYCLES Unsupported interpolation for velocities\n");
+        TF_WARN("Velocity requries per-vertex interpolation");
     }
 }
+
+/*
+    Adding accelerations to improve the quality of the motion blur geometry.
+    They will be active only if the velocities are present
+*/
+void
+HdCyclesMesh::_AddAccelerations(VtVec3fArray& accelerations,
+                                HdInterpolation interpolation)
+{
+    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+                                        ? &m_cyclesMesh->subd_attributes
+                                        : &m_cyclesMesh->attributes;
+
+    ccl::Attribute* attr_accel = attributes->find(
+        ccl::ATTR_STD_VERTEX_ACCELERATION);
+    if (!attr_accel) {
+        attr_accel = attributes->add(ccl::ATTR_STD_VERTEX_ACCELERATION);
+    }
+
+    if (interpolation == HdInterpolationVertex) {
+        assert(accelerations.size() == m_cyclesMesh->verts.size());
+
+        ccl::float3* A = attr_accel->data_float3();
+
+        for (size_t i = 0; i < accelerations.size(); ++i) {
+            A[i] = vec3f_to_float3(accelerations[i]);
+        }
+    } else {
+        TF_WARN("Acceleration requires per-vertex interpolation");
+    }
+}
+
+/*
+    Adding angular velocities to improve the quality of the motion blur geometry.
+    They will be active only if the velocities are present.
+*/
+void
+HdCyclesMesh::_AddAngularVelocities(VtVec3fArray& w,
+                                    HdInterpolation interpolation)
+{
+    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+                                        ? &m_cyclesMesh->subd_attributes
+                                        : &m_cyclesMesh->attributes;
+
+    ccl::Attribute* attr_w = attributes->find(
+        ccl::ATTR_STD_VERTEX_ANGULAR_VELOCITY);
+    if (!attr_w) {
+        attr_w = attributes->add(ccl::ATTR_STD_VERTEX_ANGULAR_VELOCITY);
+    }
+
+    if (interpolation == HdInterpolationVertex) {
+        assert(w.size() == m_cyclesMesh->verts.size());
+
+        ccl::float3* W = attr_w->data_float3();
+
+        for (size_t i = 0; i < w.size(); ++i) {
+            W[i] = vec3f_to_float3(w[i]);
+        }
+    } else {
+        TF_WARN("Angular velocity requires per-vertex interpolation");
+    }
+}
+
 
 void
 HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
@@ -1048,22 +1110,37 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
                     // - Velocities
 
-                    // TODO: Properly implement
                     else if (pv.name == HdTokens->velocities) {
                         if (value.IsHolding<VtArray<GfVec3f>>()) {
                             VtVec3fArray vels;
                             vels = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                            if (primvarDescsEntry.first
-                                == HdInterpolationFaceVarying) {
-                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                    vels.data(), vels.size(), HdTypeFloatVec3,
-                                    &triangulated);
+                            _AddVelocities(vels, primvarDescsEntry.first);
+                            mesh_updated = true;
+                        }
+                    }
 
-                                vels = triangulated.Get<VtVec3fArray>();
-                            }
+                    // - Accelerations
 
-                            //_AddVelocities(vels, primvarDescsEntry.first);
+                    else if (pv.name == HdTokens->accelerations) {
+                        if (value.IsHolding<VtArray<GfVec3f>>()) {
+                            VtVec3fArray accels;
+                            accels = value.UncheckedGet<VtArray<GfVec3f>>();
+
+                            _AddAccelerations(accels, primvarDescsEntry.first);
+                            mesh_updated = true;
+                        }
+                    }
+
+                    // - Angular velocities
+                    // The primvar name is from https://www.sidefx.com/docs/houdini/render/blur.html
+
+                    else if (strcmp(pv.name.GetText(), "w") == 0) {
+                        if (value.IsHolding<VtArray<GfVec3f>>()) {
+                            VtVec3fArray w;
+                            w = value.UncheckedGet<VtArray<GfVec3f>>();
+
+                            _AddAngularVelocities(w, primvarDescsEntry.first);
                             mesh_updated = true;
                         }
                     }
