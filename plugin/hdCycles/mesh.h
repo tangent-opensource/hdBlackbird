@@ -133,7 +133,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
+    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene,
                    HdInterpolation interpolation);
 
     /**

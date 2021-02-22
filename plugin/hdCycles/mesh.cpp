@@ -129,27 +129,124 @@ HdCyclesMesh::_ComputeTangents(bool needsign)
 }
 
 void
-HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
-                        HdInterpolation interpolation)
+HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene, HdInterpolation interpolation)
 {
-    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+    VtValue uvs_value = uvs;
+
+    if(!uvs_value.IsHolding<VtVec2fArray>()) {
+        if(!uvs_value.CanCast<VtVec2fArray>()) {
+            TF_WARN("Invalid uv data! Can not convert uv for: %s", "object");
+            return;
+        }
+
+        uvs_value = uvs_value.Cast<VtVec2fArray>();
+    }
+
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
 
-    bool need_uv = m_cyclesMesh->need_attribute(scene, uv_name)
-                   || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV);
-    bool need_tangent
-        = m_cyclesMesh->need_attribute(scene, tangent_name)
-          || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+    bool need_uv = m_cyclesMesh->need_attribute(scene, uv_name) ||
+                   m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV);
+    bool need_tangent = m_cyclesMesh->need_attribute(scene, tangent_name) ||
+                        m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+
+    // To avoid face varying computations we take attribute and we refine it with
+    // respecting incoming interpolation. Then we convert it to face varying because
+    // ATTR_STD_UV is a face varying data.
+
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+    ccl::Attribute* uv_attr = attributes->add(ccl::ATTR_STD_UV, uv_name);
+    auto attrib_data = uv_attr->data_float2();
+
+    if(interpolation == HdInterpolationConstant) {
+        VtValue refined_value = m_refiner->RefineConstantData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        if(refined_value.GetArraySize() != 1) {
+            TF_WARN("Failed to refine constant texture coordinates!");
+            return;
+        }
+
+        auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
+        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+        for(size_t face{}, offset{}; face < refined_indices.size(); ++face) {
+            for(size_t i{}; i < 3; ++i, ++offset) {
+                attrib_data[offset][0] = refined_uvs[0][0];
+                attrib_data[offset][1] = refined_uvs[0][1];
+            }
+        }
+    }
+
+    if(interpolation == HdInterpolationUniform) {
+        VtValue refined_value = m_refiner->RefineUniformData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        if(refined_value.GetArraySize() != m_cyclesMesh->num_triangles()) {
+            TF_WARN("Failed to refine uniform texture coordinates!");
+            return;
+        }
+
+        auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
+        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+        for(size_t face{}, offset{}; face < refined_indices.size(); ++face) {
+            for(size_t i{}; i < 3; ++i, ++offset) {
+                attrib_data[offset][0] = refined_uvs[face][0];
+                attrib_data[offset][1] = refined_uvs[face][1];
+            }
+        }
+        return;
+    }
+
+    // convert vertex and varying
+
+    auto add_vertex_or_varying_attrib = [&](const VtValue& refined_value) {
+        auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
+        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+        for(size_t face{}, offset{}; face < refined_indices.size(); ++face) {
+            for(size_t i{}; i < 3; ++i, ++offset) {
+                auto& vertex_index = refined_indices[face][i];
+                attrib_data[offset][0] = refined_uvs[vertex_index][0];
+                attrib_data[offset][1] = refined_uvs[vertex_index][1];
+            }
+        }
+    };
+
+    if(interpolation == HdInterpolationVertex) {
+        VtValue refined_value = m_refiner->RefineVertexData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        if(refined_value.GetArraySize() != m_cyclesMesh->verts.size()) {
+            TF_WARN("Failed to refine vertex texture coordinates!");
+            return;
+        }
+
+        add_vertex_or_varying_attrib(refined_value);
+        return;
+    }
+
+    if(interpolation == HdInterpolationVarying) {
+        VtValue refined_value = m_refiner->RefineVaryingData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        if(refined_value.GetArraySize() != m_cyclesMesh->verts.size()) {
+            TF_WARN("Failed to refine varying texture coordinates!");
+            return;
+        }
+
+        add_vertex_or_varying_attrib(refined_value);
+        return;
+    }
+
+    if(interpolation == HdInterpolationFaceVarying) {
+        VtValue refined_value = m_refiner->RefineFaceVaryingData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        if(refined_value.GetArraySize() != m_refiner->GetNumRefinedTriangles() * 3) {
+            TF_WARN("Invalid number of refined vertices");
+            return;
+        }
+
+        auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
+        for(size_t i{}; i < refined_uvs.size(); ++i) {
+            attrib_data[i][0] = refined_uvs[i][0];
+            attrib_data[i][1] = refined_uvs[i][1];
+        }
+
+        return;
+    }
 
     // Forced true for now... Should be based on shader compilation needs
     need_tangent = true;
-
-    ccl::Attribute* attr = attributes->add(ccl::ATTR_STD_UV, uv_name);
-
-    _PopulateAttribute(name, HdPrimvarRoleTokens->textureCoordinate,
-                       interpolation, uvs, attr, this);
-
     if (need_tangent) {
         ccl::ustring sign_name = ccl::ustring(name.GetString()
                                               + ".tangent_sign");
@@ -242,17 +339,17 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
 
     if(interpolation == HdInterpolationUniform) {
-        ccl::ustring attrib_name{name.GetString().c_str(), name.GetString().size()};
-        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor,ccl::ATTR_ELEMENT_FACE);
-
         VtValue refined_value = m_refiner->RefineUniformData(name, role, data);
         if(refined_value.GetArraySize() != m_cyclesMesh->num_triangles()) {
             TF_WARN("Empty colors can not be assigned to an faces!");
             return;
         }
 
-        auto refined_colors = VtValue::Cast<VtVec3fArray>(refined_value).UncheckedGet<VtVec3fArray>();
+        ccl::ustring attrib_name{name.GetString().c_str(), name.GetString().size()};
+        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor,ccl::ATTR_ELEMENT_FACE);
         ccl::float3* cycles_colors = color_attrib->data_float3();
+
+        auto refined_colors = refined_value.UncheckedGet<VtVec3fArray>();
         for(size_t i{}; i < m_cyclesMesh->num_triangles(); ++i) {
             cycles_colors[i][0] = refined_colors[i][0];
             cycles_colors[i][1] = refined_colors[i][1];
@@ -271,10 +368,9 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
 
         ccl::ustring attrib_name{name.GetString().c_str(), name.GetString().size()};
         ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor,ccl::ATTR_ELEMENT_VERTEX);
-
-        auto refined_colors = VtValue::Cast<VtVec3fArray>(refined_value).UncheckedGet<VtVec3fArray>();
-
         ccl::float3* cycles_colors = color_attrib->data_float3();
+
+        auto refined_colors = refined_value.UncheckedGet<VtVec3fArray>();
         for(size_t i{}; i < m_cyclesMesh->verts.size(); ++i) {
             cycles_colors[i][0] = refined_colors[i][0];
             cycles_colors[i][1] = refined_colors[i][1];
@@ -285,15 +381,49 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
     };
 
     // varying/vertex is assigned to vertices
-    if (interpolation == HdInterpolationVertex && name == HdTokens->displayColor) {
+    if (interpolation == HdInterpolationVertex) {
         VtValue refined_value = m_refiner->RefineVertexData(name, role, data);
+        if(refined_value.GetArraySize() != m_refiner->GetNumRefinedVertices()) {
+            TF_WARN("Invalid number of refined vertices");
+            return;
+        }
+
         add_vertex_or_varying_attrib(refined_value);
         return;
     }
 
-    if (interpolation == HdInterpolationVarying && name == HdTokens->displayColor) {
+    if (interpolation == HdInterpolationVarying) {
         VtValue refined_value = m_refiner->RefineVaryingData(name, role, data);
+        if(refined_value.GetArraySize() != m_refiner->GetNumRefinedVertices()) {
+            TF_WARN("Invalid number of refined vertices");
+            return;
+        }
+
         add_vertex_or_varying_attrib(refined_value);
+        return;
+    }
+
+    if(interpolation == HdInterpolationFaceVarying) {
+        VtValue refined_value = m_refiner->RefineFaceVaryingData(name, role, data);
+        if(refined_value.GetArraySize() != m_refiner->GetNumRefinedTriangles() * 3) {
+            TF_WARN("Invalid number of refined vertices");
+            return;
+        }
+
+        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+
+        ccl::ustring attrib_name{name.GetString().c_str(), name.GetString().size()};
+        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor,ccl::ATTR_ELEMENT_CORNER);
+        ccl::float3* attrib_data = color_attrib->data_float3();
+
+        auto refined_color = refined_value.UncheckedGet<VtVec3fArray>();
+        for(size_t i{}; i < refined_color.size(); ++i) {
+            attrib_data[i][0] = refined_color[i][0];
+            attrib_data[i][1] = refined_color[i][1];
+            attrib_data[i][2] = refined_color[i][2];
+        }
+
+        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
         return;
     }
 
