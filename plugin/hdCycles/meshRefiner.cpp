@@ -253,7 +253,6 @@ private:
     Far::PtexIndices m_ptex_indices;
 };
 
-
 template<typename T>
 VtArray<T>
 RefineArrayWithStencils(const VtArray<T>& input, const Far::StencilTable* stencil_table, size_t stride) {
@@ -343,39 +342,6 @@ public:
         auto table = Far::StencilTableFactory::Create(refiner, options);
         m_stencils = std::unique_ptr<const Far::StencilTable>(table);
 
-        Far::PatchMap patch_map{patch_table};
-        m_patch_coords.reserve(patch_table.GetNumControlVerticesTotal());
-        for (int array=0; array < patch_table.GetNumPatchArrays(); ++array) {
-            for (int patch=0; patch < patch_table.GetNumPatches(array); ++patch) {
-                Far::PatchParam patch_param = patch_table.GetPatchParam(array, patch);
-
-                float u,v;
-                const Far::PatchTable::PatchHandle* handle{};
-
-                u = 0.0f; v = 0.0f;
-                patch_param.Unnormalize(u, v);
-                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
-                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-
-
-                u = 1.0f; v = 0.0f;
-                patch_param.Unnormalize(u, v);
-                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
-                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-
-                u = 1.0f; v = 1.0f;
-                patch_param.Unnormalize(u, v);
-                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
-                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-
-
-                u = 0.0f; v = 1.0f;
-                patch_param.Unnormalize(u, v);
-                handle = patch_map.FindPatch(patch_param.GetFaceId(), u, v);
-                m_patch_coords.push_back(Osd::PatchCoord{*handle, u, v});
-            }
-        }
-
         m_patch_table = std::unique_ptr<Osd::CpuPatchTable>(Osd::CpuPatchTable::Create(&patch_table));
     }
 
@@ -408,42 +374,34 @@ private:
                            const Far::PatchTable& patch_table,
                            size_t stride) const {
         //
-        VtArray<T> eval_data(m_stencils->GetNumStencils());
+        VtArray<T> refined_data(m_stencils->GetNumStencils());
         {
             Osd::BufferDescriptor src_descriptor(0, stride, stride);
             Osd::BufferDescriptor dst_descriptor(0, stride, stride);
 
             RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
-            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(eval_data.data()));
+            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_data.data()));
 
             Osd::CpuEvaluator::EvalStencils(&src_buffer, src_descriptor,
                                             &dst_buffer, dst_descriptor,
                                             m_stencils.get());
         }
 
-        // build patch coord for evaluating patch
-        VtArray<T> refined_data(patch_table.GetNumControlVerticesTotal());
+        // TODO: Data evaluation should happen through EvalPatchesPrimVar
+        VtArray<T> eval_data(patch_table.GetNumControlVerticesTotal());
         {
-            Osd::BufferDescriptor src_descriptor(0, stride, stride);
-            Osd::BufferDescriptor dst_descriptor(0, stride, stride);
-
-            RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(eval_data.data()));
-            RawCpuBufferWrapper<const Osd::PatchCoord> patch_coord_buffer{m_patch_coords.data()};
-            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_data.data()));
-
-            Osd::CpuEvaluator::EvalPatchesFaceVarying(&src_buffer, src_descriptor,
-                                                      &dst_buffer, dst_descriptor,
-                                                      m_patch_coords.size(), &patch_coord_buffer,
-                                                      m_patch_table.get(), 0);
+            auto indices = m_patch_table->GetFVarPatchIndexBuffer();
+            for (int fvert = 0; fvert < m_patch_table->GetFVarPatchIndexSize(); ++fvert) {
+                int index = indices[fvert];
+                eval_data[fvert] = refined_data[index];
+            }
         }
 
-        return refined_data;
+        return eval_data;
     }
 
     std::unique_ptr<const Far::StencilTable> m_stencils;
-    VtArray<Osd::PatchCoord> m_patch_coords;
     std::unique_ptr<const Osd::CpuPatchTable> m_patch_table;
-
 };
 
 ///
@@ -467,7 +425,6 @@ public:
             VtIntArray fvar_indices(m_topology->GetFaceVertexIndices().size());
             std::iota(fvar_indices.begin(), fvar_indices.end(), 0);
             fvar_topologies.push_back(fvar_indices);
-
             refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology(), fvar_topologies);
 
             Far::TopologyRefiner::UniformOptions uniform_options { refine_level };
@@ -588,13 +545,14 @@ public:
             return {};
         }
 
+        // No reverse is needed, since custom topology is reversed
         auto refined_value = m_fvar->RefineArray(source, *m_patch_table);
 
-        // triangulate refinement
+        // triangulate refinement for Cycles
         HdMeshUtil mesh_util{&m_osd_topology, m_id};
         VtValue triangulated;
         if(!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(refined_value),
-                                                             refined_value.GetArraySize(),
+                                                            refined_value.GetArraySize(),
                                                             HdGetValueTupleType(refined_value).type,
                                                             &triangulated)) {
             TF_CODING_ERROR("Unsupported uniform refinement");
@@ -614,7 +572,7 @@ private:
     VtIntArray m_prim_param;
     VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
 
-    // patch helpers
+    // patch table - osd topology
     std::unique_ptr<const Far::PatchTable> m_patch_table;
 
     // Osd
