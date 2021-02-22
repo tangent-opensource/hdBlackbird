@@ -580,7 +580,7 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                               m_refiner->GetNumRefinedTriangles());
 
 
-    auto& refined_indices = m_refiner->GetRefinedIndices();
+    auto& refined_indices = m_refiner->GetRefinedVertexIndices();
     for(size_t i{}; i < refined_indices.size(); ++i) {
         const GfVec3i& triangle_indices = refined_indices[i];
 
@@ -726,12 +726,12 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
     for (auto& interpolation_description : primvarDescsPerInterpolation) {
         for (const HdPrimvarDescriptor& description : interpolation_description.second) {
 
-            // ignore special primvars that are handled separately
-            if(description.name == HdTokens->points) {
+            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
                 continue;
             }
 
-            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
+            // How is this possible that points appear here, but normals don't? Points do not carry prefix `primvars:`
+            if(description.name == HdTokens->points) {
                 continue;
             }
 
@@ -744,7 +744,11 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                 continue;
             }
 
-            // normals
+            if(description.role == HdPrimvarRoleTokens->textureCoordinate) {
+                _AddUVSet(description.name, value, scene, interpolation);
+            }
+
+            // TODO: Add arbitrary primvar support
         }
     }
 }
