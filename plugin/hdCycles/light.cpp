@@ -58,7 +58,6 @@ HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType,
 HdCyclesLight::~HdCyclesLight()
 {
     if (m_hdLightType == HdPrimTypeTokens->domeLight) {
-        m_renderDelegate->GetCyclesRenderParam()->SetBackgroundShader(nullptr);
         m_renderDelegate->GetCyclesRenderParam()->Interrupt();
     }
 
@@ -249,7 +248,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // there is any nodes used, re-create...
         if (shaderGraphBits || 
             shaderGraphBits != m_shaderGraphBits) {
-            graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND ? true : false);
+            graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND);
             outNode = (ccl::ShaderNode*)graph->output()->input("Surface")->link->parent;
             m_shaderGraphBits = shaderGraphBits;
         } else {
@@ -290,6 +289,12 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_finalIntensity = intensity.UncheckedGet<float>() * exposure;
             m_cyclesLight->strength *= m_finalIntensity;
         }
+
+        // Light cast shadow
+        m_cyclesLight->cast_shadow
+            = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
+                                           HdLightTokens->shadowEnable,
+                                           true);
 
         // TODO:
         // These two params have no direct mapping. Kept for future implementation
@@ -571,11 +576,6 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
 #ifdef USE_USD_CYCLES_SCHEMA
-
-    m_cyclesLight->cast_shadow
-        = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
-                                       usdCyclesTokens->cyclesLightCast_shadow,
-                                       m_cyclesLight->cast_shadow);
 
     m_cyclesLight->use_diffuse
         = _HdCyclesGetLightParam<bool>(id, sceneDelegate,

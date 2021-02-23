@@ -353,6 +353,14 @@ convertCyclesNode(HdMaterialNode& usd_node,
                     continue;
 
             switch (socket.type) {
+            case ccl::SocketType::BOOLEAN: {
+                if (params.second.IsHolding<bool>()) {
+                    cyclesNode->set(socket, params.second.Get<bool>());
+                } else if (params.second.IsHolding<int>()) {
+                    cyclesNode->set(socket, (bool)params.second.Get<int>());
+                } 
+            } break;
+
             case ccl::SocketType::INT: {
                 cyclesNode->set(socket, params.second.Get<int>());
             } break;
