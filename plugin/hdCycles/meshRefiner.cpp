@@ -314,6 +314,7 @@ public:
 
 private:
     std::unique_ptr<const Far::StencilTable> m_stencils;
+    std::vector<Osd::PatchCoord> m_patch_coords;
 };
 
 ///
@@ -390,8 +391,8 @@ private:
         // TODO: Data evaluation should happen through EvalPatchesPrimVar
         VtArray<T> eval_data(patch_table.GetNumControlVerticesTotal());
         {
-            auto indices = m_patch_table->GetFVarPatchIndexBuffer();
-            for (int fvert = 0; fvert < m_patch_table->GetFVarPatchIndexSize(); ++fvert) {
+            auto indices = patch_table.GetFVarValues();
+            for (int fvert = 0; fvert < indices.size(); ++fvert) {
                 int index = indices[fvert];
                 eval_data[fvert] = refined_data[index];
             }
