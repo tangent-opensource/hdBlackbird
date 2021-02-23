@@ -43,6 +43,8 @@ PXR_NAMESPACE_USING_DIRECTIVE;
 
 using namespace OpenSubdiv;
 
+#define EVALUATOR Osd::CpuEvaluator
+
 namespace {
 
 ///
@@ -263,7 +265,7 @@ RefineArrayWithStencils(const VtArray<T>& input, const Far::StencilTable* stenci
     RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
     RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_array.data()));
 
-    Osd::CpuEvaluator::EvalStencils(&src_buffer, src_descriptor, &dst_buffer, dst_descriptor, stencil_table);
+    EVALUATOR::EvalStencils(&src_buffer, src_descriptor, &dst_buffer, dst_descriptor, stencil_table);
     return refined_array;
 }
 
@@ -341,8 +343,6 @@ public:
         options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
         auto table = Far::StencilTableFactory::Create(refiner, options);
         m_stencils = std::unique_ptr<const Far::StencilTable>(table);
-
-        m_patch_table = std::unique_ptr<Osd::CpuPatchTable>(Osd::CpuPatchTable::Create(&patch_table));
     }
 
     VtValue RefineArray(const VtValue& input, const Far::PatchTable& patch_table) const {
@@ -382,9 +382,9 @@ private:
             RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
             RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_data.data()));
 
-            Osd::CpuEvaluator::EvalStencils(&src_buffer, src_descriptor,
-                                            &dst_buffer, dst_descriptor,
-                                            m_stencils.get());
+            EVALUATOR::EvalStencils(&src_buffer, src_descriptor,
+                                    &dst_buffer, dst_descriptor,
+                                    m_stencils.get());
         }
 
         // TODO: Data evaluation should happen through EvalPatchesPrimVar
