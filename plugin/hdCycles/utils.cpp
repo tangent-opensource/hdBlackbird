@@ -911,6 +911,8 @@ struct MikkUserData {
     MikkUserData(const char* layer_name, ccl::Mesh* mesh, ccl::float3* tangent,
                  float* tangent_sign)
         : mesh(mesh)
+        , corner_normal(NULL)
+        , vertex_normal(NULL)
         , texface(NULL)
         , tangent(tangent)
         , tangent_sign(tangent_sign)
@@ -921,6 +923,7 @@ struct MikkUserData {
 
         ccl::Attribute* attr_vN = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::Attribute* attr_cN = attributes.find(ccl::ATTR_STD_CORNER_NORMAL);
+
         if (!attr_vN && !attr_cN) {
             mesh->add_face_normals();
             mesh->add_vertex_normals();
