@@ -277,16 +277,12 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
-    // Enabling motion blur if velocities are present
-    m_cyclesMesh->use_motion_blur = true;
-    m_cyclesMesh->motion_steps    = 3;
-
     // If motion data has been populated, we only issue a warning for now.
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
     if (attr_mP) {
-        TFWARN("Velocities will be ignored since motion positions exist");
+        TF_WARN("Velocities will be ignored since motion positions exist");
         return;
     }
 
