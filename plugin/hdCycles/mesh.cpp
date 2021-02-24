@@ -338,38 +338,6 @@ HdCyclesMesh::_AddAccelerations(VtVec3fArray& accelerations,
     }
 }
 
-/*
-    Adding angular velocities to improve the quality of the motion blur geometry.
-    They will be active only if the velocities are present.
-*/
-void
-HdCyclesMesh::_AddAngularVelocities(VtVec3fArray& w,
-                                    HdInterpolation interpolation)
-{
-    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
-                                        ? &m_cyclesMesh->subd_attributes
-                                        : &m_cyclesMesh->attributes;
-
-    ccl::Attribute* attr_w = attributes->find(
-        ccl::ATTR_STD_VERTEX_ANGULAR_VELOCITY);
-    if (!attr_w) {
-        attr_w = attributes->add(ccl::ATTR_STD_VERTEX_ANGULAR_VELOCITY);
-    }
-
-    if (interpolation == HdInterpolationVertex) {
-        assert(w.size() == m_cyclesMesh->verts.size());
-
-        ccl::float3* W = attr_w->data_float3();
-
-        for (size_t i = 0; i < w.size(); ++i) {
-            W[i] = vec3f_to_float3(w[i]);
-        }
-    } else {
-        TF_WARN("Angular velocity requires per-vertex interpolation");
-    }
-}
-
-
 void
 HdCyclesMesh::_AddColors(TfToken name, TfToken role, VtValue colors,
                          ccl::Scene* scene, HdInterpolation interpolation)
@@ -1124,19 +1092,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                             accels = value.UncheckedGet<VtArray<GfVec3f>>();
 
                             _AddAccelerations(accels, primvarDescsEntry.first);
-                            mesh_updated = true;
-                        }
-                    }
-
-                    // - Angular velocities
-                    // The primvar name is from https://www.sidefx.com/docs/houdini/render/blur.html
-
-                    else if (strcmp(pv.name.GetText(), "w") == 0) {
-                        if (value.IsHolding<VtArray<GfVec3f>>()) {
-                            VtVec3fArray w;
-                            w = value.UncheckedGet<VtArray<GfVec3f>>();
-
-                            _AddAngularVelocities(w, primvarDescsEntry.first);
                             mesh_updated = true;
                         }
                     }

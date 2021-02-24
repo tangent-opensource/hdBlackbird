@@ -160,14 +160,6 @@ protected:
                            HdInterpolation interpolation);
 
     /**
-     * @brief Add vertex angular accelerations
-     * 
-     * @param angular accelerations 
-     * @param interpolation 
-     */
-    void _AddAngularVelocities(VtVec3fArray& w, HdInterpolation interpolation);
-
-    /**
      * @brief Add vertex/primitive colors
      * TODO: This handles more than just colors, we should probably refactor
      * 
