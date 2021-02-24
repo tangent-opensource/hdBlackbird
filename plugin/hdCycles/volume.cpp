@@ -313,7 +313,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (update_volumes) {
         
         m_cyclesVolume->use_motion_blur = m_useMotionBlur;
-        m_cyclesObject->up_axis = param->GetUpAxis();
         
         bool rebuild = (old_voxel_slots
                         != get_voxel_image_slots(m_cyclesVolume));
