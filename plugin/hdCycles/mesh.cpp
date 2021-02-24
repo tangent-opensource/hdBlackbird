@@ -226,7 +226,7 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
-    bool subdivide_uvs            = false;
+    bool subdivide_uvs = false;
 
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
@@ -1191,8 +1191,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     GetInstancerId()))) {
             auto instanceTransforms = instancer->SampleInstanceTransforms(id);
             auto newNumInstances    = (instanceTransforms.count > 0)
-                                          ? instanceTransforms.values[0].size()
-                                          : 0;
+                                       ? instanceTransforms.values[0].size()
+                                       : 0;
             // Clear all instances...
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
