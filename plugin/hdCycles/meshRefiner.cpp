@@ -406,6 +406,124 @@ private:
 };
 
 ///
+/// \brief limit refiner computes surface normal
+///
+class SubdLimitRefiner {
+public:
+    SubdLimitRefiner(const Far::TopologyRefiner& refiner,
+                     const Far::PatchTable& patch_table) {
+        Far::PtexIndices ptex_indices{refiner};
+
+        auto& patch_param_table = patch_table.GetPatchParamTable();
+
+        auto& last_level = refiner.GetLevel(refiner.GetMaxLevel());
+        assert(patch_param_table.size() == last_level.GetNumFaces());
+
+        std::vector<float> us;
+        std::vector<float> vs;
+        us.reserve(last_level.GetNumVertices());
+        vs.reserve(last_level.GetNumVertices());
+        std::vector<int> nums(ptex_indices.GetNumFaces(), 0);
+        order.reserve(last_level.GetNumVertices());
+
+        std::unordered_set<int> visited; // helper for faster search
+
+        // For each patch in the last level, iterate over corner vertices and check if each vertex has been visited,
+        // and added to order array. LocationArray is grouped per
+        for(size_t patch{}; patch < patch_table.GetNumPatchesTotal(); ++patch) {
+            auto& patch_param = patch_param_table[patch];
+
+            auto face_vertices = last_level.GetFaceVertices(patch);
+            for (size_t local_index {}; local_index < face_vertices.size(); ++local_index) {
+                auto& vertex = face_vertices[local_index];
+
+                if (visited.find(vertex) != visited.end())
+                    continue;
+
+                constexpr std::array<float, 2> patch_corner_uvs[4] = {
+                    { 0.0f, 0.0f },
+                    { 1.0f, 0.0f },
+                    { 1.0f, 1.0f },
+                    { 0.0f, 1.0f },
+                };
+
+                float ptex_u = patch_corner_uvs[local_index][0];
+                float ptex_v = patch_corner_uvs[local_index][1];
+                patch_param.Unnormalize(ptex_u, ptex_v);
+                us.push_back(ptex_u);
+                vs.push_back(ptex_v);
+
+                order.push_back(vertex);
+                visited.insert(vertex);
+                ++nums[patch_param.GetFaceId()]; // ptex faces
+            }
+        }
+
+        assert(us.size() == last_level.GetNumVertices());
+        assert(vs.size() == last_level.GetNumVertices());
+
+        Far::LimitStencilTableFactory::LocationArrayVec locations;
+        locations.reserve(nums.size());
+        for(size_t i{}, offset{}; i < nums.size(); offset += nums[i], ++i) {
+            if(nums[i] == 0) continue; // This should not be possible
+
+            locations.emplace_back();
+            locations.back().numLocations = nums[i];
+            locations.back().ptexIdx = i;
+            locations.back().s = &us[offset];
+            locations.back().t = &vs[offset];
+        }
+
+        auto table = Far::LimitStencilTableFactory::Create(refiner, locations);
+        m_stencil_table = std::unique_ptr<const Far::LimitStencilTable>{table};
+
+        assert(m_stencil_table->GetNumStencils() == order.size());
+    }
+
+    VtVec3fArray RefineArray(const VtVec3fArray& vertices) const {
+        VtVec3fArray pos_limit(m_stencil_table->GetNumStencils());
+        VtVec3fArray us_limit(m_stencil_table->GetNumStencils());
+        VtVec3fArray vs_limit(m_stencil_table->GetNumStencils());
+
+        Osd::BufferDescriptor pos_descr(0, 3, 3);
+        RawCpuBufferWrapper<const float> pos_base_buffer(vertices.data()->data());
+        RawCpuBufferWrapper<float> pos_limit_buffer(pos_limit.data()->data());
+
+        Osd::BufferDescriptor uvs_descr{0, 3, 3};
+        RawCpuBufferWrapper<float> us_limit_buffer{us_limit.data()->data()};
+        RawCpuBufferWrapper<float> vs_limit_buffer{vs_limit.data()->data()};
+
+        EVALUATOR::EvalStencils(&pos_base_buffer, pos_descr,
+                                &pos_limit_buffer, pos_descr,
+                                &us_limit_buffer, uvs_descr,
+                                &vs_limit_buffer, uvs_descr,
+                                m_stencil_table.get());
+
+        auto compute_normal = [](float *n, const float *du, const float *dv) {
+            n[0] = du[1] * dv[2] - du[2] * dv[1];
+            n[1] = du[2] * dv[0] - du[0] * dv[2];
+            n[2] = du[0] * dv[1] - du[1] * dv[0];
+
+            float rn = 1.0f / std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            n[0] *= rn; n[1] *= rn; n[2] *= rn;
+        };
+
+        VtVec3fArray normals(order.size());
+        for(size_t i{}; i< order.size(); ++i) {
+            GfVec3f normal{};
+            compute_normal(normal.data(), us_limit[i].data(), vs_limit[i].data());
+            normals[order[i]] = normal;
+        }
+
+        return normals;
+    }
+
+private:
+    std::unique_ptr<const Far::LimitStencilTable> m_stencil_table;
+    std::vector<int> order;
+};
+
+///
 /// \brief Open Subdivision refiner implementation
 ///
 class HdCyclesSubdRefiner final : public HdCyclesMeshRefiner {
