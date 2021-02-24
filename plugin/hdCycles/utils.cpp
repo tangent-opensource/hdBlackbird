@@ -26,6 +26,7 @@
 #include <subd/subd_dice.h>
 #include <subd/subd_split.h>
 #include <util/util_path.h>
+#include <util/util_transform.h>
 
 #include <pxr/base/tf/stringUtils.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
@@ -161,6 +162,9 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 // UPDATE:
 // This causes a known slowdown to deforming motion blur renders
 // This will be addressed in an upcoming PR
+// UPDATE:
+// The function now resamples the transforms at uniform intervals
+// rendering more correctly.
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -170,8 +174,8 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> xf {};
 
+    // Assumes that they are ordered
     delegate->SampleTransform(id, &xf);
-
     int sampleCount = xf.count;
 
     if (sampleCount == 0) {
@@ -179,36 +183,15 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         return xf;
     }
 
-    if (sampleCount > 1) {
-        bool foundCenter = false;
-        for (int i = 0; i < sampleCount; i++) {
-            if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
-                foundCenter = true;
-            }
-        }
-        if (!foundCenter)
-            object->tfm = mat4d_to_transform(xf.values.data()[0]);
-    } else {
-        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    if (sampleCount == 1) {
+        return xf;
     }
 
     if (!use_motion) {
         return xf;
     }
 
-    object->motion.clear();
-    if (object->geometry) {
-        if (object->geometry->use_motion_blur
-            && object->geometry->motion_steps != sampleCount) {
-            object->motion.resize(object->geometry->motion_steps, object->tfm);
-            return xf;
-        }
-    }
-
-    // TODO: This might still be wrong on some edge cases...
-    // The order of point sampling and transform sampling is the only reason
-    // that this works
     if (object->geometry && object->geometry->motion_steps == sampleCount) {
         object->geometry->use_motion_blur = true;
 
@@ -218,18 +201,84 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 mesh->need_update = true;
         }
 
-        object->motion.resize(sampleCount, ccl::transform_empty());
+        // Rounding to odd number of samples to have one in the center
+        const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
+        const int numMotionSteps   = sampleCount + sampleOffset;
+        const float motionStepSize = (xf.times.back() - xf.times.front())
+                                     / (numMotionSteps - 1);
+        object->motion.resize(numMotionSteps, ccl::transform_empty());
 
-        for (int i = 0; i < sampleCount; i++) {
-            if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+        // For each step, we use the available data from the neighbors
+        // to calculate the transforms at uniform steps
+        for (int i = 0; i < numMotionSteps; ++i) {
+            const float stepTime = xf.times.front() + motionStepSize * i;
+
+            // We always have the transforms at the boundaries
+            if (i == 0 || i == numMotionSteps - 1) {
+                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+                continue;
             }
 
-            int idx = i;
-            if (object->geometry)
-                object->geometry->motion_step(xf.times.data()[i]);
+            // Find closest left/right neighbors
+            float prevTimeDiff = -INFINITY, nextTimeDiff = INFINITY;
+            int iXfPrev = -1, iXfNext = -1;
+            for (int j = 0; j < sampleCount; ++j) {
+                // If we only have three samples, we prefer to recalculate
+                // the intermediate one as the left/right are calculated
+                // using linear interpolation, leading to artifacts
+                if (i != 1 && (xf.times.data()[j] - stepTime) < 1e-5) {
+                    iXfPrev = iXfNext = j;
+                    break;
+                }
 
-            object->motion[idx] = mat4d_to_transform(xf.values.data()[i]);
+                const float stepTimeDiff = xf.times.data()[j] - stepTime;
+                if (stepTimeDiff < 0 && stepTimeDiff > prevTimeDiff) {
+                    iXfPrev      = j;
+                    prevTimeDiff = stepTimeDiff;
+                } else if (stepTimeDiff > 0 && stepTimeDiff < nextTimeDiff) {
+                    iXfNext      = j;
+                    nextTimeDiff = stepTimeDiff;
+                }
+            }
+            assert(iXfPrev != -1 && iXfNext != -1);
+
+            // If there is an authored sample for this specific timestep
+            // we copy it.
+            if (iXfPrev == iXfNext) {
+                object->motion[i] = mat4d_to_transform(
+                    xf.values.data()[iXfPrev]);
+            }
+            // Otherwise we interpolate the neighboring matrices
+            else {
+                // Should the type conversion be precomputed?
+                ccl::Transform xfPrev = mat4d_to_transform(
+                    xf.values.data()[iXfPrev]);
+                ccl::Transform xfNext = mat4d_to_transform(
+                    xf.values.data()[iXfNext]);
+
+                ccl::DecomposedTransform dxf[2];
+                transform_motion_decompose(dxf + 0, &xfPrev, 1);
+                transform_motion_decompose(dxf + 1, &xfNext, 1);
+
+                // Preferring the smaller rotation difference
+                if (ccl::len_squared(dxf[0].x - dxf[1].x)
+                    > ccl::len_squared(dxf[0].x + dxf[1].x)) {
+                    dxf[1].x = -dxf[1].x;
+                }
+
+                // Weighting by distance to sample
+                const float timeDiff = xf.times.data()[iXfNext]
+                                       - xf.times.data()[iXfPrev];
+                const float t = (stepTime - xf.times.data()[iXfPrev])
+                                / timeDiff;
+
+                transform_motion_array_interpolate(&object->motion[i], dxf, 2,
+                                                   t);
+            }
+
+            if (::std::fabs(stepTime) < 1e-5) {
+                object->tfm = object->motion[i];
+            }
         }
     }
 
