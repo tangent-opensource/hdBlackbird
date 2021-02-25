@@ -43,7 +43,7 @@ PXR_NAMESPACE_USING_DIRECTIVE;
 
 using namespace OpenSubdiv;
 
-#define EVALUATOR Osd::CpuEvaluator
+#define EVALUATOR Osd::TbbEvaluator
 
 namespace {
 
