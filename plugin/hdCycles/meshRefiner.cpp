@@ -430,28 +430,30 @@ public:
 
         // For each patch in the last level, iterate over corner vertices and check if each vertex has been visited,
         // and added to order array. LocationArray is grouped per
-        for(size_t patch{}; patch < patch_table.GetNumPatchesTotal(); ++patch) {
-            auto& patch_param = patch_param_table[patch];
+        for(size_t array{}; array < patch_table.GetNumPatchArrays(); ++array) {
+            for (size_t patch {}; patch < patch_table.GetNumPatches(array); ++patch) {
+                auto& patch_param = patch_param_table[patch];
 
-            auto face_vertices = last_level.GetFaceVertices(patch);
-            for (size_t local_index {}; local_index < face_vertices.size(); ++local_index) {
-                auto& vertex = face_vertices[local_index];
+                auto patch_vertices = patch_table.GetPatchVertices(array, patch);
+                for (size_t local_index {}; local_index < patch_vertices.size(); ++local_index) {
+                    auto patch_vertex = patch_vertices[local_index] - base_level.GetNumVertices();
+                    auto vertex       = patch_vertex;
 
-                if (visited.find(vertex) != visited.end())
-                    continue;
+                    if (visited.find(vertex) != visited.end())
+                        continue;
 
-                constexpr std::array<float, 2> patch_corner_uvs[4] = {
-                    { 0.0f, 0.0f },
-                    { 1.0f, 0.0f },
-                    { 1.0f, 1.0f },
-                    { 0.0f, 1.0f },
-                };
+                    constexpr std::array<float, 2> patch_corner_uvs[4] = {
+                        { 0.0f, 0.0f },
+                        { 1.0f, 0.0f },
+                        { 1.0f, 1.0f },
+                        { 0.0f, 1.0f },
+                    };
 
-                float ptex_u = patch_corner_uvs[local_index][0];
-                float ptex_v = patch_corner_uvs[local_index][1];
-                patch_param.Unnormalize(ptex_u, ptex_v);
-                us.push_back(ptex_u);
-                vs.push_back(ptex_v);
+                    float ptex_u = patch_corner_uvs[local_index][0];
+                    float ptex_v = patch_corner_uvs[local_index][1];
+                    patch_param.Unnormalize(ptex_u, ptex_v);
+                    us.push_back(ptex_u);
+                    vs.push_back(ptex_v);
 
                 order.push_back(vertex);
                 visited.insert(vertex);
