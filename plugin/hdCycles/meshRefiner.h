@@ -62,6 +62,8 @@ public:
     /// \brief Refined counts for backward compatibility, TODO: remove
     virtual const VtIntArray& GetRefinedCounts() const = 0;
 
+    virtual VtVec3fArray GenerateNormals(const VtVec3fArray& vertices) const = 0;
+
     /// \brief
     size_t GetNumRefinedTriangles() const;
 
