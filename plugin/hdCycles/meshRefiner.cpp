@@ -455,9 +455,10 @@ public:
                     us.push_back(ptex_u);
                     vs.push_back(ptex_v);
 
-                order.push_back(vertex);
-                visited.insert(vertex);
-                ++nums[patch_param.GetFaceId()]; // ptex faces
+                    order.push_back(vertex);
+                    visited.insert(vertex);
+                    ++nums[patch_param.GetFaceId()];  // ptex faces
+                }
             }
         }
 
