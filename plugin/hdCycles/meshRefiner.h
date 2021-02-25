@@ -51,7 +51,7 @@ public:
     /// \brief Compact information about triangle vertices
     virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
 
-    /// @{ \brief RefineArray primvar data
+    /// @{ \brief EvalPatches primvar data
     virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
@@ -63,6 +63,7 @@ public:
     virtual const VtIntArray& GetRefinedCounts() const = 0;
 
     virtual VtVec3fArray GenerateNormals(const VtVec3fArray& vertices) const = 0;
+    virtual VtVec3fArray GenerateNormals(const VtVec4fArray& vertices) const = 0;
 
     /// \brief
     size_t GetNumRefinedTriangles() const;

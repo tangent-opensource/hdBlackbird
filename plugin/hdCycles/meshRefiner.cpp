@@ -170,6 +170,10 @@ public:
         return {};
     }
 
+    VtVec3fArray GenerateNormals(const VtVec4fArray& vertices) const override {
+        return {};
+    }
+
 private:
     const HdMeshTopology* m_topology;
     const SdfPath& m_id;
@@ -181,9 +185,9 @@ private:
 
 /// Cpu buffer binder that satisfy CpuEvaluator requirements
 template<typename T>
-class RawCpuBufferWrapper {
+class RawCpuBuffer {
 public:
-    explicit RawCpuBufferWrapper(T* cpuBuffer) noexcept
+    explicit RawCpuBuffer(T* cpuBuffer) noexcept
         : _data {cpuBuffer} {
     }
 
@@ -264,8 +268,8 @@ RefineArrayWithStencils(const VtArray<T>& input, const Far::StencilTable* stenci
     Osd::BufferDescriptor src_descriptor(0, stride, stride);
     Osd::BufferDescriptor dst_descriptor(0, stride, stride);
 
-    RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
-    RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_array.data()));
+    RawCpuBuffer<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
+    RawCpuBuffer<float> dst_buffer(reinterpret_cast<float*>(refined_array.data()));
 
     EVALUATOR::EvalStencils(&src_buffer, src_descriptor, &dst_buffer, dst_descriptor, stencil_table);
     return refined_array;
@@ -384,8 +388,8 @@ private:
             Osd::BufferDescriptor src_descriptor(0, stride, stride);
             Osd::BufferDescriptor dst_descriptor(0, stride, stride);
 
-            RawCpuBufferWrapper<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
-            RawCpuBufferWrapper<float> dst_buffer(reinterpret_cast<float*>(refined_data.data()));
+            RawCpuBuffer<const float> src_buffer(reinterpret_cast<const float*>(input.data()));
+            RawCpuBuffer<float> dst_buffer(reinterpret_cast<float*>(refined_data.data()));
 
             EVALUATOR::EvalStencils(&src_buffer, src_descriptor,
                                     &dst_buffer, dst_descriptor,
@@ -452,29 +456,55 @@ public:
     }
 
     VtVec3fArray RefineArray(const VtVec3fArray& vertices) const {
-        VtVec3fArray pos_limit(m_patch_coords.size());
+        VtVec3fArray ps_limit(m_patch_coords.size());
         VtVec3fArray du_limit(m_patch_coords.size());
         VtVec3fArray dv_limit(m_patch_coords.size());
 
-        Osd::BufferDescriptor pos_descr(0, 3, 3);
-        RawCpuBufferWrapper<const float> pos_base_buffer(vertices.data()->data());
+        Osd::BufferDescriptor base_desc(0, 3, 3);
+        RawCpuBuffer<const float> ps_base_buffer(vertices.data()->data());
 
-        Osd::BufferDescriptor limit_desc{0, 3, 3};
-        RawCpuBufferWrapper<float> pos_limit_buffer(pos_limit.data()->data());
-        RawCpuBufferWrapper<float> us_limit_buffer{ du_limit.data()->data()};
-        RawCpuBufferWrapper<float> vs_limit_buffer{ dv_limit.data()->data()};
+        Osd::BufferDescriptor limit_desc {0, 3, 3};
+        RawCpuBuffer<float> ps_limit_buffer{ps_limit.data()->data()};
+        RawCpuBuffer<float> us_limit_buffer{du_limit.data()->data()};
+        RawCpuBuffer<float> vs_limit_buffer{dv_limit.data()->data()};
 
-        RawCpuBufferWrapper<const Osd::PatchCoord> patch_coords_buffer{m_patch_coords.data()};
+        EvalPatches(base_desc, ps_base_buffer, // input
+                    limit_desc, ps_limit_buffer, // position
+                    limit_desc, us_limit_buffer, // us
+                    limit_desc, vs_limit_buffer);
 
-        EVALUATOR::EvalPatches(&pos_base_buffer, pos_descr,
-                               &pos_limit_buffer, limit_desc,
-                               &us_limit_buffer, limit_desc,
-                               &vs_limit_buffer, limit_desc,
-                               m_patch_coords.size(), &patch_coords_buffer,
-                               m_patch_table);
+        VtVec3fArray normals(ps_limit.size());
+        for(size_t i{}; i< ps_limit.size(); ++i) {
+            normals[i] = GfCross(du_limit[i], dv_limit[i]);
+        }
 
-        VtVec3fArray normals(pos_limit.size());
-        for(size_t i{}; i< pos_limit.size(); ++i) {
+        // cleanup, we need to compute normals only once
+        std::vector<Osd::PatchCoord> empty_patch_coords;
+        m_patch_coords.swap(empty_patch_coords);
+
+        return normals;
+    }
+
+    VtVec3fArray RefineArray(const VtVec4fArray& vertices) const {
+        VtVec3fArray ps_limit(m_patch_coords.size());
+        VtVec3fArray du_limit(m_patch_coords.size());
+        VtVec3fArray dv_limit(m_patch_coords.size());
+
+        Osd::BufferDescriptor base_desc(0, 3, 4);
+        RawCpuBuffer<const float> ps_base_buffer(vertices.data()->data());
+
+        Osd::BufferDescriptor limit_desc {0, 3, 3};
+        RawCpuBuffer<float> ps_limit_buffer{ps_limit.data()->data()};
+        RawCpuBuffer<float> us_limit_buffer{du_limit.data()->data()};
+        RawCpuBuffer<float> vs_limit_buffer{dv_limit.data()->data()};
+
+        EvalPatches(base_desc, ps_base_buffer, // input
+                    limit_desc, ps_limit_buffer, // position
+                    limit_desc, us_limit_buffer, // us
+                    limit_desc, vs_limit_buffer);
+
+        VtVec3fArray normals(ps_limit.size());
+        for(size_t i{}; i< ps_limit.size(); ++i) {
             normals[i] = GfCross(du_limit[i], dv_limit[i]);
         }
 
@@ -486,6 +516,20 @@ public:
     }
 
 private:
+
+    void EvalPatches(Osd::BufferDescriptor ps_base_desc, RawCpuBuffer<const float> ps_base_buffer,
+                     Osd::BufferDescriptor ps_limit_desc, RawCpuBuffer<float> ps_limit_buffer,
+                     Osd::BufferDescriptor us_limit_desc, RawCpuBuffer<float> us_limit_buffer,
+                     Osd::BufferDescriptor vs_limit_desc, RawCpuBuffer<float> vs_limit_buffer) const {
+        RawCpuBuffer<const Osd::PatchCoord> patch_coords_buffer{m_patch_coords.data()};
+        EVALUATOR::EvalPatches(&ps_base_buffer, ps_base_desc,
+                               &ps_limit_buffer, ps_limit_desc,
+                               &us_limit_buffer, us_limit_desc,
+                               &vs_limit_buffer, vs_limit_desc,
+                               m_patch_coords.size(), &patch_coords_buffer,
+                               m_patch_table);
+    }
+
     mutable std::vector<Osd::PatchCoord> m_patch_coords;
     const Osd::CpuPatchTable* m_patch_table;
 };
@@ -508,9 +552,17 @@ public:
 
             std::vector<VtIntArray> fvar_topologies;
 
+            // Hd does not offer custom topologies to be passed to the refiner.
+            // Before data reaches to the Hd, every face varying data is un-indexed and flattened into one long array.
+            // This makes custom fvar topology gone and each patch becomes independent, discontinuous piece of mesh.
+            // Here we create custom topology with increasing indices. Depending on polygon orientation this topology
+            // can be reversed by the PxOsdRefinerFactory, and converted to ccw(right hand) if necessary.
+            // If Hd gets implementation to support custom face varying topologies, then we should pass each channel to
+            // the refiner.
             VtIntArray fvar_indices(m_topology->GetFaceVertexIndices().size());
             std::iota(fvar_indices.begin(), fvar_indices.end(), 0);
             fvar_topologies.push_back(fvar_indices);
+
             refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology(), fvar_topologies);
 
             Far::TopologyRefiner::UniformOptions uniform_options { refine_level };
@@ -525,6 +577,9 @@ public:
             // by default Far will not generate patches for all levels, triangulate quads option works for uniform subdivision only
             Far::PatchTableFactory::Options patch_options(refine_level);
             patch_options.generateAllLevels = false;
+            patch_options.useInfSharpPatch = true;
+
+            // only if face varying is present
             patch_options.generateFVarTables = true;
             patch_options.numFVarChannels = refiner->GetNumFVarChannels();
             int channel = 0;
@@ -581,9 +636,18 @@ public:
     }
 
     VtVec3fArray GenerateNormals(const VtVec3fArray& vertices) const override {
-        if(vertices.size() != m_topology->GetNumPoints()) {
-            return {};
-        }
+//        if(vertices.size() != m_topology->GetNumPoints()) {
+//            return {};
+//        }
+
+        VtVec3fArray normals = m_limit->RefineArray(vertices);
+        return normals;
+    }
+
+    VtVec3fArray GenerateNormals(const VtVec4fArray& vertices) const override {
+//        if(vertices.size() != m_topology->GetNumPoints()) {
+//            return {};
+//        }
 
         VtVec3fArray normals = m_limit->RefineArray(vertices);
         return normals;
