@@ -458,6 +458,27 @@ HdCyclesMesh::_PopulateNormals(const VtValue& data, HdInterpolation interpolatio
 
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
+    if(interpolation == HdInterpolationConstant) {
+        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
+        ccl::float3* normal_data    = normal_attr->data_float3();
+
+        const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
+        memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
+
+        VtValue refined_value = m_refiner->RefineConstantData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+        if(refined_value.GetArraySize() != 1) {
+            TF_WARN("Invalid uniform normals for: %s", id.GetText());
+            return;
+        }
+
+        VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
+        for (int i = 0; i < num_triangles; i++) {
+            normal_data[i] = vec3f_to_float3(refined_normals[i]);
+        }
+
+        return;
+    }
+
     if (interpolation == HdInterpolationUniform) {
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
