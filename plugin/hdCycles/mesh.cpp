@@ -496,23 +496,35 @@ HdCyclesMesh::_PopulateNormals(const VtValue& data, HdInterpolation interpolatio
         for (int i = 0; i < num_triangles; i++) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
-    } else if (interpolation == HdInterpolationVertex) {
+
+        return;
+    }
+
+    if (interpolation == HdInterpolationVertex || interpolation == HdInterpolationVarying) {
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* normal_data = normal_attr->data_float3();
 
         const size_t num_vertices = m_refiner->GetNumRefinedVertices();
         memset(normal_data, 0, num_vertices * sizeof(ccl::float3));
 
-        VtValue refined_value = m_refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+        VtValue refined_value;
+        if(interpolation == HdInterpolationVertex) {
+            refined_value = m_refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+        } else {
+            refined_value = m_refiner->RefineVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+        }
+
         if(refined_value.GetArraySize() != num_vertices) {
             TF_WARN("Invalid vertex normals for: %s", id.GetText());
-            return false;
+            return;
         }
 
         VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
         for(size_t i{}; i < num_vertices; ++i) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
+
+        return;
     }
 
     return true;
