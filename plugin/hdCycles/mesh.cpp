@@ -714,24 +714,27 @@ void
 HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id,
                                 HdDirtyBits* dirtyBits)
 {
-    // collect prim var descriptions
-    std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
-        { HdInterpolationConstant, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationConstant) },
-        { HdInterpolationUniform, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
-        { HdInterpolationVertex, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
-        { HdInterpolationVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVarying) },
-        { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
+    std::array<std::pair<HdInterpolation, HdPrimvarDescriptorVector>, 5> primvars_desc {
+        std::make_pair(HdInterpolationConstant, HdPrimvarDescriptorVector{}),
+        std::make_pair(HdInterpolationUniform, HdPrimvarDescriptorVector{}),
+        std::make_pair(HdInterpolationVertex, HdPrimvarDescriptorVector{}),
+        std::make_pair(HdInterpolationVarying, HdPrimvarDescriptorVector{}),
+        std::make_pair(HdInterpolationFaceVarying, HdPrimvarDescriptorVector{}),
     };
 
-    for (auto& interpolation_description : primvarDescsPerInterpolation) {
+    for(auto& info : primvars_desc) {
+        info.second = sceneDelegate->GetPrimvarDescriptors(id, info.first);
+    }
+
+    for (auto& interpolation_description : primvars_desc) {
         for (const HdPrimvarDescriptor& description : interpolation_description.second) {
 
             if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
                 continue;
             }
 
-            // How is this possible that points appear here, but normals don't? Points do not carry prefix `primvars:`
-            if(description.name == HdTokens->points) {
+            if(description.name == HdTokens->points ||
+                description.name == HdTokens->normals) {
                 continue;
             }
 
