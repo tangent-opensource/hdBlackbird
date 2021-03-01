@@ -430,27 +430,19 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
     TF_WARN("Unsupported displayColor interpolation for primitive: %s", id.GetText());
 }
 
-bool
-HdCyclesMesh::_PopulateNormals(const VtValue& data, HdInterpolation interpolation, const SdfPath& id)
+void
+HdCyclesMesh::_PopulateNormalsAndDerivatives(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     // not supported interpolation types
-    if(interpolation == HdInterpolationConstant) {
-        TF_WARN("Constant normals are not implemented!");
-        return false;
-    } else if(interpolation == HdInterpolationVarying) {
-        TF_WARN("Varying normals are not implemented!");
-        return false;
-    } else if (interpolation == HdInterpolationFaceVarying) {
+    if (interpolation == HdInterpolationFaceVarying) {
         TF_WARN("Face varying normals are not implemented!");
-        return false;
+        return;
     }
-
-    VtValue normals_value = data;
 
     if(!normals_value.IsHolding<VtVec3fArray>()) {
         if(!normals_value.CanCast<VtVec3fArray>()) {
             TF_WARN("Invalid normals data! Can not convert normals for: %s", id.GetText());
-            return false;
+            return;
         }
 
         normals_value = normals_value.Cast<VtVec3fArray>();
@@ -489,7 +481,7 @@ HdCyclesMesh::_PopulateNormals(const VtValue& data, HdInterpolation interpolatio
         VtValue refined_value = m_refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
         if(refined_value.GetArraySize() != num_triangles) {
             TF_WARN("Invalid uniform normals for: %s", id.GetText());
-            return false;
+            return;
         }
 
         VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
@@ -526,8 +518,6 @@ HdCyclesMesh::_PopulateNormals(const VtValue& data, HdInterpolation interpolatio
 
         return;
     }
-
-    return true;
 }
 
 ccl::Mesh*

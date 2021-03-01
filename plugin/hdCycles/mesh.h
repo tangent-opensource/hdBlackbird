@@ -142,7 +142,6 @@ protected:
      * @param normals 
      * @param interpolation 
      */
-    bool _PopulateNormals(const VtValue& data, HdInterpolation interpolation, const SdfPath& id);
 
     /**
      * @brief Add vertex velocities (Not tested)
@@ -209,6 +208,8 @@ protected:
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+
+    void _PopulateNormalsAndDerivatives(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     void _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
     void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
