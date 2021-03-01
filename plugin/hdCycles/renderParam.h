@@ -35,6 +35,7 @@ namespace ccl {
 class Session;
 class Scene;
 class Mesh;
+class PointCloud;
 class RenderTile;
 class Shader;
 }  // namespace ccl
@@ -246,6 +247,13 @@ public:
     void AddMesh(ccl::Mesh* a_mesh);
 
     /**
+     * @brief Add point cloud to scene
+     * 
+     * @param a_geometry Point cloud to add
+     */
+    void AddPointCloud(ccl::PointCloud* a_pc);
+
+    /**
      * @brief Add geometry to scene
      * 
      * @param a_geometry Geometry to add
@@ -293,6 +301,14 @@ public:
      * @param a_mesh Mesh to remove
      */
     void RemoveMesh(ccl::Mesh* a_mesh);
+
+    /**
+     * @brief Remove point cloud geometry from cycles scene
+     * 
+     * @param a_mesh Mesh to remove
+     */
+    void RemovePointCloud(ccl::PointCloud* a_mesh);
+
 
     /**
      * @brief Remove object from cycles scene
@@ -382,6 +398,7 @@ private:
     bool m_geometryUpdated;
     bool m_curveUpdated;
     bool m_meshUpdated;
+    bool m_pointCloudUpdated;
     bool m_lightsUpdated;
     bool m_shadersUpdated;
 

@@ -35,6 +35,7 @@
 #include <render/integrator.h>
 #include <render/light.h>
 #include <render/mesh.h>
+#include <render/pointcloud.h>
 #include <render/nodes.h>
 #include <render/object.h>
 #include <render/scene.h>
@@ -89,6 +90,7 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_geometryUpdated(false)
     , m_curveUpdated(false)
     , m_meshUpdated(false)
+    , m_pointCloudUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
     , m_numDomeLights(0)
@@ -1628,10 +1630,11 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     m_cyclesSession->progress.reset();
 
     if (m_curveUpdated || m_meshUpdated || m_geometryUpdated
-        || m_shadersUpdated) {
+        || m_shadersUpdated || m_pointCloudUpdated) {
         m_cyclesScene->geometry_manager->tag_update(m_cyclesScene);
         m_geometryUpdated = false;
         m_meshUpdated     = false;
+        m_pointCloudUpdated = false;
     }
 
     if (m_curveUpdated) {
@@ -1748,6 +1751,21 @@ HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
 }
 
 void
+HdCyclesRenderParam::AddPointCloud(ccl::PointCloud* a_pc)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add geometry to scene. Scene is null.");
+        return;
+    }
+
+    m_pointCloudUpdated = true;
+
+    m_cyclesScene->geometry.push_back(a_pc);
+
+    Interrupt();
+}
+
+void
 HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
 {
     if (!m_cyclesScene) {
@@ -1839,6 +1857,27 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 
     if (m_geometryUpdated)
         Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemovePointCloud(ccl::PointCloud* a_pc) {
+    for (ccl::vector<ccl::Geometry*>::iterator it
+         = m_cyclesScene->geometry.begin();
+         it != m_cyclesScene->geometry.end();) {
+        if (a_pc == *it) {
+            it = m_cyclesScene->geometry.erase(it);
+
+            m_pointCloudUpdated = true;
+
+            break;
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_geometryUpdated)
+        Interrupt();
+
 }
 
 void

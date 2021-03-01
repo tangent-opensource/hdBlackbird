@@ -28,6 +28,7 @@
 #include <render/object.h>
 #include <render/scene.h>
 #include <render/shader.h>
+#include <render/pointcloud.h>
 #include <util/util_math_float3.h>
 #include <util/util_string.h>
 
@@ -60,23 +61,46 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
 
     m_cyclesMesh = new ccl::Mesh();
     m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
+
+    m_cyclesPointCloud = new ccl::PointCloud();
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesPointCloud);
+
+    m_cyclesObject = new ccl::Object();
+    m_cyclesObject->geometry = m_cyclesPointCloud;
+    m_cyclesObject->tfm = ccl::transform_identity();
+    m_cyclesObject->pass_id = -1;
+    m_cyclesObject->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
+    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
 }
 
 HdCyclesPoints::~HdCyclesPoints()
 {
-    // Remove points
+    // Remove mesh instances
     for (int i = 0; i < m_cyclesObjects.size(); i++) {
         m_renderDelegate->GetCyclesRenderParam()->RemoveObject(
             m_cyclesObjects[i]);
+        if (m_cyclesObjects[i]) {
+           delete m_cyclesObjects[i]; 
+        }
     }
-
     m_cyclesObjects.clear();
 
-    // Remove mesh
+    // Remove mesh or pointcloud. Currently both classes are allocated but only
+    // the active has data loaded into it.
+    if (m_cyclesMesh) {
+        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        delete m_cyclesMesh;
+    }
 
-    m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+    if (m_cyclesPointCloud) {
+        m_renderDelegate->GetCyclesRenderParam()->RemovePointCloud(m_cyclesPointCloud);
+        delete m_cyclesPointCloud;
+    }
 
-    delete m_cyclesMesh;
+    if (m_cyclesObject) {
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        delete m_cyclesObject;
+    }
 }
 
 void
@@ -146,9 +170,87 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 #endif
 
+    printf("Point style %d\n", m_pointStyle);
+
     // Create Points
 
-    if (*dirtyBits & HdChangeTracker::DirtyPoints || needs_newMesh) {
+    const bool needToUpdatePoints = (*dirtyBits & HdChangeTracker::DirtyPoints) || needs_newMesh;
+
+    if (needToUpdatePoints && m_pointStyle == HdCyclesPointStyle::POINT_SPHERES) {
+        printf("HDCYCLES POINTCLOUD\n");
+        needs_update = true;
+
+        m_cyclesPointCloud->clear();
+        m_cyclesPointCloud->tag_update(scene, true);
+        m_cyclesObject->tag_update(scene);
+
+        const auto pointsValue = sceneDelegate->Get(id, HdTokens->points);
+        if (!pointsValue.IsEmpty() && pointsValue.IsHolding<VtVec3fArray>()) {
+            const VtVec3fArray& points = pointsValue.Get<VtVec3fArray>();
+            
+            m_cyclesPointCloud->resize(points.size());
+            for (size_t i = 0; i < points.size(); ++i) {
+                m_cyclesPointCloud->points[i] = vec3f_to_float3(points[i]);
+            }
+        }
+
+        if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+            //printf("HDCYCLES PointCloud dirty transform\n");
+            ccl::Transform newTransform = HdCyclesExtractTransform(sceneDelegate, id);
+            m_cyclesObject->tfm = newTransform;
+            m_transform = newTransform;
+
+            needs_update = true;
+        }
+
+        // TODO: It's likely that this can cause double transforms due to modifying the core transform
+        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->widths)) {
+            needs_update = true;
+
+            HdTimeSampleArray<VtValue, 2> radius_steps;
+            sceneDelegate->SamplePrimvar(id, HdTokens->widths, &radius_steps);
+            if (radius_steps.count > 0) {
+                const VtFloatArray& radius = radius_steps.values[0].Get<VtFloatArray>();
+
+                // The more correct way to figure out the interpolation
+                // would be to get a primvar descriptor array but it requires
+                // refactoring the sync into a loop.
+                assert(m_cyclesPointCloud->points.size() == m_cyclesPointCloud->radius.size());
+                if (radius.size() == 1) {
+                    for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
+                        m_cyclesPointCloud->radius[i] = radius[0];
+                    }
+                } else if (radius.size() == m_cyclesPointCloud->points.size()) {
+                    for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
+                        m_cyclesPointCloud->radius[i] = radius[i];
+                    }
+                } else {
+                    std::cout << "Unknown interpolation type for pointcloud. Have " 
+                    << m_cyclesPointCloud->points.size() << " points but primvar has size " 
+                    << radius.size() << std::endl;
+                }
+            }
+
+
+            if (m_cyclesObjects.size() > 0) {
+                HdTimeSampleArray<VtValue, 2> xf;
+                sceneDelegate->SamplePrimvar(id, HdTokens->widths, &xf);
+                if (xf.count > 0) {
+                    const VtFloatArray& widths = xf.values[0].Get<VtFloatArray>();
+                    for (int i = 0; i < widths.size(); i++) {
+                        if (i < m_cyclesObjects.size()) {
+                            float w                 = widths[i];
+                            m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm
+                                                      * ccl::transform_scale(w, w,
+                                                                             w);
+                        }
+                    }
+                }
+            }
+        }
+
+
+    }else if (needToUpdatePoints) {
         needs_update = true;
 
         m_cyclesMesh->clear();
@@ -160,6 +262,8 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         m_cyclesMesh->tag_update(scene, true);
+
+        // Positions
 
         const auto pointsValue = sceneDelegate->Get(id, HdTokens->points);
         if (!pointsValue.IsEmpty() && pointsValue.IsHolding<VtVec3fArray>()) {
@@ -184,84 +288,88 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 param->AddObject(pointObject);
             }
         }
-    }
 
-    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        ccl::Transform newTransform = HdCyclesExtractTransform(sceneDelegate,
-                                                               id);
+        // Transforms
 
-        for (int i = 0; i < m_cyclesObjects.size(); i++) {
-            m_cyclesObjects[i]->tfm = ccl::transform_inverse(m_transform)
-                                      * m_cyclesObjects[i]->tfm;
-            m_cyclesObjects[i]->tfm = newTransform * m_cyclesObjects[i]->tfm;
+        if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+            ccl::Transform newTransform = HdCyclesExtractTransform(sceneDelegate,
+                                                                   id);
+
+            for (int i = 0; i < m_cyclesObjects.size(); i++) {
+                m_cyclesObjects[i]->tfm = ccl::transform_inverse(m_transform)
+                                          * m_cyclesObjects[i]->tfm;
+                m_cyclesObjects[i]->tfm = newTransform * m_cyclesObjects[i]->tfm;
+            }
+
+            m_transform = newTransform;
+
+            needs_update = true;
         }
 
-        m_transform = newTransform;
+        // Widths
 
-        needs_update = true;
-    }
+        // TODO: It's likely that this can cause double transforms due to modifying the core transform
+        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->widths)) {
+            needs_update = true;
 
-    // TODO: It's likely that this can cause double transforms due to modifying the core transform
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->widths)) {
-        needs_update = true;
-
-        if (m_cyclesObjects.size() > 0) {
-            HdTimeSampleArray<VtValue, 2> xf;
-            sceneDelegate->SamplePrimvar(id, HdTokens->widths, &xf);
-            if (xf.count > 0) {
-                const VtFloatArray& widths = xf.values[0].Get<VtFloatArray>();
-                for (int i = 0; i < widths.size(); i++) {
-                    if (i < m_cyclesObjects.size()) {
-                        float w                 = widths[i];
-                        m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm
-                                                  * ccl::transform_scale(w, w,
-                                                                         w);
+            if (m_cyclesObjects.size() > 0) {
+                HdTimeSampleArray<VtValue, 2> xf;
+                sceneDelegate->SamplePrimvar(id, HdTokens->widths, &xf);
+                if (xf.count > 0) {
+                    const VtFloatArray& widths = xf.values[0].Get<VtFloatArray>();
+                    for (int i = 0; i < widths.size(); i++) {
+                        if (i < m_cyclesObjects.size()) {
+                            float w                 = widths[i];
+                            m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm
+                                                      * ccl::transform_scale(w, w,
+                                                                             w);
+                        }
                     }
                 }
             }
         }
-    }
 
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->normals)) {
-        needs_update = true;
+        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->normals)) {
+            needs_update = true;
 
-        if (m_cyclesObjects.size() > 0) {
-            HdTimeSampleArray<VtValue, 1> xf;
-            sceneDelegate->SamplePrimvar(id, HdTokens->normals, &xf);
-            if (xf.count > 0) {
-                const VtVec3fArray& normals = xf.values[0].Get<VtVec3fArray>();
-                for (int i = 0; i < normals.size(); i++) {
-                    if (i < m_cyclesObjects.size()) {
-                        ccl::float3 rotAxis
-                            = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
-                                         ccl::make_float3(normals[i][0],
-                                                          normals[i][1],
-                                                          normals[i][2]));
-                        float d = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
-                                           ccl::make_float3(normals[i][0],
-                                                            normals[i][1],
-                                                            normals[i][2]));
-                        float angle = atan2f(ccl::len(rotAxis), d);
-                        m_cyclesObjects[i]->tfm
-                            = m_cyclesObjects[i]->tfm
-                              * ccl::transform_rotate((angle), rotAxis);
+            if (m_cyclesObjects.size() > 0) {
+                HdTimeSampleArray<VtValue, 1> xf;
+                sceneDelegate->SamplePrimvar(id, HdTokens->normals, &xf);
+                if (xf.count > 0) {
+                    const VtVec3fArray& normals = xf.values[0].Get<VtVec3fArray>();
+                    for (int i = 0; i < normals.size(); i++) {
+                        if (i < m_cyclesObjects.size()) {
+                            ccl::float3 rotAxis
+                                = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                                             ccl::make_float3(normals[i][0],
+                                                              normals[i][1],
+                                                              normals[i][2]));
+                            float d = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                                               ccl::make_float3(normals[i][0],
+                                                                normals[i][1],
+                                                                normals[i][2]));
+                            float angle = atan2f(ccl::len(rotAxis), d);
+                            m_cyclesObjects[i]->tfm
+                                = m_cyclesObjects[i]->tfm
+                                  * ccl::transform_rotate((angle), rotAxis);
+                        }
                     }
+                } else {
+                    // handle orient to camera
                 }
-            } else {
-                // handle orient to camera
             }
         }
-    }
 
-    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-        needs_update = true;
+        if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
+            needs_update = true;
 
-        bool visible = sceneDelegate->GetVisible(id);
-        for (int i = 0; i < m_cyclesObjects.size(); i++) {
-            if (visible) {
-                m_cyclesObjects[i]->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
-            } else {
-                m_cyclesObjects[i]->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+            bool visible = sceneDelegate->GetVisible(id);
+            for (int i = 0; i < m_cyclesObjects.size(); i++) {
+                if (visible) {
+                    m_cyclesObjects[i]->visibility |= ccl::PATH_RAY_ALL_VISIBILITY;
+                } else {
+                    m_cyclesObjects[i]->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+                }
             }
         }
     }

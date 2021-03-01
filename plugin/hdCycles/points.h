@@ -34,6 +34,7 @@ namespace ccl {
 class Object;
 class Mesh;
 class Scene;
+class PointCloud;
 }  // namespace ccl
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -47,8 +48,7 @@ enum HdCyclesPointStyle {
 };
 
 /**
- * @brief An intermediate solution for HdPoints as Cycles doesn't
- * natively support point clouds.
+ * @brief HdCycles Points Rprim mapped to Cycles point cloud or mesh instances
  * 
  */
 class HdCyclesPoints final : public HdPoints {
@@ -145,8 +145,12 @@ private:
     ccl::Object* _CreatePointsObject(const ccl::Transform& transform,
                                      ccl::Mesh* mesh);
 
-    ccl::Mesh* m_cyclesMesh;
+    // Used if the point style is POINT_SPHERES
+    ccl::PointCloud* m_cyclesPointCloud;
+    ccl::Object* m_cyclesObject;
 
+    // Used if the point style is not POINT_SPHERES
+    ccl::Mesh* m_cyclesMesh;
     std::vector<ccl::Object*> m_cyclesObjects;
 
     HdCyclesRenderDelegate* m_renderDelegate;
