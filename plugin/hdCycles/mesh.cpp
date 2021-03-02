@@ -661,8 +661,6 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
         m_cyclesMesh->triangles[i * 3 + 1] = triangle_indices[1];
         m_cyclesMesh->triangles[i * 3 + 2] = triangle_indices[2];
 
-        constexpr int default_shader_id = 0;
-        m_cyclesMesh->shader[i] = default_shader_id;
         m_cyclesMesh->smooth[i] = true;
     }
 }
@@ -678,6 +676,11 @@ HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* sce
     // This behaviour is to cover a corner case, where there is no object material, but there is a sub set,
     // that does not assign materials to all faces.
     m_cyclesMesh->used_shaders = {scene->default_surface};
+
+    constexpr int default_shader_id = 0;
+    for(size_t i{}; i < m_cyclesMesh->num_triangles(); ++i) {
+        m_cyclesMesh->shader[i] = default_shader_id;
+    }
 
     _PopulateObjectMaterial(sceneDelegate, scene, id);
     _PopulateSubSetsMaterials(sceneDelegate, scene, id);
