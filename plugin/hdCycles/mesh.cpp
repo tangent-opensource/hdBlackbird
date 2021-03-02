@@ -638,12 +638,13 @@ void
 HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
 {
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
-    m_topology = GetMeshTopology(sceneDelegate);
-    m_topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
+    auto topology = GetMeshTopology(sceneDelegate);
+    topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
 
+    //
     HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-    auto refiner = HdCyclesMeshRefiner::Create(m_topology, display_style.refineLevel, id);
-    m_refiner = refiner;
+    m_topology = HdMeshTopology(topology, display_style.refineLevel);
+    m_refiner = HdCyclesMeshRefiner::Create(m_topology, id);
 
     // Mesh is independently updated in two stages, faces(topology) and vertices(data).
     // Because process of updating vertices can fail for unknown reason,
