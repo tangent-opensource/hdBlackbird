@@ -68,10 +68,6 @@ public:
         return m_triangle_indices;
     }
 
-    const VtIntArray& GetRefinedCounts() const override {
-        return m_triangle_counts;
-    }
-
     VtValue RefineConstantData(const TfToken& name, const TfToken& role,
                                const VtValue& data) const override {
         return data;
@@ -661,10 +657,6 @@ public:
         return m_triangle_indices;
     }
 
-    const VtIntArray& GetRefinedCounts() const override {
-        return m_triangle_counts;
-    }
-
     VtValue RefineConstantData(const TfToken& name, const TfToken& role,
                                const VtValue& data) const override {
         return {data};
@@ -733,7 +725,6 @@ private:
 
     VtVec3iArray m_triangle_indices;
     VtIntArray m_prim_param;
-    VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
 
     // necessary osd structures
     std::unique_ptr<const Far::PatchMap> m_patch_map;
