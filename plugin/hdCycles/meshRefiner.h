@@ -41,7 +41,7 @@ class SdfPath;
 ///
 class HdCyclesMeshRefiner {
 public:
-    static std::shared_ptr<HdCyclesMeshRefiner> Create(const HdMeshTopology& topology, int refine_level, const SdfPath& id);
+    static std::shared_ptr<HdCyclesMeshRefiner> Create(const HdMeshTopology& topology, const SdfPath& id);
 
     virtual ~HdCyclesMeshRefiner();
 

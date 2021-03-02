@@ -52,7 +52,7 @@ namespace {
 ///
 class HdCyclesTriangleRefiner final : public HdCyclesMeshRefiner {
 public:
-    HdCyclesTriangleRefiner(const HdMeshTopology& topology, int refine_level, const SdfPath& id)
+    HdCyclesTriangleRefiner(const HdMeshTopology& topology, const SdfPath& id)
         : m_topology{&topology}
         , m_id{id} {
         HdMeshUtil mesh_util{&topology, m_id};
@@ -527,7 +527,7 @@ private:
 ///
 class HdCyclesSubdRefiner final : public HdCyclesMeshRefiner {
 public:
-    HdCyclesSubdRefiner(const HdMeshTopology& topology, int refine_level, const SdfPath& id)
+    HdCyclesSubdRefiner(const HdMeshTopology& topology, const SdfPath& id)
         : m_topology{&topology}
         , m_id{id}
     {
@@ -552,7 +552,7 @@ public:
 
             m_refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology(), fvar_topologies);
 
-            Far::TopologyRefiner::UniformOptions uniform_options { refine_level };
+            Far::TopologyRefiner::UniformOptions uniform_options { m_topology->GetRefineLevel() };
             uniform_options.fullTopologyInLastLevel = true;
             m_refiner->RefineUniform(uniform_options);
         }
@@ -562,7 +562,7 @@ public:
             HD_TRACE_SCOPE("create patch table")
 
             // by default Far will not generate patches for all levels, triangulate quads option works for uniform subdivision only
-            Far::PatchTableFactory::Options patch_options(refine_level);
+            Far::PatchTableFactory::Options patch_options(m_topology->GetRefineLevel());
             patch_options.generateAllLevels = false;
             patch_options.useInfSharpPatch = true;
 
@@ -721,13 +721,12 @@ private:
 } // namespace
 
 std::shared_ptr<HdCyclesMeshRefiner>
-HdCyclesMeshRefiner::Create(const HdMeshTopology& topology, int refine_level, const SdfPath& id) {
-    if(topology.GetScheme() == PxOsdOpenSubdivTokens->none ||
-        refine_level == 0) {
-        return std::make_shared<HdCyclesTriangleRefiner>(topology, refine_level, id);
+HdCyclesMeshRefiner::Create(const HdMeshTopology& topology, const SdfPath& id) {
+    if(topology.GetScheme() == PxOsdOpenSubdivTokens->none || topology.GetRefineLevel() == 0) {
+        return std::make_shared<HdCyclesTriangleRefiner>(topology, id);
     }
 
-    return std::make_shared<HdCyclesSubdRefiner>(topology, refine_level, id);
+    return std::make_shared<HdCyclesSubdRefiner>(topology, id);
 }
 
 HdCyclesMeshRefiner::HdCyclesMeshRefiner() = default;
