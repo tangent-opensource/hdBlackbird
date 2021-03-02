@@ -534,7 +534,6 @@ public:
         HD_TRACE_FUNCTION();
 
         // passing topology through refiner converts cw to ccw
-        PxOsdTopologyRefinerSharedPtr refiner;
         {
             HD_TRACE_SCOPE("create refiner")
 
@@ -551,11 +550,11 @@ public:
             std::iota(fvar_indices.begin(), fvar_indices.end(), 0);
             fvar_topologies.push_back(fvar_indices);
 
-            refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology(), fvar_topologies);
+            m_refiner = PxOsdRefinerFactory::Create(topology.GetPxOsdMeshTopology(), fvar_topologies);
 
             Far::TopologyRefiner::UniformOptions uniform_options { refine_level };
             uniform_options.fullTopologyInLastLevel = true;
-            refiner->RefineUniform(uniform_options);
+            m_refiner->RefineUniform(uniform_options);
         }
 
         // patches for face and materials lookup
@@ -569,11 +568,11 @@ public:
 
             // only if face varying is present
             patch_options.generateFVarTables = true;
-            patch_options.numFVarChannels = refiner->GetNumFVarChannels();
+            patch_options.numFVarChannels = m_refiner->GetNumFVarChannels();
             int channel = 0;
             patch_options.fvarChannelIndices = &channel;
 
-            std::unique_ptr<Far::PatchTable> far_patch_table{Far::PatchTableFactory::Create(*refiner, patch_options)};
+            std::unique_ptr<Far::PatchTable> far_patch_table{Far::PatchTableFactory::Create(*m_refiner, patch_options)};
             m_patch_map = std::make_unique<Far::PatchMap>(*far_patch_table);
             m_patch_table = std::make_unique<Osd::CpuPatchTable>(far_patch_table.get());
         }
@@ -588,20 +587,20 @@ public:
             stencil_options.generateOffsets            = true;
 
             // required stencils for vertex and normal computation
-            m_vertex = std::make_unique<SubdVertexRefiner>(*refiner, stencil_options);
-            m_limit = std::make_unique<SubdLimitRefiner>(*refiner, m_patch_table.get(), *m_patch_map);
-            m_uniform = std::make_unique<SubdUniformRefiner>(*refiner, m_patch_table.get());
+            m_vertex = std::make_unique<SubdVertexRefiner>(*m_refiner, stencil_options);
+            m_uniform = std::make_unique<SubdUniformRefiner>(*m_refiner, m_patch_table.get());
 
             // optional refiners depending on presence of PrimVars
-            m_varying = std::make_unique<SubdVaryingRefiner>(*refiner, stencil_options);
-            m_fvar = std::make_unique<SubdFVarRefiner>(*refiner, m_patch_table.get(), stencil_options);
+            m_limit = std::make_unique<SubdLimitRefiner>(*m_refiner);
+            m_varying = std::make_unique<SubdVaryingRefiner>(*m_refiner, stencil_options);
+            m_fvar = std::make_unique<SubdFVarRefiner>(*m_refiner, m_patch_table.get(), stencil_options);
         }
 
         // create Osd topology
         {
             HD_TRACE_SCOPE("create osd topology")
 
-            const Far::TopologyLevel& last_level = refiner->GetLevel(refiner->GetMaxLevel());
+            const Far::TopologyLevel& last_level = m_refiner->GetLevel(m_refiner->GetMaxLevel());
 
             VtIntArray patch_vertex_count;
             patch_vertex_count.reserve(last_level.GetNumFaces());
@@ -706,15 +705,16 @@ private:
     VtIntArray m_prim_param;
 
     // necessary osd structures
+    PxOsdTopologyRefinerSharedPtr m_refiner;
     std::unique_ptr<const Far::PatchMap> m_patch_map;
     std::unique_ptr<const Osd::CpuPatchTable> m_patch_table;
 
     // Required
     std::unique_ptr<SubdVertexRefiner> m_vertex; // vertices
-    std::unique_ptr<SubdLimitRefiner> m_limit; // normals
     std::unique_ptr<SubdUniformRefiner> m_uniform; // materials
 
     // Optional refiners depending on presence of PrimVars
+    std::unique_ptr<SubdLimitRefiner> m_limit; // normals
     std::unique_ptr<SubdVaryingRefiner> m_varying;
     std::unique_ptr<SubdFVarRefiner> m_fvar;
 };
