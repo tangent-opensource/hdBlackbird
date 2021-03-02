@@ -119,6 +119,12 @@ protected:
 
 private:
     /**
+     * @brief Returns true if the cycles representation is a PointCloud
+     * 
+     */
+    bool _usingPointCloud() const;
+
+    /**
      * @brief Create the cycles points as discs mesh and object representation
      * 
      * @param resolution Resolution of the disc geometry
@@ -145,6 +151,26 @@ private:
     ccl::Object* _CreatePointsObject(const ccl::Transform& transform,
                                      ccl::Mesh* mesh);
 
+
+    /**
+     * @brief Add velocities to the Cycles geometry
+     * 
+     * @param velocities
+     */
+    void _AddVelocities(const VtVec3fArray& velocities);
+
+    /**
+     * @brief Add accelerations to the Cycles geometry
+     * 
+     * @param accelerations
+     */
+    void _AddAccelerations(const VtVec3fArray& accelerations);
+
+
+    // Control the shape of the primitive
+    int m_pointStyle;
+    int m_pointResolution;
+
     // Used if the point style is POINT_SPHERES
     ccl::PointCloud* m_cyclesPointCloud;
     ccl::Object* m_cyclesObject;
@@ -157,13 +183,11 @@ private:
 
     ccl::Transform m_transform;
 
-    int m_pointStyle;
-    int m_pointResolution;
-
-    // -- Currently unused
-
     bool m_useMotionBlur;
     int m_motionSteps;
+
+
+    // -- Currently unused
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 };
