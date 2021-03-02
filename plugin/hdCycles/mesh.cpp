@@ -143,12 +143,11 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     }
 
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
-    ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
-
     bool need_uv = m_cyclesMesh->need_attribute(scene, uv_name) ||
                    m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV);
-    bool need_tangent = m_cyclesMesh->need_attribute(scene, tangent_name) ||
-                        m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+    if(!need_uv) {
+        return;
+    }
 
     // To avoid face varying computations we take attribute and we refine it with
     // respecting incoming interpolation. Then we convert it to face varying because
@@ -245,11 +244,47 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
         return;
     }
 
+    //
+    // Tangents
+    //
+
+    ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
+    ccl::ustring sign_name = ccl::ustring(name.GetString() + ".tangent_sign");
+    bool need_tangent = m_cyclesMesh->need_attribute(scene, tangent_name) ||
+                        m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+    if(!need_tangent) {
+        return;
+    }
+
+    // Take tangent from subdivision limit surface
+    if(m_refiner->IsSubdivided()) {
+        // subdivided tangents are per vertex
+
+        if(m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT)) {
+            ccl::Attribute* tangent_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT, tangent_name);
+            ccl::float3* tangent_data = tangent_attrib->data_float3();
+
+            for(size_t i{}; i < m_cyclesMesh->triangles.size(); ++i) {
+                auto vertex_index = m_cyclesMesh->triangles[i];
+                tangent_data[i] = m_limit_us[vertex_index];
+            }
+        }
+
+        if(m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT_SIGN)) {
+            auto sign_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT_SIGN, sign_name);
+            auto sign_data = sign_attrib->data_float();
+
+            for(size_t i{}; i < m_cyclesMesh->triangles.size(); ++i) {
+                sign_data[i] = 1.0f;
+            }
+        }
+
+        return;
+    }
+
     // Forced true for now... Should be based on shader compilation needs
     need_tangent = true;
     if (need_tangent) {
-        ccl::ustring sign_name = ccl::ustring(name.GetString()
-                                              + ".tangent_sign");
         bool need_sign
             = m_cyclesMesh->need_attribute(scene, sign_name)
               || m_cyclesMesh->need_attribute(scene,
@@ -661,7 +696,7 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
         m_cyclesMesh->triangles[i * 3 + 1] = triangle_indices[1];
         m_cyclesMesh->triangles[i * 3 + 2] = triangle_indices[2];
 
-        m_cyclesMesh->smooth[i] = true;
+        m_cyclesMesh->smooth[i] = true; // TODO: move to Populate normals?
     }
 }
 
@@ -822,6 +857,7 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 
             if(description.role == HdPrimvarRoleTokens->textureCoordinate) {
                 _AddUVSet(description.name, value, scene, interpolation);
+                continue;
             }
 
             // TODO: Add arbitrary primvar support when AOVs are working
