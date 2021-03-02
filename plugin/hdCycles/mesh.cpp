@@ -1043,35 +1043,42 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-    if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
-        // m_doubleSided = sceneDelegate->GetDoubleSided(id);
+    if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
+        _PopulateTopology(sceneDelegate, scene, id);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
         _PopulateMaterials(sceneDelegate, scene, id);
     }
 
+    // For subdivided meshes, data conversion has to happen in a specific way:
+    // * vertices - generate limit surface position and tangents
+    // * normals - limit surface tangents are used to generate normals
+    // * uvs - limit surface tangents are passed to texture coordinates
+    // After conversion, class members that hold du and dv are cleared in FinishMesh.
     if(*dirtyBits & HdChangeTracker::DirtyPoints) {
         _PopulateVertices(sceneDelegate, id);
     }
 
-    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
+    if(*dirtyBits & HdChangeTracker::DirtyNormals) {
+        _PopulateNormals(sceneDelegate, id);
     }
 
     if(*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         _PopulatePrimvars(sceneDelegate, scene, id, dirtyBits);
     }
 
+    if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
+//         m_doubleSided = sceneDelegate->GetDoubleSided(id);
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
+    }
+
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
         // Offset of 1 added because Cycles primId pass needs to be shifted down to -1
         m_cyclesObject->pass_id = this->GetPrimId() + 1;
-    }
-
-    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-        _sharedData.visible = sceneDelegate->GetVisible(id);
-    }
-
     // -------------------------------------
     // -- Resolve Drawstyles
 
