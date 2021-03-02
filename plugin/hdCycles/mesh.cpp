@@ -904,9 +904,9 @@ HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
 void
 HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
 {
-    // Deprecated in favour of adding when uv's are added
-    // This should no longer be necessary
-    //_ComputeTangents(true);
+    // cleanup limit surface temporary data
+    m_limit_us = {};
+    m_limit_vs = {};
 
     // This must be done first, because HdCyclesMeshTextureSpace requires computed min/max
     m_cyclesMesh->compute_bounds();
