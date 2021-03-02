@@ -256,7 +256,6 @@ protected:
     bool m_visTransmission;
 
 public:
-    const VtIntArray& GetFaceVertexCounts() const;
     const TfToken& GetOrientation() { return m_topology.GetOrientation(); }
 
 private:
