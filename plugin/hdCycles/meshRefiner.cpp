@@ -618,7 +618,6 @@ public:
 
             HdMeshUtil mesh_util{&m_osd_topology, m_id};
             mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_prim_param);
-            m_triangle_counts = VtIntArray(m_triangle_indices.size(), 3);
         }
     }
 
