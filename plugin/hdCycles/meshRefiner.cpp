@@ -20,7 +20,6 @@
 #include "meshRefiner.h"
 
 #include <pxr/imaging/hd/changeTracker.h>
-#include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/meshUtil.h>
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/matrix3f.h>
@@ -36,6 +35,10 @@
 #include <opensubdiv/far/patchTableFactory.h>
 #include <opensubdiv/far/ptexIndices.h>
 #include <opensubdiv/far/patchMap.h>
+#include <opensubdiv/far/primvarRefiner.h>
+
+#include <util/util_math.h>
+#include <render/mesh.h>
 
 #include <numeric>
 
@@ -57,7 +60,6 @@ public:
         , m_id{id} {
         HdMeshUtil mesh_util{&topology, m_id};
         mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_primitive_param);
-        m_triangle_counts = VtIntArray(m_primitive_param.size(), 3);
     }
 
     size_t GetNumRefinedVertices() const override {
@@ -71,6 +73,16 @@ public:
     VtValue RefineConstantData(const TfToken& name, const TfToken& role,
                                const VtValue& data) const override {
         return data;
+    }
+
+    bool IsSubdivided() const override {
+        return false;
+    }
+
+    void EvaluateLimit(const VtFloat3Array& refined_vertices,
+                       VtFloat3Array& limit_ps,
+                       VtFloat3Array& limit_du,
+                       VtFloat3Array& limit_dv) const override {
     }
 
     template<typename T>
@@ -166,7 +178,6 @@ private:
     const HdMeshTopology* m_topology;
     const SdfPath& m_id;
     VtVec3iArray m_triangle_indices;
-    VtIntArray m_triangle_counts; // TODO: Deprecated and has to be removed
     VtIntArray m_primitive_param;
 };
 
@@ -228,10 +239,12 @@ private:
         VtArray<T> refined_data(prim_param.size());
 
         const Osd::PatchParam* patch_param_table = m_patch_table->GetPatchParamBuffer();
+        auto patch_param_table_size = m_patch_table->GetPatchParamSize();
+
         for(size_t fine_id {}; fine_id < refined_data.size(); ++fine_id) {
             // triangulated patch id -> patch id
             const int patch_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(prim_param[fine_id]);
-            assert(patch_id < patch_param_table.size());
+            assert(patch_id < patch_param_table_size);
 
             // patch id -> coarse id
             auto& patch_param = patch_param_table[patch_id];
@@ -405,121 +418,57 @@ private:
 ///
 class SubdLimitRefiner {
 public:
-    SubdLimitRefiner(const Far::TopologyRefiner& refiner,
-                     const Osd::CpuPatchTable* patch_table,
-                     const Far::PatchMap& patch_map)
-        : m_patch_table{ patch_table }
+    explicit SubdLimitRefiner(const Far::TopologyRefiner& refiner)
+        : m_primvar_refiner{refiner}
     {
-        assert(patch_table->GetPatchParamSize() == last_level.GetNumFaces());
-
-        auto& last_level = refiner.GetLevel(refiner.GetMaxLevel());
-        m_patch_coords.reserve(last_level.GetNumVertices());
-
-        const Osd::PatchParam* patch_param_table = patch_table->GetPatchParamBuffer();
-        for(size_t vert{}; vert < last_level.GetNumVertices(); ++vert) {
-            auto indices = last_level.GetVertexFaceLocalIndices(vert);
-            auto faces = last_level.GetVertexFaces(vert);
-
-            int local = indices[0];
-            int face = faces[0];
-
-            auto& patch_param = patch_param_table[face];
-
-            constexpr std::array<float, 2> patch_corner_uvs[4] = {
-                { 0.0f, 0.0f },
-                { 1.0f, 0.0f },
-                { 1.0f, 1.0f },
-                { 0.0f, 1.0f },
-            };
-
-            float uu = patch_corner_uvs[local][0];
-            float uv = patch_corner_uvs[local][1];
-            patch_param.Unnormalize(uu, uv);
-
-            m_patch_coords.emplace_back();
-            m_patch_coords.back().handle = *patch_map.FindPatch(patch_param.GetFaceId(), uu, uv);
-            m_patch_coords.back().s = uu;
-            m_patch_coords.back().s = uv;
-        }
     }
 
-    VtVec3fArray RefineArray(const VtVec3fArray& vertices) const {
-        VtVec3fArray ps_limit(m_patch_coords.size());
-        VtVec3fArray du_limit(m_patch_coords.size());
-        VtVec3fArray dv_limit(m_patch_coords.size());
-
-        Osd::BufferDescriptor base_desc(0, 3, 3);
-        RawCpuBuffer<const float> ps_base_buffer(vertices.data()->data());
-
-        Osd::BufferDescriptor limit_desc {0, 3, 3};
-        RawCpuBuffer<float> ps_limit_buffer{ps_limit.data()->data()};
-        RawCpuBuffer<float> us_limit_buffer{du_limit.data()->data()};
-        RawCpuBuffer<float> vs_limit_buffer{dv_limit.data()->data()};
-
-        EvalPatches(base_desc, ps_base_buffer, // input
-                    limit_desc, ps_limit_buffer, // position
-                    limit_desc, us_limit_buffer, // us
-                    limit_desc, vs_limit_buffer);
-
-        VtVec3fArray normals(ps_limit.size());
-        for(size_t i{}; i< ps_limit.size(); ++i) {
-            normals[i] = GfCross(du_limit[i], dv_limit[i]);
+    ///  wrapper for cycles float3, stride is 4 but weights are computed with
+    struct Float3fPrimvar {
+        Float3fPrimvar() {
+            Clear();
         }
 
-        // cleanup, we need to compute normals only once
-        std::vector<Osd::PatchCoord> empty_patch_coords;
-        m_patch_coords.swap(empty_patch_coords);
-
-        return normals;
-    }
-
-    VtVec3fArray RefineArray(const VtVec4fArray& vertices) const {
-        VtVec3fArray ps_limit(m_patch_coords.size());
-        VtVec3fArray du_limit(m_patch_coords.size());
-        VtVec3fArray dv_limit(m_patch_coords.size());
-
-        Osd::BufferDescriptor base_desc(0, 3, 4);
-        RawCpuBuffer<const float> ps_base_buffer(vertices.data()->data());
-
-        Osd::BufferDescriptor limit_desc {0, 3, 3};
-        RawCpuBuffer<float> ps_limit_buffer{ps_limit.data()->data()};
-        RawCpuBuffer<float> us_limit_buffer{du_limit.data()->data()};
-        RawCpuBuffer<float> vs_limit_buffer{dv_limit.data()->data()};
-
-        EvalPatches(base_desc, ps_base_buffer, // input
-                    limit_desc, ps_limit_buffer, // position
-                    limit_desc, us_limit_buffer, // us
-                    limit_desc, vs_limit_buffer);
-
-        VtVec3fArray normals(ps_limit.size());
-        for(size_t i{}; i< ps_limit.size(); ++i) {
-            normals[i] = GfCross(du_limit[i], dv_limit[i]);
+        explicit Float3fPrimvar(const float* srcPtr) {
+            for (size_t i=0; i < 3; ++i) v[i] = srcPtr[i];
         }
 
-        // cleanup, we need to compute normals only once
-        std::vector<Osd::PatchCoord> empty_patch_coords;
-        m_patch_coords.swap(empty_patch_coords);
+        Float3fPrimvar(const Float3fPrimvar& src) {
+            for (size_t i=0; i < 3; ++i) {
+                v[i] = src.v[i];
+            }
+        }
 
-        return normals;
+        void Clear() {
+            for (size_t i=0; i < 3; ++i) {
+                v[i] = 0;
+            }
+        }
+
+        void AddWithWeight(const Float3fPrimvar& src, float weight) {
+            for (size_t i=0; i < 3; ++i) {
+                v[i] += weight * src.v[i];
+            }
+        }
+
+        ccl::float3 v{};
+    };
+
+    void EvaluateLimit(const VtFloat3Array& refined_vertices,
+                       VtFloat3Array& limit_ps,
+                       VtFloat3Array& limit_du,
+                       VtFloat3Array& limit_dv) const
+    {
+        auto refined_ps_primvar = reinterpret_cast<const Float3fPrimvar*>(refined_vertices.data());
+        auto limit_ps_primvar = reinterpret_cast<Float3fPrimvar*>(limit_ps.data());
+        auto limit_du_primvar = reinterpret_cast<Float3fPrimvar*>(limit_du.data());
+        auto limit_dv_primvar = reinterpret_cast<Float3fPrimvar*>(limit_dv.data());
+
+        m_primvar_refiner.Limit(refined_ps_primvar, limit_ps_primvar, limit_du_primvar, limit_dv_primvar);
     }
 
 private:
-
-    void EvalPatches(Osd::BufferDescriptor ps_base_desc, RawCpuBuffer<const float> ps_base_buffer,
-                     Osd::BufferDescriptor ps_limit_desc, RawCpuBuffer<float> ps_limit_buffer,
-                     Osd::BufferDescriptor us_limit_desc, RawCpuBuffer<float> us_limit_buffer,
-                     Osd::BufferDescriptor vs_limit_desc, RawCpuBuffer<float> vs_limit_buffer) const {
-        RawCpuBuffer<const Osd::PatchCoord> patch_coords_buffer{m_patch_coords.data()};
-        EVALUATOR::EvalPatches(&ps_base_buffer, ps_base_desc,
-                               &ps_limit_buffer, ps_limit_desc,
-                               &us_limit_buffer, us_limit_desc,
-                               &vs_limit_buffer, vs_limit_desc,
-                               m_patch_coords.size(), &patch_coords_buffer,
-                               m_patch_table);
-    }
-
-    mutable std::vector<Osd::PatchCoord> m_patch_coords;
-    const Osd::CpuPatchTable* m_patch_table;
+    Far::PrimvarRefiner m_primvar_refiner;
 };
 
 ///
@@ -573,7 +522,6 @@ public:
             patch_options.fvarChannelIndices = &channel;
 
             std::unique_ptr<Far::PatchTable> far_patch_table{Far::PatchTableFactory::Create(*m_refiner, patch_options)};
-            m_patch_map = std::make_unique<Far::PatchMap>(*far_patch_table);
             m_patch_table = std::make_unique<Osd::CpuPatchTable>(far_patch_table.get());
         }
 
@@ -614,7 +562,7 @@ public:
             }
 
             m_osd_topology = HdMeshTopology{PxOsdOpenSubdivTokens->none, PxOsdOpenSubdivTokens->rightHanded,
-                                            patch_vertex_count, patch_vertex_indices };
+                                            patch_vertex_count, patch_vertex_indices};
 
             HdMeshUtil mesh_util{&m_osd_topology, m_id};
             mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_prim_param);
@@ -622,8 +570,15 @@ public:
     }
 
 
+    bool IsSubdivided() const override {
+        return true;
     }
 
+    void EvaluateLimit(const VtFloat3Array& refined_vertices,
+                       VtFloat3Array& limit_ps,
+                       VtFloat3Array& limit_du,
+                       VtFloat3Array& limit_dv) const override {
+        m_limit->EvaluateLimit(refined_vertices, limit_ps, limit_du, limit_dv);
     }
 
     size_t GetNumRefinedVertices() const override {
@@ -705,7 +660,6 @@ private:
 
     // necessary osd structures
     PxOsdTopologyRefinerSharedPtr m_refiner;
-    std::unique_ptr<const Far::PatchMap> m_patch_map;
     std::unique_ptr<const Osd::CpuPatchTable> m_patch_table;
 
     // Required

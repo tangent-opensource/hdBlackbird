@@ -25,6 +25,13 @@
 
 #include <memory>
 
+#include <util/util_types.h>
+using VtFloat3Array = VtArray<ccl::float3>;
+
+namespace ccl{
+    class Mesh;
+};
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 class HdMeshTopology;
@@ -45,13 +52,13 @@ public:
 
     virtual ~HdCyclesMeshRefiner();
 
-    /// \brief Number of mesh vertices
+    /// @{ TODO: Those methods belong to HdCyclesMeshTopology
     virtual size_t GetNumRefinedVertices() const = 0;
-
-    /// \brief Compact information about triangle vertices
     virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
+    size_t GetNumRefinedTriangles() const;
+    /// @}
 
-    /// @{ \brief EvalPatches primvar data
+    /// @{ \brief Refine/approximate primvar data.
     virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
@@ -59,9 +66,12 @@ public:
     virtual VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     /// @}
 
+    virtual bool IsSubdivided() const = 0;
 
-    /// \brief
-    size_t GetNumRefinedTriangles() const;
+    virtual void EvaluateLimit(const VtFloat3Array& refined_vertices,
+                               VtFloat3Array& limit_ps,
+                               VtFloat3Array& limit_du,
+                               VtFloat3Array& limit_dv) const = 0;
 
     HdCyclesMeshRefiner(const HdCyclesMeshRefiner&) = delete;
     HdCyclesMeshRefiner(HdCyclesMeshRefiner&&) noexcept = delete;
