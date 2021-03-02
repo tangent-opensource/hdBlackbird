@@ -607,7 +607,6 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
     for(size_t i{}; i < refined_indices.size(); ++i) {
         const GfVec3i& triangle_indices = refined_indices[i];
 
-        // TODO: Consider using Vt_ArrayForeignDataSource and refine vertices directly on memory allocated by Cycles
         m_cyclesMesh->triangles[i * 3 + 0] = triangle_indices[0];
         m_cyclesMesh->triangles[i * 3 + 1] = triangle_indices[1];
         m_cyclesMesh->triangles[i * 3 + 2] = triangle_indices[2];
@@ -617,9 +616,6 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
         m_cyclesMesh->smooth[i] = true;
     }
 }
-
-// TODO: Presence of material mutex must be reviewed
-static std::mutex material_mutex;
 
 void
 HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
@@ -636,6 +632,7 @@ HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* sce
     _PopulateObjectMaterial(sceneDelegate, scene, id);
     _PopulateSubSetsMaterials(sceneDelegate, scene, id);
 
+    static std::mutex material_mutex;
     std::lock_guard<std::mutex> lock{material_mutex};
     for(auto& shader : m_cyclesMesh->used_shaders) {
         shader->tag_update(scene);
@@ -756,6 +753,7 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                 continue;
             }
 
+            // Those are special primvars
             if(description.name == HdTokens->points ||
                 description.name == HdTokens->normals) {
                 continue;
@@ -764,7 +762,6 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
             auto interpolation = interpolation_description.first;
             auto value = GetPrimvar(sceneDelegate, description.name);
 
-            // colors
             if(description.name == HdTokens->displayColor || description.role == HdPrimvarRoleTokens->color) {
                 _PopulateColors(description.name, description.role, value, scene, interpolation, id);
                 continue;
