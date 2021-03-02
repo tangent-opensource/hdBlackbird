@@ -162,14 +162,6 @@ public:
         return triangulated;
     }
 
-    VtVec3fArray GenerateNormals(const VtVec3fArray& vertices) const override {
-        return {};
-    }
-
-    VtVec3fArray GenerateNormals(const VtVec4fArray& vertices) const override {
-        return {};
-    }
-
 private:
     const HdMeshTopology* m_topology;
     const SdfPath& m_id;
@@ -631,22 +623,9 @@ public:
         }
     }
 
-    VtVec3fArray GenerateNormals(const VtVec3fArray& vertices) const override {
-//        if(vertices.size() != m_topology->GetNumPoints()) {
-//            return {};
-//        }
 
-        VtVec3fArray normals = m_limit->RefineArray(vertices);
-        return normals;
     }
 
-    VtVec3fArray GenerateNormals(const VtVec4fArray& vertices) const override {
-//        if(vertices.size() != m_topology->GetNumPoints()) {
-//            return {};
-//        }
-
-        VtVec3fArray normals = m_limit->RefineArray(vertices);
-        return normals;
     }
 
     size_t GetNumRefinedVertices() const override {
