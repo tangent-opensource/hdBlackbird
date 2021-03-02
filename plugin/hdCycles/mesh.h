@@ -249,6 +249,7 @@ protected:
     bool m_useMotionBlur;
     bool m_useDeformMotionBlur;
     int m_motionSteps;
+    int m_maxSubdivision{-1};
 
     unsigned int m_visibilityFlags;
 
