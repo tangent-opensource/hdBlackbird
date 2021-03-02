@@ -431,8 +431,58 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
 }
 
 void
-HdCyclesMesh::_PopulateNormalsAndDerivatives(HdSceneDelegate* sceneDelegate, const SdfPath& id)
+HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
+    // normals can be populated in few ways
+    // * authored normals passed by primvar
+    // * auto generated from limit surface for subdivision surfaces
+
+    //
+    // Auto generated normals from limit surface
+    //
+    if(m_refiner->IsSubdivided()) {
+        assert(m_limit_us.size() == m_cyclesMesh->verts.size());
+        assert(m_limit_vs.size() == m_cyclesMesh->verts.size());
+
+        ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
+        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::float3* normal_data = normal_attr->data_float3();
+
+        for(size_t i{}; i < m_limit_vs.size(); ++i) {
+            normal_data[i] = ccl::normalize(ccl::cross(m_limit_us[i], m_limit_vs[i]));
+        }
+
+        return;
+    }
+
+    //
+    // Authored normals from Primvar
+    //
+    auto GetPrimvarInterpolation = [sceneDelegate, &id](HdInterpolation& interpolation) -> bool {
+        for(size_t i{}; i < HdInterpolationCount; ++i) {
+            HdPrimvarDescriptorVector d = sceneDelegate->GetPrimvarDescriptors(id, static_cast<HdInterpolation>(i));
+            auto predicate = [](const HdPrimvarDescriptor& d) -> bool {
+                return d.name == HdTokens->normals && d.role == HdPrimvarRoleTokens->normal;
+            };
+            if(std::find_if(d.begin(), d.end(), predicate) != d.end()) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    HdInterpolation interpolation;
+    if(!GetPrimvarInterpolation(interpolation)) {
+        // TODO: Should we autogenerate normals or let Cycles generate them?
+        return;
+    }
+
+    VtValue normals_value = GetNormals(sceneDelegate);
+    if(normals_value.IsEmpty()) {
+        TF_WARN("Empty normals!");
+        return;
+    }
+
     // not supported interpolation types
     if (interpolation == HdInterpolationFaceVarying) {
         TF_WARN("Face varying normals are not implemented!");
@@ -812,6 +862,22 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
         m_cyclesMesh->verts[i] = ccl::make_float3(point[0], point[1], point[2]);
     }
 
+    //
+    // Compute limit attributes once, then in the FinishMesh clean up the data
+    //
+    if(m_refiner->IsSubdivided()) {
+        Vt_ArrayForeignDataSource foreign_data_source{};
+        VtFloat3Array refined_vertices{&foreign_data_source,
+                                       m_cyclesMesh->verts.data(),
+                                       m_cyclesMesh->verts.size(), false};
+
+        VtFloat3Array limit_ps(refined_vertices.size());
+        m_limit_us.resize(refined_vertices.size());
+        m_limit_vs.resize(refined_vertices.size());
+        m_refiner->EvaluateLimit(refined_vertices, limit_ps, m_limit_us, m_limit_vs);
+        std::memcpy(m_cyclesMesh->verts.data(), limit_ps.data(), limit_ps.size() * sizeof(ccl::float3));
+    }
+
     // TODO: populate motion ?
 }
 
@@ -911,8 +977,7 @@ HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
                  HdChangeTracker::DirtyDisplayStyle);
     }
 
-    // We manage face sets materials, when topology changes we need to trigger
-    // face materials update
+    // We manage face sets materials, when topology changes we need to trigger face materials update
     if(bits & HdChangeTracker::DirtyTopology) {
         bits |= HdChangeTracker::DirtyMaterialId;
     }

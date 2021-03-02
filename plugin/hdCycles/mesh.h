@@ -23,6 +23,7 @@
 #include "utils.h"
 
 #include "hdcycles.h"
+#include "meshRefiner.h"
 
 #include <util/util_transform.h>
 
@@ -209,8 +210,7 @@ protected:
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
-
-    void _PopulateNormalsAndDerivatives(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     void _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
     void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
@@ -258,6 +258,9 @@ protected:
     bool m_visScatter;
     bool m_visShadow;
     bool m_visTransmission;
+
+    VtFloat3Array m_limit_us;
+    VtFloat3Array m_limit_vs;
 
 public:
     const TfToken& GetOrientation() { return m_topology.GetOrientation(); }
