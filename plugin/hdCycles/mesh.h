@@ -47,6 +47,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 class HdCyclesRenderDelegate;
 class HdCyclesMeshRefiner;
+class HdCyclesRenderParam;
 
 /**
  * @brief HdCycles Mesh Rprim mapped to Cycles mesh
@@ -216,6 +217,9 @@ protected:
     void _PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
 
     void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id, HdDirtyBits* dirtyBits);
+
+
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits);
 
     /**
      * @brief Populate generated coordinates attribute

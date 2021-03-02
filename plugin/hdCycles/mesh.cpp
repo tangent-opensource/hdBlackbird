@@ -967,8 +967,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 //        break;
 //    }
 
-    if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
-        _PopulateTopology(sceneDelegate, scene, id);
+    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
+        _sharedData.visible = sceneDelegate->GetVisible(id);
+        _UpdateObject(scene, param, dirtyBits);
+        if(!_sharedData.visible) {
+            return;
+        }
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
@@ -1174,17 +1178,24 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         _FinishMesh(scene);
     }
 
-    if (true) {
-        m_cyclesObject->visibility = m_visibilityFlags;
-        if (!_sharedData.visible)
-            m_cyclesObject->visibility = 0;
-
-        m_cyclesMesh->tag_update(scene, true);
-        m_cyclesObject->tag_update(scene);
-        param->Interrupt();
-    }
-
+    _UpdateObject(scene, param, dirtyBits);
     *dirtyBits = HdChangeTracker::Clean;
+}
+
+void
+HdCyclesMesh::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits)
+{
+    m_cyclesObject->visibility = _sharedData.visible ? m_visibilityFlags : 0;
+    m_cyclesMesh->tag_update(scene, true);
+    m_cyclesObject->tag_update(scene);
+    param->Interrupt();
+
+    // Mark visibility clean. When sync method is called object might be invisible. At that point we do not
+    // need to trigger the topology and data generation. It can be postponed until visibility becomes on.
+    // We need to manually mark visibility clean, but other flags remain dirty.
+    if(!_sharedData.visible) {
+        *dirtyBits &= ~HdChangeTracker::DirtyVisibility;
+    }
 }
 
 namespace {
