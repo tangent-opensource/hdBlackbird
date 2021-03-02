@@ -653,7 +653,6 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
     m_cyclesMesh->resize_mesh(m_refiner->GetNumRefinedVertices(),
                               m_refiner->GetNumRefinedTriangles());
 
-
     auto& refined_indices = m_refiner->GetRefinedVertexIndices();
     for(size_t i{}; i < refined_indices.size(); ++i) {
         const GfVec3i& triangle_indices = refined_indices[i];
@@ -825,7 +824,7 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                 _AddUVSet(description.name, value, scene, interpolation);
             }
 
-            // TODO: Add arbitrary primvar support
+            // TODO: Add arbitrary primvar support when AOVs are working
         }
     }
 }
