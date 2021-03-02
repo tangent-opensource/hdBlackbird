@@ -209,7 +209,7 @@ protected:
     void _PopulateMotion();
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
-    void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
     void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     void _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);

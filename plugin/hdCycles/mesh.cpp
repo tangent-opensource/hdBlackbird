@@ -830,9 +830,39 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 }
 
 void
-HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id)
+HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits)
 {
-    VtValue points_value = GetPrimvar(sceneDelegate, HdTokens->points);
+    VtValue points_value;
+
+    //
+    // Vertices from Usd Skel
+    //
+    bool points_computed = false;
+    auto extComputationDescs = sceneDelegate->GetExtComputationPrimvarDescriptors(id, HdInterpolationVertex);
+    for (auto& desc : extComputationDescs) {
+        if (desc.name != HdTokens->points) {
+            continue;
+        }
+
+        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, desc.name)) {
+            auto valueStore = HdExtComputationUtils::GetComputedPrimvarValues({ desc }, sceneDelegate);
+            auto pointValueIt = valueStore.find(desc.name);
+            if (pointValueIt != valueStore.end()) {
+                if (!pointValueIt->second.IsEmpty()) {
+                    points_value = pointValueIt->second;
+                    points_computed = true;
+                }
+            }
+        }
+        break;
+    }
+
+    //
+    // Vertices from PrimVar
+    //
+    if(!points_computed) {
+        points_value = GetPrimvar(sceneDelegate, HdTokens->points);
+    }
 
     if(!points_value.IsHolding<VtVec3fArray>()) {
         if(!points_value.CanCast<VtVec3fArray>()) {
@@ -1006,34 +1036,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     ccl::Scene* scene          = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    bool newMesh = false;
-
-//    // This is needed for USD Skel, however is currently buggy...
-//    auto extComputationDescs
-//        = sceneDelegate->GetExtComputationPrimvarDescriptors(
-//            id, HdInterpolationVertex);
-//    for (auto& desc : extComputationDescs) {
-//        if (desc.name != HdTokens->points)
-//            continue;
-//
-//        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, desc.name)) {
-//            mesh_updated    = true;
-//            auto valueStore = HdExtComputationUtils::GetComputedPrimvarValues(
-//                { desc }, sceneDelegate);
-//            auto pointValueIt = valueStore.find(desc.name);
-//            if (pointValueIt != valueStore.end()) {
-//                if (!pointValueIt->second.IsEmpty()) {
-//                    m_points       = pointValueIt->second.Get<VtVec3fArray>();
-//                    m_numMeshVerts = m_points.size();
-//
-//                    m_normalsValid   = false;
-//                    pointsIsComputed = true;
-//                    newMesh          = true;
-//                }
-//            }
-//        }
-//        break;
-//    }
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         _sharedData.visible = sceneDelegate->GetVisible(id);
@@ -1051,13 +1053,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         _PopulateMaterials(sceneDelegate, scene, id);
     }
 
-    // For subdivided meshes, data conversion has to happen in a specific way:
-    // * vertices - generate limit surface position and tangents
-    // * normals - limit surface tangents are used to generate normals
-    // * uvs - limit surface tangents are passed to texture coordinates
+    // For subdivided meshes, data conversion has to happen in a specific order:
+    // 1) vertices - generate limit surface position and tangents
+    // 2) normals - limit surface tangents are used to generate normals
+    // 3) uvs - limit surface tangents
     // After conversion, class members that hold du and dv are cleared in FinishMesh.
     if(*dirtyBits & HdChangeTracker::DirtyPoints) {
-        _PopulateVertices(sceneDelegate, id);
+        _PopulateVertices(sceneDelegate, id, dirtyBits);
     }
 
     if(*dirtyBits & HdChangeTracker::DirtyNormals) {
