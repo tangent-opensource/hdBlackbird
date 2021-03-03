@@ -26,13 +26,14 @@
 #include <memory>
 
 #include <util/util_types.h>
-using VtFloat3Array = VtArray<ccl::float3>;
 
 namespace ccl{
     class Mesh;
 };
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+using VtFloat3Array = VtArray<ccl::float3>;
 
 class HdMeshTopology;
 class VtValue;
