@@ -299,8 +299,6 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
 
         for (size_t i = 0; i < velocities.size(); ++i) {
             V[i] = vec3f_to_float3(velocities[i]);
-            //printf("Adding velocity %.3f %.3f %.3f - %.3f %.3f %.3f\n", V[i].x, V[i].y, V[i].z,
-            //velocities[i][0], velocities[i][1], velocities[i][2]);
         }
     } else {
         TF_WARN("Velocity requries per-vertex interpolation");
@@ -985,9 +983,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         std::vector<int> faceMaterials;
         faceMaterials.resize(m_numMeshFaces);
 
-        // Rebuilding is triggered anyway in the first iteration
-        m_cyclesMesh->need_update_rebuild = topologyIsDirty;
-
         for (auto const& subset : m_geomSubsets) {
             int subsetMaterialIndex = 0;
 
@@ -1277,12 +1272,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         _FinishMesh(scene);
     }
 
-    if (mesh_updated || newMesh) {
+    if (mesh_updated || newMesh || topologyIsDirty) {
         m_cyclesObject->visibility = m_visibilityFlags;
         if (!_sharedData.visible)
             m_cyclesObject->visibility = 0;
 
-        m_cyclesMesh->tag_update(scene, false);
+
+        m_cyclesMesh->tag_update(scene, topologyIsDirty);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
