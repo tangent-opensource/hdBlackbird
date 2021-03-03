@@ -19,6 +19,8 @@
 
 #include "config.h"
 
+#include "points.h"
+
 #include <pxr/base/tf/envSetting.h>
 #include <pxr/base/tf/getenv.h>
 #include <pxr/base/tf/instantiateSingleton.h>
@@ -152,8 +154,9 @@ HdCyclesConfig::HdCyclesConfig()
     shutter_motion_position
         = HdCyclesEnvValue<int>("HD_CYCLES_SHUTTER_MOTION_POSITION", 1);
 
-    default_point_style = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE",
-                                                0);
+    default_point_style
+        = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE",
+                                HdCyclesPointStyle::POINT_SPHERES);
     default_point_resolution
         = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
 
