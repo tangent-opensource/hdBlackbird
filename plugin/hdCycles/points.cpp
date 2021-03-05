@@ -265,6 +265,21 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 TF_WARN("Unexpected type for points accelerations");
             }
         }
+
+        // Add colors
+
+        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
+                                            HdTokens->displayColor)) {
+            VtValue colorsValue = sceneDelegate->Get(id, HdTokens->displayColor);
+            if (colorsValue.IsHolding<VtVec3fArray>()) {
+                const VtVec3fArray& colors
+                    = colorsValue.UncheckedGet<VtVec3fArray>();
+                _AddColors(colors);
+            } else {
+                TF_WARN("Unexpected type for points colors");
+            }
+        }
+
     } else if (needToUpdatePoints) {
         needs_update = true;
 
@@ -596,6 +611,31 @@ HdCyclesPoints::_AddAccelerations(const VtVec3fArray& accelerations)
             }
         } else {
             TF_WARN("Unsupported interpolation type for accelerations");
+        }
+    }
+}
+
+void
+HdCyclesPoints::_AddColors(const VtVec3fArray& colors) {
+    if (_usingPointCloud()) {
+        ccl::AttributeSet* attributes = &m_cyclesPointCloud->attributes;
+
+        ccl::Attribute* attr_C = attributes->find(
+            ccl::ATTR_STD_VERTEX_COLOR);
+        if (!attr_C) {
+            attr_C = attributes->add(ccl::ATTR_STD_VERTEX_COLOR);
+        }
+
+        ccl::float3* C = attr_C->data_float3();
+        if (colors.size() == 1) {
+            const ccl::float3 C0 = vec3f_to_float3(colors[0]);
+            for (int i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
+                C[i] = C0;
+            }
+        } else if (colors.size() == m_cyclesPointCloud->points.size()) {
+            for (int i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
+                C[i] = vec3f_to_float3(colors[i]);
+            }
         }
     }
 }

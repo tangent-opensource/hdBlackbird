@@ -682,6 +682,7 @@ void
 HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
                        HdRenderParam* renderParam, HdDirtyBits* dirtyBits)
 {
+    printf("HdCyclesMaterial::Sync\n");
     auto cyclesRenderParam     = static_cast<HdCyclesRenderParam*>(renderParam);
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 

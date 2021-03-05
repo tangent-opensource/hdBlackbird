@@ -167,6 +167,9 @@ private:
     void _AddAccelerations(const VtVec3fArray& accelerations);
 
 
+    void _AddColors(const VtVec3fArray& colors);
+
+
     // Control the shape of the primitive
     int m_pointStyle;
     int m_pointResolution;
