@@ -1041,6 +1041,15 @@ HdCyclesMesh::GetInitialDirtyBitsMask() const
 HdDirtyBits
 HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
 {
+
+#ifdef USE_USD_CYCLES_SCHEMA
+    // Usd controls subdivision level globally, passed through the topology. Change of custom max subdiv level primvar
+    // must mark SubdivTags dirty.
+    if(HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level)) {
+        bits |= HdChangeTracker::DirtySubdivTags;
+    }
+#endif // USE_USD_CYCLES_SCHEMA
+
     // subdivision request requires full topology update
     if (bits & HdChangeTracker::DirtySubdivTags) {
         bits |= (HdChangeTracker::DirtyPoints   |
