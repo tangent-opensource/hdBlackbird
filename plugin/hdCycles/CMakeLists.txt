@@ -48,6 +48,21 @@ if(USE_OPENGL)
   link_libraries(${OPENGL_gl_LIBRARY} ${GLEW_LIBRARY})
 endif()
 
+if(WITH_CYCLES_LOGGING)
+  include_directories(${GFLAGS_INCLUDE_DIR} ${GLOG_INCLUDE_DIR})
+  link_libraries(${GLOG_LIBRARY} ${GFLAGS_LIBRARY})  
+endif()
+
+if(WITH_OCIO)
+  include_directories(${OCIO_INCLUDE_DIRS})
+  link_libraries(${OCIO_LIBRARIES})  
+endif()
+
+if(WITH_OPENSUBDIV)
+  include_directories(${OPENSUBDIV_INCLUDE_DIR})
+  link_libraries(${OPENSUBDIV_LIBRARIES})  
+endif()
+
 pxr_plugin(${PXR_PACKAGE}
   LIBRARIES
 
@@ -62,12 +77,7 @@ pxr_plugin(${PXR_PACKAGE}
     ${TIFF_LIBRARY}
     ${OPENJPEG_LIBRARIES}
     ${OPENEXR_LIBRARIES}
-    ${OPENSUBDIV_LIBRARIES}
     ${OIIO_LIBRARIES}
-    ${OCIO_LIBRARIES}
-        
-    ${GLOG_LIBRARY}
-    ${GFLAGS_LIBRARY}
     
   CPPFILES
     "Mikktspace/mikktspace.c"
@@ -82,11 +92,6 @@ pxr_plugin(${PXR_PACKAGE}
     ${CYCLES_INCLUDE_DIRS}
     ${OIIO_INCLUDE_DIRS}
     ${OPENEXR_INCLUDE_DIRS}
-    ${OPENSUBDIV_INCLUDE_DIR}
-    ${OCIO_INCLUDE_DIRS}
-
-    ${GFLAGS_INCLUDE_DIR}
-    ${GLOG_INCLUDE_DIR}
 
   PUBLIC_CLASSES
     basisCurves

@@ -50,6 +50,8 @@ set(CMAKE_CXX_STANDARD 14)
 
 # -- HdCycles Definitions
 
+option(BUILD_WITH_REZ "Build with rez" ON)
+
 add_definitions(
   ${BOOST_DEFINITIONS}
   ${OPENIMAGEIO_DEFINITIONS}
@@ -89,7 +91,9 @@ endif()
 
 # - Boost
 
-file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
+if(${BUILD_WITH_REZ})
+  file(TO_CMAKE_PATH $ENV{BOOST_INCLUDE_DIR} BOOST_INCLUDEDIR)
+endif()
 
 # Boost python libraries in some cases do not have a trailing version.
 # Try the versioned library first and fall back to a non-versioned library.
@@ -155,12 +159,19 @@ find_package(OpenEXR REQUIRED)
 find_package(TBB REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenImageIO REQUIRED)
-find_package(OpenColorIO)
 
-# TODO: These are unfornate. We should move these elsewhere...
-file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
-file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
-file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
+find_package(OpenColorIO)
+if(${OpenColorIO_FOUND})
+  set(WITH_OCIO ON)
+  message("[HDCYCLES] Configured with OpenColorIO")
+endif()
+
+if(${BUILD_WITH_REZ})
+  # TODO: These are unfornate. We should move these elsewhere...
+  file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_LIBRARY_DIR} OPENJPEG_LIBRARY)
+  file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_INCLUDE_DIR} OPENJPEG_INCLUDE_DIR)
+  file(TO_CMAKE_PATH $ENV{LIBJPEG_TURBO_ROOT} JPEGTURBO_PATH)
+endif()
 
 find_package(OpenJPEG REQUIRED)
 find_package(PNG REQUIRED)
