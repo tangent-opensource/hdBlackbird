@@ -90,7 +90,7 @@ public:
         auto& input = data.UncheckedGet<VtArray<T>>();
         VtArray<T> fine_array(m_primitive_param.size());
 
-        for (size_t fine_id {}; fine_id < fine_array.size(); ++fine_id) {
+        for (size_t fine_id = 0; fine_id < fine_array.size(); ++fine_id) {
             int coarse_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(m_primitive_param[fine_id]);
             assert(coarse_id < input.size());
 
@@ -199,10 +199,10 @@ public:
         const Far::TopologyLevel& base_level = refiner.GetLevel(0);
         m_ptex_index_to_base_index.reserve(base_level.GetNumFaces() * face_size);  // worst case
 
-        for (size_t base_face {}; base_face < base_level.GetNumFaces(); ++base_face) {
+        for (size_t base_face = 0; base_face < base_level.GetNumFaces(); ++base_face) {
             int num_base_vertices = base_level.GetFaceVertices(base_face).size();
             int num_ptex_faces    = (num_base_vertices == face_size) ? 1 : num_base_vertices;
-            for (size_t i {}; i < num_ptex_faces; ++i) {
+            for (size_t i = 0; i < num_ptex_faces; ++i) {
                 m_ptex_index_to_base_index.push_back(base_face);
             }
         }
@@ -240,7 +240,7 @@ private:
         const Osd::PatchParam* patch_param_table = m_patch_table->GetPatchParamBuffer();
         auto patch_param_table_size              = m_patch_table->GetPatchParamSize();
 
-        for (size_t triangle_index {}; triangle_index < refined_data.size(); ++triangle_index) {
+        for (size_t triangle_index = 0; triangle_index < refined_data.size(); ++triangle_index) {
             // triangle -> patch
             const int patch_index = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(prim_param[triangle_index]);
             assert(patch_index < patch_param_table_size);
@@ -552,7 +552,7 @@ public:
             VtIntArray patch_vertex_indices;
             patch_vertex_indices.reserve(last_level.GetNumFaceVertices());
 
-            for (Far::Index face {}; face < last_level.GetNumFaces(); ++face) {
+            for (Far::Index face = 0; face < last_level.GetNumFaces(); ++face) {
                 Far::ConstIndexArray face_vertices = last_level.GetFaceVertices(face);
                 patch_vertex_count.push_back(face_vertices.size());
                 std::copy(face_vertices.begin(), face_vertices.end(), std::back_inserter(patch_vertex_indices));
