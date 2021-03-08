@@ -127,6 +127,7 @@ HdCyclesCreateDefaultShader()
 
     ccl::ShaderNode* out = shader->graph->output();
     shader->graph->connect(vc->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(vc->output("Alpha"), bsdf->input("Alpha"));
     shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
 
     return shader;

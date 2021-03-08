@@ -168,6 +168,7 @@ private:
 
 
     void _AddColors(const VtVec3fArray& colors);
+    void _AddAlphas(const VtFloatArray& colors);
 
 
     // Control the shape of the primitive

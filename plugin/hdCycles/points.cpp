@@ -219,12 +219,12 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 if (radius.size() == 1) {
                     for (size_t i = 0; i < m_cyclesPointCloud->points.size();
                          ++i) {
-                        m_cyclesPointCloud->radius[i] = radius[0];
+                        m_cyclesPointCloud->radius[i] = radius[0] * 0.5f;
                     }
                 } else if (radius.size() == m_cyclesPointCloud->points.size()) {
                     for (size_t i = 0; i < m_cyclesPointCloud->points.size();
                          ++i) {
-                        m_cyclesPointCloud->radius[i] = radius[i];
+                        m_cyclesPointCloud->radius[i] = radius[i] * 0.5f;
                     }
                 } else {
                     std::cout
@@ -278,6 +278,25 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             } else {
                 TF_WARN("Unexpected type for points colors");
             }
+        }
+
+        // Add opacities
+
+        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->displayOpacity)) {
+            VtValue alphasValue = sceneDelegate->Get(id, HdTokens->displayOpacity);
+            if (alphasValue.IsHolding<VtFloatArray>()) {
+                const VtFloatArray& alphas
+                = alphasValue.UncheckedGet<VtFloatArray>();
+                _AddAlphas(alphas);
+            } else {
+                TF_WARN("Unexpected type for points alphas");
+            }
+        }
+
+        if (m_cyclesPointCloud->used_shaders.empty()) {
+            m_cyclesPointCloud->used_shaders.push_back(param->default_vcol_surface);
+        } else if (m_cyclesPointCloud->used_shaders[0] == scene->default_surface) {
+            
         }
 
     } else if (needToUpdatePoints) {
@@ -623,19 +642,43 @@ HdCyclesPoints::_AddColors(const VtVec3fArray& colors) {
         ccl::Attribute* attr_C = attributes->find(
             ccl::ATTR_STD_VERTEX_COLOR);
         if (!attr_C) {
-            attr_C = attributes->add(ccl::ATTR_STD_VERTEX_COLOR);
+            ccl::ustring attrib_name("displayColor");
+            attr_C = attributes->add(attrib_name, ccl::TypeDesc::TypeFloat4, ccl::ATTR_ELEMENT_VERTEX);
         }
 
-        ccl::float3* C = attr_C->data_float3();
+        ccl::float4* C = attr_C->data_float4();
         if (colors.size() == 1) {
             const ccl::float3 C0 = vec3f_to_float3(colors[0]);
             for (int i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
-                C[i] = C0;
+                C[i].x = C0.x;
+                C[i].y = C0.y;
+                C[i].z = C0.z;
+                C[i].w = 0.f;
             }
         } else if (colors.size() == m_cyclesPointCloud->points.size()) {
             for (int i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
-                C[i] = vec3f_to_float3(colors[i]);
+                C[i].x = colors[i][0];
+                C[i].y = colors[i][1];
+                C[i].z = colors[i][2];
+                C[i].w = 1.f;
             }
+        } else {
+            TF_WARN("Unexpcted number of vertex colors\n");
+        }
+    }
+}
+
+void
+HdCyclesPoints::_AddAlphas(const VtFloatArray& alphas) {
+    if (_usingPointCloud()) {
+        ccl::AttributeSet* attributes = &m_cyclesPointCloud->attributes;
+
+        ccl::ustring attrib_name("displayColor");
+        ccl::Attribute* attr_A = attributes->find(attrib_name);
+        ccl::float4* A = attr_A->data_float4();
+
+        for (int i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
+            A[i].w = alphas[i];
         }
     }
 }
