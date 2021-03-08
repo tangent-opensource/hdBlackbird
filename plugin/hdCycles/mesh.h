@@ -122,13 +122,6 @@ protected:
     void _FinishMesh(ccl::Scene* scene);
 
     /**
-     * @brief Comptue Mikktspace tangents
-     * 
-     * @param needsign 
-     */
-    void _ComputeTangents(bool needsign);
-
-    /**
      * @brief Add abitrary uv set
      * 
      * @param name 

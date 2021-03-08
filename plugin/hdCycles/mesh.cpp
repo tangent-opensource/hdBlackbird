@@ -116,19 +116,6 @@ HdCyclesMesh::~HdCyclesMesh()
 }
 
 void
-HdCyclesMesh::_ComputeTangents(bool needsign)
-{
-    // This is likely deprecated now
-    const ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
-
-    ccl::Attribute* attr = attributes.find(ccl::ATTR_STD_UV);
-    if (attr) {
-        mikk_compute_tangents(attr->standard_name(ccl::ATTR_STD_UV),
-                              m_cyclesMesh, needsign, true);
-    }
-}
-
-void
 HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene, HdInterpolation interpolation)
 {
     VtValue uvs_value = uvs;
