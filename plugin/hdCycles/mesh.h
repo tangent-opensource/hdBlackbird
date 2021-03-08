@@ -65,8 +65,7 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this mesh
      * as a prototype
      */
-    HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
-                 HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
 
     /**
      * @brief Destroy the HdCycles Mesh object
@@ -93,11 +92,10 @@ public:
      * @param dirtyBits Which bits of scene data has changed
      * @param reprToken Which representation to draw with
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits, TfToken const& reprToken) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+              TfToken const& reprToken) override;
 
 protected:
-
     void _InitializeNewCyclesMesh();
 
     /**
@@ -128,8 +126,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene,
-                   HdInterpolation interpolation);
+    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene, HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/face normals (Not implemented)
@@ -144,8 +141,7 @@ protected:
      * @param velocities 
      * @param interpolation 
      */
-    void _AddVelocities(VtVec3fArray& velocities,
-                        HdInterpolation interpolation);
+    void _AddVelocities(VtVec3fArray& velocities, HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/primitive colors
@@ -157,7 +153,7 @@ protected:
      * @param interpolation 
      */
     void _PopulateColors(const TfToken& name, const TfToken& role, const VtValue& data, ccl::Scene* scene,
-                    HdInterpolation interpolation, const SdfPath& id);
+                         HdInterpolation interpolation, const SdfPath& id);
 
 protected:
     struct PrimvarSource {
@@ -210,7 +206,8 @@ protected:
     void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
-    void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id, HdDirtyBits* dirtyBits);
+    void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id,
+                           HdDirtyBits* dirtyBits);
 
 
     void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits);

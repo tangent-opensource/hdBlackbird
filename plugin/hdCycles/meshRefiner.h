@@ -20,15 +20,15 @@
 #ifndef HDCYCLES_MESHREFINER_H
 #define HDCYCLES_MESHREFINER_H
 
-#include <pxr/imaging/hd/enums.h>
 #include <pxr/base/vt/array.h>
+#include <pxr/imaging/hd/enums.h>
 
 #include <memory>
 
 #include <util/util_types.h>
 
-namespace ccl{
-    class Mesh;
+namespace ccl {
+class Mesh;
 };
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -54,27 +54,25 @@ public:
     virtual ~HdCyclesMeshRefiner();
 
     /// @{ TODO: Those methods belong to HdCyclesMeshTopology
-    virtual size_t GetNumRefinedVertices() const = 0;
+    virtual size_t GetNumRefinedVertices() const                = 0;
     virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
     size_t GetNumRefinedTriangles() const;
     /// @}
 
     /// @{ \brief Refine/approximate primvar data.
-    virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
-    virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
-    virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
-    virtual VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const    = 0;
+    virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const     = 0;
+    virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const     = 0;
+    virtual VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const      = 0;
     virtual VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     /// @}
 
     virtual bool IsSubdivided() const = 0;
 
-    virtual void EvaluateLimit(const VtFloat3Array& refined_vertices,
-                               VtFloat3Array& limit_ps,
-                               VtFloat3Array& limit_du,
+    virtual void EvaluateLimit(const VtFloat3Array& refined_vertices, VtFloat3Array& limit_ps, VtFloat3Array& limit_du,
                                VtFloat3Array& limit_dv) const = 0;
 
-    HdCyclesMeshRefiner(const HdCyclesMeshRefiner&) = delete;
+    HdCyclesMeshRefiner(const HdCyclesMeshRefiner&)     = delete;
     HdCyclesMeshRefiner(HdCyclesMeshRefiner&&) noexcept = delete;
 
     HdCyclesMeshRefiner& operator=(const HdCyclesMeshRefiner&) = delete;
