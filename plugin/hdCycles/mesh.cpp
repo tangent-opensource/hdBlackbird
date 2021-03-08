@@ -657,18 +657,19 @@ HdCyclesMesh::_PopulateMotion()
 }
 
 void
-HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
+HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
-    // Refiner holds pointer to topology therefore refiner can't outlive the topology
-    auto topology = GetMeshTopology(sceneDelegate);
+    HdMeshTopology topology = GetMeshTopology(sceneDelegate);
     topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
 
-    //
     HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-    if(m_maxSubdivision != -1) {
-        display_style.refineLevel = m_maxSubdivision;
-    }
+#ifdef USE_USD_CYCLES_SCHEMA
+    auto refine_value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
+    int refine_level = refine_value.IsEmpty() ? 0 : refine_value.Cast<int>().UncheckedGet<int>();
+    display_style.refineLevel = refine_level;
+#endif // USE_USD_CYCLES_SCHEMA
 
+    // Refiner holds pointer to topology therefore refiner can't outlive the topology
     m_topology = HdMeshTopology(topology, display_style.refineLevel);
     m_refiner = HdCyclesMeshRefiner::Create(m_topology, id);
 
@@ -1101,10 +1102,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_motionSteps = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                                         usdCyclesTokens->primvarsCyclesObjectMblurSteps, m_motionSteps);
 
-            m_maxSubdivision = _HdCyclesGetMeshParam<int>(pv, dirtyBits, id, this, sceneDelegate,
-                                                          usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level,
-                                                          m_maxSubdivision);
-
             // Object Generic
 
             m_cyclesObject->is_shadow_catcher
@@ -1168,7 +1165,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
-        _PopulateTopology(sceneDelegate, scene, id);
+        _PopulateTopology(sceneDelegate, id);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {

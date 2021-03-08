@@ -201,7 +201,7 @@ protected:
 
     void _PopulateMotion();
 
-    void _PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
+    void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
     void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
@@ -243,7 +243,6 @@ protected:
     bool m_useMotionBlur;
     bool m_useDeformMotionBlur;
     int m_motionSteps;
-    int m_maxSubdivision{-1};
 
     unsigned int m_visibilityFlags;
 
