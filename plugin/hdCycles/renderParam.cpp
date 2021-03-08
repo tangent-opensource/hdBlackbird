@@ -1860,6 +1860,14 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 }
 
 void
+HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders) {
+    lock_guard lock{m_shaders_mutex};
+    for(auto& shader : shaders) {
+        shader->tag_update(m_cyclesScene);
+    }
+}
+
+void
 HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
 {
     lock_guard lock{m_geometry_mutex};

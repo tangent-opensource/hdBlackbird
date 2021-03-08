@@ -205,9 +205,10 @@ protected:
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
     void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
-    void _PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
-    void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
-    void _PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id);
+    void _PopulateMaterials(HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* renderParam,
+                            ccl::Shader* default_surface, const SdfPath& id);
+    void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id, HdDirtyBits* dirtyBits);
 

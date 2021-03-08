@@ -692,7 +692,8 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 }
 
 void
-HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
+HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* renderParam,
+                                 ccl::Shader* default_surface, const SdfPath& id)
 {
     // Any topology change will mark MaterialId as dirty and automatically trigger material discovery.
     // During topology population process, material id for each face is set to 0.
@@ -701,25 +702,21 @@ HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* sce
     // SubSet material discovery appends to the shaders table and overrides materials ids for subset faces.
     // This behaviour is to cover a corner case, where there is no object material, but there is a sub set,
     // that does not assign materials to all faces.
-    m_cyclesMesh->used_shaders = {scene->default_surface};
+    m_cyclesMesh->used_shaders = {default_surface};
 
     constexpr int default_shader_id = 0;
     for(size_t i{}; i < m_cyclesMesh->num_triangles(); ++i) {
         m_cyclesMesh->shader[i] = default_shader_id;
     }
 
-    _PopulateObjectMaterial(sceneDelegate, scene, id);
-    _PopulateSubSetsMaterials(sceneDelegate, scene, id);
+    _PopulateObjectMaterial(sceneDelegate, id);
+    _PopulateSubSetsMaterials(sceneDelegate, id);
 
-    static std::mutex material_mutex;
-    std::lock_guard<std::mutex> lock{material_mutex};
-    for(auto& shader : m_cyclesMesh->used_shaders) {
-        shader->tag_update(scene);
-    }
+    renderParam->UpdateShadersTag(m_cyclesMesh->used_shaders);
 }
 
 void
-HdCyclesMesh::_PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
+HdCyclesMesh::_PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
 
@@ -749,7 +746,7 @@ HdCyclesMesh::_PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, ccl::Scene
 }
 
 void
-HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id)
+HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     // optimization to avoid unnecessary allocations
     if(m_topology.GetGeomSubsets().empty()) {
@@ -1175,7 +1172,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
-        _PopulateMaterials(sceneDelegate, scene, id);
+        _PopulateMaterials(sceneDelegate, param, scene->default_surface, id);
     }
 
     // For subdivided meshes, data conversion has to happen in a specific order:

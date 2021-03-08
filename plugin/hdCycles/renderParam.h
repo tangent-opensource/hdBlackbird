@@ -427,6 +427,8 @@ public:
      */
     UpAxis GetUpAxis() const { return m_upAxis; }
 
+    void UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders);
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
