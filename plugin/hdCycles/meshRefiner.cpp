@@ -205,8 +205,21 @@ private:
 class SubdUniformRefiner {
 public:
     explicit SubdUniformRefiner(const Far::TopologyRefiner& refiner, const Osd::CpuPatchTable* patch_table)
-        : m_patch_table{patch_table}
-        , m_ptex_indices{refiner} {
+        : m_patch_table{patch_table} {
+
+        int face_size = Sdc::SchemeTypeTraits::GetRegularFaceSize(refiner.GetSchemeType());
+        const Far::TopologyLevel& base_level = refiner.GetLevel(0);
+        m_ptex_index_to_base_index.reserve(base_level.GetNumFaces() * face_size); // worst case
+
+        for(size_t base_face{}; base_face < base_level.GetNumFaces(); ++base_face) {
+            int num_base_vertices = base_level.GetFaceVertices(base_face).size();
+            int num_ptex_faces = (num_base_vertices == face_size) ? 1 : num_base_vertices;
+            for(size_t i{}; i < num_ptex_faces; ++i) {
+                m_ptex_index_to_base_index.push_back(base_face);
+            }
+        }
+
+        m_ptex_index_to_base_index.shrink_to_fit();
     }
 
     VtValue RefineArray(const VtValue& input, const VtIntArray& prim_param) const {
@@ -241,25 +254,29 @@ private:
         const Osd::PatchParam* patch_param_table = m_patch_table->GetPatchParamBuffer();
         auto patch_param_table_size = m_patch_table->GetPatchParamSize();
 
-        for(size_t fine_id {}; fine_id < refined_data.size(); ++fine_id) {
-            // triangulated patch id -> patch id
-            const int patch_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(prim_param[fine_id]);
-            assert(patch_id < patch_param_table_size);
+        for(size_t triangle_index {}; triangle_index < refined_data.size(); ++triangle_index) {
+            // triangle -> patch
+            const int patch_index = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(prim_param[triangle_index]);
+            assert(patch_index < patch_param_table_size);
 
-            // patch id -> coarse id
-            auto& patch_param = patch_param_table[patch_id];
-            const int coarse_id = m_ptex_indices.GetFaceId(patch_param.GetFaceId());
-            assert(coarse_id < input.size());
+            // patch -> ptex face
+            const Far::PatchParam& patch_param = patch_param_table[patch_index];
+            Far::Index ptex_face_index = patch_param.GetFaceId();
+            assert(ptex_face_index < m_ptex_index_to_base_index.size());
 
-            // lookup the data from coarse id
-            refined_data[fine_id] = input[coarse_id];
+            // ptex face -> base face
+            const int base_face_index = m_ptex_index_to_base_index[ptex_face_index];
+            assert(base_face_index < input.size());
+
+            // assign the data from base face
+            refined_data[triangle_index] = input[base_face_index];
         }
 
         return refined_data;
     }
 
     const Osd::CpuPatchTable* m_patch_table;
-    Far::PtexIndices m_ptex_indices;
+    std::vector<int> m_ptex_index_to_base_index;
 };
 
 template<typename T>
