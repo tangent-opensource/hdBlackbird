@@ -165,7 +165,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
         }
 
         auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
-        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
         for(size_t face{}, offset{}; face < refined_indices.size(); ++face) {
             for(size_t i{}; i < 3; ++i, ++offset) {
                 attrib_data[offset][0] = refined_uvs[0][0];
@@ -182,7 +182,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
         }
 
         auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
-        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
         for(size_t face{}, offset{}; face < refined_indices.size(); ++face) {
             for(size_t i{}; i < 3; ++i, ++offset) {
                 attrib_data[offset][0] = refined_uvs[face][0];
@@ -196,10 +196,10 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
 
     auto add_vertex_or_varying_attrib = [&](const VtValue& refined_value) {
         auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
-        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
         for(size_t face{}, offset{}; face < refined_indices.size(); ++face) {
             for(size_t i{}; i < 3; ++i, ++offset) {
-                auto& vertex_index = refined_indices[face][i];
+                const int& vertex_index = refined_indices[face][i];
                 attrib_data[offset][0] = refined_uvs[vertex_index][0];
                 attrib_data[offset][1] = refined_uvs[vertex_index][1];
             }
@@ -445,7 +445,7 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
             return;
         }
 
-        auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
 
         ccl::ustring attrib_name{name.GetString().c_str(), name.GetString().size()};
         ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor,ccl::ATTR_ELEMENT_CORNER);
@@ -692,7 +692,7 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
     m_cyclesMesh->resize_mesh(m_refiner->GetNumRefinedVertices(),
                               m_refiner->GetNumRefinedTriangles());
 
-    auto& refined_indices = m_refiner->GetRefinedVertexIndices();
+    const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
     for(size_t i{}; i < refined_indices.size(); ++i) {
         const GfVec3i& triangle_indices = refined_indices[i];
 
@@ -931,7 +931,7 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     for(size_t i{}; i < points.size(); ++i) {
-        auto& point            = points[i];
+        const GfVec3f& point = points[i];
         m_cyclesMesh->verts[i] = ccl::make_float3(point[0], point[1], point[2]);
     }
 
