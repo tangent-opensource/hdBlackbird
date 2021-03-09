@@ -24,9 +24,7 @@
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/meshUtil.h>
-
 #include <pxr/imaging/pxOsd/refinerFactory.h>
-#include <pxr/imaging/pxOsd/tokens.h>
 
 #include <opensubdiv/far/patchMap.h>
 #include <opensubdiv/far/patchTableFactory.h>
@@ -36,9 +34,6 @@
 #include <opensubdiv/osd/cpuPatchTable.h>
 #include <opensubdiv/osd/cpuVertexBuffer.h>
 #include <opensubdiv/osd/tbbEvaluator.h>
-
-#include <render/mesh.h>
-#include <util/util_math.h>
 
 #include <numeric>
 
