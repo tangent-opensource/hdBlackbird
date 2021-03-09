@@ -960,6 +960,8 @@ struct MikkUserData {
     MikkUserData(const char* layer_name, ccl::Mesh* mesh, ccl::float3* tangent,
                  float* tangent_sign)
         : mesh(mesh)
+        , corner_normal(NULL)
+        , vertex_normal(NULL)
         , texface(NULL)
         , tangent(tangent)
         , tangent_sign(tangent_sign)
@@ -969,12 +971,22 @@ struct MikkUserData {
                                                   : mesh->attributes;
 
         ccl::Attribute* attr_vN = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
-        if (!attr_vN) {
+        ccl::Attribute* attr_cN = attributes.find(ccl::ATTR_STD_CORNER_NORMAL);
+
+        if (!attr_vN && !attr_cN) {
             mesh->add_face_normals();
             mesh->add_vertex_normals();
             attr_vN = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
         }
-        vertex_normal = attr_vN->data_float3();
+
+        // This preference depends on what Cycles does inside the hood.
+        // Works for now, but there should be a more clear way of knowing
+        // which normals are used for rendering.
+        if (attr_cN) {
+            corner_normal = attr_cN->data_float3();
+        } else {
+            vertex_normal = attr_vN->data_float3();
+        }
 
         ccl::Attribute* attr_uv = attributes.find(ccl::ustring(layer_name));
         if (attr_uv != NULL) {
@@ -985,6 +997,7 @@ struct MikkUserData {
     ccl::Mesh* mesh;
     int num_faces;
 
+    ccl::float3* corner_normal;
     ccl::float3* vertex_normal;
     ccl::float2* texface;
 
@@ -1075,9 +1088,12 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     const ccl::Mesh* mesh        = userdata->mesh;
     ccl::float3 vN;
+
     if (mesh->subd_faces.size()) {
         const ccl::Mesh::SubdFace& face = mesh->subd_faces[face_num];
-        if (face.smooth) {
+        if (userdata->corner_normal) {
+            vN = userdata->corner_normal[face.start_corner + vert_num];
+        } else if (face.smooth) {
             const int vertex_index = mikk_vertex_index(mesh, face_num,
                                                        vert_num);
             vN                     = userdata->vertex_normal[vertex_index];
@@ -1085,7 +1101,9 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
             vN = face.normal(mesh);
         }
     } else {
-        if (mesh->smooth[face_num]) {
+        if (userdata->corner_normal) {
+            vN = userdata->corner_normal[face_num * 3 + vert_num];
+        } else if (mesh->smooth[face_num]) {
             const int vertex_index = mikk_vertex_index(mesh, face_num,
                                                        vert_num);
             vN                     = userdata->vertex_normal[vertex_index];
