@@ -59,18 +59,7 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
         config.motion_steps.eval(m_motionSteps, true);
     }
 
-    m_cyclesMesh = new ccl::Mesh();
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-
-    m_cyclesPointCloud = new ccl::PointCloud();
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesPointCloud);
-
-    m_cyclesObject             = new ccl::Object();
-    m_cyclesObject->geometry   = m_cyclesPointCloud;
-    m_cyclesObject->tfm        = ccl::transform_identity();
-    m_cyclesObject->pass_id    = -1;
-    m_cyclesObject->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    _InitializeNewCyclesPointcloud();
 }
 
 HdCyclesPoints::~HdCyclesPoints()
@@ -120,17 +109,192 @@ HdCyclesPoints::Finalize(HdRenderParam* renderParam)
 {
 }
 
+void 
+HdCyclesPoints::_InitializeNewCyclesPointCloud() {
+    m_cyclesMesh = new ccl::Mesh();
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
+
+    m_cyclesPointCloud = new ccl::PointCloud();
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesPointCloud);
+
+    m_cyclesObject             = new ccl::Object();
+    m_cyclesObject->geometry   = m_cyclesPointCloud;
+    m_cyclesObject->tfm        = ccl::transform_identity();
+    m_cyclesObject->pass_id    = -1;
+    m_cyclesObject->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
+    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+}
+
+void
+HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id) {
+    VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
+
+    if (pointsValue.empty()) {
+        TF_WARN("Empty point data for: %s", id.GetText());
+        return;
+    }
+
+    if (!pointsValue.IsHolding<VtVec3fArray>()) {
+        TF_WARN("Invalid point data! Can not convert points for: %s", id.GetText());
+        return;
+    }
+
+    VtVec3fArray points = pointsValue.UncheckedGet<VtVec3fArray>();
+
+    assert(m_cyclesPointCloud);
+    m_cyclesPointCloud->clear();
+    m_cyclesPointCloud->resize(points.size());
+    for (size_t i = 0; i < points.size(); ++i) {
+        m_cyclesPointCloud->points[i] = vec3f_to_float3(points[i]);
+    }
+}
+
+void
+HdCyclesPoints::_PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& id) {
+    VtValue widthsValue = sceneDelegate->Get(id, HdTokens->widths);
+
+    if (widthsValue.empty()) {
+        TF_WARN("Empty widths data for: %s", id.GetText());
+        return;
+    }
+
+    if (!widthsValue.IsHolding<VtFloatArray>()) {
+        TF_WARN("Invalid point data! Can not convert points for: %s", id.GetText());
+        return;
+    }
+
+    VtFloatArray widths = widthsValue.UncheckedGet<VtVec3fArray>();
+
+    assert(m_cyclesPointCloud);
+
+    if (widths.size() != m_cyclesPointCloud->points.size()) {
+        TF_WARN("Unexpected number of widths %d with %d points", (int)widths.size(), 
+            (int)m_cyclesPointCloud->points.size());
+        return;
+    }
+
+    if () {
+        
+    }
+
+
+    // TODO: It's likely that this can cause double transforms due to modifying the core transform
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->widths)) {
+        needs_update = true;
+
+        HdTimeSampleArray<VtValue, 2> radius_steps;
+        sceneDelegate->SamplePrimvar(id, HdTokens->widths, &radius_steps);
+        if (radius_steps.count > 0) {
+            const VtFloatArray& radius
+                = radius_steps.values[0].Get<VtFloatArray>();
+
+            // The more correct way to figure out the interpolation
+            // would be to get a primvar descriptor array but it requires
+            // refactoring the sync into a loop.
+            assert(m_cyclesPointCloud->points.size()
+                   == m_cyclesPointCloud->radius.size());
+            if (radius.size() == 1) {
+                for (size_t i = 0; i < m_cyclesPointCloud->points.size();
+                     ++i) {
+                    m_cyclesPointCloud->radius[i] = radius[0] * 0.5f;
+                }
+            } else if (radius.size() == m_cyclesPointCloud->points.size()) {
+                for (size_t i = 0; i < m_cyclesPointCloud->points.size();
+                     ++i) {
+                    m_cyclesPointCloud->radius[i] = radius[i] * 0.5f;
+                }
+            } else {
+                std::cout
+                    << "Unknown interpolation type for pointcloud. Have "
+                    << m_cyclesPointCloud->points.size()
+                    << " points but primvar has size " << radius.size()
+                    << std::endl;
+            }
+        }
+    }
+}
+
+void
+HdCyclesPoints::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, const SdfPath& id) {
+    // Add velocities
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
+                                        HdTokens->velocities)) {
+        VtValue velocitiesValue = sceneDelegate->Get(id,
+                                                     HdTokens->velocities);
+        if (velocitiesValue.IsHolding<VtVec3fArray>()) {
+            const VtVec3fArray& velocities
+                = velocitiesValue.UncheckedGet<VtVec3fArray>();
+            _AddVelocities(velocities);
+        } else {
+            TF_WARN("Unexpected type for points velocities");
+        }
+    }
+
+    // Add accelerations
+
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
+                                        HdTokens->accelerations)) {
+        VtValue accelerationsValue
+            = sceneDelegate->Get(id, HdTokens->accelerations);
+        if (accelerationsValue.IsHolding<VtVec3fArray>()) {
+            const VtVec3fArray& accelerations
+                = accelerationsValue.UncheckedGet<VtVec3fArray>();
+            //_AddAccelerations(accelerations);
+        } else {
+            TF_WARN("Unexpected type for points accelerations");
+        }
+    }
+
+    // Add colors
+
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
+                                        HdTokens->displayColor)) {
+        VtValue colorsValue = sceneDelegate->Get(id, HdTokens->displayColor);
+        if (colorsValue.IsHolding<VtVec3fArray>()) {
+            const VtVec3fArray& colors
+                = colorsValue.UncheckedGet<VtVec3fArray>();
+            _AddColors(colors);
+        } else {
+            TF_WARN("Unexpected type for points colors");
+        }
+    }
+
+    // Add opacities
+
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->displayOpacity)) {
+        VtValue alphasValue = sceneDelegate->Get(id, HdTokens->displayOpacity);
+        if (alphasValue.IsHolding<VtFloatArray>()) {
+            const VtFloatArray& alphas
+            = alphasValue.UncheckedGet<VtFloatArray>();
+            _AddAlphas(alphas);
+        } else {
+            TF_WARN("Unexpected type for points alphas");
+        }
+    }
+}
+
+void
+HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits) {
+    m_cyclesObject->visibility = visibility = _sharedData.visible ? m_visibilityFlags : 0;
+
+    m_cyclesMesh->tag_update(scene, true);
+    m_cyclesObject->tag_update(scene);
+
+    // todo: check the mesh code that marks the visibility
+
+    param->Interrupt();
+}
+
 void
 HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                      HdDirtyBits* dirtyBits, TfToken const& reprSelector)
 {
-    HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
-
-    const SdfPath& id = GetId();
-
-    HdCyclesPDPIMap pdpi;
+    HdCyclesRenderParam* param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
 
     ccl::Scene* scene = param->GetCyclesScene();
+    const SdfPath& id = GetId();
+
+    //HdCyclesPDPIMap pdpi;
 
     bool needs_update  = false;
     bool needs_newMesh = true;
@@ -156,6 +320,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
+    // todo: remove this once the pointcloud implementation is finished
     if (HdChangeTracker::IsPrimvarDirty(
             *dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_resolution)) {
         needs_newMesh = true;
@@ -171,8 +336,61 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 #endif
 
+    if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
+        needs_update = true;
+
+        bool visible = sceneDelegate->GetVisible(id);
+        for (int i = 0; i < m_cyclesObjects.size(); i++) {
+            if (visible) {
+                m_cyclesObjects[i]->visibility
+                    |= ccl::PATH_RAY_ALL_VISIBILITY;
+            } else {
+                m_cyclesObjects[i]->visibility
+                    &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+            }
+        }
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPoints) {
+        _PopulatePoints(sceneDelegate, id);
+        needs_update = true;
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyWidths) {
+        _PopulateScales(sceneDelegate, id);
+        needs_update = true;
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
+        _PopulatePrimvars(sceneDelegate, id);
+        needs_update = true;
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
+        m_cyclesObject->pass_id = this->GetPrimId() + 1;
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyTransform) {
+        ccl::Transform newTransform
+                = HdCyclesExtractTransform(sceneDelegate, id);
+        m_cyclesObject->tfm = newTransform;
+        m_transform         = newTransform;
+
+        needs_update = true;
+    }
+
+    if (needs_update) {
+        _UpdateObject();
+        param->Interrupt();
+    }
+
+    *dirtyBits = HdChangeTracker::Clean;
+
+#if 0
+
     const bool needToUpdatePoints = (*dirtyBits & HdChangeTracker::DirtyPoints)
                                     || needs_newMesh;
+
 
     if (needToUpdatePoints
         && m_pointStyle == HdCyclesPointStyle::POINT_SPHERES) {
@@ -182,116 +400,10 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_cyclesPointCloud->tag_update(scene, true);
         m_cyclesObject->tag_update(scene);
 
-        const auto pointsValue = sceneDelegate->Get(id, HdTokens->points);
-        if (!pointsValue.IsEmpty() && pointsValue.IsHolding<VtVec3fArray>()) {
-            const VtVec3fArray& points = pointsValue.Get<VtVec3fArray>();
 
-            m_cyclesPointCloud->resize(points.size());
-            for (size_t i = 0; i < points.size(); ++i) {
-                m_cyclesPointCloud->points[i] = vec3f_to_float3(points[i]);
-            }
-        }
 
-        if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-            ccl::Transform newTransform
-                = HdCyclesExtractTransform(sceneDelegate, id);
-            m_cyclesObject->tfm = newTransform;
-            m_transform         = newTransform;
+        
 
-            needs_update = true;
-        }
-
-        // TODO: It's likely that this can cause double transforms due to modifying the core transform
-        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->widths)) {
-            needs_update = true;
-
-            HdTimeSampleArray<VtValue, 2> radius_steps;
-            sceneDelegate->SamplePrimvar(id, HdTokens->widths, &radius_steps);
-            if (radius_steps.count > 0) {
-                const VtFloatArray& radius
-                    = radius_steps.values[0].Get<VtFloatArray>();
-
-                // The more correct way to figure out the interpolation
-                // would be to get a primvar descriptor array but it requires
-                // refactoring the sync into a loop.
-                assert(m_cyclesPointCloud->points.size()
-                       == m_cyclesPointCloud->radius.size());
-                if (radius.size() == 1) {
-                    for (size_t i = 0; i < m_cyclesPointCloud->points.size();
-                         ++i) {
-                        m_cyclesPointCloud->radius[i] = radius[0] * 0.5f;
-                    }
-                } else if (radius.size() == m_cyclesPointCloud->points.size()) {
-                    for (size_t i = 0; i < m_cyclesPointCloud->points.size();
-                         ++i) {
-                        m_cyclesPointCloud->radius[i] = radius[i] * 0.5f;
-                    }
-                } else {
-                    std::cout
-                        << "Unknown interpolation type for pointcloud. Have "
-                        << m_cyclesPointCloud->points.size()
-                        << " points but primvar has size " << radius.size()
-                        << std::endl;
-                }
-            }
-        }
-
-        // Add velocities
-
-        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
-                                            HdTokens->velocities)) {
-            VtValue velocitiesValue = sceneDelegate->Get(id,
-                                                         HdTokens->velocities);
-            if (velocitiesValue.IsHolding<VtVec3fArray>()) {
-                const VtVec3fArray& velocities
-                    = velocitiesValue.UncheckedGet<VtVec3fArray>();
-                _AddVelocities(velocities);
-            } else {
-                TF_WARN("Unexpected type for points velocities");
-            }
-        }
-
-        // Add accelerations
-
-        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
-                                            HdTokens->accelerations)) {
-            VtValue accelerationsValue
-                = sceneDelegate->Get(id, HdTokens->accelerations);
-            if (accelerationsValue.IsHolding<VtVec3fArray>()) {
-                const VtVec3fArray& accelerations
-                    = accelerationsValue.UncheckedGet<VtVec3fArray>();
-                //_AddAccelerations(accelerations);
-            } else {
-                TF_WARN("Unexpected type for points accelerations");
-            }
-        }
-
-        // Add colors
-
-        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
-                                            HdTokens->displayColor)) {
-            VtValue colorsValue = sceneDelegate->Get(id, HdTokens->displayColor);
-            if (colorsValue.IsHolding<VtVec3fArray>()) {
-                const VtVec3fArray& colors
-                    = colorsValue.UncheckedGet<VtVec3fArray>();
-                _AddColors(colors);
-            } else {
-                TF_WARN("Unexpected type for points colors");
-            }
-        }
-
-        // Add opacities
-
-        if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->displayOpacity)) {
-            VtValue alphasValue = sceneDelegate->Get(id, HdTokens->displayOpacity);
-            if (alphasValue.IsHolding<VtFloatArray>()) {
-                const VtFloatArray& alphas
-                = alphasValue.UncheckedGet<VtFloatArray>();
-                _AddAlphas(alphas);
-            } else {
-                TF_WARN("Unexpected type for points alphas");
-            }
-        }
 
         if (m_cyclesPointCloud->used_shaders.empty()) {
             m_cyclesPointCloud->used_shaders.push_back(param->default_vcol_surface);
@@ -412,27 +524,8 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 }
             }
         }
-
-        if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-            needs_update = true;
-
-            bool visible = sceneDelegate->GetVisible(id);
-            for (int i = 0; i < m_cyclesObjects.size(); i++) {
-                if (visible) {
-                    m_cyclesObjects[i]->visibility
-                        |= ccl::PATH_RAY_ALL_VISIBILITY;
-                } else {
-                    m_cyclesObjects[i]->visibility
-                        &= ~ccl::PATH_RAY_ALL_VISIBILITY;
-                }
-            }
-        }
     }
-
-    if (needs_update)
-        param->Interrupt();
-
-    *dirtyBits = HdChangeTracker::Clean;
+#endif
 }
 
 HdDirtyBits

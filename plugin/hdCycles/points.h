@@ -101,6 +101,31 @@ public:
 
 protected:
     /**
+     * @brief Initialize the cycles objects and adds them to the scene
+     */
+    void _InitializeNewCyclesPointCloud();
+
+    /**
+     * @brief Fills in the point positions
+     */
+    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+
+    /**
+     * @brief Fill in the point widths
+     */
+    void _PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+
+    /**
+     * @brief Fill in optional primvars
+     */
+    void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+
+    /**
+     * @brief Flag the object for update in the scene
+     */
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits);
+
+    /**
      * @brief Initialize the given representation of this Rprim.
      * This is called prior to syncing the prim.
      * 
