@@ -221,7 +221,8 @@ HdCyclesMesh::_ComputeTangents(bool needsign)
 
 void
 HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
-                        HdInterpolation interpolation)
+                        HdInterpolation interpolation, bool& need_tangent,
+                        bool& need_sign)
 {
     ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
                                         ? &m_cyclesMesh->subd_attributes
@@ -231,11 +232,12 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
     ccl::ustring uv_name      = ccl::ustring(name.GetString());
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
 
+    // unused for now?
     bool need_uv = m_cyclesMesh->need_attribute(scene, uv_name)
                    || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV);
-    bool need_tangent
-        = m_cyclesMesh->need_attribute(scene, tangent_name)
-          || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
+    need_tangent = m_cyclesMesh->need_attribute(scene, tangent_name)
+                   || m_cyclesMesh->need_attribute(scene,
+                                                   ccl::ATTR_STD_UV_TANGENT);
 
     // Forced true for now... Should be based on shader compilation needs
     need_tangent = true;
@@ -251,16 +253,13 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
     if (need_tangent) {
         ccl::ustring sign_name = ccl::ustring(name.GetString()
                                               + ".tangent_sign");
-        bool need_sign
+        need_sign
             = m_cyclesMesh->need_attribute(scene, sign_name)
               || m_cyclesMesh->need_attribute(scene,
                                               ccl::ATTR_STD_UV_TANGENT_SIGN);
 
-
         // Forced for now
         need_sign = true;
-        mikk_compute_tangents(name.GetString().c_str(), m_cyclesMesh, need_sign,
-                              true);
     }
 }
 
@@ -437,19 +436,29 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
     if (interpolation == HdInterpolationUniform) {
-        ccl::Attribute* attr_fN = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
-        ccl::float3* fN         = attr_fN->data_float3();
+        // Expecting one normal for each polygon
+        if (normals.size() != m_faceVertexCounts.size()) {
+            TF_WARN("Unexpected number of uniform normals, skipping.");
+            return;
+        }
+
+        ccl::Attribute* attr_fvN = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
+        ccl::float3* fvN         = attr_fvN->data_float3();
+
+        const float scale = (m_orientation == HdTokens->leftHanded) ? -1.f
+                                                                    : 1.f;
 
         int idx = 0;
         for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
+            const int vCount      = m_faceVertexCounts[i];
+            const ccl::float3 fNi = vec3f_to_float3(normals[i]) * scale;
 
-            // This needs to be checked
-            for (int j = 1; j < vCount - 1; ++idx) {
-                fN[idx] = vec3f_to_float3(normals[idx]);
+            for (int j = 1; j < vCount - 1; ++j) {  // for each triangle
+                for (int k = 0; k < 3; ++k) {       // for each corner
+                    fvN[idx++] = fNi;
+                }
             }
         }
-
     } else if (interpolation == HdInterpolationVertex) {
         ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* cdata   = attr->data_float3();
@@ -464,34 +473,22 @@ HdCyclesMesh::_AddNormals(VtVec3fArray& normals, HdInterpolation interpolation)
         }
 
     } else if (interpolation == HdInterpolationFaceVarying) {
-        //ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        //ccl::float3* cdata   = attr->data_float3();
+        ccl::Attribute* attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
+        ccl::float3* fvN     = attr->data_float3();
 
-        // TODO: For now, this method produces very wrong results. Some other solution will be needed
-
-        m_cyclesMesh->add_face_normals();
-        m_cyclesMesh->add_vertex_normals();
-
-        return;
-
-        //memset(cdata, 0, m_cyclesMesh->verts.size() * sizeof(ccl::float3));
-
-        // Although looping through all faces, normals are averaged per
-        // vertex. This seems to be a limitation of cycles. Not allowing
-        // face varying/loop_normals/corner_normals natively.
-
-        // For now, we add all corner normals and normalize separately.
-        // TODO: Update when Cycles supports corner_normals
-        /*for (size_t i = 0; i < m_numMeshFaces; i++) {
-            for (size_t j = 0; j < 3; j++) {
-                ccl::float3 n = vec3f_to_float3(normals[(i * 3) + j]);
-                cdata[m_cyclesMesh->get_triangle(i).v[j]] += n;
-            }
+        // This assumes that the attribute has been triangulated by the caller.
+        if (m_cyclesMesh->num_triangles() * 3 != normals.size()) {
+            TF_WARN("Unexpected number of facevarying normals, skipping.");
+            return;
         }
 
-        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
-            cdata[i] = ccl::normalize(cdata[i]);
-        }*/
+        const float scale = (m_orientation == HdTokens->leftHanded) ? -1.f
+                                                                    : 1.f;
+        for (size_t i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
+            for (int j = 0; j < 3; ++j) {
+                fvN[i * 3 + j] = vec3f_to_float3(normals[i * 3 + j]) * scale;
+            }
+        }
     }
 }
 
@@ -822,6 +819,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                               id, HdInterpolationFaceVarying) },
             { HdInterpolationVertex,
               sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
+            { HdInterpolationUniform,
+              sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
             { HdInterpolationConstant,
               sceneDelegate->GetPrimvarDescriptors(id,
                                                    HdInterpolationConstant) },
@@ -1040,6 +1039,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             subd_params.objecttoworld = ccl::transform_identity();
         }
 
+        bool need_tangent, need_sign;
+        std::string uv_name;  // can we get rid of this?
+
         // Ingest mesh primvars (data, not schema)
         for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
             for (auto& pv : primvarDescsEntry.second) {
@@ -1096,8 +1098,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     else if (pv.role
                              == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVSet(pv.name, value, scene,
-                                  primvarDescsEntry.first);
+                                  primvarDescsEntry.first, need_tangent,
+                                  need_sign);
 
+                        uv_name      = pv.name.GetString();
                         mesh_updated = true;
                     }
 
@@ -1116,6 +1120,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     }
                 }
             }
+        }
+
+        // Computing tangents after we are sure we have loaded the correct normals
+        if (need_tangent) {
+            mikk_compute_tangents(uv_name.c_str(), m_cyclesMesh, need_sign,
+                                  true);
         }
 
         // Apply existing shaders

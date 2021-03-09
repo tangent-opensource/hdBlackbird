@@ -130,7 +130,8 @@ protected:
      * @param interpolation 
      */
     void _AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
-                   HdInterpolation interpolation);
+                   HdInterpolation interpolation, 
+                   bool& need_tangent, bool& need_sign);
 
     /**
      * @brief Add vertex/face normals (Not implemented)
