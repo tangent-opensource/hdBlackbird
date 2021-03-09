@@ -230,7 +230,7 @@ private:
     float m_fisheyeLens;
     float m_latMin, m_latMax, m_longMin, m_longMax;
     bool m_useSphericalStereo;
-    
+
     float m_interocularDistance;
     float m_convergenceDistance;
     bool m_usePoleMerge;

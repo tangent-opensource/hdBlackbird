@@ -142,13 +142,23 @@ protected:
     void _AddNormals(VtVec3fArray& normals, HdInterpolation interpolation);
 
     /**
-     * @brief Add vertex velocities (Not tested)
+     * @brief Add vertex velocities
      * 
      * @param velocities 
      * @param interpolation 
      */
     void _AddVelocities(VtVec3fArray& velocities,
                         HdInterpolation interpolation);
+
+
+    /**
+     * @brief Add vertex accelerations
+     * 
+     * @param accelerations 
+     * @param interpolation 
+     */
+    void _AddAccelerations(VtVec3fArray& accelerations,
+                           HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/primitive colors

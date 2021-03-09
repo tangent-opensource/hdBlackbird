@@ -263,6 +263,11 @@ HdCyclesMesh::_AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
     }
 }
 
+/*
+    Setting velocities for each vertex and letting Cycles take care
+    of interpolating them once the shuttertime is known.
+
+*/
 void
 HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                              HdInterpolation interpolation)
@@ -271,57 +276,62 @@ HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities,
                                         ? &m_cyclesMesh->subd_attributes
                                         : &m_cyclesMesh->attributes;
 
-    m_cyclesMesh->use_motion_blur = true;
-    m_cyclesMesh->motion_steps    = 3;
-
+    // If motion data has been populated, we only issue a warning for now.
     ccl::Attribute* attr_mP = attributes->find(
         ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
-    if (attr_mP)
-        attributes->remove(attr_mP);
-
-    if (!attr_mP) {
-        attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    if (attr_mP) {
+        TF_WARN("Velocities will be ignored since motion positions exist");
+        return;
     }
-    //ccl::float3* vdata = attr_mP->data_float3();
 
-    /*if (interpolation == HdInterpolationVertex) {
-        VtIntArray::const_iterator idxIt = m_faceVertexIndices.begin();
+    // Copying the velocities
+    ccl::Attribute* attr_V = attributes->find(ccl::ATTR_STD_VERTEX_VELOCITY);
+    if (!attr_V) {
+        attr_V = attributes->add(ccl::ATTR_STD_VERTEX_VELOCITY);
+    }
 
-        // TODO: Add support for subd faces?
-        for (int i = 0; i < m_faceVertexCounts.size(); i++) {
-            const int vCount = m_faceVertexCounts[i];
+    if (interpolation == HdInterpolationVertex) {
+        assert(velocities.size() == m_cyclesMesh->verts.size());
 
-            for (int j = 1; j < vCount - 1; ++j) {
-                int v0 = *idxIt;
-                int v1 = *(idxIt + j + 0);
-                int v2 = *(idxIt + j + 1);
+        ccl::float3* V = attr_V->data_float3();
 
-                if (m_orientation == HdTokens->leftHanded) {
-                    int temp = v2;
-                    v2       = v0;
-                    v0       = temp;
-                }
-
-                vdata[0] = vec3f_to_float3(velocities[v0]);
-                vdata[1] = vec3f_to_float3(velocities[v1]);
-                vdata[2] = vec3f_to_float3(velocities[v2]);
-                vdata += 3;
-            }
-            idxIt += vCount;
+        for (size_t i = 0; i < velocities.size(); ++i) {
+            V[i] = vec3f_to_float3(velocities[i]);
         }
-    } else {*/
+    } else {
+        TF_WARN("Velocity requries per-vertex interpolation");
+    }
+}
 
-    ccl::float3* mP = attr_mP->data_float3();
+/*
+    Adding accelerations to improve the quality of the motion blur geometry.
+    They will be active only if the velocities are present
+*/
+void
+HdCyclesMesh::_AddAccelerations(VtVec3fArray& accelerations,
+                                HdInterpolation interpolation)
+{
+    ccl::AttributeSet* attributes = (m_useSubdivision && m_subdivEnabled)
+                                        ? &m_cyclesMesh->subd_attributes
+                                        : &m_cyclesMesh->attributes;
 
-    for (size_t i = 0; i < m_cyclesMesh->motion_steps; ++i) {
-        //VtVec3fArray pp;
-        //pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
+    ccl::Attribute* attr_accel = attributes->find(
+        ccl::ATTR_STD_VERTEX_ACCELERATION);
+    if (!attr_accel) {
+        attr_accel = attributes->add(ccl::ATTR_STD_VERTEX_ACCELERATION);
+    }
 
-        for (size_t j = 0; j < velocities.size(); ++j, ++mP) {
-            *mP = vec3f_to_float3(m_points[j]
-                                  + (velocities[j] * m_velocityScale));
+    if (interpolation == HdInterpolationVertex) {
+        assert(accelerations.size() == m_cyclesMesh->verts.size());
+
+        ccl::float3* A = attr_accel->data_float3();
+
+        for (size_t i = 0; i < accelerations.size(); ++i) {
+            A[i] = vec3f_to_float3(accelerations[i]);
         }
+    } else {
+        TF_WARN("Acceleration requires per-vertex interpolation");
     }
 }
 
@@ -746,6 +756,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
+    bool topologyIsDirty = false;
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
         m_topology          = GetMeshTopology(sceneDelegate);
         m_faceVertexCounts  = m_topology.GetFaceVertexCounts();
@@ -798,7 +809,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                == PxOsdOpenSubdivTokens->catmullClark;
         }
 
-        newMesh = true;
+        newMesh         = true;
+        topologyIsDirty = true;
     }
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector>
@@ -853,7 +865,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
             // Mesh Specific
-
             m_useMotionBlur = _HdCyclesGetMeshParam<bool>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
@@ -1060,36 +1071,26 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
                     // - Velocities
 
-                    // TODO: Properly implement
                     else if (pv.name == HdTokens->velocities) {
                         if (value.IsHolding<VtArray<GfVec3f>>()) {
                             VtVec3fArray vels;
                             vels = value.UncheckedGet<VtArray<GfVec3f>>();
 
-                            /*meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                            vels.data(), vels.size(), HdTypeFloatVec3,
-                            &triangulatedVal);
-                        VtVec3fArray m_vels_tri
-                            = triangulatedVal.Get<VtVec3fArray>();
-                        _AddVelocities(m_vels_tri, primvarDescsEntry.first);*/
-
-
-                            if (primvarDescsEntry.first
-                                == HdInterpolationFaceVarying) {
-                                meshUtil.ComputeTriangulatedFaceVaryingPrimvar(
-                                    vels.data(), vels.size(), HdTypeFloatVec3,
-                                    &triangulated);
-
-                                VtVec3fArray triangulatedVels
-                                    = triangulated.Get<VtVec3fArray>();
-
-                                //_AddVelocities(triangulatedVels,
-                                //               primvarDescsEntry.first);
-                            } else {
-                                //_AddVelocities(vels, primvarDescsEntry.first);
-                            }
+                            _AddVelocities(vels, primvarDescsEntry.first);
+                            mesh_updated = true;
                         }
-                        mesh_updated = true;
+                    }
+
+                    // - Accelerations
+
+                    else if (pv.name == HdTokens->accelerations) {
+                        if (value.IsHolding<VtArray<GfVec3f>>()) {
+                            VtVec3fArray accels;
+                            accels = value.UncheckedGet<VtArray<GfVec3f>>();
+
+                            _AddAccelerations(accels, primvarDescsEntry.first);
+                            mesh_updated = true;
+                        }
                     }
 
                     // - Texture Coordinates
@@ -1281,12 +1282,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         _FinishMesh(scene);
     }
 
-    if (mesh_updated || newMesh) {
+    if (mesh_updated || newMesh || topologyIsDirty) {
         m_cyclesObject->visibility = m_visibilityFlags;
         if (!_sharedData.visible)
             m_cyclesObject->visibility = 0;
 
-        m_cyclesMesh->tag_update(scene, false);
+
+        m_cyclesMesh->tag_update(scene, topologyIsDirty);
         m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
