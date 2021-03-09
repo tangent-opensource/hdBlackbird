@@ -90,8 +90,11 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     HDCYCLES_INTEGRATOR_TOKENS
 );
 
+const TfToken aovc;
+const TfToken aovv;
 
 #define HDCYCLES_AOV_TOKENS \
+    (UV)                    \
     (Vector)                \
     (IndexMA)               \
                             \
@@ -100,10 +103,27 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     (TransDir)              \
     (VolumeDir)             \
                             \
+    (DiffInd)               \
+    (GlossInd)              \
+    (TransInd)              \
+    (VolumeInd)             \
+                            \
+    (DiffCol)               \
+    (GlossCol)              \
+    (TransCol)              \
+    (VolumeCol)             \
+                            \
     (Emit)                  \
     (Env)                   \
     (AO)                    \
-    (Shadow)
+    (Shadow)                \
+                            \
+    (CryptoObject)          \
+    (CryptoMaterial)        \
+    (CryptoAsset)           \
+                            \
+    ((AOVC, "aovc:"))       \
+    ((AOVV, "aovv:"))
 
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens, 
     HDCYCLES_API, 

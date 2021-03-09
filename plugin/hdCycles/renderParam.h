@@ -441,17 +441,45 @@ private:
     std::mutex m_shaders_mutex;
 
     HdRenderPassAovBindingVector m_aovs;
-    std::string m_displayAovName;
+    TfToken m_displayAovToken;
 
 public:
-    void SetDisplayAov(HdRenderPassAovBinding const& aov);
-    const std::string &GetDisplayAovName() const
+
+    /**
+     * @brief Set the default display AOV
+     * 
+     * @param a_aov Set a HdRenderPassAovBinding from HdCyclesRenderPass
+     * 
+     * TODO: Currently there is no upstream from Houdini way to apply a default
+     * AOV to view, so it'll just default to color or the first one found. A
+     * possible workaround is to just make Cycles render all AOVs at once in
+     * display mode.
+     */
+    void SetDisplayAov(HdRenderPassAovBinding const &a_aov);
+
+    /**
+     * @brief Get the default display AOV token
+     * 
+     * @return TfToken of the default AOV diplay
+     */
+    const TfToken &GetDisplayAovToken() const
     {
-        return m_displayAovName;
+        return m_displayAovToken;
     }
 
-    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs);
-    HdRenderPassAovBindingVector const& GetAovBindings() const
+    /**
+     * @brief Set the AOV bindings
+     * 
+     * @param a_aovs Set a HdRenderPassAovBindingVector from HdCyclesRenderPass
+     */
+    void SetAovBindings(HdRenderPassAovBindingVector const &a_aovs);
+
+    /**
+     * @brief Get the AOV bindings
+     * 
+     * @return HdRenderPassAovBindingVector
+     */
+    HdRenderPassAovBindingVector const &GetAovBindings() const
     {
         return m_aovs;
     }
