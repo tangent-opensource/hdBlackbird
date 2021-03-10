@@ -221,7 +221,7 @@ protected:
                            HdDirtyBits* dirtyBits);
 
 
-    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits);
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBvh);
 
     /**
      * @brief Populate generated coordinates attribute
