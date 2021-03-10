@@ -71,10 +71,10 @@ EvalCameraParam(T* value, const TfToken& paramName,
 
 #ifdef USE_USD_CYCLES_SCHEMA
 
-std::map<TfToken, ccl::Camera::MotionPosition> MOTION_POSITION_CONVERSION = {
-    { usdCyclesTokens->start, ccl::Camera::MOTION_POSITION_START },
-    { usdCyclesTokens->center, ccl::Camera::MOTION_POSITION_CENTER },
-    { usdCyclesTokens->end, ccl::Camera::MOTION_POSITION_END },
+std::map<TfToken, ccl::MotionPosition> MOTION_POSITION_CONVERSION = {
+    { usdCyclesTokens->start, ccl::MOTION_POSITION_START },
+    { usdCyclesTokens->center, ccl::MOTION_POSITION_CENTER },
+    { usdCyclesTokens->end, ccl::MOTION_POSITION_END },
 };
 
 std::map<TfToken, ccl::Camera::RollingShutterType> ROLLING_SHUTTER_TYPE_CONVERSION
@@ -115,7 +115,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_needsUpdate(false)
     , m_shutterTime(1.0f)
     , m_rollingShutterTime(0.1f)
-    , m_motionPosition(ccl::Camera::MOTION_POSITION_CENTER)
+    , m_motionPosition(ccl::MOTION_POSITION_CENTER)
     , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
     , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
     , m_stereoEye(ccl::Camera::STEREO_NONE)
@@ -486,14 +486,14 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
     a_camera->shuttertime = m_shutterTime;
     a_camera->motion_position
-        = ccl::Camera::MotionPosition::MOTION_POSITION_CENTER;
+        = ccl::MotionPosition::MOTION_POSITION_CENTER;
 
     a_camera->rolling_shutter_duration = m_rollingShutterTime;
 
     a_camera->rolling_shutter_type
         = (ccl::Camera::RollingShutterType)m_rollingShutterType;
     a_camera->panorama_type   = (ccl::PanoramaType)m_panoramaType;
-    a_camera->motion_position = (ccl::Camera::MotionPosition)m_motionPosition;
+    a_camera->motion_position = (ccl::MotionPosition)m_motionPosition;
     a_camera->stereo_eye      = (ccl::Camera::StereoEye)m_stereoEye;
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
