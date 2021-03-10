@@ -116,7 +116,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_shutterTime(1.0f)
     , m_rollingShutterTime(0.1f)
     , m_fps(24.f)
-    , m_motionPosition(ccl::Camera::MOTION_POSITION_CENTER)
+    , m_motionPosition(ccl::MOTION_POSITION_CENTER)
     , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
     , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
     , m_stereoEye(ccl::Camera::STEREO_NONE)
