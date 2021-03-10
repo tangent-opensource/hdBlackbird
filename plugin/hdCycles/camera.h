@@ -230,7 +230,7 @@ private:
     float m_fisheyeLens;
     float m_latMin, m_latMax, m_longMin, m_longMax;
     bool m_useSphericalStereo;
-    
+
     float m_interocularDistance;
     float m_convergenceDistance;
     bool m_usePoleMerge;
@@ -239,6 +239,7 @@ private:
     bool m_useDof;
 
     bool m_useMotionBlur;
+    float m_fps;
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 

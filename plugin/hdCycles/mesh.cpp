@@ -205,7 +205,6 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     //
     // Tangents
     //
-
     ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
     ccl::ustring sign_name    = ccl::ustring(name.GetString() + ".tangent_sign");
     bool need_tangent         = m_cyclesMesh->need_attribute(scene, tangent_name)
@@ -246,39 +245,82 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
         bool need_sign = m_cyclesMesh->need_attribute(scene, sign_name)
                          || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT_SIGN);
 
-
         // Forced for now
         need_sign = true;
         mikk_compute_tangents(name.GetString().c_str(), m_cyclesMesh, need_sign, true);
     }
 }
 
+/*
+    Setting velocities for each vertex and letting Cycles take care
+    of interpolating them once the shuttertime is known.
+
+*/
 void
 HdCyclesMesh::_AddVelocities(VtVec3fArray& velocities, HdInterpolation interpolation)
 {
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+
+    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    if (attr_mP) {
+        TF_WARN("Velocities will be ignored since motion positions exist");
+        return;
+    }
+
+    // Turning on motion blur (todo: dynamic number of steps)
     m_cyclesMesh->use_motion_blur = true;
     m_cyclesMesh->motion_steps    = 3;
 
-    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-
-    if (attr_mP)
-        attributes->remove(attr_mP);
-
-    if (!attr_mP) {
-        attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    ccl::Attribute* attr_V = attributes->find(ccl::ATTR_STD_VERTEX_VELOCITY);
+    if (!attr_V) {
+        attr_V = attributes->add(ccl::ATTR_STD_VERTEX_VELOCITY);
     }
 
-    ccl::float3* mP = attr_mP->data_float3();
+    if (interpolation == HdInterpolationVertex) {
+        assert(velocities.size() == m_cyclesMesh->verts.size());
 
-    for (size_t i = 0; i < m_cyclesMesh->motion_steps; ++i) {
-        //VtVec3fArray pp;
-        //pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
-
-        for (size_t j = 0; j < velocities.size(); ++j, ++mP) {
-            *mP = vec3f_to_float3(m_points[j] + (velocities[j] * m_velocityScale));
+        ccl::float3* V = attr_V->data_float3();
+        for (size_t i = 0; i < velocities.size(); ++i) {
+            V[i] = vec3f_to_float3(velocities[i]);
         }
+    } else {
+        TF_WARN("Velocity requries per-vertex interpolation");
     }
+}
+
+/*
+    Adding accelerations to improve the quality of the motion blur geometry.
+    They will be active only if the velocities are present
+*/
+void
+HdCyclesMesh::_AddAccelerations(VtVec3fArray& accelerations,
+                                HdInterpolation interpolation)
+{
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+
+    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    if (attr_mP) {
+        TF_WARN("Accelerations will be ignored since motion positions exist");
+        return;
+    }
+
+    ccl::Attribute* attr_accel = attributes->find(
+        ccl::ATTR_STD_VERTEX_ACCELERATION);
+    if (!attr_accel) {
+        attr_accel = attributes->add(ccl::ATTR_STD_VERTEX_ACCELERATION);
+    }
+
+    if (interpolation == HdInterpolationVertex) {
+        assert(accelerations.size() == m_cyclesMesh->verts.size());
+
+        ccl::float3* A = attr_accel->data_float3();
+        for (size_t i = 0; i < accelerations.size(); ++i) {
+            A[i] = vec3f_to_float3(accelerations[i]);
+        }
+    } else {
+        TF_WARN("Acceleration requires per-vertex interpolation");
+    }
+
 }
 
 void
@@ -452,27 +494,25 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
                 return d.name == HdTokens->normals && d.role == HdPrimvarRoleTokens->normal;
             };
             if (std::find_if(d.begin(), d.end(), predicate) != d.end()) {
+                interpolation = (HdInterpolation)i;
                 return true;
             }
         }
         return false;
     };
 
-    HdInterpolation interpolation;
+    HdInterpolation interpolation = HdInterpolationCount;
     if (!GetPrimvarInterpolation(interpolation)) {
         // TODO: Should we autogenerate normals or let Cycles generate them?
+        // Let's shoot a warning for now
+        TF_WARN("Failed to find interpolation for normals for: %s", id.GetText());
         return;
     }
+    assert(interpolation >= 0 && interpolation < HdInterpolationCount);
 
     VtValue normals_value = GetNormals(sceneDelegate);
     if (normals_value.IsEmpty()) {
-        TF_WARN("Empty normals!");
-        return;
-    }
-
-    // not supported interpolation types
-    if (interpolation == HdInterpolationFaceVarying) {
-        TF_WARN("Face varying normals are not implemented!");
+        TF_WARN("Empty normals for: %s", id.GetText());
         return;
     }
 
@@ -487,6 +527,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
 
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
 
+    printf("HDCYCLES++ Normals have interpolation %d\n", (int)interpolation);
     if (interpolation == HdInterpolationConstant) {
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
@@ -505,18 +546,23 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         for (int i = 0; i < num_triangles; i++) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
-
-        return;
-    }
-
-    if (interpolation == HdInterpolationUniform) {
+    } else if (interpolation == HdInterpolationUniform) {
+        printf("++HDCYCLES Normals with uniform interpolation\n");
+        // This is the correct way to handle face normals, but Cycles does not support
+        // custom values, it will just use the geometric normal based on the 'smooth' flag.
+        // To support custom normals we go through ATTR_STD_CORNER_NORMAL, 
+        // which results in 3x the amount of memory but respects the custom value. 
+        // This is more of an attempt to adhere to the USD specification, as it's 
+        // hard to imagine rendering a surface with a per-face normal different
+        // from the geometric one.
+#if 0
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
         const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
-        VtValue refined_value = m_refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal,
+        VtValue refined_value = m_refiner->RefineUniformData(HdTokens->normals, HdPrimvarRoleTokens->normal,
                                                             normals_value);
         if (refined_value.GetArraySize() != num_triangles) {
             TF_WARN("Invalid uniform normals for: %s", id.GetText());
@@ -527,11 +573,31 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         for (int i = 0; i < num_triangles; i++) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
+#else
+        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
+        ccl::float3* normal_data = normal_attr->data_float3();
 
-        return;
-    }
+        const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
+        memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
-    if (interpolation == HdInterpolationVertex || interpolation == HdInterpolationVarying) {
+        VtValue refined_value = m_refiner->RefineUniformData(HdTokens->normals, HdPrimvarRoleTokens->normal,
+                                                            normals_value);
+        if (refined_value.GetArraySize() != num_triangles) {
+            TF_WARN("Invalid uniform normals for: %s", id.GetText());
+            return;
+        }
+
+        VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
+        ccl::float3 N;
+        for (int i = 0; i < num_triangles; ++i) {
+            N = vec3f_to_float3(refined_normals[i]);
+            for (int j = 0; j < 3; ++j) {
+                normal_data[i * 3 + j] = N;
+            }
+        }
+#endif
+    } else if (interpolation == HdInterpolationVertex || interpolation == HdInterpolationVarying) {
+        printf("++HDCYCLES Normals with vertex interpolation\n");
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
@@ -554,8 +620,27 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         for (size_t i = 0; i < num_vertices; ++i) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
+    } else if (interpolation == HdInterpolationFaceVarying) {
+        printf("++HDCYCLES Normals with face varying interpolation\n");
+        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
+        ccl::float3* normal_data = normal_attr->data_float3();
 
-        return;
+        const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
+        memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
+
+        VtValue refined_value = m_refiner->RefineFaceVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal,
+                                                            normals_value);
+        if (refined_value.GetArraySize() != num_triangles * 3) {
+            TF_WARN("Invalid facevarying normals for: %s", id.GetText());
+            return;
+        }
+
+        VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
+        for (int i = 0; i < num_triangles * 3; ++i) {
+            normal_data[i] = vec3f_to_float3(refined_normals[i]);
+        }
+    } else {
+        TF_WARN("Invalid normal interpolation for: %s",id.GetText());
     }
 }
 
@@ -900,6 +985,7 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     // TODO: populate motion ?
+
 }
 
 void
@@ -1157,6 +1243,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 sceneDelegate->GetRenderIndex().GetInstancer(GetInstancerId()))) {
             auto instanceTransforms = instancer->SampleInstanceTransforms(id);
             auto newNumInstances    = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
+
             // Clear all instances...
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
@@ -1243,7 +1330,6 @@ HdCyclesMesh::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDir
 }
 
 namespace {
-
 template<typename From>
 VtValue
 value_to_vec3f_cast(const VtValue& input)

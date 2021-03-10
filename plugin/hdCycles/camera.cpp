@@ -115,6 +115,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_needsUpdate(false)
     , m_shutterTime(1.0f)
     , m_rollingShutterTime(0.1f)
+    , m_fps(24.f)
     , m_motionPosition(ccl::MOTION_POSITION_CENTER)
     , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
     , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
@@ -484,6 +485,7 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     a_camera->nearclip = m_clippingRange.GetMin();
     a_camera->farclip  = m_clippingRange.GetMax();
 
+    a_camera->fps         = m_fps;
     a_camera->shuttertime = m_shutterTime;
     a_camera->motion_position
         = ccl::MotionPosition::MOTION_POSITION_CENTER;

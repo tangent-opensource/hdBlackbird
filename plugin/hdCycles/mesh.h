@@ -126,7 +126,8 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene, HdInterpolation interpolation);
+    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene,
+                   HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/face normals (Not implemented)
@@ -136,12 +137,22 @@ protected:
      */
 
     /**
-     * @brief Add vertex velocities (Not tested)
+     * @brief Add vertex velocities
      * 
      * @param velocities 
      * @param interpolation 
      */
     void _AddVelocities(VtVec3fArray& velocities, HdInterpolation interpolation);
+
+
+    /**
+     * @brief Add vertex accelerations
+     * 
+     * @param accelerations 
+     * @param interpolation 
+     */
+    void _AddAccelerations(VtVec3fArray& accelerations,
+                           HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/primitive colors
