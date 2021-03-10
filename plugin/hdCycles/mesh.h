@@ -142,7 +142,7 @@ protected:
      * @param velocities 
      * @param interpolation 
      */
-    void _AddVelocities(VtVec3fArray& velocities, HdInterpolation interpolation);
+    void _AddVelocities(const SdfPath& id, const VtValue& value, HdInterpolation interpolation);
 
 
     /**
@@ -151,8 +151,7 @@ protected:
      * @param accelerations 
      * @param interpolation 
      */
-    void _AddAccelerations(VtVec3fArray& accelerations,
-                           HdInterpolation interpolation);
+    void _AddAccelerations(const SdfPath& id, const VtValue& value, HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/primitive colors
@@ -206,7 +205,7 @@ protected:
      * 
      */
 
-    void _PopulateMotion();
+    void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
@@ -241,10 +240,6 @@ protected:
 
     HdMeshTopology m_topology;
     std::shared_ptr<const HdCyclesMeshRefiner> m_refiner;
-
-    VtVec3fArray m_points;
-
-    HdCyclesSampledPrimvarType m_pointSamples;
 
     float m_velocityScale;
 
