@@ -10,14 +10,13 @@ authors = [
 
 requires = [
     'usdcycles',
-    'cycles-1.13',
+    'cycles-1.13.0-ta.1.9.0',
 ]
 
 variants = [
     # Windows
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.11'],
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini'],
     # Linux
     ['platform-linux', 'arch-x86_64', 'os-centos-7', 'usd-20.08-houdini'],
