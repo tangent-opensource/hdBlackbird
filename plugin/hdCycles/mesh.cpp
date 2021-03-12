@@ -473,9 +473,20 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
 void
 HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
-    // normals can be populated in few ways
-    // * authored normals passed by primvar
-    // * auto generated from limit surface for subdivision surfaces
+    // Normals are tricky in Hd. When subdivisionSchema is being set to != none,
+    // then Hd interface suppresses loading any normals as 'normals' or 'primvar:normals' from primvars.
+    // It happens because Hd assumes that normals are going to come from the limit surface of Osd.
+    // Also, dirty normals bit is never set. To evaluate this function, whenever points change,
+    // we force normal bits to be dirty in the PropagateDirtyBits.
+
+    // Normals can come from:
+    // * authored normals passed by primvar, as long as subdivisionSchema == none
+    // * auto generated from limit surface for subdivisionSchema != none
+
+    // cleanup pre existing normals, that will force cycles to evaluate normals
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_FACE_NORMAL);
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_VERTEX_NORMAL);
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_CORNER_NORMAL);
 
     //
     // Auto generated normals from limit surface
@@ -1121,6 +1132,11 @@ HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
     if (bits & HdChangeTracker::DirtyMaterialId) {
         bits |= (HdChangeTracker::DirtyPoints | HdChangeTracker::DirtyNormals | HdChangeTracker::DirtyPrimvar
                  | HdChangeTracker::DirtyTopology);
+    }
+
+    // Check PopulateNormals for more details
+    if(bits & HdChangeTracker::DirtyPoints) {
+        bits |= HdChangeTracker::DirtyNormals;
     }
 
     return bits;
