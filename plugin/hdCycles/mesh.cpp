@@ -487,6 +487,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     m_cyclesMesh->attributes.remove(ccl::ATTR_STD_FACE_NORMAL);
     m_cyclesMesh->attributes.remove(ccl::ATTR_STD_VERTEX_NORMAL);
     m_cyclesMesh->attributes.remove(ccl::ATTR_STD_CORNER_NORMAL);
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_MOTION_VERTEX_NORMAL);
 
     //
     // Auto generated normals from limit surface
