@@ -664,13 +664,10 @@ private:
 std::shared_ptr<HdCyclesMeshRefiner>
 HdCyclesMeshRefiner::Create(const HdMeshTopology& topology, const SdfPath& id)
 {
-    printf("HDCYCLES refine level %d\n", topology.GetRefineLevel());
     if (topology.GetScheme() == PxOsdOpenSubdivTokens->catmullClark && topology.GetRefineLevel() > 0) {
-        printf("HDCYCLES create subdiv refiner\n");
         return std::make_shared<HdCyclesSubdRefiner>(topology, id);
     }
 
-    printf("HDCYCLES create triangle refiner\n");
     return std::make_shared<HdCyclesTriangleRefiner>(topology, id);
 }
 

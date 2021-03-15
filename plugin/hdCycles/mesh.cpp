@@ -736,7 +736,6 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     auto refine_value         = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
     int refine_level          = refine_value.IsEmpty() ? 0 : refine_value.Cast<int>().UncheckedGet<int>();
     display_style.refineLevel = refine_level;
-    //display_style.refineLevel = 5;
 #endif  // USE_USD_CYCLES_SCHEMA
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
@@ -988,6 +987,9 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
                                                                points_value);
     if (refined_points_value.IsHolding<VtVec3fArray>()) {
         points = refined_points_value.Get<VtVec3fArray>();
+    } else {
+        TF_WARN("Unsupported point type for: %s", id.GetText());
+        return;
     }
 
     for (size_t i = 0; i < points.size(); ++i) {
@@ -1136,6 +1138,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
+
+    std::lock_guard<std::mutex>(scene->mutex);
 
     // -------------------------------------
     // -- Resolve Drawstyles
