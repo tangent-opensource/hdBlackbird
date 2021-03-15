@@ -931,10 +931,12 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 
             if (description.name == HdTokens->velocities) {
                 _AddVelocities(id, value, interpolation);
+                continue;
             }
 
             if (description.name == HdTokens->accelerations) {
                 _AddAccelerations(id, value, interpolation);
+                continue;
             }
 
             // TODO: Add arbitrary primvar support when AOVs are working
