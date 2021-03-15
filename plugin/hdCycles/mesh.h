@@ -165,7 +165,7 @@ protected:
     void _PopulateColors(const TfToken& name, const TfToken& role, const VtValue& data, ccl::Scene* scene,
                          HdInterpolation interpolation, const SdfPath& id);
 
-protected:
+private:
     struct PrimvarSource {
         VtValue data;
         HdInterpolation interpolation;
@@ -259,10 +259,6 @@ protected:
     VtFloat3Array m_limit_us;
     VtFloat3Array m_limit_vs;
 
-public:
-    const TfToken& GetOrientation() { return m_topology.GetOrientation(); }
-
-private:
     HdCyclesRenderDelegate* m_renderDelegate;
 };
 
