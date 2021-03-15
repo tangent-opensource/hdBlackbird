@@ -435,11 +435,6 @@ private:
 
     using lock_guard = std::lock_guard<std::mutex>;
 
-    std::mutex m_lights_mutex;
-    std::mutex m_objects_mutex;
-    std::mutex m_geometry_mutex;
-    std::mutex m_shaders_mutex;
-
     HdRenderPassAovBindingVector m_aovs;
 
 public:
