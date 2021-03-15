@@ -1156,7 +1156,7 @@ HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
     }
 
     // dirty points trigger dirty tangents
-    if(bits & HdChangeTracker::DirtyPoints) {
+    if(bits & HdChangeTracker::DirtyNormals) {
         bits |= DirtyBits::DirtyTangents;
     }
 
