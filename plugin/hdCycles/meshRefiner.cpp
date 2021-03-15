@@ -33,7 +33,7 @@
 #include <opensubdiv/far/stencilTableFactory.h>
 #include <opensubdiv/osd/cpuPatchTable.h>
 #include <opensubdiv/osd/cpuVertexBuffer.h>
-#include <opensubdiv/osd/tbbEvaluator.h>
+#include <opensubdiv/osd/cpuEvaluator.h>
 
 #include <numeric>
 
@@ -41,7 +41,7 @@ PXR_NAMESPACE_USING_DIRECTIVE;
 
 using namespace OpenSubdiv;
 
-#define EVALUATOR Osd::TbbEvaluator
+#define EVALUATOR Osd::CpuEvaluator
 
 namespace {
 
