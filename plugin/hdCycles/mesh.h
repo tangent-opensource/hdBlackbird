@@ -165,7 +165,7 @@ protected:
     void _PopulateColors(const TfToken& name, const TfToken& role, const VtValue& data, ccl::Scene* scene,
                          HdInterpolation interpolation, const SdfPath& id);
 
-protected:
+private:
     struct PrimvarSource {
         VtValue data;
         HdInterpolation interpolation;
@@ -210,6 +210,7 @@ protected:
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
     void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& id, ccl::Scene* scene);
 
     void _PopulateMaterials(HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* renderParam,
                             ccl::Shader* default_surface, const SdfPath& id);
@@ -227,6 +228,10 @@ protected:
      * 
      */
     void _PopulateGenerated(ccl::Scene* scene);
+
+    enum DirtyBits : HdDirtyBits {
+        DirtyTangents = HdChangeTracker::CustomBitsBegin,
+    };
 
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
@@ -256,13 +261,10 @@ protected:
     bool m_visShadow;
     bool m_visTransmission;
 
+    std::vector<ccl::ustring> m_texture_names;
     VtFloat3Array m_limit_us;
     VtFloat3Array m_limit_vs;
 
-public:
-    const TfToken& GetOrientation() { return m_topology.GetOrientation(); }
-
-private:
     HdCyclesRenderDelegate* m_renderDelegate;
 };
 

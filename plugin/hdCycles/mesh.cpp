@@ -201,53 +201,60 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
 
         return;
     }
+}
 
-    //
-    // Tangents
-    //
-    ccl::ustring tangent_name = ccl::ustring(name.GetString() + ".tangent");
-    ccl::ustring sign_name    = ccl::ustring(name.GetString() + ".tangent_sign");
-    bool need_tangent         = m_cyclesMesh->need_attribute(scene, tangent_name)
-                        || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
-    if (!need_tangent) {
-        return;
-    }
+void
+HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& id, ccl::Scene* scene)
+{
+    // Iterate over all uvs and check if tangent is requested, populate primvars must be called before
+    // PopulateTangents
 
-    // Take tangent from subdivision limit surface
-    if (m_refiner->IsSubdivided()) {
-        // subdivided tangents are per vertex
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
 
-        if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT)) {
-            ccl::Attribute* tangent_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT, tangent_name);
-            ccl::float3* tangent_data      = tangent_attrib->data_float3();
+    for(const ccl::ustring& name : m_texture_names) {
+        ccl::ustring tangent_name = ccl::ustring(name.string() + ".tangent");
+        ccl::ustring sign_name    = ccl::ustring(name.string() + ".tangent_sign");
+        bool need_tangent = false;
+        need_tangent |= m_cyclesMesh->need_attribute(scene, tangent_name);
+        need_tangent |= m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT);
 
-            for (size_t i = 0; i < m_cyclesMesh->triangles.size(); ++i) {
-                auto vertex_index = m_cyclesMesh->triangles[i];
-                tangent_data[i]   = m_limit_us[vertex_index];
-            }
+        if (!need_tangent) {
+            continue;
         }
 
-        if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT_SIGN)) {
-            auto sign_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT_SIGN, sign_name);
-            auto sign_data   = sign_attrib->data_float();
+        // Take tangent from subdivision limit surface
+        if (m_refiner->IsSubdivided()) {
+            // subdivided tangents are per vertex
 
-            for (size_t i = 0; i < m_cyclesMesh->triangles.size(); ++i) {
-                sign_data[i] = 1.0f;
+            if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT)) {
+                ccl::Attribute* tangent_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT, tangent_name);
+                ccl::float3* tangent_data      = tangent_attrib->data_float3();
+
+                for (size_t i = 0; i < m_cyclesMesh->triangles.size(); ++i) {
+                    auto vertex_index = m_cyclesMesh->triangles[i];
+                    tangent_data[i]   = m_limit_us[vertex_index];
+                }
             }
+
+            if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT_SIGN)) {
+                auto sign_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT_SIGN, sign_name);
+                auto sign_data   = sign_attrib->data_float();
+
+                for (size_t i = 0; i < m_cyclesMesh->triangles.size(); ++i) {
+                    sign_data[i] = 1.0f;
+                }
+            }
+
+            continue;
         }
 
-        return;
-    }
-
-    // Forced true for now... Should be based on shader compilation needs
-    need_tangent = true;
-    if (need_tangent) {
-        bool need_sign = m_cyclesMesh->need_attribute(scene, sign_name)
-                         || m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT_SIGN);
-
-        // Forced for now
-        need_sign = true;
-        mikk_compute_tangents(name.GetString().c_str(), m_cyclesMesh, need_sign, true);
+        // Forced true for now... Should be based on shader compilation needs
+        need_tangent = true;
+        if (need_tangent) {
+            // Forced for now
+            bool need_sign = true;
+            mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
+        }
     }
 }
 
@@ -473,9 +480,21 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
 void
 HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
-    // normals can be populated in few ways
-    // * authored normals passed by primvar
-    // * auto generated from limit surface for subdivision surfaces
+    // Normals are tricky in Hd. When subdivisionSchema is being set to != none,
+    // then Hd interface suppresses loading any normals as 'normals' or 'primvar:normals' from primvars.
+    // It happens because Hd assumes that normals are going to come from the limit surface of Osd.
+    // Also, dirty normals bit is never set. To evaluate this function, whenever points change,
+    // we force normal bits to be dirty in the PropagateDirtyBits.
+
+    // Normals can come from:
+    // * authored normals passed by primvar, as long as subdivisionSchema == none
+    // * auto generated from limit surface for subdivisionSchema != none
+
+    // cleanup pre existing normals, that will force cycles to evaluate normals
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_FACE_NORMAL);
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_VERTEX_NORMAL);
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_CORNER_NORMAL);
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_MOTION_VERTEX_NORMAL);
 
     //
     // Auto generated normals from limit surface
@@ -892,8 +911,15 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
         info.second = sceneDelegate->GetPrimvarDescriptors(id, info.first);
     }
 
+    m_texture_names.clear();
+
     for (auto& interpolation_description : primvars_desc) {
         for (const HdPrimvarDescriptor& description : interpolation_description.second) {
+            // collect texture coordinates names, it's needed to re-compute texture tangents.
+            if (description.role == HdPrimvarRoleTokens->textureCoordinate) {
+                m_texture_names.emplace_back(description.name.data(), description.name.size());
+            }
+
             if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
                 continue;
             }
@@ -913,15 +939,18 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 
             if (description.role == HdPrimvarRoleTokens->textureCoordinate) {
                 _AddUVSet(description.name, value, scene, interpolation);
+                *dirtyBits |= DirtyBits::DirtyTangents;
                 continue;
             }
 
             if (description.name == HdTokens->velocities) {
                 _AddVelocities(id, value, interpolation);
+                continue;
             }
 
             if (description.name == HdTokens->accelerations) {
                 _AddAccelerations(id, value, interpolation);
+                continue;
             }
 
             // TODO: Add arbitrary primvar support when AOVs are working
@@ -1009,6 +1038,8 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
         m_limit_us.resize(refined_vertices.size());
         m_limit_vs.resize(refined_vertices.size());
         m_refiner->EvaluateLimit(refined_vertices, limit_ps, m_limit_us, m_limit_vs);
+
+        // snap to limit surface
         std::memcpy(m_cyclesMesh->verts.data(), limit_ps.data(), limit_ps.size() * sizeof(ccl::float3));
     }
 
@@ -1036,10 +1067,6 @@ HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
 void
 HdCyclesMesh::_FinishMesh(ccl::Scene* scene)
 {
-    // cleanup limit surface temporary data
-    m_limit_us = {};
-    m_limit_vs = {};
-
     // This must be done first, because HdCyclesMeshTextureSpace requires computed min/max
     m_cyclesMesh->compute_bounds();
 
@@ -1123,6 +1150,16 @@ HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
     if (bits & HdChangeTracker::DirtyMaterialId) {
         bits |= (HdChangeTracker::DirtyPoints | HdChangeTracker::DirtyNormals | HdChangeTracker::DirtyPrimvar
                  | HdChangeTracker::DirtyTopology);
+    }
+
+    // Check PopulateNormals for more details
+    if(bits & HdChangeTracker::DirtyPoints) {
+        bits |= HdChangeTracker::DirtyNormals;
+    }
+
+    // dirty points trigger dirty tangents
+    if(bits & HdChangeTracker::DirtyNormals) {
+        bits |= DirtyBits::DirtyTangents;
     }
 
     return bits;
@@ -1242,7 +1279,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // 1) vertices - generate limit surface position and tangents
     // 2) normals - limit surface tangents are used to generate normals
     // 3) uvs - limit surface tangents
-    // After conversion, class members that hold du and dv are cleared in FinishMesh.
+    // After conversion, class members that hold du and dv are *NOT* cleared in FinishMesh.
+    // TODO: Revisit logic about keeping limit_us and limit_vs alive
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         _PopulateVertices(sceneDelegate, id, dirtyBits);
     }
@@ -1270,6 +1308,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
         // Offset of 1 added because Cycles primId pass needs to be shifted down to -1
         m_cyclesObject->pass_id = this->GetPrimId() + 1;
+    }
+
+    if(*dirtyBits & DirtyBits::DirtyTangents) {
+        _PopulateTangents(sceneDelegate, id, scene);
     }
 
     // -------------------------------------
