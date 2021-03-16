@@ -132,6 +132,45 @@ HdCyclesCreateDefaultShader()
     return shader;
 }
 
+ccl::Shader*
+HdCyclesCreateObjectColorSurface()
+{
+    auto shader = new ccl::Shader();
+    shader->graph = new ccl::ShaderGraph();
+
+    auto oi = new ccl::ObjectInfoNode{};
+    auto bsdf = new ccl::PrincipledBsdfNode();
+
+    shader->graph->add(bsdf);
+    shader->graph->add(oi);
+
+    ccl::ShaderNode* out = shader->graph->output();
+    shader->graph->connect(oi->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
+
+    return shader;
+}
+
+ccl::Shader*
+HdCyclesCreateAttribColorSurface() {
+    auto shader = new ccl::Shader();
+    shader->graph = new ccl::ShaderGraph();
+
+    auto attrib = new ccl::AttributeNode{};
+    attrib->attribute = "displayColor";
+
+    auto bsdf = new ccl::PrincipledBsdfNode();
+
+    shader->graph->add(bsdf);
+    shader->graph->add(attrib);
+
+    ccl::ShaderNode* out = shader->graph->output();
+    shader->graph->connect(attrib->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
+
+    return shader;
+}
+
 bool
 _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 {
@@ -698,261 +737,6 @@ to_cycles<GfVec4i>(const GfVec4i& v) noexcept
     return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
                             static_cast<float>(v[2]), static_cast<float>(v[3]));
 }
-
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_Vertex(const VtValue& value, ccl::Attribute* attr)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-
-    if (arr_size <= 0)
-        return false;
-
-    char* data = attr->data();
-
-    for (int i = 0; i < arr_size; i++)
-        ((U*)data)[i] = to_cycles<T, U>(usd_data[i]);
-
-    return true;
-}
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_Uniform(const VtValue& value, ccl::Attribute* attr,
-                          HdCyclesMesh* mesh)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-
-    if (arr_size <= 0)
-        return false;
-
-    char* data = attr->data();
-
-    int idx = 0;
-    for (size_t i = 0; i < arr_size; i++)
-        for (size_t j = 0; j < (mesh->GetFaceVertexCounts()[i] - 2); j++, idx++)
-            ((U*)data)[idx] = to_cycles<T, U>(usd_data[i]);
-
-    return true;
-}
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_FaceVarying(const VtValue& value, ccl::Attribute* attr,
-                              HdCyclesMesh* mesh)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-    size_t data_size    = sizeof(U);
-
-    if (arr_size <= 0)
-        return false;
-
-    char* data = attr->data();
-
-    int count = 0;
-    for (int i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
-        const int vCount = mesh->GetFaceVertexCounts()[i];
-
-        for (int j = 1; j < vCount - 1; ++j) {
-            int v0 = count;
-            int v1 = (count + j + 0);
-            int v2 = (count + j + 1);
-
-            if (mesh->GetOrientation() == HdTokens->leftHanded) {
-                v1 = (count + ((vCount - 1) - j) + 0);
-                v2 = (count + ((vCount - 1) - j) + 1);
-            }
-
-            ((U*)data)[0] = to_cycles<T, U>(usd_data[v0]);
-            ((U*)data)[1] = to_cycles<T, U>(usd_data[v1]);
-            ((U*)data)[2] = to_cycles<T, U>(usd_data[v2]);
-
-            data += 3 * data_size;
-        }
-        count += vCount;
-    }
-
-    return true;
-}
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_Constant(const VtValue& value, ccl::Attribute* attr)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-    if (arr_size != 1) {
-        std::cout << "Constant attribute, incompatible size: " << arr_size
-                  << '\n';
-        return false;
-    }
-
-    char* data = attr->data();
-
-    ((U*)data)[0] = to_cycles<T, U>(usd_data[0]);
-
-    return true;
-}
-
-
-void
-_PopulateAttribute(const TfToken& name, const TfToken& role,
-                   HdInterpolation interpolation, const VtValue& value,
-                   ccl::Attribute* attr, HdCyclesMesh* mesh)
-{
-    if (interpolation == HdInterpolationVertex) {
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_Vertex<float, float>(value, attr);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_Vertex<double, float>(value, attr);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_Vertex<int, float>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_Vertex<GfVec2f, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_Vertex<GfVec2d, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_Vertex<GfVec2i, ccl::float2>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_Vertex<GfVec3f, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_Vertex<GfVec3d, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_Vertex<GfVec3i, ccl::float3>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_Vertex<GfVec4f, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_Vertex<GfVec4d, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_Vertex<GfVec4i, ccl::float4>(value, attr);
-        }
-
-    } else if (interpolation == HdInterpolationUniform) {
-        if (value.GetArraySize() > mesh->GetFaceVertexCounts().size()) {
-            std::cout << "Oversized...\n";
-            return;
-        }
-
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_Uniform<float, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_Uniform<double, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_Uniform<int, float>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_Uniform<GfVec2f, ccl::float2>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_Uniform<GfVec2d, ccl::float2>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_Uniform<GfVec2i, ccl::float2>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_Uniform<GfVec3f, ccl::float3>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_Uniform<GfVec3d, ccl::float3>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_Uniform<GfVec3i, ccl::float3>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_Uniform<GfVec4f, ccl::float4>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_Uniform<GfVec4d, ccl::float4>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_Uniform<GfVec4i, ccl::float4>(value, attr, mesh);
-        }
-    } else if (interpolation == HdInterpolationFaceVarying) {
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_FaceVarying<float, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_FaceVarying<double, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_FaceVarying<int, float>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_FaceVarying<GfVec2f, ccl::float2>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_FaceVarying<GfVec2d, ccl::float2>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_FaceVarying<GfVec2i, ccl::float2>(value, attr,
-                                                                mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_FaceVarying<GfVec3f, ccl::float3>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_FaceVarying<GfVec3d, ccl::float3>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_FaceVarying<GfVec3i, ccl::float3>(value, attr,
-                                                                mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_FaceVarying<GfVec4f, ccl::float4>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_FaceVarying<GfVec4d, ccl::float4>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_FaceVarying<GfVec4i, ccl::float4>(value, attr,
-                                                                mesh);
-        }
-    } else if (interpolation == HdInterpolationConstant) {
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_Constant<float, float>(value, attr);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_Constant<double, float>(value, attr);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_Constant<int, float>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_Constant<GfVec2f, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_Constant<GfVec2d, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_Constant<GfVec2i, ccl::float2>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_Constant<GfVec3f, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_Constant<GfVec3d, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_Constant<GfVec3i, ccl::float3>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_Constant<GfVec4f, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_Constant<GfVec4d, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_Constant<GfVec4i, ccl::float4>(value, attr);
-        }
-    } else {
-        std::cout << "HdCycles WARNING: Interpolation unsupported: "
-                  << interpolation << '\n';
-    }
-}
-
 
 /* ========= MikkTSpace ========= */
 

@@ -416,7 +416,8 @@ public:
      * TODO: Refactor this somewhere else
      * 
      */
-    ccl::Shader* default_vcol_surface;
+    ccl::Shader* default_attrib_display_color_surface;
+    ccl::Shader* default_object_display_color_surface;
 
     VtDictionary GetRenderStats() const;
 
@@ -426,10 +427,18 @@ public:
      */
     UpAxis GetUpAxis() const { return m_upAxis; }
 
+    void UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders);
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
 
+    using lock_guard = std::lock_guard<std::mutex>;
+
+    std::mutex m_lights_mutex;
+    std::mutex m_objects_mutex;
+    std::mutex m_geometry_mutex;
+    std::mutex m_shaders_mutex;
 
     HdRenderPassAovBindingVector m_aovs;
 
