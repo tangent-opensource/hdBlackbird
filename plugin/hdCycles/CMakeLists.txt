@@ -96,6 +96,7 @@ pxr_plugin(${PXR_PACKAGE}
     material
     mesh
     points
+    meshRefiner
   
     volume
     openvdb_asset

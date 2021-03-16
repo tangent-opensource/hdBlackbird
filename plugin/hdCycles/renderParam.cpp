@@ -1427,10 +1427,13 @@ HdCyclesRenderParam::_CreateScene()
     m_bufferParams.full_width  = m_width;
     m_bufferParams.full_height = m_height;
 
-    default_vcol_surface = HdCyclesCreateDefaultShader();
+    default_attrib_display_color_surface = HdCyclesCreateAttribColorSurface();
+    default_attrib_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_attrib_display_color_surface);
 
-    default_vcol_surface->tag_update(m_cyclesScene);
-    m_cyclesScene->shaders.push_back(default_vcol_surface);
+    default_object_display_color_surface = HdCyclesCreateObjectColorSurface();
+    default_object_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_object_display_color_surface);
 
     SetBackgroundShader(nullptr);
 
@@ -1603,15 +1606,13 @@ HdCyclesRenderParam::_CyclesExit()
 {
     m_cyclesSession->set_pause(true);
 
-    m_cyclesScene->mutex.lock();
+    lock_guard lock{m_cyclesScene->mutex};
 
     m_cyclesScene->shaders.clear();
     m_cyclesScene->geometry.clear();
     m_cyclesScene->objects.clear();
     m_cyclesScene->lights.clear();
     m_cyclesScene->particle_systems.clear();
-
-    m_cyclesScene->mutex.unlock();
 
     if (m_cyclesSession) {
         delete m_cyclesSession;
@@ -1623,7 +1624,7 @@ HdCyclesRenderParam::_CyclesExit()
 void
 HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
-    m_cyclesScene->mutex.lock();
+    lock_guard lock{m_cyclesScene->mutex};
 
     m_cyclesSession->progress.reset();
 
@@ -1655,7 +1656,6 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     }
 
     m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
-    m_cyclesScene->mutex.unlock();
 }
 
 void
@@ -1688,6 +1688,8 @@ HdCyclesRenderParam::DirectReset()
 void
 HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add light to scene. Scene is null.");
         return;
@@ -1705,6 +1707,8 @@ HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add object to scene. Scene is null.");
         return;
@@ -1720,6 +1724,8 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1735,6 +1741,8 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 void
 HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1750,6 +1758,8 @@ HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
 void
 HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1765,6 +1775,8 @@ HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
 void
 HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1778,6 +1790,8 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 void
 HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin();
          it != m_cyclesScene->objects.end();) {
         if (a_object == *it) {
@@ -1797,6 +1811,8 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin();
          it != m_cyclesScene->lights.end();) {
         if (a_light == *it) {
@@ -1823,6 +1839,8 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     for (ccl::vector<ccl::Geometry*>::iterator it
          = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
@@ -1842,8 +1860,18 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 }
 
 void
+HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders) {
+    lock_guard lock{m_cyclesScene->mutex};
+    for(auto& shader : shaders) {
+        shader->tag_update(m_cyclesScene);
+    }
+}
+
+void
 HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     for (ccl::vector<ccl::Geometry*>::iterator it
          = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
@@ -1865,6 +1893,8 @@ HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
 void
 HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin();
          it != m_cyclesScene->shaders.end();) {
         if (a_shader == *it) {

@@ -90,6 +90,11 @@ HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
 ccl::Shader*
 HdCyclesCreateDefaultShader();
 
+ccl::Shader*
+HdCyclesCreateObjectColorSurface();
+
+ccl::Shader*
+HdCyclesCreateAttribColorSurface();
 
 /**
  * @brief Helper function to dump shader graph if 
@@ -402,13 +407,6 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
 
 using HdCyclesSampledPrimvarType
     = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
-
-/* ======= Attribute Utils ======== */
-
-void
-_PopulateAttribute(const TfToken& name, const TfToken& role,
-                   HdInterpolation interpolation, const VtValue& value,
-                   ccl::Attribute* attr, HdCyclesMesh* mesh);
 
 /* ======== VtValue Utils ========= */
 
