@@ -13,14 +13,23 @@ requires = [
     'cycles-1.13.0-ta.1.9.0',
 ]
 
-variants = [
-    # Windows
+linux_variants = [
+    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'usd-20.08-houdini'],
+]
+
+windows_variants = [
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.11'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini'],
-    # Linux
-    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'usd-20.08-houdini'],
 ]
+
+@early()
+def variants():
+    import sys
+    if 'win' in str(sys.platform):
+        return windows_variants
+    else:
+        return linux_variants
 
 build_system = "cmake"
 
