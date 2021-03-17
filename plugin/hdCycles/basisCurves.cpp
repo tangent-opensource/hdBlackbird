@@ -243,8 +243,8 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                 = m_cyclesMesh->attributes.add(attribName,
                                                ccl::TypeDesc::TypeColor,
                                                ccl::ATTR_ELEMENT_CORNER_BYTE);
-
-            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+            (void)attr_vcol;
+            assert(0);
         }
     } else if (interpolation == HdInterpolationVertex) {
         VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
@@ -288,7 +288,8 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                                                ccl::TypeDesc::TypeColor,
                                                ccl::ATTR_ELEMENT_CORNER_BYTE);
 
-            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+            (void)attr_vcol;
+            assert(0);
         }
     }
 }
@@ -795,7 +796,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
     bool isCameraOriented = false;
 
     ccl::float3 RotCam;
-    bool is_ortho;
+    bool is_ortho = false;
     if (m_normals.size() <= 0) {
         if (a_camera != nullptr) {
             isCameraOriented     = true;

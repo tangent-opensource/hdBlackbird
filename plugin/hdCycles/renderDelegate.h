@@ -23,10 +23,14 @@
 #include "api.h"
 
 #include <pxr/base/tf/staticTokens.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wparentheses"
+#endif
 #include <pxr/imaging/hd/renderDelegate.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 #include <pxr/imaging/hd/resourceRegistry.h>
 #include <pxr/pxr.h>
 
@@ -85,7 +89,9 @@ TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((pixelFilterBox, "pixelFilter:box"))
     ((pixelFilterGaussian, "pixelFilter:gaussian"))
 );
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 #define HDCYCLES_INTEGRATOR_TOKENS  \
     (BranchedPathTracing)           \

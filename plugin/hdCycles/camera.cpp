@@ -71,10 +71,10 @@ EvalCameraParam(T* value, const TfToken& paramName,
 
 #ifdef USE_USD_CYCLES_SCHEMA
 
-std::map<TfToken, ccl::Camera::MotionPosition> MOTION_POSITION_CONVERSION = {
-    { usdCyclesTokens->start, ccl::Camera::MOTION_POSITION_START },
-    { usdCyclesTokens->center, ccl::Camera::MOTION_POSITION_CENTER },
-    { usdCyclesTokens->end, ccl::Camera::MOTION_POSITION_END },
+std::map<TfToken, ccl::MotionPosition> MOTION_POSITION_CONVERSION = {
+    { usdCyclesTokens->start, ccl::MOTION_POSITION_START },
+    { usdCyclesTokens->center, ccl::MOTION_POSITION_CENTER },
+    { usdCyclesTokens->end, ccl::MOTION_POSITION_END },
 };
 
 std::map<TfToken, ccl::Camera::RollingShutterType> ROLLING_SHUTTER_TYPE_CONVERSION
@@ -117,11 +117,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
 //  , m_transform
     , m_shutterTime(1.0f)
     , m_rollingShutterTime(0.1f)
-//  , m_apertureRatio
-//  , m_blades
-//  , m_bladesRotation
-//  , m_apertureSize
-    , m_motionPosition(ccl::Camera::MOTION_POSITION_CENTER)
+    , m_motionPosition(ccl::MOTION_POSITION_CENTER)
     , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
     , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
     , m_stereoEye(ccl::Camera::STEREO_NONE)
@@ -141,6 +137,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_poleMergeAngleTo(75.0f * M_PI_F / 180.0f)
     , m_useDof(false)
     , m_useMotionBlur(false)
+    , m_fps(24.f)
 //  , m_transformSamples
     , m_cyclesCamera(nullptr)
     , m_renderDelegate(a_renderDelegate)
@@ -182,6 +179,9 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool has_clippingRange
             = EvalCameraParam(&m_clippingRange, HdCameraTokens->clippingRange,
                               sceneDelegate, id, GfRange1f(0.1f, 100000.0f));
+
+        // TODO: has_clippingRange
+        (void) has_clippingRange;
     }
 
     if (*dirtyBits & HdCamera::DirtyParams) {
@@ -217,6 +217,8 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool has_projection = EvalCameraParam(&m_projectionType,
                                               UsdGeomTokens->projection,
                                               sceneDelegate, id);
+        // TODO: has_projection
+        (void) has_projection;
 
         // Aperture
 
@@ -259,6 +261,8 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool has_focusDistance = EvalCameraParam(&m_focusDistance,
                                                  HdCameraTokens->focusDistance,
                                                  sceneDelegate, id);
+        // TODO: has_focusDistance
+        (void) has_focusDistance;
 
         if (std::isnan(m_focalLength)) {
             has_focalLength = false;
@@ -493,16 +497,17 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     a_camera->nearclip = m_clippingRange.GetMin();
     a_camera->farclip  = m_clippingRange.GetMax();
 
+    a_camera->fps         = m_fps;
     a_camera->shuttertime = m_shutterTime;
     a_camera->motion_position
-        = ccl::Camera::MotionPosition::MOTION_POSITION_CENTER;
+        = ccl::MotionPosition::MOTION_POSITION_CENTER;
 
     a_camera->rolling_shutter_duration = m_rollingShutterTime;
 
     a_camera->rolling_shutter_type
         = (ccl::Camera::RollingShutterType)m_rollingShutterType;
     a_camera->panorama_type   = (ccl::PanoramaType)m_panoramaType;
-    a_camera->motion_position = (ccl::Camera::MotionPosition)m_motionPosition;
+    a_camera->motion_position = (ccl::MotionPosition)m_motionPosition;
     a_camera->stereo_eye      = (ccl::Camera::StereoEye)m_stereoEye;
 
     if (m_projectionType == UsdGeomTokens->orthographic) {

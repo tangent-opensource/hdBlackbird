@@ -33,10 +33,14 @@
 #include <pxr/pxr.h>
 
 #ifdef WITH_OPENVDB
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 #include <openvdb/openvdb.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 #endif
 
 namespace ccl {
@@ -52,22 +56,22 @@ class HdSceneDelegate;
 class HdCyclesRenderDelegate;
 
 /**
- * @brief Cycles Basis Curve Rprim mapped to Cycles Basis Curve
+ * @brief USD Volume mapped to Cycles Volume
  * 
  */
 class HdCyclesVolume final : public HdVolume {
 public:
     /**
-     * @brief Construct a new HdCycles Basis Curve object
+     * @brief Construct a new HdCycles Volume object
      * 
-     * @param id Path to the Basis Curve Primitive
-     * @param instancerId If specified the HdInstancer at this id uses this curve
+     * @param id Path to the Volume Primitive
+     * @param instancerId If specified the HdInstancer at this id uses this volume
      * as a prototype
      */
     HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId,
                    HdCyclesRenderDelegate* a_renderDelegate);
     /**
-     * @brief Destroy the HdCycles Basis Curves object
+     * @brief Destroy the HdCycles Volume object
      * 
      */
     virtual ~HdCyclesVolume();
@@ -78,7 +82,7 @@ public:
      * 
      * This must be thread safe.
      * 
-     * @param sceneDelegate The data source for the basis curve
+     * @param sceneDelegate The data source for the volume
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
@@ -89,12 +93,12 @@ public:
      * @brief Inform the scene graph which state needs to be downloaded in
      * the first Sync() call
      * 
-     * @return The initial dirty state this basis curve wants to query
+     * @return The initial dirty state this volume wants to query
      */
     HdDirtyBits GetInitialDirtyBitsMask() const override;
 
     /**
-     * @return Return true if this light is valid.
+     * @return Return true if this volume is valid.
      */
     bool IsValid() const;
 
@@ -128,12 +132,17 @@ protected:
 
 private:
     /**
-     * @brief Create the cycles curve mesh and object representation
+     * @brief Create the cycles object representation
      * 
-     * @return New allocated pointer to ccl::Mesh
+     * @return New allocated pointer to ccl::Object
      */
     ccl::Object* _CreateObject();
 
+    /**
+     * @brief Create the cycles volume mesh representation
+     * 
+     * @return New allocated pointer to ccl::Mesh
+     */
     ccl::Mesh* _CreateVolume();
 
     /**

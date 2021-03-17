@@ -29,6 +29,14 @@
 
 #include "Mikktspace/mikktspace.h"
 
+#ifdef __GNUC__
+// Supress warning from third party headers. 
+// Cycles is breaking strict aliasing rules
+// and Boost is using parantheses in a way that GCC doesn't like.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wparentheses"
+#endif
 #include <render/mesh.h>
 #include <render/object.h>
 #include <render/scene.h>
@@ -38,8 +46,6 @@
 #include <util/util_math_float3.h>
 #include <util/util_transform.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/matrix4f.h>
 #include <pxr/base/gf/vec2f.h>
@@ -49,10 +55,13 @@
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/mesh.h>
+#include <pxr/imaging/hd/volume.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 #include <iostream>
 
@@ -92,6 +101,11 @@ HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
 ccl::Shader*
 HdCyclesCreateDefaultShader();
 
+ccl::Shader*
+HdCyclesCreateObjectColorSurface();
+
+ccl::Shader*
+HdCyclesCreateAttribColorSurface();
 
 /**
  * @brief Helper function to dump shader graph if 
@@ -405,13 +419,6 @@ HdCyclesIsPrimvarExists(TfToken const& a_name,
 using HdCyclesSampledPrimvarType
     = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
 
-/* ======= Attribute Utils ======== */
-
-void
-_PopulateAttribute(const TfToken& name, const TfToken& role,
-                   HdInterpolation interpolation, const VtValue& value,
-                   ccl::Attribute* attr, HdCyclesMesh* mesh);
-
 /* ======== VtValue Utils ========= */
 
 template<typename F>
@@ -603,6 +610,30 @@ _HdCyclesGetCameraParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
 {
     VtValue v = a_scene->GetCameraParamValue(a_id, a_token);
     return _HdCyclesGetVtValue<T>(v, a_default);
+}
+
+// Get Volume param
+
+template<typename T>
+T
+_HdCyclesGetVolumeParam(const HdPrimvarDescriptor& a_pvd,
+                      HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                      HdVolume* a_volume, HdSceneDelegate* a_scene, TfToken a_token,
+                      T a_default)
+{
+    // TODO: Optimize this
+    // Needed because our current schema stores tokens with primvars: prefix
+    // however the HdPrimvarDescriptor omits this.
+    // Solution could be to remove from usdCycles schema and add in all settings
+    // providers (houdini_cycles, blender exporter)
+    if ("primvars:" + a_pvd.name.GetString() == a_token.GetString()) {
+        if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
+            VtValue v;
+            v = a_volume->GetPrimvar(a_scene, a_token);
+            return _HdCyclesGetVtValue<T>(v, a_default);
+        }
+    }
+    return a_default;
 }
 
 /* ========= MikkTSpace ========= */

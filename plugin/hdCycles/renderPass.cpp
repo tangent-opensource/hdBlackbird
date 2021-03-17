@@ -42,7 +42,9 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
     (color)
     (depth)
 );
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 // clang-format on
 
 HdCyclesRenderPass::HdCyclesRenderPass(HdCyclesRenderDelegate* delegate,

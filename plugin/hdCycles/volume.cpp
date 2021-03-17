@@ -47,6 +47,10 @@
 
 #include <iostream>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
@@ -111,7 +115,7 @@ HdCyclesVolume::_CreateObject()
     ccl::Object* object = new ccl::Object();
 
     object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
-
+    object->velocity_scale = 1.0f;
     return object;
 }
 
@@ -196,7 +200,6 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
                                            : m_cyclesVolume->attributes.add(
                                                name, ccl::TypeDesc::TypeFloat,
                                                ccl::ATTR_ELEMENT_VOXEL);
-
                 ccl::ImageLoader* loader
                     = new HdCyclesVolumeLoader(filepath.c_str(), name.c_str());
                 ccl::ImageParams params;
@@ -263,15 +266,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
-
-        for (auto& primvarDescsEntry : pdpi) {
-            for (auto& pv : primvarDescsEntry.second) {
-                if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
-                    VtValue value = GetPrimvar(sceneDelegate, pv.name);
-                    
-                }
-            }
-        }
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
@@ -294,7 +288,31 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
+#ifdef USE_USD_CYCLES_SCHEMA
+
+    for (auto& primvarDescsEntry : pdpi) {
+        for (auto& pv : primvarDescsEntry.second) {
+            
+            m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblur,
+                m_useMotionBlur);
+            
+            m_cyclesObject->velocity_scale = _HdCyclesGetVolumeParam<float>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
+                m_cyclesObject->velocity_scale);
+
+            update_volumes               = true;
+        }
+    }
+
+#endif
+
     if (update_volumes) {
+        
+        m_cyclesVolume->use_motion_blur = m_useMotionBlur;
+        
         bool rebuild = (old_voxel_slots
                         != get_voxel_image_slots(m_cyclesVolume));
 

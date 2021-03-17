@@ -22,17 +22,22 @@
 
 #include "api.h"
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wparentheses"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 #include <device/device.h>
 #include <render/buffers.h>
 #include <render/camera.h>
 #include <render/session.h>
 #include <render/tile.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
 #include <pxr/imaging/hd/renderDelegate.h>
 #include <pxr/pxr.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 namespace ccl {
 class Session;
@@ -419,7 +424,8 @@ public:
      * TODO: Refactor this somewhere else
      * 
      */
-    ccl::Shader* default_vcol_surface;
+    ccl::Shader* default_attrib_display_color_surface;
+    ccl::Shader* default_object_display_color_surface;
 
     VtDictionary GetRenderStats() const;
 
@@ -429,10 +435,18 @@ public:
      */
     UpAxis GetUpAxis() const { return m_upAxis; }
 
+    void UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders);
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
 
+    using lock_guard = std::lock_guard<std::mutex>;
+
+    std::mutex m_lights_mutex;
+    std::mutex m_objects_mutex;
+    std::mutex m_geometry_mutex;
+    std::mutex m_shaders_mutex;
 
     HdRenderPassAovBindingVector m_aovs;
 

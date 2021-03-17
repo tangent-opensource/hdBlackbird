@@ -26,6 +26,7 @@
 #include <subd/subd_dice.h>
 #include <subd/subd_split.h>
 #include <util/util_path.h>
+#include <util/util_transform.h>
 
 #include <pxr/base/tf/stringUtils.h>
 #include <pxr/imaging/hd/extComputationUtils.h>
@@ -131,6 +132,45 @@ HdCyclesCreateDefaultShader()
     return shader;
 }
 
+ccl::Shader*
+HdCyclesCreateObjectColorSurface()
+{
+    auto shader = new ccl::Shader();
+    shader->graph = new ccl::ShaderGraph();
+
+    auto oi = new ccl::ObjectInfoNode{};
+    auto bsdf = new ccl::PrincipledBsdfNode();
+
+    shader->graph->add(bsdf);
+    shader->graph->add(oi);
+
+    ccl::ShaderNode* out = shader->graph->output();
+    shader->graph->connect(oi->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
+
+    return shader;
+}
+
+ccl::Shader*
+HdCyclesCreateAttribColorSurface() {
+    auto shader = new ccl::Shader();
+    shader->graph = new ccl::ShaderGraph();
+
+    auto attrib = new ccl::AttributeNode{};
+    attrib->attribute = "displayColor";
+
+    auto bsdf = new ccl::PrincipledBsdfNode();
+
+    shader->graph->add(bsdf);
+    shader->graph->add(attrib);
+
+    ccl::ShaderNode* out = shader->graph->output();
+    shader->graph->connect(attrib->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
+
+    return shader;
+}
+
 bool
 _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 {
@@ -161,6 +201,9 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 // UPDATE:
 // This causes a known slowdown to deforming motion blur renders
 // This will be addressed in an upcoming PR
+// UPDATE:
+// The function now resamples the transforms at uniform intervals
+// rendering more correctly.
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion)
@@ -170,8 +213,8 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> xf {};
 
+    // Assumes that they are ordered
     delegate->SampleTransform(id, &xf);
-
     size_t sampleCount = xf.count;
 
     if (sampleCount == 0) {
@@ -179,36 +222,15 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         return xf;
     }
 
-    if (sampleCount > 1) {
-        bool foundCenter = false;
-        for (size_t i = 0; i < sampleCount; i++) {
-            if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
-                foundCenter = true;
-            }
-        }
-        if (!foundCenter)
-            object->tfm = mat4d_to_transform(xf.values.data()[0]);
-    } else {
-        object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    object->tfm = mat4d_to_transform(xf.values.data()[0]);
+    if (sampleCount == 1) {
+        return xf;
     }
 
     if (!use_motion) {
         return xf;
     }
 
-    object->motion.clear();
-    if (object->geometry) {
-        if (object->geometry->use_motion_blur
-            && object->geometry->motion_steps != sampleCount) {
-            object->motion.resize(object->geometry->motion_steps, object->tfm);
-            return xf;
-        }
-    }
-
-    // TODO: This might still be wrong on some edge cases...
-    // The order of point sampling and transform sampling is the only reason
-    // that this works
     if (object->geometry && object->geometry->motion_steps == sampleCount) {
         object->geometry->use_motion_blur = true;
 
@@ -218,18 +240,84 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 mesh->need_update = true;
         }
 
-        object->motion.resize(sampleCount, ccl::transform_empty());
+        // Rounding to odd number of samples to have one in the center
+        const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
+        const int numMotionSteps   = sampleCount + sampleOffset;
+        const float motionStepSize = (xf.times.back() - xf.times.front())
+                                     / (numMotionSteps - 1);
+        object->motion.resize(numMotionSteps, ccl::transform_empty());
 
-        for (size_t i = 0; i < sampleCount; i++) {
-            if (xf.times.data()[i] == 0.0f) {
-                object->tfm = mat4d_to_transform(xf.values.data()[i]);
+        // For each step, we use the available data from the neighbors
+        // to calculate the transforms at uniform steps
+        for (int i = 0; i < numMotionSteps; ++i) {
+            const float stepTime = xf.times.front() + motionStepSize * i;
+
+            // We always have the transforms at the boundaries
+            if (i == 0 || i == numMotionSteps - 1) {
+                object->motion[i] = mat4d_to_transform(xf.values.data()[i]);
+                continue;
             }
 
-            int idx = i;
-            if (object->geometry)
-                object->geometry->motion_step(xf.times.data()[i]);
+            // Find closest left/right neighbors
+            float prevTimeDiff = -INFINITY, nextTimeDiff = INFINITY;
+            int iXfPrev = -1, iXfNext = -1;
+            for (size_t j = 0; j < sampleCount; ++j) {
+                // If we only have three samples, we prefer to recalculate
+                // the intermediate one as the left/right are calculated
+                // using linear interpolation, leading to artifacts
+                if (i != 1 && (xf.times.data()[j] - stepTime) < 1e-5) {
+                    iXfPrev = iXfNext = j;
+                    break;
+                }
 
-            object->motion[idx] = mat4d_to_transform(xf.values.data()[i]);
+                const float stepTimeDiff = xf.times.data()[j] - stepTime;
+                if (stepTimeDiff < 0 && stepTimeDiff > prevTimeDiff) {
+                    iXfPrev      = j;
+                    prevTimeDiff = stepTimeDiff;
+                } else if (stepTimeDiff > 0 && stepTimeDiff < nextTimeDiff) {
+                    iXfNext      = j;
+                    nextTimeDiff = stepTimeDiff;
+                }
+            }
+            assert(iXfPrev != -1 && iXfNext != -1);
+
+            // If there is an authored sample for this specific timestep
+            // we copy it.
+            if (iXfPrev == iXfNext) {
+                object->motion[i] = mat4d_to_transform(
+                    xf.values.data()[iXfPrev]);
+            }
+            // Otherwise we interpolate the neighboring matrices
+            else {
+                // Should the type conversion be precomputed?
+                ccl::Transform xfPrev = mat4d_to_transform(
+                    xf.values.data()[iXfPrev]);
+                ccl::Transform xfNext = mat4d_to_transform(
+                    xf.values.data()[iXfNext]);
+
+                ccl::DecomposedTransform dxf[2];
+                transform_motion_decompose(dxf + 0, &xfPrev, 1);
+                transform_motion_decompose(dxf + 1, &xfNext, 1);
+
+                // Preferring the smaller rotation difference
+                if (ccl::len_squared(dxf[0].x - dxf[1].x)
+                    > ccl::len_squared(dxf[0].x + dxf[1].x)) {
+                    dxf[1].x = -dxf[1].x;
+                }
+
+                // Weighting by distance to sample
+                const float timeDiff = xf.times.data()[iXfNext]
+                                       - xf.times.data()[iXfPrev];
+                const float t = (stepTime - xf.times.data()[iXfPrev])
+                                / timeDiff;
+
+                transform_motion_array_interpolate(&object->motion[i], dxf, 2,
+                                                   t);
+            }
+
+            if (::std::fabs(stepTime) < 1e-5) {
+                object->tfm = object->motion[i];
+            }
         }
     }
 
@@ -650,267 +738,14 @@ to_cycles<GfVec4i>(const GfVec4i& v) noexcept
                             static_cast<float>(v[2]), static_cast<float>(v[3]));
 }
 
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_Vertex(const VtValue& value, ccl::Attribute* attr)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-
-    if (arr_size <= 0)
-        return false;
-
-    char* data = attr->data();
-
-    for (size_t i = 0; i < arr_size; i++)
-        ((U*)data)[i] = to_cycles<T, U>(usd_data[i]);
-
-    return true;
-}
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_Uniform(const VtValue& value, ccl::Attribute* attr,
-                          HdCyclesMesh* mesh)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-
-    if (arr_size <= 0)
-        return false;
-
-    char* data = attr->data();
-
-    int idx = 0;
-    for (size_t i = 0; i < arr_size; i++)
-        for (int j = 0; j < (mesh->GetFaceVertexCounts()[i] - 2); j++, idx++)
-            ((U*)data)[idx] = to_cycles<T, U>(usd_data[i]);
-
-    return true;
-}
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_FaceVarying(const VtValue& value, ccl::Attribute* attr,
-                              HdCyclesMesh* mesh)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-    size_t data_size    = sizeof(U);
-
-    if (arr_size <= 0)
-        return false;
-
-    char* data = attr->data();
-
-    int count = 0;
-    for (size_t i = 0; i < mesh->GetFaceVertexCounts().size(); i++) {
-        const int vCount = mesh->GetFaceVertexCounts()[i];
-
-        for (int j = 1; j < vCount - 1; ++j) {
-            int v0 = count;
-            int v1 = (count + j + 0);
-            int v2 = (count + j + 1);
-
-            if (mesh->GetOrientation() == HdTokens->leftHanded) {
-                v1 = (count + ((vCount - 1) - j) + 0);
-                v2 = (count + ((vCount - 1) - j) + 1);
-            }
-
-            ((U*)data)[0] = to_cycles<T, U>(usd_data[v0]);
-            ((U*)data)[1] = to_cycles<T, U>(usd_data[v1]);
-            ((U*)data)[2] = to_cycles<T, U>(usd_data[v2]);
-
-            data += 3 * data_size;
-        }
-        count += vCount;
-    }
-
-    return true;
-}
-
-template<typename T, typename U>
-bool
-_PopulateAttribte_Constant(const VtValue& value, ccl::Attribute* attr)
-{
-    VtArray<T> usd_data = value.UncheckedGet<VtArray<T>>();
-    size_t arr_size     = value.GetArraySize();
-    if (arr_size != 1) {
-        std::cout << "Constant attribute, incompatible size: " << arr_size
-                  << '\n';
-        return false;
-    }
-
-    char* data = attr->data();
-
-    ((U*)data)[0] = to_cycles<T, U>(usd_data[0]);
-
-    return true;
-}
-
-
-void
-_PopulateAttribute(const TfToken& name, const TfToken& role,
-                   HdInterpolation interpolation, const VtValue& value,
-                   ccl::Attribute* attr, HdCyclesMesh* mesh)
-{
-    if (interpolation == HdInterpolationVertex) {
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_Vertex<float, float>(value, attr);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_Vertex<double, float>(value, attr);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_Vertex<int, float>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_Vertex<GfVec2f, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_Vertex<GfVec2d, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_Vertex<GfVec2i, ccl::float2>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_Vertex<GfVec3f, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_Vertex<GfVec3d, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_Vertex<GfVec3i, ccl::float3>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_Vertex<GfVec4f, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_Vertex<GfVec4d, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_Vertex<GfVec4i, ccl::float4>(value, attr);
-        }
-
-    } else if (interpolation == HdInterpolationUniform) {
-        if (value.GetArraySize() > mesh->GetFaceVertexCounts().size()) {
-            std::cout << "Oversized...\n";
-            return;
-        }
-
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_Uniform<float, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_Uniform<double, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_Uniform<int, float>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_Uniform<GfVec2f, ccl::float2>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_Uniform<GfVec2d, ccl::float2>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_Uniform<GfVec2i, ccl::float2>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_Uniform<GfVec3f, ccl::float3>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_Uniform<GfVec3d, ccl::float3>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_Uniform<GfVec3i, ccl::float3>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_Uniform<GfVec4f, ccl::float4>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_Uniform<GfVec4d, ccl::float4>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_Uniform<GfVec4i, ccl::float4>(value, attr, mesh);
-        }
-    } else if (interpolation == HdInterpolationFaceVarying) {
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_FaceVarying<float, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_FaceVarying<double, float>(value, attr, mesh);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_FaceVarying<int, float>(value, attr, mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_FaceVarying<GfVec2f, ccl::float2>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_FaceVarying<GfVec2d, ccl::float2>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_FaceVarying<GfVec2i, ccl::float2>(value, attr,
-                                                                mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_FaceVarying<GfVec3f, ccl::float3>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_FaceVarying<GfVec3d, ccl::float3>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_FaceVarying<GfVec3i, ccl::float3>(value, attr,
-                                                                mesh);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_FaceVarying<GfVec4f, ccl::float4>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_FaceVarying<GfVec4d, ccl::float4>(value, attr,
-                                                                mesh);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_FaceVarying<GfVec4i, ccl::float4>(value, attr,
-                                                                mesh);
-        }
-    } else if (interpolation == HdInterpolationConstant) {
-        if (value.IsHolding<VtArray<float>>()) {
-            _PopulateAttribte_Constant<float, float>(value, attr);
-        } else if (value.IsHolding<VtArray<double>>()) {
-            _PopulateAttribte_Constant<double, float>(value, attr);
-        } else if (value.IsHolding<VtArray<int>>()) {
-            _PopulateAttribte_Constant<int, float>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec2f>>()) {
-            _PopulateAttribte_Constant<GfVec2f, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2d>>()) {
-            _PopulateAttribte_Constant<GfVec2d, ccl::float2>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec2i>>()) {
-            _PopulateAttribte_Constant<GfVec2i, ccl::float2>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            _PopulateAttribte_Constant<GfVec3f, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3d>>()) {
-            _PopulateAttribte_Constant<GfVec3d, ccl::float3>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec3i>>()) {
-            _PopulateAttribte_Constant<GfVec3i, ccl::float3>(value, attr);
-        }
-
-        else if (value.IsHolding<VtArray<GfVec4f>>()) {
-            _PopulateAttribte_Constant<GfVec4f, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4d>>()) {
-            _PopulateAttribte_Constant<GfVec4d, ccl::float4>(value, attr);
-        } else if (value.IsHolding<VtArray<GfVec4i>>()) {
-            _PopulateAttribte_Constant<GfVec4i, ccl::float4>(value, attr);
-        }
-    } else {
-        std::cout << "HdCycles WARNING: Interpolation unsupported: "
-                  << interpolation << '\n';
-    }
-}
-
-
 /* ========= MikkTSpace ========= */
 
 struct MikkUserData {
     MikkUserData(const char* layer_name, ccl::Mesh* mesh, ccl::float3* tangent,
                  float* tangent_sign)
         : mesh(mesh)
+        , corner_normal(NULL)
+        , vertex_normal(NULL)
         , texface(NULL)
         , tangent(tangent)
         , tangent_sign(tangent_sign)
@@ -920,12 +755,22 @@ struct MikkUserData {
                                                   : mesh->attributes;
 
         ccl::Attribute* attr_vN = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
-        if (!attr_vN) {
+        ccl::Attribute* attr_cN = attributes.find(ccl::ATTR_STD_CORNER_NORMAL);
+
+        if (!attr_vN && !attr_cN) {
             mesh->add_face_normals();
             mesh->add_vertex_normals();
             attr_vN = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
         }
-        vertex_normal = attr_vN->data_float3();
+
+        // This preference depends on what Cycles does inside the hood.
+        // Works for now, but there should be a more clear way of knowing
+        // which normals are used for rendering.
+        if (attr_cN) {
+            corner_normal = attr_cN->data_float3();
+        } else {
+            vertex_normal = attr_vN->data_float3();
+        }
 
         ccl::Attribute* attr_uv = attributes.find(ccl::ustring(layer_name));
         if (attr_uv != NULL) {
@@ -936,6 +781,7 @@ struct MikkUserData {
     ccl::Mesh* mesh;
     int num_faces;
 
+    ccl::float3* corner_normal;
     ccl::float3* vertex_normal;
     ccl::float2* texface;
 
@@ -1026,9 +872,12 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     const ccl::Mesh* mesh        = userdata->mesh;
     ccl::float3 vN;
+
     if (mesh->subd_faces.size()) {
         const ccl::Mesh::SubdFace& face = mesh->subd_faces[face_num];
-        if (face.smooth) {
+        if (userdata->corner_normal) {
+            vN = userdata->corner_normal[face.start_corner + vert_num];
+        } else if (face.smooth) {
             const int vertex_index = mikk_vertex_index(mesh, face_num,
                                                        vert_num);
             vN                     = userdata->vertex_normal[vertex_index];
@@ -1036,7 +885,9 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
             vN = face.normal(mesh);
         }
     } else {
-        if (mesh->smooth[face_num]) {
+        if (userdata->corner_normal) {
+            vN = userdata->corner_normal[face_num * 3 + vert_num];
+        } else if (mesh->smooth[face_num]) {
             const int vertex_index = mikk_vertex_index(mesh, face_num,
                                                        vert_num);
             vN                     = userdata->vertex_normal[vertex_index];

@@ -19,8 +19,10 @@
 
 #include "parser.h"
 
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wparentheses"
+#endif
 #include <pxr/base/tf/staticTokens.h>
 #include <pxr/usd/ndr/node.h>
 #include <pxr/usd/sdf/propertySpec.h>
@@ -28,7 +30,9 @@
 #include <pxr/usd/sdr/shaderProperty.h>
 #include <pxr/usd/usd/attribute.h>
 #include <pxr/usd/usd/property.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 

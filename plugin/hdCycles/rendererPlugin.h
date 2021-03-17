@@ -22,11 +22,15 @@
 
 #include "api.h"
 
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wparentheses"
+#endif
 #include <pxr/imaging/hd/rendererPlugin.h>
 #include <pxr/pxr.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 

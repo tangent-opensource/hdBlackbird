@@ -20,8 +20,10 @@
 #include "discovery.h"
 
 
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wparentheses"
+#endif
 #include <pxr/base/arch/fileSystem.h>
 #include <pxr/base/tf/envSetting.h>
 #include <pxr/base/tf/getenv.h>
@@ -29,7 +31,9 @@
 #include <pxr/base/tf/stringUtils.h>
 #include <pxr/usd/usd/prim.h>
 #include <pxr/usd/usd/primRange.h>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -75,6 +79,7 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
     temp_nodes.push_back("scatter_volume");
     temp_nodes.push_back("absorption_volume");
     temp_nodes.push_back("emission");
+    temp_nodes.push_back("displacement");
 
     for (const std::string& n : temp_nodes) {
         std::string cycles_id = std::string("cycles_" + n);
