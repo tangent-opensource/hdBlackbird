@@ -49,6 +49,10 @@ add_library(MikktSpace STATIC
         )
 add_library(MikktSpace::MikktSpace ALIAS MikktSpace)
 
+set_target_properties(MikktSpace PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        )
+
 add_library(hdCycles SHARED
         api.h
         basisCurves.cpp
