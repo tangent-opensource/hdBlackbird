@@ -74,6 +74,7 @@ target_compile_definitions(ndrCycles
 
 set_target_properties(ndrCycles PROPERTIES
         PREFIX ""
+        POSITION_INDEPENDENT_CODE ON
         )
 install(TARGETS ndrCycles DESTINATION plugin/usd/ndrCycles)
 

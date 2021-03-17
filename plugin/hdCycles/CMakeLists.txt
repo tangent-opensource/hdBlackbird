@@ -135,6 +135,7 @@ target_compile_definitions(hdCycles
 
 set_target_properties(hdCycles PROPERTIES
         PREFIX ""
+        POSITION_INDEPENDENT_CODE ON
         )
 install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
 
