@@ -26,7 +26,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
                       ${CMAKE_SOURCE_DIR}/cmake/modules
                       ${CMAKE_SOURCE_DIR}/cmake/macros)
 
-include(Public)
 include(Options)
 include(ProjectDefaults)
 
