@@ -123,7 +123,13 @@ const TfToken aovv;
     (CryptoAsset)           \
                             \
     ((AOVC, "aovc:"))       \
-    ((AOVV, "aovv:"))
+    ((AOVV, "aovv:"))       \
+                            \
+    (P)                     \
+    (Pref)                  \
+    (Ngn)                   \
+    (cpuTime)               \
+    (sampleCount)
 
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens, 
     HDCYCLES_API, 

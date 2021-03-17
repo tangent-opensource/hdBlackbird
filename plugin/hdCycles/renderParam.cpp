@@ -40,16 +40,20 @@
 #include <render/scene.h>
 #include <render/session.h>
 #include <render/stats.h>
+#include <util/util_murmurhash.h>
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
 #endif
 
+#include <pxr/usd/usdRender/tokens.h>
 #ifdef USE_USD_CYCLES_SCHEMA
 #    include <usdCycles/tokens.h>
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+namespace {
 
 double
 clamp(double d, double min, double max)
@@ -58,71 +62,97 @@ clamp(double d, double min, double max)
     return t > max ? max : t;
 }
 
-// URGENT TODO: Put this and the initialization somewhere more secure
 struct HdCyclesAov {
     std::string name;
     ccl::PassType type;
     TfToken token;
     HdFormat format;
-    //int components;
+    bool filter;
 };
 
-std::vector<HdCyclesAov> DefaultAovs = {
-    { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4 },
-    { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32 },
-    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3 },
-    { "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32 },
-    { "IndexMA", ccl::PASS_MATERIAL_ID, HdCyclesAovTokens->IndexMA, HdFormatFloat32 },
-    { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32 },
-    { "Emission", ccl::PASS_EMISSION, HdCyclesAovTokens->Emit, HdFormatFloat32Vec3 },
-    { "Shadow", ccl::PASS_SHADOW, HdCyclesAovTokens->Shadow, HdFormatFloat32Vec3 },
+std::array<HdCyclesAov, 26> DefaultAovs = {{
+    { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4, true },
+    { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32, false },
+    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, false },
+    { "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32, false },
+    { "IndexMA", ccl::PASS_MATERIAL_ID, HdCyclesAovTokens->IndexMA, HdFormatFloat32, false },
+    { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32, true },
+    { "Emission", ccl::PASS_EMISSION, HdCyclesAovTokens->Emit, HdFormatFloat32Vec3, true },
+    { "Shadow", ccl::PASS_SHADOW, HdCyclesAovTokens->Shadow, HdFormatFloat32Vec3, true },
 
-    { "UV", ccl::PASS_UV, HdCyclesAovTokens->UV, HdFormatFloat32Vec3 },
-    { "Vector", ccl::PASS_MOTION, HdCyclesAovTokens->Vector, HdFormatFloat32Vec4 },
+    { "UV", ccl::PASS_UV, HdCyclesAovTokens->UV, HdFormatFloat32Vec3, true },
+    { "Vector", ccl::PASS_MOTION, HdCyclesAovTokens->Vector, HdFormatFloat32Vec4, true },
 
-    { "DiffDir", ccl::PASS_DIFFUSE_DIRECT, HdCyclesAovTokens->DiffDir, HdFormatFloat32Vec3 },
-    { "DiffInd", ccl::PASS_DIFFUSE_INDIRECT, HdCyclesAovTokens->DiffInd, HdFormatFloat32Vec3 },
-    { "DiffCol", ccl::PASS_DIFFUSE_COLOR, HdCyclesAovTokens->DiffCol, HdFormatFloat32Vec3 },
+    { "DiffDir", ccl::PASS_DIFFUSE_DIRECT, HdCyclesAovTokens->DiffDir, HdFormatFloat32Vec3, true },
+    { "DiffInd", ccl::PASS_DIFFUSE_INDIRECT, HdCyclesAovTokens->DiffInd, HdFormatFloat32Vec3, true },
+    { "DiffCol", ccl::PASS_DIFFUSE_COLOR, HdCyclesAovTokens->DiffCol, HdFormatFloat32Vec3, true },
 
-    { "GlossDir", ccl::PASS_GLOSSY_DIRECT, HdCyclesAovTokens->GlossDir, HdFormatFloat32Vec3 },
-    { "GlossInd", ccl::PASS_GLOSSY_INDIRECT, HdCyclesAovTokens->GlossInd, HdFormatFloat32Vec3 },
-    { "GlossCol", ccl::PASS_GLOSSY_COLOR, HdCyclesAovTokens->GlossCol, HdFormatFloat32Vec3 },
+    { "GlossDir", ccl::PASS_GLOSSY_DIRECT, HdCyclesAovTokens->GlossDir, HdFormatFloat32Vec3, true },
+    { "GlossInd", ccl::PASS_GLOSSY_INDIRECT, HdCyclesAovTokens->GlossInd, HdFormatFloat32Vec3, true },
+    { "GlossCol", ccl::PASS_GLOSSY_COLOR, HdCyclesAovTokens->GlossCol, HdFormatFloat32Vec3, true },
 
-    { "TransDir", ccl::PASS_TRANSMISSION_DIRECT, HdCyclesAovTokens->TransDir, HdFormatFloat32Vec3 },
-    { "TransInd", ccl::PASS_TRANSMISSION_INDIRECT, HdCyclesAovTokens->TransInd, HdFormatFloat32Vec3 },
-    { "TransCol", ccl::PASS_TRANSMISSION_COLOR, HdCyclesAovTokens->TransCol, HdFormatFloat32Vec3 },
+    { "TransDir", ccl::PASS_TRANSMISSION_DIRECT, HdCyclesAovTokens->TransDir, HdFormatFloat32Vec3, true },
+    { "TransInd", ccl::PASS_TRANSMISSION_INDIRECT, HdCyclesAovTokens->TransInd, HdFormatFloat32Vec3, true },
+    { "TransCol", ccl::PASS_TRANSMISSION_COLOR, HdCyclesAovTokens->TransCol, HdFormatFloat32Vec3, true },
 
-    { "VolumeDir", ccl::PASS_VOLUME_DIRECT, HdCyclesAovTokens->VolumeDir, HdFormatFloat32Vec3 },
-    { "VolumeInd", ccl::PASS_VOLUME_INDIRECT, HdCyclesAovTokens->VolumeInd, HdFormatFloat32Vec3 },
-};
+    { "VolumeDir", ccl::PASS_VOLUME_DIRECT, HdCyclesAovTokens->VolumeDir, HdFormatFloat32Vec3, true },
+    { "VolumeInd", ccl::PASS_VOLUME_INDIRECT, HdCyclesAovTokens->VolumeInd, HdFormatFloat32Vec3, true },
 
-std::vector<HdCyclesAov> CustomAovs = {
-    { "AOVC", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->AOVC, HdFormatFloat32Vec3 },
-    { "AOVV", ccl::PASS_AOV_VALUE, HdCyclesAovTokens->AOVV, HdFormatFloat32 },
-};
+    { "cpuTime", ccl::PASS_RENDER_TIME, HdCyclesAovTokens->cpuTime, HdFormatFloat32, false },
+    { "sampleCount", ccl::PASS_SAMPLE_COUNT, HdCyclesAovTokens->sampleCount, HdFormatFloat32, false },
+
+    { "P", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->P, HdFormatFloat32Vec3, false },
+    { "Pref", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Pref, HdFormatFloat32Vec3, false },
+    { "Ngn", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Ngn, HdFormatFloat32Vec3, false },
+}};
+
+std::array<HdCyclesAov, 2> CustomAovs = {{
+    { "AOVC", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->AOVC, HdFormatFloat32Vec3, true },
+    { "AOVV", ccl::PASS_AOV_VALUE, HdCyclesAovTokens->AOVV, HdFormatFloat32, true },
+}};
 
 // Ordering matters
-std::vector<HdCyclesAov> CryptomatteAovs = {
-    { "CryptoObject", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoObject, HdFormatFloat32Vec4 },
-    { "CryptoMaterial", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoMaterial, HdFormatFloat32Vec4 },
-    { "CryptoAsset", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoAsset, HdFormatFloat32Vec4 },
-};
+std::array<HdCyclesAov, 3> CryptomatteAovs = {{
+    { "CryptoObject", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoObject, HdFormatFloat32Vec4, true },
+    { "CryptoMaterial", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoMaterial, HdFormatFloat32Vec4, true },
+    { "CryptoAsset", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoAsset, HdFormatFloat32Vec4, true },
+}};
 
-bool GetCyclesAov(HdRenderPassAovBinding &aov, HdCyclesAov &cyclesAov) {
+TfToken GetSourceName(const HdRenderPassAovBinding &aov) {
+    const auto &it = aov.aovSettings.find(UsdRenderTokens->sourceName);
+    if (it != aov.aovSettings.end()) {
+        if (it->second.IsHolding<std::string>()) {
+            return TfToken(it->second.UncheckedGet<std::string>());
+        }
+    }
+
+    return TfToken();
+}
+
+bool GetCyclesAov(const HdRenderPassAovBinding &aov, HdCyclesAov &cyclesAov) {
+
+    TfToken sourceName = GetSourceName(aov);
+
     for (HdCyclesAov& _cyclesAov : DefaultAovs) {
-        if (aov.aovName == _cyclesAov.token) {
+        if (sourceName == _cyclesAov.token) {
             cyclesAov = _cyclesAov;
             return true;
         }
     }
     for (HdCyclesAov& _cyclesAov : CustomAovs) {
-        if (aov.aovName == _cyclesAov.token) {
-            cyclesAov = _cyclesAov;
-            return true;
+        if (sourceName == _cyclesAov.token) {
+            ccl::vector<ccl::string> tokens;
+            ccl::string_split(tokens, sourceName.GetText(), ":");
+            if (tokens.size() > 1) {
+                if (tokens[1] == cyclesAov.name) {
+                    cyclesAov = _cyclesAov;
+                    return true;
+                }
+            }
         }
     }
     for (HdCyclesAov& _cyclesAov : CryptomatteAovs) {
-        if (aov.aovName == _cyclesAov.token) {
+        if (sourceName == _cyclesAov.token) {
             cyclesAov = _cyclesAov;
             return true;
         }
@@ -130,6 +160,8 @@ bool GetCyclesAov(HdRenderPassAovBinding &aov, HdCyclesAov &cyclesAov) {
 
     return false;
 }
+
+} // namespace
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_shouldUpdate(false)
@@ -258,6 +290,7 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     }
 
     // -- Film
+    m_cyclesScene->film->cryptomatte_depth = 2; // Not set to a sane default
     _UpdateFilmFromConfig(true);
     _UpdateFilmFromRenderSettings(settingsMap);
     _UpdateFilmFromConfig();
@@ -1174,6 +1207,12 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
                                         &film_updated, false);
     }
 
+    if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
+        ccl::divide_up(ccl::min(16, 
+                                _HdCyclesGetVtValue<int>(value, film->cryptomatte_depth,
+                                                         &film_updated, false)), 2);
+    }
+
     if (film_updated) {
         film->tag_update(m_cyclesScene);
         return true;
@@ -1429,16 +1468,31 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
                 continue;
             }
 
+            bool cryptomatte = false;
+            if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject) ||
+                (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial) ||
+                (cyclesAov.token == HdCyclesAovTokens->CryptoAsset)) {
+                    cryptomatte = true;
+            }
+
             // Pixels we will use to get from cycles.
             int numComponents = HdGetComponentCount(cyclesAov.format);
             ccl::vector<float> tileData(w * h * numComponents);
 
             rb->SetConverged(IsConverged());
 
-            bool read = buffers->get_pass_rect(cyclesAov.name.c_str(),
-                                                exposure, sample,
-                                                numComponents,
-                                                &tileData[0]);
+            bool read = false;
+            if (!cryptomatte) {
+                read = buffers->get_pass_rect(cyclesAov.name.c_str(),
+                                              exposure, sample,
+                                              numComponents,
+                                              &tileData[0]);
+            } else {
+                read = buffers->get_pass_rect(aov.aovName.GetText(),
+                                              exposure, sample,
+                                              numComponents,
+                                              &tileData[0]);
+            }
 
             if (!read) {
                 memset(&tileData[0], 0,
@@ -1976,7 +2030,7 @@ HdCyclesRenderParam::GetRenderStats() const
     //ccl::RenderStats stats;
     //m_cyclesSession->collect_statistics(&stats);
 
-    return {
+    VtDictionary result = {
         { "hdcycles:version", VtValue(HD_CYCLES_VERSION) },
 
         // - Cycles specific
@@ -2007,6 +2061,60 @@ HdCyclesRenderParam::GetRenderStats() const
         { "numCompletedSamples", VtValue(0) }
 
     };
+
+    // We need to store the cryptomatte metadata here, based on if there's any Cryptomatte AOVs
+
+    bool cryptoAsset = false;
+    bool cryptoObject = false;
+    bool cryptoMaterial = false;
+
+    for (const HdRenderPassAovBinding& aov : m_aovs) {
+        TfToken sourceName = GetSourceName(aov);
+        if (sourceName == HdCyclesAovTokens->CryptoAsset) {
+            cryptoAsset = true;
+            continue;
+        }
+        if (sourceName == HdCyclesAovTokens->CryptoObject) {
+            cryptoObject = true;
+            continue;
+        }
+        if (sourceName == HdCyclesAovTokens->CryptoMaterial) {
+            cryptoMaterial = true;
+            continue;
+        }
+    }
+
+    if (cryptoAsset) {
+        std::string cryptoName = HdCyclesAovTokens->CryptoAsset.GetText();
+        std::string identifier = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"] = VtValue(cryptoName);
+        result[prefix + "hash"] = VtValue("MurmurHash3_32");
+        result[prefix + "conversion"] = VtValue("uint32_to_float32");
+        result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_assets(m_cyclesScene));
+    }
+
+    if (cryptoObject) {
+        std::string cryptoName = HdCyclesAovTokens->CryptoObject.GetText();
+        std::string identifier = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"] = VtValue(cryptoName);
+        result[prefix + "hash"] = VtValue("MurmurHash3_32");
+        result[prefix + "conversion"] = VtValue("uint32_to_float32");
+        result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_objects(m_cyclesScene));
+    }
+
+    if (cryptoMaterial) {
+        std::string cryptoName = HdCyclesAovTokens->CryptoMaterial.GetText();
+        std::string identifier = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"] = VtValue(cryptoName);
+        result[prefix + "hash"] = VtValue("MurmurHash3_32");
+        result[prefix + "conversion"] = VtValue("uint32_to_float32");
+        result[prefix + "manifest"] = VtValue(m_cyclesScene->shader_manager->get_cryptomatte_materials(m_cyclesScene));
+    }
+
+    return result;
 }
 
 void
@@ -2023,30 +2131,33 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     }
     film->cryptomatte_passes = cryptomatte_passes;
 
-    for (HdRenderPassAovBinding aov : m_aovs) {
+    for (const HdRenderPassAovBinding& aov : m_aovs) {
+
+        TfToken sourceName = GetSourceName(aov);
+
         for (HdCyclesAov& cyclesAov : DefaultAovs) {
-            if (aov.aovName == cyclesAov.token) {
+            if (sourceName == cyclesAov.token) {
                 if (cyclesAov.type == ccl::PASS_COMBINED) {
                     has_combined = true;
                 }
-                ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, cyclesAov.name.c_str());
+                ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, cyclesAov.name.c_str(), cyclesAov.filter);
                 continue;
             }
         }
 
         for (HdCyclesAov& cyclesAov : CustomAovs) {
-            if (ccl::string_startswith(aov.aovName.GetText(), cyclesAov.token.GetText())) {
+            if (ccl::string_startswith(sourceName.GetText(), cyclesAov.token.GetText())) {
                 ccl::vector<ccl::string> tokens;
-                ccl::string_split(tokens, aov.aovName.GetText(), ":");
+                ccl::string_split(tokens, sourceName.GetText(), ":");
                 if (tokens.size() > 1) {
-                    ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, tokens[1].c_str());
+                    ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, tokens[1].c_str(), cyclesAov.filter);
                     continue;
                 }
             }
         }
 
         for (HdCyclesAov& cyclesAov : CryptomatteAovs) {
-            if (aov.aovName == cyclesAov.token) {
+            if (sourceName == cyclesAov.token) {
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoObject) {
                     film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_OBJECT);
                 }
@@ -2060,9 +2171,8 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
                     continue;
                 }
 
-                for (int i = 0; i < film->cryptomatte_depth; ++i) {
-                    ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, ccl::string_printf("%s%02d", cyclesAov.name, i).c_str());
-                }
+                ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, aov.aovName.GetText());
+
                 continue;
             }
         }
@@ -2075,7 +2185,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     }
 
     if (!has_combined) {
-        ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str());
+        ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str(), DefaultAovs[0].filter);
     }
     film->display_pass = m_bufferParams.passes[0].type;
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
@@ -2090,10 +2200,11 @@ HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
     m_cyclesScene->film->display_pass = DefaultAovs[0].type;
     m_displayAovToken = DefaultAovs[0].token;
     if(!m_aovs.empty()) {
+        TfToken sourceName = GetSourceName(a_aov);
         for (HdCyclesAov& cyclesAov : DefaultAovs) {
-            if (a_aov.aovName == cyclesAov.token) {
+            if (sourceName == cyclesAov.token) {
                 m_cyclesScene->film->display_pass = cyclesAov.type;
-                m_displayAovToken = cyclesAov.token;
+                m_displayAovToken = a_aov.aovName;
                 break;
             }
         }
