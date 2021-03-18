@@ -55,6 +55,7 @@ set_target_properties(MikktSpace PROPERTIES
 
 add_library(hdCycles SHARED
         api.h
+        debug_codes.h
         basisCurves.cpp
         basisCurves.h
         camera.cpp
