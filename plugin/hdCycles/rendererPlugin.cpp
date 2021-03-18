@@ -30,6 +30,12 @@ TF_REGISTRY_FUNCTION(TfType)
     HdRendererPluginRegistry::Define<HdCyclesRendererPlugin>();
 }
 
+HdCyclesRendererPlugin::HdCyclesRendererPlugin() {
+}
+
+HdCyclesRendererPlugin::~HdCyclesRendererPlugin() {
+}
+
 HdRenderDelegate*
 HdCyclesRendererPlugin::CreateRenderDelegate()
 {

@@ -25,6 +25,7 @@
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/meshUtil.h>
 #include <pxr/imaging/pxOsd/refinerFactory.h>
+#include <pxr/imaging/pxOsd/tokens.h>
 
 #include <opensubdiv/far/patchMap.h>
 #include <opensubdiv/far/patchTableFactory.h>
