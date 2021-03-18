@@ -16,7 +16,9 @@
 //  arising from the use of this software, whether in contract, tort or otherwise.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-#pragma once
+
+#ifndef HD_CYCLES_DEBUG_CODES_H
+#define HD_CYCLES_DEBUG_CODES_H
 
 #include <pxr/pxr.h>
 
@@ -31,3 +33,5 @@ TF_DEBUG_CODES(
 // clang-format on
 
 PXR_NAMESPACE_CLOSE_SCOPE
+
+#endif // HD_CYCLES_DEBUG_CODES_H
