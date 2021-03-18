@@ -290,7 +290,6 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     }
 
     // -- Film
-    m_cyclesScene->film->cryptomatte_depth = 2; // Not set to a sane default
     _UpdateFilmFromConfig(true);
     _UpdateFilmFromRenderSettings(settingsMap);
     _UpdateFilmFromConfig();
@@ -1208,9 +1207,9 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
     }
 
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
-        ccl::divide_up(ccl::min(16, 
-                                _HdCyclesGetVtValue<int>(value, film->cryptomatte_depth,
-                                                         &film_updated, false)), 2);
+        int cryptomatte_depth = _HdCyclesGetVtValue<int>(value, 4, 
+                                                         &film_updated, false);
+        film->cryptomatte_depth = ccl::divide_up(ccl::min(16, cryptomatte_depth), 2);
     }
 
     if (film_updated) {
@@ -2131,6 +2130,10 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     }
     film->cryptomatte_passes = cryptomatte_passes;
 
+    int cryptoObject = 0;
+    int cryptoMaterial = 0;
+    int cryptoAsset = 0;
+
     for (const HdRenderPassAovBinding& aov : m_aovs) {
 
         TfToken sourceName = GetSourceName(aov);
@@ -2159,22 +2162,51 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         for (HdCyclesAov& cyclesAov : CryptomatteAovs) {
             if (sourceName == cyclesAov.token) {
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoObject) {
-                    film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_OBJECT);
-                }
-                else if (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial) {
-                    film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_MATERIAL);
-                }
-                else if (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) {
-                    film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_ASSET);
-                }
-                else {
+                    cryptoObject += 1;
                     continue;
                 }
-
-                ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, aov.aovName.GetText());
-
-                continue;
+                if (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial) {
+                    cryptoMaterial += 1;
+                    continue;
+                }
+                if (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) {
+                    cryptoAsset += 1;
+                    continue;
+                }
             }
+        }
+    }
+
+    if (cryptoObject != film->cryptomatte_depth) {
+        TF_WARN("Cryptomatte Object AOV/depth mismatch");
+    }
+    if (cryptoMaterial != film->cryptomatte_depth) {
+        TF_WARN("Cryptomatte Material AOV/depth mismatch");
+    }
+    if (cryptoAsset != film->cryptomatte_depth) {
+        TF_WARN("Cryptomatte Asset AOV/depth mismatch");
+    }
+
+    // Ordering matters
+    if (cryptoObject) {
+        film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_OBJECT);
+        for (int i = 0; i < cryptoObject; ++i) {
+            ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, 
+                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoObject.GetText(), i).c_str());
+        }
+    }
+    if (cryptoMaterial) {
+        film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_MATERIAL);
+        for (int i = 0; i < cryptoMaterial; ++i) {
+            ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
+                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoMaterial.GetText(), i).c_str());
+        }
+    }
+    if (cryptoAsset) {
+        film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_ASSET);
+        for (int i = 0; i < cryptoAsset; ++i) {
+            ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
+                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoAsset.GetText(), i).c_str());
         }
     }
 
