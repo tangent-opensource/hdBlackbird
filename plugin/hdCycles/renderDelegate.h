@@ -90,9 +90,6 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     HDCYCLES_INTEGRATOR_TOKENS
 );
 
-const TfToken aovc;
-const TfToken aovv;
-
 #define HDCYCLES_AOV_TOKENS \
     (UV)                    \
     (Vector)                \
@@ -122,14 +119,14 @@ const TfToken aovv;
     (CryptoMaterial)        \
     (CryptoAsset)           \
                             \
-    ((AOVC, "aovc:"))       \
-    ((AOVV, "aovv:"))       \
+    (AOVC)                  \
+    (AOVV)                  \
                             \
     (P)                     \
     (Pref)                  \
     (Ngn)                   \
-    (cpuTime)               \
-    (sampleCount)
+    (RenderTime)            \
+    (SampleCount)
 
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens, 
     HDCYCLES_API, 

@@ -98,8 +98,8 @@ std::array<HdCyclesAov, 26> DefaultAovs = {{
     { "VolumeDir", ccl::PASS_VOLUME_DIRECT, HdCyclesAovTokens->VolumeDir, HdFormatFloat32Vec3, true },
     { "VolumeInd", ccl::PASS_VOLUME_INDIRECT, HdCyclesAovTokens->VolumeInd, HdFormatFloat32Vec3, true },
 
-    { "cpuTime", ccl::PASS_RENDER_TIME, HdCyclesAovTokens->cpuTime, HdFormatFloat32, false },
-    { "sampleCount", ccl::PASS_SAMPLE_COUNT, HdCyclesAovTokens->sampleCount, HdFormatFloat32, false },
+    { "RenderTime", ccl::PASS_RENDER_TIME, HdCyclesAovTokens->RenderTime, HdFormatFloat32, false },
+    { "SampleCount", ccl::PASS_SAMPLE_COUNT, HdCyclesAovTokens->SampleCount, HdFormatFloat32, false },
 
     { "P", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->P, HdFormatFloat32Vec3, false },
     { "Pref", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Pref, HdFormatFloat32Vec3, false },
@@ -111,7 +111,6 @@ std::array<HdCyclesAov, 2> CustomAovs = {{
     { "AOVV", ccl::PASS_AOV_VALUE, HdCyclesAovTokens->AOVV, HdFormatFloat32, true },
 }};
 
-// Ordering matters
 std::array<HdCyclesAov, 3> CryptomatteAovs = {{
     { "CryptoObject", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoObject, HdFormatFloat32Vec4, true },
     { "CryptoMaterial", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoMaterial, HdFormatFloat32Vec4, true },
@@ -141,14 +140,8 @@ bool GetCyclesAov(const HdRenderPassAovBinding &aov, HdCyclesAov &cyclesAov) {
     }
     for (HdCyclesAov& _cyclesAov : CustomAovs) {
         if (sourceName == _cyclesAov.token) {
-            ccl::vector<ccl::string> tokens;
-            ccl::string_split(tokens, sourceName.GetText(), ":");
-            if (tokens.size() > 1) {
-                if (tokens[1] == cyclesAov.name) {
-                    cyclesAov = _cyclesAov;
-                    return true;
-                }
-            }
+            cyclesAov = _cyclesAov;
+            return true;
         }
     }
     for (HdCyclesAov& _cyclesAov : CryptomatteAovs) {
@@ -1467,11 +1460,13 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
                 continue;
             }
 
-            bool cryptomatte = false;
+            bool custom = false;
             if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject) ||
                 (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial) ||
-                (cyclesAov.token == HdCyclesAovTokens->CryptoAsset)) {
-                    cryptomatte = true;
+                (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) ||
+                (cyclesAov.token == HdCyclesAovTokens->AOVC) ||
+                (cyclesAov.token == HdCyclesAovTokens->AOVV)) {
+                    custom = true;
             }
 
             // Pixels we will use to get from cycles.
@@ -1481,7 +1476,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             rb->SetConverged(IsConverged());
 
             bool read = false;
-            if (!cryptomatte) {
+            if (!custom) {
                 read = buffers->get_pass_rect(cyclesAov.name.c_str(),
                                               exposure, sample,
                                               numComponents,
@@ -2149,13 +2144,9 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         }
 
         for (HdCyclesAov& cyclesAov : CustomAovs) {
-            if (ccl::string_startswith(sourceName.GetText(), cyclesAov.token.GetText())) {
-                ccl::vector<ccl::string> tokens;
-                ccl::string_split(tokens, sourceName.GetText(), ":");
-                if (tokens.size() > 1) {
-                    ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, tokens[1].c_str(), cyclesAov.filter);
-                    continue;
-                }
+            if (sourceName == cyclesAov.token) {
+                ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, aov.aovName.GetText(), cyclesAov.filter);
+                continue;
             }
         }
 
