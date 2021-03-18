@@ -535,7 +535,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     if (!GetPrimvarInterpolation(interpolation)) {
         // TODO: Should we autogenerate normals or let Cycles generate them?
         // Let's shoot a warning for now
-        TF_WARN("Failed to find interpolation for normals for: %s", id.GetText());
+        //TF_WARN("Failed to find interpolation for normals for: %s", id.GetText());
         return;
     }
     assert(interpolation >= 0 && interpolation < HdInterpolationCount);
