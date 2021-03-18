@@ -25,6 +25,7 @@
 #include "renderDelegate.h"
 #include "renderParam.h"
 #include "utils.h"
+#include "debug_codes.h"
 
 #include <pxr/imaging/hd/extComputationUtils.h>
 
@@ -533,9 +534,9 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
 
     HdInterpolation interpolation = HdInterpolationCount;
     if (!GetPrimvarInterpolation(interpolation)) {
-        // TODO: Should we autogenerate normals or let Cycles generate them?
-        // Let's shoot a warning for now
-        //TF_WARN("Failed to find interpolation for normals for: %s", id.GetText());
+        m_cyclesMesh->add_vertex_normals();
+        TF_INFO(HDCYCLES_MESH)
+            .Msg("Generating smooth normals for: %s", id.GetText());
         return;
     }
     assert(interpolation >= 0 && interpolation < HdInterpolationCount);
