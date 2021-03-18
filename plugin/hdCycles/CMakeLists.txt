@@ -112,6 +112,7 @@ pxr_plugin(${PXR_PACKAGE}
 
   PUBLIC_HEADERS
     api.h
+    debug_codes.h
 
   RESOURCE_FILES
     plugInfo.json
