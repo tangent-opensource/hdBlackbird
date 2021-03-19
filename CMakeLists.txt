@@ -34,7 +34,7 @@ if (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:libmmd.lib /NODEFAULTLIB:libirc.lib /NODEFAULTLIB:svml_dispmd.lib /NODEFAULTLIB:libdecimal.lib" )
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
 else()
-    add_compile_options(-Wall -Wextra -pedantic -Wno_deprecated)
+    add_compile_options(-Wall -Wextra -pedantic -Wno-deprecated)
 endif()
 
 if(NOT MSVC AND DEFINED USE_CXX11_ABI)
