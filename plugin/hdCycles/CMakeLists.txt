@@ -23,10 +23,6 @@ add_library(MikktSpace STATIC
         )
 add_library(MikktSpace::MikktSpace ALIAS MikktSpace)
 
-set_target_properties(MikktSpace PROPERTIES
-        POSITION_INDEPENDENT_CODE ON
-        )
-
 add_library(hdCycles SHARED
         api.h
         debug_codes.h
@@ -83,7 +79,6 @@ target_compile_definitions(hdCycles
 
 set_target_properties(hdCycles PROPERTIES
         PREFIX ""
-        POSITION_INDEPENDENT_CODE ON
         )
 install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
 install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd/hdCycles OPTIONAL)
