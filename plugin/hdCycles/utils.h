@@ -29,14 +29,6 @@
 
 #include "Mikktspace/mikktspace.h"
 
-#ifdef __GNUC__
-// Supress warning from third party headers. 
-// Cycles is breaking strict aliasing rules
-// and Boost is using parantheses in a way that GCC doesn't like.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
 #include <render/mesh.h>
 #include <render/object.h>
 #include <render/scene.h>
@@ -59,9 +51,6 @@
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/pxr.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 #include <iostream>
 

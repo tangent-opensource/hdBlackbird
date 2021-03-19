@@ -22,15 +22,8 @@
 
 #include "api.h"
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
 #include <pxr/pxr.h>
 #include <pxr/usd/ndr/parserPlugin.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 

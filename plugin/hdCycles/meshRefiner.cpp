@@ -24,14 +24,8 @@
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/imaging/hd/changeTracker.h>
 #include <pxr/imaging/hd/meshUtil.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
 #include <pxr/imaging/pxOsd/refinerFactory.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
+#include <pxr/imaging/pxOsd/tokens.h>
 
 #include <opensubdiv/far/patchMap.h>
 #include <opensubdiv/far/patchTableFactory.h>

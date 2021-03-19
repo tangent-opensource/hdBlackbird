@@ -24,15 +24,7 @@
 
 #include "renderDelegate.h"
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
 #include <render/buffers.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-
 
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/imaging/hd/renderPass.h>

@@ -24,19 +24,12 @@
 
 #include <mutex>
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/vec4f.h>
 #include <pxr/base/vt/array.h>
 #include <pxr/imaging/hd/instancer.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 

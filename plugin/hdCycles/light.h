@@ -23,16 +23,9 @@
 #include "api.h"
 
 #include "renderDelegate.h"
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
 #include <render/graph.h>
 #include <render/light.h>
 #include <render/nodes.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 #include <pxr/imaging/hd/light.h>
 #include <pxr/pxr.h>

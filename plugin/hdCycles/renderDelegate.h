@@ -23,14 +23,7 @@
 #include "api.h"
 
 #include <pxr/base/tf/staticTokens.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
 #include <pxr/imaging/hd/renderDelegate.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 #include <pxr/imaging/hd/resourceRegistry.h>
 #include <pxr/pxr.h>
 
@@ -41,8 +34,10 @@ class HdCyclesRenderPass;
 class HdCyclesRenderDelegate;
 
 // clang-format off
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((useDefaultBackground, "useDefaultBackground"))
     ((device, "device"))

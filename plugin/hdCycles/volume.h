@@ -33,14 +33,7 @@
 #include <pxr/pxr.h>
 
 #ifdef WITH_OPENVDB
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
 #include <openvdb/openvdb.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 #endif
 
 namespace ccl {

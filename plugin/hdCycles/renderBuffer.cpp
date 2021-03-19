@@ -85,6 +85,9 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(
 {
 }
 
+HdCyclesRenderBuffer::~HdCyclesRenderBuffer() {
+}
+
 bool
 HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format,
                                bool multiSampled)

@@ -20,15 +20,8 @@
 #ifndef HDCYCLES_MESHREFINER_H
 #define HDCYCLES_MESHREFINER_H
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
 #include <pxr/base/vt/array.h>
 #include <pxr/imaging/hd/enums.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 #include <memory>
 

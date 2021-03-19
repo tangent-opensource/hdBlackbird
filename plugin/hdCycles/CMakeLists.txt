@@ -17,104 +17,137 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-set(PXR_PREFIX "")
-set(PXR_PACKAGE hdCycles)
-
-add_custom_target(python ALL)
-
 if(USE_USD_CYCLES_SCHEMA)
-  include_directories(${USD_CYCLES_INCLUDE_DIRS})
-  link_libraries(${USD_CYCLES_LIBRARIES})
+    include_directories(SYSTEM ${USD_CYCLES_INCLUDE_DIRS})
+    link_libraries(${USD_CYCLES_LIBRARIES})
 endif()
 
 if(USE_LEGACY_HOUDINI)
-  include_directories(${HOUDINI_INCLUDE_DIRS})
-  link_directories(${HOUDINI_LIB_DIRS})
-  link_libraries(${HOUDINI_LIBRARIES_DEPS})
+    include_directories(SYSTEM ${HOUDINI_INCLUDE_DIRS})
+    link_directories(${HOUDINI_LIB_DIRS})
+    link_libraries(${HOUDINI_LIBRARIES_DEPS})
 endif()
 
 if(WITH_OPENVDB)
-  include_directories(${OPENVDB_INCLUDE_DIR})
-  link_libraries(${OPENVDB_LIBRARY})
+    include_directories(SYSTEM ${OPENVDB_INCLUDE_DIR})
+    link_libraries(${OPENVDB_LIBRARY})
 endif()
 
 if(WITH_EMBREE)
-  include_directories(${EMBREE_INCLUDE_DIRS})
-  link_libraries(${EMBREE_LIBRARIES})
+    include_directories(SYSTEM ${EMBREE_INCLUDE_DIRS})
+    link_libraries(${EMBREE_LIBRARIES})
 endif()
 
 if(USE_OPENGL)
-  include_directories(${GLEW_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
-  link_libraries(${OPENGL_gl_LIBRARY} ${GLEW_LIBRARY})
+    include_directories(SYSTEM ${GLEW_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
+    link_libraries(${OPENGL_gl_LIBRARY} ${GLEW_LIBRARY})
 endif()
 
-pxr_plugin(${PXR_PACKAGE}
-  LIBRARIES
+add_library(MikktSpace STATIC
+        Mikktspace/mikktspace.c
+        Mikktspace/mikktspace.h
+        )
+add_library(MikktSpace::MikktSpace ALIAS MikktSpace)
 
-    ${USD_LIBRARIES}
-    ${TBB_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${HBoost_LIBRARIES}
-    ${Python_LIBRARIES}
-    ${CYCLES_LIBRARIES}
-    ${PNG_LIBRARIES}
-    ${ZLIB_LIBRARIES}
-    ${TIFF_LIBRARY}
-    ${OPENJPEG_LIBRARIES}
-    ${OPENEXR_LIBRARIES}
-    ${OPENSUBDIV_LIBRARIES}
-    ${OIIO_LIBRARIES}
-    ${OCIO_LIBRARIES}
-        
-    ${GLOG_LIBRARY}
-    ${GFLAGS_LIBRARY}
-    
-  CPPFILES
-    "Mikktspace/mikktspace.c"
+set_target_properties(MikktSpace PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        )
 
-  INCLUDE_DIRS
-    ${USD_INCLUDE_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${HBoost_INCLUDE_DIRS}
-    ${TBB_INCLUDE_DIRS}
-    ${Python_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIR}
-    ${CYCLES_INCLUDE_DIRS}
-    ${OIIO_INCLUDE_DIRS}
-    ${OPENEXR_INCLUDE_DIRS}
-    ${OPENSUBDIV_INCLUDE_DIR}
-    ${OCIO_INCLUDE_DIRS}
+add_library(hdCycles SHARED
+        api.h
+        debug_codes.h
+        basisCurves.cpp
+        basisCurves.h
+        camera.cpp
+        camera.h
+        config.cpp
+        config.h
+        hdcycles.h
+        instancer.cpp
+        instancer.h
+        light.cpp
+        light.h
+        material.cpp
+        material.h
+        mesh.cpp
+        mesh.h
+        meshRefiner.cpp
+        meshRefiner.h
+        openvdb_asset.cpp
+        openvdb_asset.h
+        points.cpp
+        points.h
+        renderBuffer.cpp
+        renderBuffer.h
+        renderDelegate.cpp
+        renderDelegate.h
+        rendererPlugin.cpp
+        rendererPlugin.h
+        renderParam.cpp
+        renderParam.h
+        renderPass.cpp
+        renderPass.h
+        utils.cpp
+        utils.h
+        volume.cpp
+        volume.h
+        )
 
-    ${GFLAGS_INCLUDE_DIR}
-    ${GLOG_INCLUDE_DIR}
+target_include_directories(hdCycles SYSTEM
+        PUBLIC
+        ${USD_INCLUDE_DIR}
+        ${Boost_INCLUDE_DIRS}
+        ${HBoost_INCLUDE_DIRS}
+        ${TBB_INCLUDE_DIRS}
+        ${Python_INCLUDE_DIRS}
+        ${PYTHON_INCLUDE_DIR}
+        ${CYCLES_INCLUDE_DIRS}
+        ${OIIO_INCLUDE_DIRS}
+        ${OPENEXR_INCLUDE_DIRS}
+        ${OPENSUBDIV_INCLUDE_DIR}
+        ${OCIO_INCLUDE_DIRS}
+        ${GFLAGS_INCLUDE_DIR}
+        ${GLOG_INCLUDE_DIR}
+        )
 
-  PUBLIC_CLASSES
-    basisCurves
-    camera
-    instancer
-    light
-    material
-    mesh
-    points
-    meshRefiner
-  
-    volume
-    openvdb_asset
+target_link_libraries(hdCycles
+        PUBLIC
+        ${USD_LIBRARIES}
+        ${TBB_LIBRARIES}
+        ${Boost_LIBRARIES}
+        ${HBoost_LIBRARIES}
+        ${Python_LIBRARIES}
+        ${CYCLES_LIBRARIES}
+        ${PNG_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+        ${TIFF_LIBRARY}
+        ${OPENJPEG_LIBRARIES}
+        ${OPENEXR_LIBRARIES}
+        ${OPENSUBDIV_LIBRARIES}
+        ${OIIO_LIBRARIES}
+        ${OCIO_LIBRARIES}
 
-    renderDelegate
-    rendererPlugin
-    renderPass
-    renderParam
-    
-    config
-    renderBuffer
-    utils
+        ${GLOG_LIBRARY}
+        ${GFLAGS_LIBRARY}
+        MikktSpace::MikktSpace
+        )
 
-  PUBLIC_HEADERS
-    api.h
+target_compile_definitions(hdCycles
+        PRIVATE
+        MFB_PACKAGE_NAME=hdCycles
+        MFB_ALT_PACKAGE_NAME=hdCycles
+        )
 
-  RESOURCE_FILES
-    plugInfo.json
+set_target_properties(hdCycles PROPERTIES
+        PREFIX ""
+        POSITION_INDEPENDENT_CODE ON
+        )
+install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
 
-  DISABLE_PRECOMPILED_HEADERS
-)
+
+# plugInfo.json
+set(PLUG_INFO_LIBRARY_PATH "hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(PLUG_INFO_RESOURCE_PATH "resources")
+set(PLUG_INFO_ROOT "..")
+configure_file(plugInfo.json plugInfo.json @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/plugInfo.json" DESTINATION plugin/usd/hdCycles/resources)

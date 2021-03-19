@@ -22,11 +22,6 @@
 
 #include "api.h"
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
 #include <device/device.h>
 #include <render/buffers.h>
 #include <render/camera.h>
@@ -35,9 +30,6 @@
 
 #include <pxr/imaging/hd/renderDelegate.h>
 #include <pxr/pxr.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 namespace ccl {
 class Session;

@@ -23,31 +23,15 @@
 #include "api.h"
 #include <pxr/pxr.h>
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
 #include <pxr/imaging/hd/field.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-
 #include "renderDelegate.h"
 
 #include <mutex>
 #include <unordered_set>
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
 #ifdef WITH_OPENVDB
 #    include <render/image_vdb.h>
 #    include <openvdb/openvdb.h>
-#endif
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE

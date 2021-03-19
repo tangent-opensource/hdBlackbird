@@ -22,15 +22,8 @@
 
 #include "api.h"
 
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
 #include <pxr/imaging/hd/renderBuffer.h>
 #include <pxr/pxr.h>
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -55,7 +48,7 @@ public:
      * @brief Destroy the HdCycles Render Buffer object
      * 
      */
-    HDCYCLES_API ~HdCyclesRenderBuffer() override = default;
+    HDCYCLES_API ~HdCyclesRenderBuffer() override;
 
     /**
      * @brief Allocates the memory used by the render buffer
