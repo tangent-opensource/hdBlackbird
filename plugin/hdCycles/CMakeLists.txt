@@ -17,32 +17,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-if(USE_USD_CYCLES_SCHEMA)
-    include_directories(SYSTEM ${USD_CYCLES_INCLUDE_DIRS})
-    link_libraries(${USD_CYCLES_LIBRARIES})
-endif()
-
-if(USE_LEGACY_HOUDINI)
-    include_directories(SYSTEM  ${HOUDINI_INCLUDE_DIRS})
-    link_directories(${HOUDINI_LIB_DIRS})
-    link_libraries(${HOUDINI_LIBRARIES_DEPS})
-endif()
-
-if(WITH_OPENVDB)
-    include_directories(SYSTEM ${OPENVDB_INCLUDE_DIR})
-    link_libraries(${OPENVDB_LIBRARY})
-endif()
-
-if(WITH_EMBREE)
-    include_directories(SYSTEM ${EMBREE_INCLUDE_DIRS})
-    link_libraries(${EMBREE_LIBRARIES})
-endif()
-
-if(USE_OPENGL)
-    include_directories(SYSTEM ${GLEW_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
-    link_libraries(${OPENGL_gl_LIBRARY} ${GLEW_LIBRARY})
-endif()
-
 add_library(MikktSpace STATIC
         Mikktspace/mikktspace.c
         Mikktspace/mikktspace.h
@@ -93,43 +67,12 @@ add_library(hdCycles SHARED
         volume.h
         )
 
-target_include_directories(hdCycles SYSTEM
-        PUBLIC
-        ${USD_INCLUDE_DIR}
-        ${Boost_INCLUDE_DIRS}
-        ${HBoost_INCLUDE_DIRS}
-        ${TBB_INCLUDE_DIRS}
-        ${Python_INCLUDE_DIRS}
-        ${PYTHON_INCLUDE_DIR}
-        ${CYCLES_INCLUDE_DIRS}
-        ${OIIO_INCLUDE_DIRS}
-        ${OPENEXR_INCLUDE_DIRS}
-        ${OPENSUBDIV_INCLUDE_DIR}
-        ${OCIO_INCLUDE_DIRS}
-        ${GFLAGS_INCLUDE_DIR}
-        ${GLOG_INCLUDE_DIR}
-        )
-
 target_link_libraries(hdCycles
-        PUBLIC
-        ${USD_LIBRARIES}
-        ${TBB_LIBRARIES}
-        ${Boost_LIBRARIES}
-        ${HBoost_LIBRARIES}
-        ${Python_LIBRARIES}
-        ${CYCLES_LIBRARIES}
-        ${PNG_LIBRARIES}
-        ${ZLIB_LIBRARIES}
-        ${TIFF_LIBRARY}
-        ${OPENJPEG_LIBRARIES}
-        ${OPENEXR_LIBRARIES}
-        ${OPENSUBDIV_LIBRARIES}
-        ${OIIO_LIBRARIES}
-        ${OCIO_LIBRARIES}
-
-        ${GLOG_LIBRARY}
-        ${GFLAGS_LIBRARY}
+        PRIVATE
         MikktSpace::MikktSpace
+        PUBLIC
+        Cycles::Cycles
+        Usd::Usd
         )
 
 target_compile_definitions(hdCycles
@@ -143,7 +86,6 @@ set_target_properties(hdCycles PROPERTIES
         POSITION_INDEPENDENT_CODE ON
         )
 install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
-
 
 # plugInfo.json
 set(PLUG_INFO_LIBRARY_PATH "hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
