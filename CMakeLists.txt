@@ -17,47 +17,40 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-cmake_minimum_required(VERSION 3.12)
-
+cmake_minimum_required(VERSION 3.18)
 project(hdCycles CXX C)
 
-find_package(Cycles REQUIRED)
+# Options
+option(USE_HOUDINI_USD "" OFF)
+option(USE_CXX11_ABI "" ON)
 
-add_library(UsdInterface INTERFACE)
-add_library(Usd::Usd ALIAS UsdInterface)
-
-add_definitions(-Wno-deprecated -DHD_CYCLES_VERSION="")
-
-# two builds
-if(DEFINED ENV{HFS})
-    find_package(Houdini REQUIRED PATHS $ENV{HFS}/toolkit/cmake)
-    target_link_libraries(UsdInterface
-    INTERFACE
-    Houdini
-    )
-
-    target_compile_definitions(UsdInterface
-        INTERFACE
-        BOOST_NS=hboost        
-    )
-else()
-    # find usd cmake
-endif()
-
-if(WIN32)
-  set( CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:libmmd.lib /NODEFAULTLIB:libirc.lib /NODEFAULTLIB:svml_dispmd.lib /NODEFAULTLIB:libdecimal.lib" )
-  
-  # Added for release debug symbols
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
-  set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
-endif()
-
+# Global Settings
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-if("${USD_MINOR_VERSION}" STRGREATER_EQUAL "20" AND 
-   "${USD_PATCH_VERSION}" STRGREATER_EQUAL "8")
-add_definitions(-DUSD_HAS_UDIM_RESOLVE_FIX)
+if (MSVC)
+    add_compile_options(/W4 /Zi /ignore:4049)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:libmmd.lib /NODEFAULTLIB:libirc.lib /NODEFAULTLIB:svml_dispmd.lib /NODEFAULTLIB:libdecimal.lib" )
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+else()
+    add_compile_options(-Wall -Wextra -pedantic -Wno_deprecated)
 endif()
+
+if(NOT MSVC AND DEFINED USE_CXX11_ABI)
+    add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
+endif()
+
+if(NOT DEFINED HD_CYCLES_VERSION)
+    add_compile_definitions(HD_CYCLES_VERSION="0.0.0")
+else()
+    add_compile_definitions(HD_CYCLES_VERSION="${HD_CYCLES_VERSION}")
+endif()
+
+# Find Cycles and Usd
+find_package(Cycles REQUIRED)
+include(cmake/FindUsd.cmake)
+# find_package(Usd REQUIRED PATHS ${CMAKE_SOURCE_DIR}/cmake)
 
 add_subdirectory(plugin)
 add_subdirectory(tools)
