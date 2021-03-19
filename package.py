@@ -14,13 +14,13 @@ requires = [
 ]
 
 linux_variants = [
-    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'usd-20.08-houdini'],
+    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'houdini-18.5'],
 ]
 
 windows_variants = [
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.11'],
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'houdini-18.5'],
 ]
 
 @early()
