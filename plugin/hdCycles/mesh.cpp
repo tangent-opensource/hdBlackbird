@@ -534,6 +534,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
 
     HdInterpolation interpolation = HdInterpolationCount;
     if (!GetPrimvarInterpolation(interpolation)) {
+        m_cyclesMesh->add_face_normals();
         m_cyclesMesh->add_vertex_normals();
         TF_INFO(HDCYCLES_MESH)
             .Msg("Generating smooth normals for: %s", id.GetText());
