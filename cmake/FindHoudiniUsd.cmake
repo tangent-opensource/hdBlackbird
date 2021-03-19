@@ -28,11 +28,26 @@ target_compile_definitions(UsdInterface
     BOOST_NS=hboost        
 )
 
-target_link_libraries(UsdInterface
-    INTERFACE
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/hboost_python27-mt-x64.lib
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/hboost_filesystem-mt-x64.lib
-)
+find_library(_houdini_hboost_python
+    NAMES 
+    hboost_python27-mt-x64
+    hboost_python-mt-x64
+    PATHS
+    ${HOUDINI_ROOT}/dsolib
+    ${HOUDINI_ROOT}/custom/houdini/dsolib/            
+    REQUIRED
+    )
+    
+find_library(_houdini_hboost_filesystem
+    NAMES
+    hboost_filesystem-mt-x64
+    PATHS
+    ${HOUDINI_ROOT}/dsolib
+    ${HOUDINI_ROOT}/custom/houdini/dsolib/
+    REQUIRED
+    )    
+
+target_link_libraries(Houdini INTERFACE ${_houdini_hboost_python} ${_houdini_hboost_filesystem})
 
 # Find Python
 find_library(_houdini_python_lib
@@ -41,9 +56,9 @@ find_library(_houdini_python_lib
     python2.7
     python
     PATHS
-    ${HOUDINI_ROOT}/python27/libs/
-    ${HOUDINI_ROOT}/python/libs/
-    ${HOUDINI_ROOT}/python
+    ${HOUDINI_ROOT}/python27/libs
+    ${HOUDINI_ROOT}/python/libs
+    ${HOUDINI_ROOT}/python/lib
     REQUIRED
     )
 target_link_libraries(Houdini INTERFACE ${_houdini_python_lib})
