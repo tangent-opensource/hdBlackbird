@@ -30,7 +30,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if (MSVC)
-    add_compile_options(/W4 /Zi /ignore:4049)
+    add_compile_options(/W4 /Zi)
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:libmmd.lib /NODEFAULTLIB:libirc.lib /NODEFAULTLIB:svml_dispmd.lib /NODEFAULTLIB:libdecimal.lib" )
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
 else()
@@ -50,7 +50,6 @@ endif()
 # Find Cycles and Usd
 find_package(Cycles REQUIRED)
 include(cmake/FindUsd.cmake)
-# find_package(Usd REQUIRED PATHS ${CMAKE_SOURCE_DIR}/cmake)
 
 add_subdirectory(plugin)
 add_subdirectory(tools)

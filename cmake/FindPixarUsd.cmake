@@ -17,11 +17,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-find_package(pxr CONFIG REQUIRED)
+set(USD_ROOT $ENV{REZ_USD_ROOT})
+
+find_package(pxr CONFIG REQUIRED PATHS ${HOUDINI_ROOT})
 
 target_compile_definitions(UsdInterface
     INTERFACE
-    BOOST_NS=boost        
+    BOOST_NS=boost
+    $<$<CXX_COMPILER_ID:MSVC>:HAVE_SNPRINTF>
     )
 
 target_link_libraries(UsdInterface
