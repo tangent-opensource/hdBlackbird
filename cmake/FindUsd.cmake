@@ -20,4 +20,8 @@
 add_library(UsdInterface INTERFACE)
 add_library(Usd::Usd ALIAS UsdInterface)
 
-include(cmake/FindHoudiniUsd.cmake)
+if(${USE_HOUDINI_USD})
+    include(cmake/FindHoudiniUsd.cmake)
+else()
+    include(cmake/FindPixarUsd.cmake)
+endif()
