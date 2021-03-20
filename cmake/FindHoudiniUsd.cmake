@@ -17,7 +17,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-set(HOUDINI_ROOT $ENV{HFS})
+if(NOT DEFINED HOUDINI_ROOT)
+    message(FATAL_ERROR "HOUDINI_ROOT not defined")
+endif()
 
 find_package(Houdini REQUIRED PATHS ${HOUDINI_ROOT}/toolkit/cmake)
 target_link_libraries(UsdInterface INTERFACE Houdini)

@@ -17,6 +17,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+# Tangent specific build variables
+if(DEFINED ENV{REZ_HOUDINI_ROOT})
+    set(USE_HOUDINI_USD TRUE)
+    set(HOUDINI_ROOT $ENV{HFS})
+else()
+    set(USE_HOUDINI_USD FALSE)
+    set(USD_ROOT $ENV{REZ_USD_ROOT})
+endif()
+
+# Usd interface
 add_library(UsdInterface INTERFACE)
 add_library(Usd::Usd ALIAS UsdInterface)
 
