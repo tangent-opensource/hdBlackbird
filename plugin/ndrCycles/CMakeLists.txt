@@ -31,6 +31,12 @@ target_link_libraries(ndrCycles
         Usd::Usd
         )
 
+target_compile_options(ndrCycles
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
+        $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated>
+        )
+
 target_compile_definitions(ndrCycles
         PRIVATE
         MFB_PACKAGE_NAME=ndrCycles

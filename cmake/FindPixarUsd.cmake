@@ -17,7 +17,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-set(USD_ROOT $ENV{REZ_USD_ROOT})
+if(NOT DEFINED USD_ROOT)
+    message(FATAL_ERROR "HOUDINI_ROOT not defined")
+endif()
 
 find_package(pxr CONFIG REQUIRED PATHS ${HOUDINI_ROOT})
 

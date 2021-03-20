@@ -71,6 +71,12 @@ target_link_libraries(hdCycles
         Usd::Usd
         )
 
+target_compile_options(hdCycles
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
+        $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated>
+        )
+
 target_compile_definitions(hdCycles
         PRIVATE
         MFB_PACKAGE_NAME=hdCycles
