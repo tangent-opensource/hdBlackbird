@@ -18,10 +18,10 @@
 #  limitations under the License.
 
 if(NOT DEFINED USD_ROOT)
-    message(FATAL_ERROR "HOUDINI_ROOT not defined")
+    message(FATAL_ERROR "USD_ROOT not defined")
 endif()
 
-find_package(pxr CONFIG REQUIRED PATHS ${HOUDINI_ROOT})
+find_package(pxr CONFIG REQUIRED PATHS ${USD_ROOT})
 
 target_compile_definitions(UsdInterface
     INTERFACE
