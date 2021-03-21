@@ -39,7 +39,11 @@
 #include <render/film.h>
 #include <render/integrator.h>
 
+#ifdef USE_HBOOST
+#include <hboost/algorithm/string.hpp>
+#else
 #include <boost/algorithm/string.hpp>
+#endif
 
 #include <pxr/base/gf/api.h>
 #include <pxr/base/gf/vec2i.h>
