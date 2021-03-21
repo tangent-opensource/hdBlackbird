@@ -74,7 +74,7 @@ target_link_libraries(hdCycles
 target_compile_options(hdCycles
         PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
-        $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated>
+        $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated -Wshadow -Wdouble-promotion -Wconversion -Wnull-dereference -Wold-style-cast -Wuseless-cast>
         )
 
 target_compile_definitions(hdCycles
