@@ -369,7 +369,7 @@ HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
         colorFormat = HdFormatFloat32Vec4;
     }
 
-    if (name == HdAovTokens->color) {
+    if (name == HdAovTokens->color || name == HdCyclesAovTokens->DiffDir) {
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->normal) {
         if (use_tiles) {
@@ -379,7 +379,7 @@ HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
     } else if (name == HdAovTokens->depth) {
         return HdAovDescriptor(HdFormatFloat32, false, VtValue(1.0f));
     } else if (name == HdAovTokens->primId || name == HdAovTokens->instanceId
-               || name == HdAovTokens->elementId) {
+               || name == HdAovTokens->elementId || name == HdCyclesAovTokens->IndexMA) {
         return HdAovDescriptor(HdFormatInt32, false, VtValue(-1));
     } else if (name == HdCyclesAovTokens->DiffDir) {
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
