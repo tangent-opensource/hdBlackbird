@@ -151,6 +151,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     if (!renderParam->GetCyclesScene())
         return;
 
+    renderParam->GetCyclesSession()->acquire_display();
     ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
 
     if (!display)
@@ -164,14 +165,18 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
               ? (unsigned char*)display->rgba_half.host_pointer
               : (unsigned char*)display->rgba_byte.host_pointer;
 
-    if (!hpixels)
+    if (!hpixels) {
+        renderParam->GetCyclesSession()->release_display();
         return;
+    }
 
     int w = display->draw_width;
     int h = display->draw_height;
 
-    if (w == 0 || h == 0)
+    if (w == 0 || h == 0) {
+        renderParam->GetCyclesSession()->release_display();
         return;
+    }
 
     // Blit
     if (!aovBindings.empty()) {
@@ -197,6 +202,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             }
         }
     }
+
+    renderParam->GetCyclesSession()->release_display();
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
