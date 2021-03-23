@@ -74,6 +74,7 @@ target_link_libraries(hdCycles
 target_compile_options(hdCycles
         PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
+        $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
         $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated -Wshadow -Wdouble-promotion -Wconversion -Wnull-dereference -Wold-style-cast -Wuseless-cast>
         )
 
@@ -87,6 +88,7 @@ set_target_properties(hdCycles PROPERTIES
         PREFIX ""
         )
 install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
+install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd/hdCycles OPTIONAL)
 
 # plugInfo.json
 set(PLUG_INFO_LIBRARY_PATH "hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")

@@ -61,8 +61,12 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
     HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
 
-    if (renderParam->GetAovBindings() != aovBindings)
+    if (renderParam->GetAovBindings() != aovBindings) {
         renderParam->SetAovBindings(aovBindings);
+        if(!aovBindings.empty()) {
+            renderParam->SetDisplayAov(aovBindings[0]);
+        }
+    }
 
     const auto vp = renderPassState->GetViewport();
 
@@ -188,7 +192,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             // when changing render settings. This causes the current blit to
             // fail (Probably can be fixed with proper render thread management)
             if (!rb->WasUpdated()) {
-                if (aov.aovName == HdAovTokens->color) {
+                if (aov.aovName == renderParam->GetDisplayAovToken()) {
                     rb->Blit(colorFormat, w, h, 0, w,
                              reinterpret_cast<uint8_t*>(hpixels));
                 }

@@ -1107,6 +1107,7 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
         m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
     }
 
+    m_cyclesObject->name = GetId().GetString();
     m_cyclesObject->geometry = m_cyclesMesh;
 
     m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);

@@ -122,6 +122,41 @@ IsValidCyclesIdentifier(const std::string& identifier)
     return isvalid;
 }
 
+void
+ApplyPrimvarAOVs(ccl::ShaderGraph* graph)
+{
+    if (graph) {
+        auto *geo = new ccl::GeometryNode();
+        graph->add(geo);
+        // P
+        {
+            auto *aov = new ccl::OutputAOVNode();
+            aov->name = ccl::ustring("P");
+            graph->add(aov);
+            graph->connect(geo->output("Position"), aov->input("Color"));
+        }
+
+        // Pref
+        {
+            auto *attr = new ccl::AttributeNode();
+            graph->add(attr);
+            attr->attribute = ccl::ustring("Pref");
+            auto *aov = new ccl::OutputAOVNode();
+            graph->add(aov);
+            aov->name = ccl::ustring("Pref");
+            graph->connect(attr->output("Vector"), aov->input("Color"));
+        }
+
+        // Ng
+        {
+            auto *aov = new ccl::OutputAOVNode();
+            aov->name = ccl::ustring("Ngn");
+            graph->add(aov);
+            graph->connect(geo->output("True Normal"), aov->input("Color"));
+        }
+    }
+}
+
 TfTokenVector const&
 HdCyclesMaterial::GetShaderSourceTypes()
 {
@@ -654,6 +689,9 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
                 graph->connect(output, input);
             }
         }
+
+        // Apply common AOV outputs eg. P and Pref
+        ApplyPrimvarAOVs(graph);
 
         // TODO: This is to allow retroactive material_output node support
         // As this becomes phased out, we can remove this.

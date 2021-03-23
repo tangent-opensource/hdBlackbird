@@ -31,5 +31,5 @@ target_compile_definitions(UsdInterface
 
 target_link_libraries(UsdInterface
     INTERFACE
-    hd usdHydra usdImaging
+    hd usdHydra usdImaging usdRender
     )
