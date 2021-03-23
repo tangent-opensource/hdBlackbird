@@ -727,11 +727,9 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
     if (attr_mP)
         attributes->remove(attr_mP);
 
-    if (!attr_mP) {
-        attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-    }
-
+    attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     ccl::float3* mP = attr_mP->data_float3();
+    
     for (size_t i = 0; i < numSamples; ++i) {
         if (times[i] == 0.0f) // todo: more flexible check?
             continue;
@@ -1294,7 +1292,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     }
 
     if (m_useMotionBlur && m_useDeformMotionBlur) {
-        //_PopulateMotion(sceneDelegate, id);
+        _PopulateMotion(sceneDelegate, id);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyNormals) {
