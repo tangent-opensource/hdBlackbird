@@ -451,8 +451,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
     ccl::Scene* scene = param->GetCyclesScene();
-    //std::lock_guard<std::mutex>(scene->mutex);
-
+    ccl::thread_scoped_lock scene_lock(scene->mutex);
 
     HdCyclesPDPIMap pdpi;
     bool generate_new_curve = false;
@@ -621,7 +620,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
+            scene_lock.unlock();
             m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+            scene_lock.lock();
+
             m_cyclesObject->geometry = m_cyclesGeometry;
 
             m_cyclesGeometry->compute_bounds();
