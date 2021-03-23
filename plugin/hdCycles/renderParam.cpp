@@ -1402,9 +1402,6 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
 
     std::lock_guard<std::mutex> lock(m_cyclesScene->mutex);
 
-    const int x = rtile.x;
-    const int y = rtile.y;
-    
     const int w = rtile.w;
     const int h = rtile.h;
 
