@@ -74,7 +74,14 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    //m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+
+    // Attaching a temporary mesh to the object since Cycles expects
+    // objects to have a geometry.
+    // This will be overwritten during sync if successful, but will
+    // prevent a crash if unsuccessful
+    //m_cyclesGeometry = new ccl::Mesh;
+    //m_cyclesObject->geometry = m_cyclesGeometry;
 }
 
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
@@ -444,6 +451,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
     ccl::Scene* scene = param->GetCyclesScene();
+    //std::lock_guard<std::mutex>(scene->mutex);
+
 
     HdCyclesPDPIMap pdpi;
     bool generate_new_curve = false;
@@ -612,6 +621,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
+            m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
             m_cyclesObject->geometry = m_cyclesGeometry;
 
             m_cyclesGeometry->compute_bounds();
