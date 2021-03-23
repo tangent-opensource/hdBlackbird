@@ -48,7 +48,9 @@ set_target_properties(ndrCycles PROPERTIES
         PREFIX ""
         )
 install(TARGETS ndrCycles DESTINATION plugin/usd/ndrCycles)
-install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd/ndrCycles OPTIONAL)
+if (MSVC)
+    install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd/ndrCycles OPTIONAL)
+endif()
 
 # plugInfo.json
 set(PLUG_INFO_LIBRARY_PATH "ndrCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")

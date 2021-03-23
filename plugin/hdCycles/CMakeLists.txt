@@ -88,7 +88,9 @@ set_target_properties(hdCycles PROPERTIES
         PREFIX ""
         )
 install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
-install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd/hdCycles OPTIONAL)
+if (MSVC)
+    install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd/hdCycles OPTIONAL)
+endif()
 
 # plugInfo.json
 set(PLUG_INFO_LIBRARY_PATH "hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
