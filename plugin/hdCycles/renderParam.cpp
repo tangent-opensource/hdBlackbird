@@ -1400,7 +1400,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
     if (!m_useTiledRendering)
         return;
 
-    std::lock_guard<std::mutex> lock(m_cyclesScene->mutex);
+    ccl::thread_scoped_lock session_lock(m_cyclesScene->mutex);
 
     const int w = rtile.w;
     const int h = rtile.h;
