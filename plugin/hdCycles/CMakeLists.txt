@@ -63,6 +63,11 @@ add_library(hdCycles SHARED
         volume.h
         )
 
+target_include_directories(hdCycles
+        PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../
+        )
+
 target_link_libraries(hdCycles
         PRIVATE
         MikktSpace::MikktSpace

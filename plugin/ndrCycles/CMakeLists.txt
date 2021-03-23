@@ -25,6 +25,11 @@ add_library(ndrCycles SHARED
         api.h
         )
 
+target_include_directories(ndrCycles
+        PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../
+        )
+
 target_link_libraries(ndrCycles
         PUBLIC
         Cycles::Cycles
