@@ -153,12 +153,12 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     if (!renderParam->GetCyclesScene())
         return;
 
-    renderParam->GetCyclesSession()->acquire_display();
     ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
 
     if (!display)
         return;
 
+    renderParam->GetCyclesSession()->acquire_display();
     HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4
                                                : HdFormatUNorm8Vec4;
 
