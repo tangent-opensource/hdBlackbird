@@ -262,7 +262,6 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y,
         return;
     }
 
-    const auto numPixels = static_cast<size_t>(m_width * m_height);
     size_t pixelSize     = HdDataSizeOfFormat(format);
 
     if (m_format == format) {
@@ -289,7 +288,7 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y,
 
         for (unsigned int j = 0; j < height; ++j) {
             for (unsigned int i = 0; i < width; ++i) {
-                int mem_start = (((y + j) * m_width) * m_pixelSize)
+                size_t mem_start = (((y + j) * m_width) * m_pixelSize)
                                 + ((x + i) * m_pixelSize);
 
                 int tile_mem_start = ((j * width) * pixelSize)

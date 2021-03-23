@@ -36,17 +36,26 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 TF_DEFINE_PRIVATE_TOKENS(_tokens, 
     (st)
     (uv)
 );
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 // clang-format on
 
 HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
     : HdMesh(id, instancerId)
-    , m_renderDelegate(a_renderDelegate)
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
+    , m_velocityScale(1.0f)
+    , m_useMotionBlur(false)
+    , m_useDeformMotionBlur(false)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
@@ -54,9 +63,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_visScatter(true)
     , m_visShadow(true)
     , m_visTransmission(true)
-    , m_velocityScale(1.0f)
-    , m_useMotionBlur(false)
-    , m_useDeformMotionBlur(false)
+    , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_motion_blur.eval(m_useMotionBlur, true);
@@ -458,8 +465,6 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
             return;
         }
 
-        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
-
         ccl::ustring attrib_name { name.GetString().c_str(), name.GetString().size() };
         ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_CORNER);
         ccl::float3* attrib_data     = color_attrib->data_float3();
@@ -574,7 +579,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         }
 
         VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
-        for (int i = 0; i < num_triangles; i++) {
+        for (size_t i = 0; i < num_triangles; i++) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
     } else if (interpolation == HdInterpolationUniform) {
@@ -600,7 +605,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         }
 
         VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
-        for (int i = 0; i < num_triangles; i++) {
+        for (size_t i = 0; i < num_triangles; i++) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
 #else
@@ -619,7 +624,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
 
         VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
         ccl::float3 N;
-        for (int i = 0; i < num_triangles; ++i) {
+        for (size_t i = 0; i < num_triangles; ++i) {
             N = vec3f_to_float3(refined_normals[i]);
             for (int j = 0; j < 3; ++j) {
                 normal_data[i * 3 + j] = N;
@@ -664,7 +669,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         }
 
         VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
-        for (int i = 0; i < num_triangles * 3; ++i) {
+        for (size_t i = 0; i < num_triangles * 3; ++i) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
     } else {
@@ -722,11 +727,9 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
     if (attr_mP)
         attributes->remove(attr_mP);
 
-    if (!attr_mP) {
-        attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-    }
-
+    attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     ccl::float3* mP = attr_mP->data_float3();
+    
     for (size_t i = 0; i < numSamples; ++i) {
         if (times[i] == 0.0f) // todo: more flexible check?
             continue;
@@ -1060,7 +1063,7 @@ HdCyclesMesh::_PopulateGenerated(ccl::Scene* scene)
         ccl::Attribute* attr          = attributes->add(ccl::ATTR_STD_GENERATED);
 
         ccl::float3* generated = attr->data_float3();
-        for (int i = 0; i < m_cyclesMesh->verts.size(); i++) {
+        for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++) {
             generated[i] = m_cyclesMesh->verts[i] * size - loc;
         }
     }
@@ -1107,6 +1110,7 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
         m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
     }
 
+    m_cyclesObject->name = GetId().GetString();
     m_cyclesObject->geometry = m_cyclesMesh;
 
     m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
@@ -1288,7 +1292,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     }
 
     if (m_useMotionBlur && m_useDeformMotionBlur) {
-        //_PopulateMotion(sceneDelegate, id);
+        _PopulateMotion(sceneDelegate, id);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyNormals) {
@@ -1356,7 +1360,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                     }
                 }
 
-                for (int j = 0; j < newNumInstances; ++j) {
+                for (size_t j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = _CreateCyclesObject();
 
                     instanceObj->tfm      = mat4d_to_transform(combinedTransforms[j].data()[0]);

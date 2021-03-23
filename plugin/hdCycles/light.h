@@ -23,7 +23,6 @@
 #include "api.h"
 
 #include "renderDelegate.h"
-
 #include <render/graph.h>
 #include <render/light.h>
 #include <render/nodes.h>
