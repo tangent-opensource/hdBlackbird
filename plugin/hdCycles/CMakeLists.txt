@@ -143,6 +143,7 @@ set_target_properties(hdCycles PROPERTIES
         POSITION_INDEPENDENT_CODE ON
         )
 install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
+install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd/hdCycles OPTIONAL)
 
 
 # plugInfo.json
