@@ -42,10 +42,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType,
                              HdCyclesRenderDelegate* a_renderDelegate)
     : HdLight(id)
-    , m_cyclesLight(nullptr)
     , m_hdLightType(lightType)
+    , m_cyclesLight(nullptr)
     , m_shaderGraphBits(ShaderGraphBits::Default)
     , m_renderDelegate(a_renderDelegate)
+    , m_finalIntensity(1.0f)
 {
     // Added to prevent fallback lights
     // TODO: Is this the best solution...

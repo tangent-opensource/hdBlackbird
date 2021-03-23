@@ -34,6 +34,10 @@ class HdCyclesRenderPass;
 class HdCyclesRenderDelegate;
 
 // clang-format off
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((useDefaultBackground, "useDefaultBackground"))
     ((device, "device"))
@@ -80,6 +84,9 @@ TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((pixelFilterBox, "pixelFilter:box"))
     ((pixelFilterGaussian, "pixelFilter:gaussian"))
 );
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #define HDCYCLES_INTEGRATOR_TOKENS  \
     (BranchedPathTracing)           \

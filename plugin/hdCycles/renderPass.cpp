@@ -36,10 +36,17 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 TF_DEFINE_PRIVATE_TOKENS(_tokens, 
     (color)
     (depth)
 );
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 // clang-format on
 
 HdCyclesRenderPass::HdCyclesRenderPass(HdCyclesRenderDelegate* delegate,
@@ -89,7 +96,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         m_viewMtx = viewMtx;
 
         const float fov_rad = atan(1.0f / m_projMtx[1][1]) * 2.0f;
-        const float fov_deg = fov_rad / M_PI * 180.0f;
         hdCam->SetFOV(fov_rad);
 
         shouldUpdate = true;
@@ -118,12 +124,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
     const auto width     = static_cast<int>(vp[2]);
     const auto height    = static_cast<int>(vp[3]);
-    const auto numPixels = static_cast<size_t>(width * height);
-
-    bool resized = false;
 
     if (width != m_width || height != m_height) {
-        const auto oldNumPixels = static_cast<size_t>(m_width * m_height);
         m_width                 = width;
         m_height                = height;
 
@@ -139,10 +141,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
         }
 
         renderParam->Interrupt();
-
-        if (numPixels != oldNumPixels) {
-            resized = true;
-        }
     }
 
     // Tiled renders early out because we do the blitting on render tile callback

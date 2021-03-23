@@ -54,14 +54,6 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 namespace {
-
-double
-clamp(double d, double min, double max)
-{
-    const double t = d < min ? min : d;
-    return t > max ? max : t;
-}
-
 struct HdCyclesAov {
     std::string name;
     ccl::PassType type;
@@ -157,20 +149,20 @@ bool GetCyclesAov(const HdRenderPassAovBinding &aov, HdCyclesAov &cyclesAov) {
 } // namespace
 
 HdCyclesRenderParam::HdCyclesRenderParam()
-    : m_shouldUpdate(false)
-    , m_renderPercent(0)
+    : m_renderPercent(0)
     , m_renderProgress(0.0f)
-    , m_useSquareSamples(false)
     , m_useTiledRendering(false)
-    , m_cyclesScene(nullptr)
-    , m_cyclesSession(nullptr)
     , m_objectsUpdated(false)
     , m_geometryUpdated(false)
     , m_curveUpdated(false)
     , m_meshUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
+    , m_shouldUpdate(false)
     , m_numDomeLights(0)
+    , m_useSquareSamples(false)
+    , m_cyclesSession(nullptr)
+    , m_cyclesScene(nullptr)
     , m_displayAovToken(HdAovTokens->color)
 {
     _InitializeDefaults();
@@ -309,11 +301,7 @@ void
 HdCyclesRenderParam::_UpdateDelegateFromConfig(bool a_forceInit)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
-    ccl::SessionParams* sessionParams = &m_sessionParams;
-
-    if (m_cyclesSession)
-        sessionParams = &m_cyclesSession->params;
+    (void) config;
 }
 
 void
@@ -1412,8 +1400,6 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
     if (!m_useTiledRendering)
         return;
 
-    const int x = rtile.x;
-    const int y = rtile.y;
     const int w = rtile.w;
     const int h = rtile.h;
 

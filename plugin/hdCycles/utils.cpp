@@ -215,7 +215,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
 
     // Assumes that they are ordered
     delegate->SampleTransform(id, &xf);
-    int sampleCount = xf.count;
+    size_t sampleCount = xf.count;
 
     if (sampleCount == 0) {
         object->tfm = ccl::transform_identity();
@@ -261,7 +261,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
             // Find closest left/right neighbors
             float prevTimeDiff = -INFINITY, nextTimeDiff = INFINITY;
             int iXfPrev = -1, iXfNext = -1;
-            for (int j = 0; j < sampleCount; ++j) {
+            for (size_t j = 0; j < sampleCount; ++j) {
                 // If we only have three samples, we prefer to recalculate
                 // the intermediate one as the left/right are calculated
                 // using linear interpolation, leading to artifacts

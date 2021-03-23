@@ -150,9 +150,9 @@ HdCyclesRenderDelegate::GetSupportedBprimTypes() const
 void
 HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 {
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
 #ifdef USE_USD_CYCLES_SCHEMA
+    // static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
     // TODO: Undecided how to approach these
     /* m_settingDescriptors.push_back({ std::string("Exposure"),
                                      usdCyclesTokens->cyclesFilmExposure,
