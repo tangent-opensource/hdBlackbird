@@ -74,14 +74,6 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
-    //m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
-
-    // Attaching a temporary mesh to the object since Cycles expects
-    // objects to have a geometry.
-    // This will be overwritten during sync if successful, but will
-    // prevent a crash if unsuccessful
-    //m_cyclesGeometry = new ccl::Mesh;
-    //m_cyclesObject->geometry = m_cyclesGeometry;
 }
 
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
