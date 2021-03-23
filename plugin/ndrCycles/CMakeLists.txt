@@ -77,6 +77,7 @@ set_target_properties(ndrCycles PROPERTIES
         POSITION_INDEPENDENT_CODE ON
         )
 install(TARGETS ndrCycles DESTINATION plugin/usd/ndrCycles)
+install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd/ndrCycles OPTIONAL)
 
 # plugInfo.json
 set(PLUG_INFO_LIBRARY_PATH "ndrCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
