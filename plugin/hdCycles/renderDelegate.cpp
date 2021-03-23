@@ -39,7 +39,7 @@
 #include <render/film.h>
 #include <render/integrator.h>
 
-#ifdef USE_HBOOST
+#if BOOST_NS == hboost
 #include <hboost/algorithm/string.hpp>
 #else
 #include <boost/algorithm/string.hpp>
