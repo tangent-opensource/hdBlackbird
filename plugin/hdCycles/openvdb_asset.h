@@ -24,7 +24,6 @@
 #include <pxr/pxr.h>
 
 #include <pxr/imaging/hd/field.h>
-
 #include "renderDelegate.h"
 
 #include <mutex>

@@ -77,7 +77,7 @@ public:
 
     template<typename T> VtValue uniform_refinement(const TfToken& name, const TfToken& role, const VtValue& data) const
     {
-        if (data.GetArraySize() != m_topology->GetNumFaces()) {
+        if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaces())) {
             TF_WARN("Unsupported input data size for uniform refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};
@@ -87,7 +87,7 @@ public:
         VtArray<T> fine_array(m_primitive_param.size());
 
         for (size_t fine_id = 0; fine_id < fine_array.size(); ++fine_id) {
-            int coarse_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(m_primitive_param[fine_id]);
+            size_t coarse_id = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(m_primitive_param[fine_id]);
             assert(coarse_id < input.size());
 
             fine_array[fine_id] = input[coarse_id];
@@ -120,7 +120,7 @@ public:
 
     VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
-        if (data.GetArraySize() != m_topology->GetNumPoints()) {
+        if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for varying refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};
@@ -131,7 +131,7 @@ public:
 
     VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
-        if (data.GetArraySize() != m_topology->GetNumPoints()) {
+        if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for vertex refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};
@@ -142,7 +142,7 @@ public:
 
     VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
-        if (data.GetArraySize() != m_topology->GetNumFaceVaryings()) {
+        if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaceVaryings())) {
             TF_WARN("Unsupported input data size for face varying refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};
@@ -195,10 +195,10 @@ public:
         const Far::TopologyLevel& base_level = refiner.GetLevel(0);
         m_ptex_index_to_base_index.reserve(base_level.GetNumFaces() * face_size);  // worst case
 
-        for (size_t base_face = 0; base_face < base_level.GetNumFaces(); ++base_face) {
+        for (int base_face = 0; base_face < base_level.GetNumFaces(); ++base_face) {
             int num_base_vertices = base_level.GetFaceVertices(base_face).size();
             int num_ptex_faces    = (num_base_vertices == face_size) ? 1 : num_base_vertices;
-            for (size_t i = 0; i < num_ptex_faces; ++i) {
+            for (int i = 0; i < num_ptex_faces; ++i) {
                 m_ptex_index_to_base_index.push_back(base_face);
             }
         }
@@ -234,20 +234,19 @@ private:
         VtArray<T> refined_data(prim_param.size());
 
         const Osd::PatchParam* patch_param_table = m_patch_table->GetPatchParamBuffer();
-        auto patch_param_table_size              = m_patch_table->GetPatchParamSize();
 
         for (size_t triangle_index = 0; triangle_index < refined_data.size(); ++triangle_index) {
             // triangle -> patch
             const int patch_index = HdMeshUtil::DecodeFaceIndexFromCoarseFaceParam(prim_param[triangle_index]);
-            assert(patch_index < patch_param_table_size);
+            assert(static_cast<size_t>(patch_index) < m_patch_table->GetPatchParamSize());
 
             // patch -> ptex face
             const Far::PatchParam& patch_param = patch_param_table[patch_index];
             Far::Index ptex_face_index         = patch_param.GetFaceId();
-            assert(ptex_face_index < m_ptex_index_to_base_index.size());
+            assert(static_cast<size_t>(ptex_face_index) < m_ptex_index_to_base_index.size());
 
             // ptex face -> base face
-            const int base_face_index = m_ptex_index_to_base_index[ptex_face_index];
+            const size_t base_face_index = m_ptex_index_to_base_index[ptex_face_index];
             assert(base_face_index < input.size());
 
             // assign the data from base face
@@ -391,7 +390,7 @@ private:
         // TODO: Data evaluation should happen through EvalPatchesPrimVar
         VtArray<T> eval_data(m_patch_table->GetPatchIndexSize());
         {
-            for (int fvert = 0; fvert < m_patch_table->GetFVarPatchIndexSize(); ++fvert) {
+            for (size_t fvert = 0; fvert < m_patch_table->GetFVarPatchIndexSize(); ++fvert) {
                 int index        = m_patch_table->GetFVarPatchIndexBuffer()[fvert];
                 eval_data[fvert] = refined_data[index];
             }
@@ -582,7 +581,7 @@ public:
 
     VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
-        if (data.GetArraySize() != m_topology->GetNumFaces()) {
+        if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaces())) {
             TF_WARN("Unsupported input data size for uniform refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};
@@ -593,7 +592,7 @@ public:
 
     VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
-        if (data.GetArraySize() != m_topology->GetNumPoints()) {
+        if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for vertex refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};
@@ -604,7 +603,7 @@ public:
 
     VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
-        if (data.GetArraySize() != m_topology->GetNumPoints()) {
+        if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for varying refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};
@@ -615,7 +614,7 @@ public:
 
     VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& source) const override
     {
-        if (source.GetArraySize() != m_topology->GetNumFaceVaryings()) {
+        if (source.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaceVaryings())) {
             TF_WARN("Unsupported input source size for face varying refinement for primvar %s at %s", name.GetText(),
                     m_id.GetPrimPath().GetString().c_str());
             return {};

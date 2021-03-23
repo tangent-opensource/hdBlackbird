@@ -23,7 +23,7 @@ if(USE_USD_CYCLES_SCHEMA)
 endif()
 
 if(USE_LEGACY_HOUDINI)
-    include_directories(SYSTEM  ${HOUDINI_INCLUDE_DIRS})
+    include_directories(SYSTEM ${HOUDINI_INCLUDE_DIRS})
     link_directories(${HOUDINI_LIB_DIRS})
     link_libraries(${HOUDINI_LIBRARIES_DEPS})
 endif()
