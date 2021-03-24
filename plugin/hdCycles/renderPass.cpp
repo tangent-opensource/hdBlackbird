@@ -158,7 +158,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     if (!display)
         return;
 
-    renderParam->GetCyclesSession()->acquire_display();
+    ccl::thread_scoped_lock display_lock = renderParam->GetCyclesSession()->acquire_display_lock();
+
     HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4
                                                : HdFormatUNorm8Vec4;
 
@@ -167,18 +168,14 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
               ? (unsigned char*)display->rgba_half.host_pointer
               : (unsigned char*)display->rgba_byte.host_pointer;
 
-    if (!hpixels) {
-        renderParam->GetCyclesSession()->release_display();
+    if (!hpixels)
         return;
-    }
 
     int w = display->draw_width;
     int h = display->draw_height;
 
-    if (w == 0 || h == 0) {
-        renderParam->GetCyclesSession()->release_display();
+    if (w == 0 || h == 0)
         return;
-    }
 
     // Blit
     if (!aovBindings.empty()) {
@@ -204,8 +201,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             }
         }
     }
-
-    renderParam->GetCyclesSession()->release_display();
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
