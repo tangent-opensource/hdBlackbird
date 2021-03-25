@@ -49,7 +49,6 @@ public:
             file.setCopyMaxBytes(0);
             file.open();
             this->grid = file.readGrid(grid_name);
-            this->nanogrid.buffer().init(1);
         } catch (const openvdb::IoError& e) {
             std::cout << "LOAD ERROR\n";
         }
