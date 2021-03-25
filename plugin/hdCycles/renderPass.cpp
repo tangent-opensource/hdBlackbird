@@ -158,6 +158,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     if (!display)
         return;
 
+    ccl::thread_scoped_lock display_lock = renderParam->GetCyclesSession()->acquire_display_lock();
+
     HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4
                                                : HdFormatUNorm8Vec4;
 

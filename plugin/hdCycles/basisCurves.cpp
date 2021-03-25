@@ -74,7 +74,6 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
 }
 
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
@@ -445,6 +444,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
     ccl::Scene* scene = param->GetCyclesScene();
+    ccl::thread_scoped_lock scene_lock(scene->mutex);
 
     HdCyclesPDPIMap pdpi;
     bool generate_new_curve = false;
@@ -605,7 +605,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (generate_new_curve) {
         if (m_cyclesGeometry) {
+            scene_lock.unlock();
             param->RemoveCurve(m_cyclesHair);
+            scene_lock.lock();
+            
             m_cyclesGeometry->clear();
             delete m_cyclesGeometry;
         }
@@ -613,13 +616,19 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
+            scene_lock.unlock();
+            m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+            scene_lock.lock();
+
             m_cyclesObject->geometry = m_cyclesGeometry;
 
             m_cyclesGeometry->compute_bounds();
 
             _PopulateGenerated();
 
+            scene_lock.unlock();
             param->AddCurve(m_cyclesGeometry);
+            scene_lock.lock();
         }
 
         if (m_useMotionBlur)
