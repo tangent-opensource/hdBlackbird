@@ -605,7 +605,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (generate_new_curve) {
         if (m_cyclesGeometry) {
+            scene_lock.unlock();
             param->RemoveCurve(m_cyclesHair);
+            scene_lock.lock();
+            
             m_cyclesGeometry->clear();
             delete m_cyclesGeometry;
         }
@@ -623,7 +626,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
             _PopulateGenerated();
 
+            scene_lock.unlock();
             param->AddCurve(m_cyclesGeometry);
+            scene_lock.lock();
         }
 
         if (m_useMotionBlur)
