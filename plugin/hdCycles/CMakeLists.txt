@@ -33,6 +33,10 @@ if(WITH_OPENVDB)
     link_libraries(${OPENVDB_LIBRARY})
 endif()
 
+if(WITH_NANOVDB)
+    include_directories(SYSTEM ${NANOVDB_INCLUDE_DIR})
+endif()
+
 if(WITH_EMBREE)
     include_directories(SYSTEM ${EMBREE_INCLUDE_DIRS})
     link_libraries(${EMBREE_LIBRARIES})

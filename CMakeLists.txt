@@ -178,6 +178,14 @@ if(${OpenVDB_FOUND})
   message("[HDCYCLES] Configured with OpenVDB")
 endif()
 
+find_package(NanoVDB)
+if(${NanoVDB_FOUND})
+  set(WITH_NANOVDB ON)
+  add_definitions(-DWITH_NANOVDB)
+  message("[HDCYCLES] Configured with NanoVDB")
+endif()
+
+
 find_package(Embree)
 if(${Embree_FOUND})
   set(WITH_EMBREE ON)
