@@ -56,11 +56,25 @@ public:
             try {
                 file.setCopyMaxBytes(0);
                 file.open();
+
+                if(grid){
+                    grid.reset();
+                }
+
                 this->grid = file.readGrid(grid_name);
             } catch (const openvdb::IoError& e) {
                 TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
             }
+        }else{
+            TF_WARN("Volume file path is empty!");
         }
+    }
+
+    void cleanup() override 
+    {
+        #ifdef WITH_NANOVDB
+        nanogrid.reset();
+        #endif
     }
 
 private:
