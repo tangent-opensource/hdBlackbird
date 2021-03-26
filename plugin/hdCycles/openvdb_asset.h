@@ -51,9 +51,8 @@ public:
     {
         if(TF_VERIFY(!m_file_path.empty()))
         {
-            openvdb::io::File file(m_file_path);
-
             try {
+                openvdb::io::File file(m_file_path);
                 file.setCopyMaxBytes(0);
                 file.open();
 
@@ -64,6 +63,8 @@ public:
                 this->grid = file.readGrid(grid_name);
             } catch (const openvdb::IoError& e) {
                 TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
+            } catch(const std::exception& e) {
+                TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
             }
         }else{
             TF_WARN("Volume file path is empty!");
