@@ -41,28 +41,25 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
     HdCyclesVolumeLoader(const char* filepath, const char* grid_name)
-        : ccl::VDBImageLoader(grid_name), m_file_path(filepath)
+        : ccl::VDBImageLoader(grid_name)
+        , m_file_path(filepath)
     {
-        openvdb::io::File file(filepath);
-
-        try {
-            file.setCopyMaxBytes(0);
-            file.open();
-            this->grid = file.readGrid(grid_name);
-        } catch (const openvdb::IoError& e) {
-            std::cout << "LOAD ERROR\n";
-        }
+        UpdateGrid();
     }
 
-    void UpdateGrid(){
-        openvdb::io::File file(m_file_path);
+    void UpdateGrid()
+    {
+        if(TF_VERIFY(!m_file_path.empty()))
+        {
+            openvdb::io::File file(m_file_path);
 
-        try {
-            file.setCopyMaxBytes(0);
-            file.open();
-            this->grid = file.readGrid(grid_name);
-        } catch (const openvdb::IoError& e) {
-            std::cout << "LOAD ERROR\n";
+            try {
+                file.setCopyMaxBytes(0);
+                file.open();
+                this->grid = file.readGrid(grid_name);
+            } catch (const openvdb::IoError& e) {
+                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
+            }
         }
     }
 
