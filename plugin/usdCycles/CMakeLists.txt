@@ -13,12 +13,12 @@ if(DEFINED ENV{REZ_USDCYCLES_ROOT})
 
     message(STATUS "Found Usd Cycles: ${_usd_cycles}")
 
-    add_library(usdCycles SHARED IMPORTED)
+    add_library(usdCycles SHARED IMPORTED GLOBAL)
 
     set_target_properties(usdCycles
             PROPERTIES
             IMPORTED_LOCATION ${_usd_cycles}
-            IMPORTED_GLOBAL TRUE
+            IMPORTED_IMPLIB ${_usd_cycles}
             )
 
     target_include_directories(usdCycles
