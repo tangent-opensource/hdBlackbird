@@ -20,6 +20,8 @@
 #ifndef NDR_CYCLES_API_H
 #define NDR_CYCLES_API_H
 
+#include <embree3/rtcore.h>
+
 #include <pxr/base/arch/export.h>
 
 #if defined(PXR_STATIC)

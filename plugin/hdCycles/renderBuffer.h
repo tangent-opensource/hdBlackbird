@@ -48,7 +48,7 @@ public:
      * @brief Destroy the HdCycles Render Buffer object
      * 
      */
-    HDCYCLES_API ~HdCyclesRenderBuffer() override = default;
+    HDCYCLES_API ~HdCyclesRenderBuffer() override;
 
     /**
      * @brief Allocates the memory used by the render buffer

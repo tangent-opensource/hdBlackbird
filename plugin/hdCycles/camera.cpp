@@ -111,17 +111,18 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_shutterOpen(0.0f)
     , m_shutterClose(0.0f)
     , m_clippingRange(0.1f, 100000.0f)
-    , m_renderDelegate(a_renderDelegate)
-    , m_needsUpdate(false)
+//  , m_projectionType
+//  , m_projMtx
+//  , m_fov
+//  , m_transform
     , m_shutterTime(1.0f)
     , m_rollingShutterTime(0.1f)
-    , m_fps(24.f)
     , m_motionPosition(ccl::MOTION_POSITION_CENTER)
     , m_rollingShutterType(ccl::Camera::ROLLING_SHUTTER_NONE)
     , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
     , m_stereoEye(ccl::Camera::STEREO_NONE)
     , m_offscreenDicingScale(0.0f)
-
+//  , m_shutterCurve
     , m_fisheyeFov(M_PI_F)
     , m_fisheyeLens(10.5f)
     , m_latMin(-M_PI_2_F)
@@ -129,12 +130,18 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id,
     , m_longMin(-M_PI_F)
     , m_longMax(M_PI_F)
     , m_useSphericalStereo(false)
-
     , m_interocularDistance(0.065f)
     , m_convergenceDistance(30.0f * 0.065f)
     , m_usePoleMerge(false)
     , m_poleMergeAngleFrom(60.0f * M_PI_F / 180.0f)
     , m_poleMergeAngleTo(75.0f * M_PI_F / 180.0f)
+    , m_useDof(false)
+    , m_useMotionBlur(false)
+    , m_fps(24.f)
+//  , m_transformSamples
+    , m_cyclesCamera(nullptr)
+    , m_renderDelegate(a_renderDelegate)
+    , m_needsUpdate(false)
 {
     m_cyclesCamera
         = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->camera;
@@ -168,12 +175,13 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
-    ccl::Scene* scene = param->GetCyclesScene();
-
     if (*dirtyBits & HdCamera::DirtyClipPlanes) {
         bool has_clippingRange
             = EvalCameraParam(&m_clippingRange, HdCameraTokens->clippingRange,
                               sceneDelegate, id, GfRange1f(0.1f, 100000.0f));
+
+        // TODO: has_clippingRange
+        (void) has_clippingRange;
     }
 
     if (*dirtyBits & HdCamera::DirtyParams) {
@@ -209,6 +217,8 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool has_projection = EvalCameraParam(&m_projectionType,
                                               UsdGeomTokens->projection,
                                               sceneDelegate, id);
+        // TODO: has_projection
+        (void) has_projection;
 
         // Aperture
 
@@ -251,6 +261,8 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool has_focusDistance = EvalCameraParam(&m_focusDistance,
                                                  HdCameraTokens->focusDistance,
                                                  sceneDelegate, id);
+        // TODO: has_focusDistance
+        (void) has_focusDistance;
 
         if (std::isnan(m_focalLength)) {
             has_focalLength = false;
@@ -333,7 +345,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (shutterCurve.size() > 0) {
             m_shutterCurve.resize(shutterCurve.size());
 
-            for (int i = 0; i < shutterCurve.size(); i++) {
+            for (size_t i = 0; i < shutterCurve.size(); i++) {
                 m_shutterCurve[i] = shutterCurve[i];
             }
         }
@@ -517,7 +529,7 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
         a_camera->motion.resize(m_transformSamples.count,
                                 ccl::transform_identity());
 
-        for (int i = 0; i < m_transformSamples.count; i++) {
+        for (size_t i = 0; i < m_transformSamples.count; i++) {
             if (m_transformSamples.times.data()[i] == 0.0f) {
                 a_camera->matrix = mat4d_to_transform(ConvertCameraTransform(
                     m_transformSamples.values.data()[i]));

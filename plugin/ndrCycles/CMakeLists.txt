@@ -17,58 +17,49 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-set(PXR_PREFIX "")
-set(PXR_PACKAGE ndrCycles)
+add_library(ndrCycles SHARED
+        discovery.cpp
+        discovery.h
+        parser.cpp
+        parser.h
+        api.h
+        )
 
-add_custom_target(shared_libs)
+target_include_directories(ndrCycles
+        PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/../
+        )
 
-if(USE_LEGACY_HOUDINI)
-  include_directories(${HOUDINI_INCLUDE_DIRS})
-  link_directories(${HOUDINI_LIB_DIRS})
-  link_libraries(${HOUDINI_LIBRARIES_DEPS})
+target_link_libraries(ndrCycles
+        PUBLIC
+        Cycles::Cycles
+        Usd::Usd
+        )
+
+target_compile_options(ndrCycles
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
+        $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
+        $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated -Wshadow -Wdouble-promotion -Wconversion -Wnull-dereference -Wold-style-cast -Wuseless-cast>
+        )
+
+target_compile_definitions(ndrCycles
+        PRIVATE
+        MFB_PACKAGE_NAME=ndrCycles
+        MFB_ALT_PACKAGE_NAME=ndrCycles
+        )
+
+set_target_properties(ndrCycles PROPERTIES
+        PREFIX ""
+        )
+install(TARGETS ndrCycles DESTINATION plugin/usd/ndrCycles)
+if (MSVC)
+    install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd/ndrCycles OPTIONAL)
 endif()
 
-if(USE_OPENGL)
-  include_directories(${GLEW_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR})
-  link_libraries(${OPENGL_gl_LIBRARY} ${GLEW_LIBRARY})
-endif()
-
-pxr_plugin(${PXR_PACKAGE}
-  LIBRARIES
-    ${USD_LIBRARIES}
-    ${TBB_LIBRARIES}
-    ${Boost_LIBRARIES}
-    ${HBoost_LIBRARIES}
-    ${Python_LIBRARIES}            
-    ${CYCLES_LIBRARIES}
-    ${PNG_LIBRARIES}
-    ${ZLIB_LIBRARIES}
-    ${TIFF_LIBRARY}
-    ${PTHREADS_LIBRARIES}
-    ${OPENJPEG_LIBRARIES}
-    ${OIIO_LIBRARIES}
-    ${OPENEXR_LIBRARIES}
-
-  INCLUDE_DIRS
-    ${USD_INCLUDE_DIR}
-    ${Boost_INCLUDE_DIRS}
-    ${HBoost_INCLUDE_DIRS}
-    ${Python_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIR}
-    ${CYCLES_INCLUDE_DIRS}
-    ${OIIO_INCLUDE_DIRS}
-    ${OPENEXR_INCLUDE_DIRS}
-    ${TBB_INCLUDE_DIRS}
-
-  PUBLIC_CLASSES
-    discovery
-    parser
-
-  PUBLIC_HEADERS
-    api.h
-
-  RESOURCE_FILES
-    plugInfo.json
-
-  DISABLE_PRECOMPILED_HEADERS
-)
+# plugInfo.json
+set(PLUG_INFO_LIBRARY_PATH "ndrCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(PLUG_INFO_RESOURCE_PATH "resources")
+set(PLUG_INFO_ROOT "..")
+configure_file(plugInfo.json plugInfo.json @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/plugInfo.json" DESTINATION plugin/usd/ndrCycles/resources)

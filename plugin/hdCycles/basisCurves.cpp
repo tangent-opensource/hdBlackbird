@@ -55,13 +55,6 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     SdfPath const& id, SdfPath const& instancerId,
     HdCyclesRenderDelegate* a_renderDelegate)
     : HdBasisCurves(id, instancerId)
-    , m_cyclesObject(nullptr)
-    , m_cyclesMesh(nullptr)
-    , m_cyclesGeometry(nullptr)
-    , m_cyclesHair(nullptr)
-    , m_curveShape(ccl::CURVE_THICK)
-    , m_curveResolution(5)
-    , m_renderDelegate(a_renderDelegate)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
@@ -69,12 +62,18 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(
     , m_visScatter(true)
     , m_visShadow(true)
     , m_visTransmission(true)
+    , m_curveShape(ccl::CURVE_THICK)
+    , m_curveResolution(5)
+    , m_cyclesObject(nullptr)
+    , m_cyclesMesh(nullptr)
+    , m_cyclesHair(nullptr)
+    , m_cyclesGeometry(nullptr)
+    , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
 }
 
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
@@ -186,7 +185,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
     ccl::ustring attribName = ccl::ustring(name.GetString());
 
     int vecSize   = 0;
-    int numColors = 0;
+    size_t numColors = 0;
 
     VtFloatArray colors1f;
     VtVec2fArray colors2f;
@@ -243,8 +242,8 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                 = m_cyclesMesh->attributes.add(attribName,
                                                ccl::TypeDesc::TypeColor,
                                                ccl::ATTR_ELEMENT_CORNER_BYTE);
-
-            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+            (void)attr_vcol;
+            assert(0);
         }
     } else if (interpolation == HdInterpolationVertex) {
         VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
@@ -258,7 +257,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
 
             if (fdata) {
                 int curveOffset = 0;
-                for (int i = 0; i < curveVertexCounts.size(); i++) {
+                for (size_t i = 0; i < curveVertexCounts.size(); i++) {
                     ccl::float3 color;
 
                     switch (vecSize) {
@@ -288,7 +287,8 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value,
                                                ccl::TypeDesc::TypeColor,
                                                ccl::ATTR_ELEMENT_CORNER_BYTE);
 
-            ccl::uchar4* cdata = attr_vcol->data_uchar4();
+            (void)attr_vcol;
+            assert(0);
         }
     }
 }
@@ -364,7 +364,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 uv = attr_uv->data_float2();
                 if (uv) {
                     int curveOffset = 0;
-                    for (int i = 0; i < curveVertexCounts.size(); i++) {
+                    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
                         uv[i] = vec2f_to_float2(uvs[curveOffset]);
                         curveOffset += curveVertexCounts[i];
                     }
@@ -388,7 +388,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
                 uv = attr_uv->data_float2();
                 if (uv) {
                     int curveOffset = 0;
-                    for (int i = 0; i < curveVertexCounts.size(); i++) {
+                    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
                         uv[i] = vec3f_to_float2(uvs[curveOffset]);
                         curveOffset += curveVertexCounts[i];
                     }
@@ -444,6 +444,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
     ccl::Scene* scene = param->GetCyclesScene();
+    ccl::thread_scoped_lock scene_lock(scene->mutex);
 
     HdCyclesPDPIMap pdpi;
     bool generate_new_curve = false;
@@ -604,7 +605,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 
     if (generate_new_curve) {
         if (m_cyclesGeometry) {
+            scene_lock.unlock();
             param->RemoveCurve(m_cyclesHair);
+            scene_lock.lock();
+            
             m_cyclesGeometry->clear();
             delete m_cyclesGeometry;
         }
@@ -612,13 +616,19 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
+            scene_lock.unlock();
+            m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+            scene_lock.lock();
+
             m_cyclesObject->geometry = m_cyclesGeometry;
 
             m_cyclesGeometry->compute_bounds();
 
             _PopulateGenerated();
 
+            scene_lock.unlock();
             param->AddCurve(m_cyclesGeometry);
+            scene_lock.lock();
         }
 
         if (m_useMotionBlur)
@@ -702,10 +712,10 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     TfToken curveBasis           = m_topology.GetCurveBasis();
     TfToken curveWrap            = m_topology.GetCurveWrap();
 
-    int num_curves = curveVertexCounts.size();
-    int num_keys   = 0;
+    size_t num_curves = curveVertexCounts.size();
+    size_t num_keys   = 0;
 
-    for (int i = 0; i < num_curves; i++) {
+    for (size_t i = 0; i < num_curves; i++) {
         num_keys += curveVertexCounts[i];
     }
 
@@ -727,12 +737,12 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     int currentPointCount = 0;
 
     // For every curve
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         size_t num_curve_keys = 0;
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int idx = j + currentPointCount;
+            size_t idx = j + currentPointCount;
 
             const float time = (float)j / (float)(curveVertexCounts[i] - 1);
 
@@ -748,10 +758,10 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
 
-            int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+            int width_idx = std::min(idx, m_widths.size() - 1);
 
             if (m_widthsInterpolation == HdInterpolationUniform)
-                width_idx = std::min(i, (int)(m_widths.size() - 1));
+                width_idx = std::min(i, m_widths.size() - 1);
             else if (m_widthsInterpolation == HdInterpolationConstant)
                 width_idx = 0;
 
@@ -795,7 +805,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
     bool isCameraOriented = false;
 
     ccl::float3 RotCam;
-    bool is_ortho;
+    bool is_ortho = false;
     if (m_normals.size() <= 0) {
         if (a_camera != nullptr) {
             isCameraOriented     = true;
@@ -820,7 +830,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
     int num_vertices = 0;
     int num_tris     = 0;
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         num_vertices += curveVertexCounts[i] * 2;
         num_tris += ((curveVertexCounts[i] - 1) * 2);
     }
@@ -831,7 +841,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
     m_cyclesMesh->reserve_mesh(num_vertices, num_tris);
 
     // For every curve
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         ccl::float3 xbasis;
         ccl::float3 v1;
 
@@ -842,10 +852,10 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
         // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
 
-        int width_idx = std::min(i, (int)(m_widths.size() - 1));
+        int width_idx = std::min(i, m_widths.size() - 1);
 
         if (m_widthsInterpolation == HdInterpolationUniform)
-            width_idx = std::min(i, (int)(m_widths.size() - 1));
+            width_idx = std::min(i, m_widths.size() - 1);
         else if (m_widthsInterpolation == HdInterpolationConstant)
             width_idx = 0;
 
@@ -894,7 +904,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
             int width_idx = std::min(idx, (int)(m_widths.size() - 1));
 
             if (m_widthsInterpolation == HdInterpolationUniform)
-                width_idx = std::min(i, (int)(m_widths.size() - 1));
+                width_idx = std::min(i, m_widths.size() - 1);
             else if (m_widthsInterpolation == HdInterpolationConstant)
                 width_idx = 0;
 
@@ -941,7 +951,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
     int num_vertices = 0;
     int num_tris     = 0;
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         num_vertices += curveVertexCounts[i] * m_curveResolution;
         num_tris += ((curveVertexCounts[i] - 1) * 2 * m_curveResolution);
     }
@@ -952,9 +962,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
     m_cyclesMesh->reserve_mesh(num_vertices, num_tris);
 
     // For every curve
-    for (int i = 0; i < curveVertexCounts.size(); i++) {
-        int subv = 1;
-
+    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         ccl::float3 firstxbasis = ccl::cross(ccl::make_float3(1.0f, 0.0f, 0.0f),
                                              vec3f_to_float3(m_points[1])
                                                  - vec3f_to_float3(m_points[0]));
@@ -1038,7 +1046,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             int width_idx = std::min(idx, (int)(m_widths.size() - 1));
 
             if (m_widthsInterpolation == HdInterpolationUniform)
-                width_idx = std::min(i, (int)(m_widths.size() - 1));
+                width_idx = std::min(i, m_widths.size() - 1);
             else if (m_widthsInterpolation == HdInterpolationConstant)
                 width_idx = 0;
 
