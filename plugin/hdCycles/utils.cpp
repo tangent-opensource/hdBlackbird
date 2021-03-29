@@ -32,7 +32,7 @@
 #include <pxr/imaging/hd/extComputationUtils.h>
 #include <pxr/usd/sdf/assetPath.h>
 
-#if BOOST_NS == hboost
+#if USE_HBOOST
 #    include <hboost/filesystem.hpp>
 #else
 #    include <boost/filesystem.hpp>

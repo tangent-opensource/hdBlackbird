@@ -27,6 +27,7 @@ target_link_libraries(UsdInterface INTERFACE Houdini)
 # Find hboost
 target_compile_definitions(UsdInterface
     INTERFACE
+    USE_HBOOST=TRUE
     BOOST_NS=hboost
 )
 
