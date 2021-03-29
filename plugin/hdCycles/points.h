@@ -118,7 +118,7 @@ protected:
     /**
      * @brief Fill in optional primvars
      */
-    void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     /**
      * @brief Flag the object for update in the scene

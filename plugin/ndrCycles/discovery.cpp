@@ -71,11 +71,12 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
     temp_nodes.push_back("scatter_volume");
     temp_nodes.push_back("absorption_volume");
     temp_nodes.push_back("emission");
+    temp_nodes.push_back("displacement");
 
     for (const std::string& n : temp_nodes) {
         std::string cycles_id = std::string("cycles_" + n);
         ret.emplace_back(NdrIdentifier(
-                             TfStringPrintf(cycles_id.c_str())),  // identifier
+                         TfStringPrintf("%s", cycles_id.c_str())),// identifier
                          NdrVersion(1, 0),                        // version
                          n.c_str(),                               // name
                          _tokens->shader,                         // family
@@ -89,7 +90,7 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
         // Added for backwards support whilst we transition to new identifier
         cycles_id = std::string("cycles:" + n);
         ret.emplace_back(NdrIdentifier(
-                             TfStringPrintf(cycles_id.c_str())),  // identifier
+                         TfStringPrintf("%s", cycles_id.c_str())),// identifier
                          NdrVersion(1, 0),                        // version
                          n.c_str(),                               // name
                          _tokens->shader,                         // family

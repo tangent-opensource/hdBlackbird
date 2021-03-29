@@ -433,7 +433,8 @@ public:
      * TODO: Refactor this somewhere else
      * 
      */
-    ccl::Shader* default_vcol_surface;
+    ccl::Shader* default_attrib_display_color_surface;
+    ccl::Shader* default_object_display_color_surface;
 
     VtDictionary GetRenderStats() const;
 
@@ -443,20 +444,59 @@ public:
      */
     UpAxis GetUpAxis() const { return m_upAxis; }
 
+    void UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders);
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
 
+    using lock_guard = std::lock_guard<std::mutex>;
+
+    std::mutex m_lights_mutex;
+    std::mutex m_objects_mutex;
+    std::mutex m_geometry_mutex;
+    std::mutex m_shaders_mutex;
 
     HdRenderPassAovBindingVector m_aovs;
+    TfToken m_displayAovToken;
 
 public:
-    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
+
+    /**
+     * @brief Set the default display AOV
+     * 
+     * @param a_aov Set a HdRenderPassAovBinding from HdCyclesRenderPass
+     * 
+     * TODO: Currently there is no upstream from Houdini way to apply a default
+     * AOV to view, so it'll just default to color or the first one found. A
+     * possible workaround is to just make Cycles render all AOVs at once in
+     * display mode.
+     */
+    void SetDisplayAov(HdRenderPassAovBinding const &a_aov);
+
+    /**
+     * @brief Get the default display AOV token
+     * 
+     * @return TfToken of the default AOV diplay
+     */
+    const TfToken &GetDisplayAovToken() const
     {
-        m_aovs = a_aovs;
+        return m_displayAovToken;
     }
 
-    HdRenderPassAovBindingVector const& GetAovBindings() const
+    /**
+     * @brief Set the AOV bindings
+     * 
+     * @param a_aovs Set a HdRenderPassAovBindingVector from HdCyclesRenderPass
+     */
+    void SetAovBindings(HdRenderPassAovBindingVector const &a_aovs);
+
+    /**
+     * @brief Get the AOV bindings
+     * 
+     * @return HdRenderPassAovBindingVector
+     */
+    HdRenderPassAovBindingVector const &GetAovBindings() const
     {
         return m_aovs;
     }

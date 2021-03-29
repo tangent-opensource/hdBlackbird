@@ -23,6 +23,7 @@
 #include "utils.h"
 
 #include "hdcycles.h"
+#include "meshRefiner.h"
 
 #include <util/util_transform.h>
 
@@ -46,6 +47,8 @@ class Object;
 PXR_NAMESPACE_OPEN_SCOPE
 
 class HdCyclesRenderDelegate;
+class HdCyclesMeshRefiner;
+class HdCyclesRenderParam;
 
 /**
  * @brief HdCycles Mesh Rprim mapped to Cycles mesh
@@ -62,8 +65,7 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this mesh
      * as a prototype
      */
-    HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId,
-                 HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
 
     /**
      * @brief Destroy the HdCycles Mesh object
@@ -90,10 +92,12 @@ public:
      * @param dirtyBits Which bits of scene data has changed
      * @param reprToken Which representation to draw with
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits, TfToken const& reprToken) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+              TfToken const& reprToken) override;
 
 protected:
+    void _InitializeNewCyclesMesh();
+
     /**
      * @brief Create the cycles mesh representation
      * 
@@ -116,20 +120,13 @@ protected:
     void _FinishMesh(ccl::Scene* scene);
 
     /**
-     * @brief Comptue Mikktspace tangents
-     * 
-     * @param needsign 
-     */
-    void _ComputeTangents(bool needsign);
-
-    /**
      * @brief Add abitrary uv set
      * 
      * @param name 
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(TfToken name, VtValue uvs, ccl::Scene* scene,
+    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene,
                    HdInterpolation interpolation);
 
     /**
@@ -138,16 +135,23 @@ protected:
      * @param normals 
      * @param interpolation 
      */
-    void _AddNormals(VtVec3fArray& normals, HdInterpolation interpolation);
 
     /**
-     * @brief Add vertex velocities (Not tested)
+     * @brief Add vertex velocities
      * 
      * @param velocities 
      * @param interpolation 
      */
-    void _AddVelocities(VtVec3fArray& velocities,
-                        HdInterpolation interpolation);
+    void _AddVelocities(const SdfPath& id, const VtValue& value, HdInterpolation interpolation);
+
+
+    /**
+     * @brief Add vertex accelerations
+     * 
+     * @param accelerations 
+     * @param interpolation 
+     */
+    void _AddAccelerations(const SdfPath& id, const VtValue& value, HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/primitive colors
@@ -158,24 +162,16 @@ protected:
      * @param scene 
      * @param interpolation 
      */
-    void _AddColors(TfToken name, TfToken role, VtValue colors,
-                    ccl::Scene* scene, HdInterpolation interpolation);
+    void _PopulateColors(const TfToken& name, const TfToken& role, const VtValue& data, ccl::Scene* scene,
+                         HdInterpolation interpolation, const SdfPath& id);
 
-protected:
+private:
     struct PrimvarSource {
         VtValue data;
         HdInterpolation interpolation;
     };
     TfHashMap<TfToken, PrimvarSource, TfToken::HashFunctor> _primvarSourceMap;
 
-private:
-    template<typename T>
-    bool GetPrimvarData(TfToken const& name, HdSceneDelegate* sceneDelegate,
-                        std::map<HdInterpolation, HdPrimvarDescriptorVector>
-                            primvarDescsPerInterpolation,
-                        VtArray<T>& out_data, VtIntArray& out_indices);
-
-protected:
     /**
      * @brief Initialize the given representation of this Rprim.
      * This is called prior to syncing the prim.
@@ -208,24 +204,24 @@ protected:
      * @brief Populate vertices of cycles mesh
      * 
      */
-    void _PopulateVertices();
 
-    void _PopulateMotion();
+    void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
-    /**
-     * @brief Populate faces of cycles mesh
-     * 
-     * @param a_faceMaterials pregenerated array of subset materials
-     * @param a_subdivide should faces be subdivided
-     */
-    void _PopulateFaces(const std::vector<int>& a_faceMaterials,
-                        bool a_subdivide);
+    void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
+    void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& id, ccl::Scene* scene);
 
-    /**
-     * @brief Populate subdiv creases
-     * 
-     */
-    void _PopulateCreases();
+    void _PopulateMaterials(HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* renderParam,
+                            ccl::Shader* default_surface, const SdfPath& id);
+    void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+
+    void _PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scene, const SdfPath& id,
+                           HdDirtyBits* dirtyBits);
+
+
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBvh);
 
     /**
      * @brief Populate generated coordinates attribute
@@ -233,63 +229,24 @@ protected:
      */
     void _PopulateGenerated(ccl::Scene* scene);
 
+    enum DirtyBits : HdDirtyBits {
+        DirtyTangents = HdChangeTracker::CustomBitsBegin,
+    };
+
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
     std::vector<ccl::Object*> m_cyclesInstances;
 
-    std::map<SdfPath, int> m_materialMap;
+    ccl::Shader* m_object_display_color_shader;
+    ccl::Shader* m_attrib_display_color_shader;
 
-    size_t m_numMeshVerts = 0;
-    size_t m_numMeshFaces = 0;
-
-    SdfPath m_cachedMaterialId;
     int m_numTransformSamples;
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
     HdMeshTopology m_topology;
-    HdGeomSubsets m_geomSubsets;
-    VtVec3fArray m_points;
-    VtIntArray m_faceVertexCounts;
-    VtIntArray m_faceVertexIndices;
-    TfToken m_orientation;
-
-    HdCyclesSampledPrimvarType m_pointSamples;
+    std::shared_ptr<const HdCyclesMeshRefiner> m_refiner;
 
     float m_velocityScale;
-
-    bool m_useSubdivision = false;
-    bool m_subdivEnabled  = false;
-    int m_maxSubdivision  = 12;
-    float m_dicingRate    = 0.1f;
-
-    int m_numNgons;
-    int m_numCorners;
-
-    int m_numTriFaces;
-
-    Hd_VertexAdjacency m_adjacency;
-    bool m_adjacencyValid = false;
-
-    VtVec3fArray m_normals;
-    VtIntArray m_normalIndices;
-    bool m_normalsValid    = false;
-    bool m_authoredNormals = false;
-    bool m_smoothNormals   = false;
-
-    VtIntArray m_cornerIndices;
-    VtFloatArray m_cornerWeights;
-    VtIntArray m_creaseIndices;
-    VtIntArray m_creaseLengths;
-    VtFloatArray m_creaseWeights;
-
-    TfToken m_normalInterpolation;
-
-    VtVec2fArray m_uvs;
-    VtIntArray m_uvIndices;
-
-    HdDisplayStyle m_displayStyle;
-    int m_refineLevel  = 0;
-    bool m_doubleSided = false;
 
     bool m_useMotionBlur;
     bool m_useDeformMotionBlur;
@@ -304,16 +261,10 @@ protected:
     bool m_visShadow;
     bool m_visTransmission;
 
-    bool m_hasVertexColors;
+    std::vector<ccl::ustring> m_texture_names;
+    VtFloat3Array m_limit_us;
+    VtFloat3Array m_limit_vs;
 
-    ccl::vector<ccl::Shader*> m_usedShaders;
-
-public:
-    const VtIntArray& GetFaceVertexCounts() { return m_faceVertexCounts; }
-    const VtIntArray& GetFaceVertexIndices() { return m_faceVertexIndices; }
-    const TfToken& GetOrientation() { return m_orientation; }
-
-private:
     HdCyclesRenderDelegate* m_renderDelegate;
 };
 

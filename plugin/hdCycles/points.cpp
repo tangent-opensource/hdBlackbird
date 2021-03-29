@@ -59,7 +59,7 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
         config.motion_steps.eval(m_motionSteps, true);
     }
 
-    _InitializeNewCyclesPointcloud();
+    _InitializeNewCyclesPointCloud();
 }
 
 HdCyclesPoints::~HdCyclesPoints()
@@ -129,7 +129,7 @@ void
 HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id) {
     VtValue pointsValue = sceneDelegate->Get(id, HdTokens->points);
 
-    if (pointsValue.empty()) {
+    if (pointsValue.IsEmpty()) {
         TF_WARN("Empty point data for: %s", id.GetText());
         return;
     }
@@ -153,7 +153,7 @@ void
 HdCyclesPoints::_PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& id) {
     VtValue widthsValue = sceneDelegate->Get(id, HdTokens->widths);
 
-    if (widthsValue.empty()) {
+    if (widthsValue.IsEmpty()) {
         TF_WARN("Empty widths data for: %s", id.GetText());
         return;
     }
@@ -163,7 +163,7 @@ HdCyclesPoints::_PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& i
         return;
     }
 
-    VtFloatArray widths = widthsValue.UncheckedGet<VtVec3fArray>();
+    VtFloatArray widths = widthsValue.UncheckedGet<VtFloatArray>();
 
     assert(m_cyclesPointCloud);
 
@@ -173,49 +173,40 @@ HdCyclesPoints::_PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& i
         return;
     }
 
-    if () {
-        
-    }
-
-
     // TODO: It's likely that this can cause double transforms due to modifying the core transform
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->widths)) {
-        needs_update = true;
+    HdTimeSampleArray<VtValue, 2> radius_steps;
+    sceneDelegate->SamplePrimvar(id, HdTokens->widths, &radius_steps);
+    if (radius_steps.count > 0) {
+        const VtFloatArray& radius
+            = radius_steps.values[0].Get<VtFloatArray>();
 
-        HdTimeSampleArray<VtValue, 2> radius_steps;
-        sceneDelegate->SamplePrimvar(id, HdTokens->widths, &radius_steps);
-        if (radius_steps.count > 0) {
-            const VtFloatArray& radius
-                = radius_steps.values[0].Get<VtFloatArray>();
-
-            // The more correct way to figure out the interpolation
-            // would be to get a primvar descriptor array but it requires
-            // refactoring the sync into a loop.
-            assert(m_cyclesPointCloud->points.size()
-                   == m_cyclesPointCloud->radius.size());
-            if (radius.size() == 1) {
-                for (size_t i = 0; i < m_cyclesPointCloud->points.size();
-                     ++i) {
-                    m_cyclesPointCloud->radius[i] = radius[0] * 0.5f;
-                }
-            } else if (radius.size() == m_cyclesPointCloud->points.size()) {
-                for (size_t i = 0; i < m_cyclesPointCloud->points.size();
-                     ++i) {
-                    m_cyclesPointCloud->radius[i] = radius[i] * 0.5f;
-                }
-            } else {
-                std::cout
-                    << "Unknown interpolation type for pointcloud. Have "
-                    << m_cyclesPointCloud->points.size()
-                    << " points but primvar has size " << radius.size()
-                    << std::endl;
+        // The more correct way to figure out the interpolation
+        // would be to get a primvar descriptor array but it requires
+        // refactoring the sync into a loop.
+        assert(m_cyclesPointCloud->points.size()
+               == m_cyclesPointCloud->radius.size());
+        if (radius.size() == 1) {
+            for (size_t i = 0; i < m_cyclesPointCloud->points.size();
+                 ++i) {
+                m_cyclesPointCloud->radius[i] = radius[0] * 0.5f;
             }
+        } else if (radius.size() == m_cyclesPointCloud->points.size()) {
+            for (size_t i = 0; i < m_cyclesPointCloud->points.size();
+                 ++i) {
+                m_cyclesPointCloud->radius[i] = radius[i] * 0.5f;
+            }
+        } else {
+            std::cout
+                << "Unknown interpolation type for pointcloud. Have "
+                << m_cyclesPointCloud->points.size()
+                << " points but primvar has size " << radius.size()
+                << std::endl;
         }
     }
 }
 
 void
-HdCyclesPoints::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, const SdfPath& id) {
+HdCyclesPoints::_PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate* sceneDelegate, const SdfPath& id) {
     // Add velocities
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
                                         HdTokens->velocities)) {
@@ -275,7 +266,8 @@ HdCyclesPoints::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, const SdfPath&
 
 void
 HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits) {
-    m_cyclesObject->visibility = visibility = _sharedData.visible ? m_visibilityFlags : 0;
+    // todo: fix this
+    //m_cyclesObject->visibility = _sharedData.visible ? m_visibilityFlags : 0;
 
     m_cyclesMesh->tag_update(scene, true);
     m_cyclesObject->tag_update(scene);
@@ -362,7 +354,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
-        _PopulatePrimvars(sceneDelegate, id);
+        _PopulatePrimvars(dirtyBits, sceneDelegate, id);
         needs_update = true;
     }
 
@@ -380,7 +372,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (needs_update) {
-        _UpdateObject();
+        _UpdateObject(scene, param, dirtyBits);
         param->Interrupt();
     }
 
@@ -430,13 +422,13 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (!pointsValue.IsEmpty() && pointsValue.IsHolding<VtVec3fArray>()) {
             const VtVec3fArray& points = pointsValue.Get<VtVec3fArray>();
 
-            for (int i = 0; i < m_cyclesObjects.size(); i++) {
+            for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
                 param->RemoveObject(m_cyclesObjects[i]);
             }
 
             m_cyclesObjects.clear();
 
-            for (int i = 0; i < points.size(); i++) {
+            for (size_t i = 0; i < points.size(); i++) {
                 ccl::Object* pointObject = _CreatePointsObject(
                     ccl::transform_translate(vec3f_to_float3(points[i])),
                     m_cyclesMesh);

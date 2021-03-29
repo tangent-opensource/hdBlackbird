@@ -39,13 +39,13 @@ public:
      * @brief Use default constructor
      * 
      */
-    HDCYCLES_API HdCyclesRendererPlugin() = default;
+    HDCYCLES_API HdCyclesRendererPlugin();
 
     /**
      * @brief Use default destructor
      * 
      */
-    HDCYCLES_API ~HdCyclesRendererPlugin() override = default;
+    HDCYCLES_API ~HdCyclesRendererPlugin() override;
 
     /**
      * @brief Construct a new render delegate of type HdCyclesRenderDelegate
