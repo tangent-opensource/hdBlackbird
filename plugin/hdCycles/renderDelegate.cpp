@@ -39,12 +39,6 @@
 #include <render/film.h>
 #include <render/integrator.h>
 
-#if BOOST_NS == hboost
-#include <hboost/algorithm/string.hpp>
-#else
-#include <boost/algorithm/string.hpp>
-#endif
-
 #include <pxr/base/gf/api.h>
 #include <pxr/base/gf/vec2i.h>
 #include <pxr/base/tf/getenv.h>
