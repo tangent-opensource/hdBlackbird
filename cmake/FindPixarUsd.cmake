@@ -25,7 +25,6 @@ find_package(pxr CONFIG REQUIRED PATHS ${USD_ROOT})
 
 target_compile_definitions(UsdInterface
     INTERFACE
-    USE_HBOOST=FALSE
     BOOST_NS=boost
     $<$<CXX_COMPILER_ID:MSVC>:HAVE_SNPRINTF>
     )
