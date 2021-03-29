@@ -18,6 +18,7 @@ if(DEFINED ENV{REZ_USDCYCLES_ROOT})
     set_target_properties(usdCycles
             PROPERTIES
             IMPORTED_LOCATION ${_usd_cycles}
+            IMPORTED_GLOBAL TRUE
             )
 
     target_include_directories(usdCycles
