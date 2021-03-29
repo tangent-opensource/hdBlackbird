@@ -37,7 +37,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 );
 // clang-format on
 
-NDR_REGISTER_DISCOVERY_PLUGIN(NdrCyclesDiscoveryPlugin);
+NDR_REGISTER_DISCOVERY_PLUGIN(NdrCyclesDiscoveryPlugin)
 
 NdrCyclesDiscoveryPlugin::NdrCyclesDiscoveryPlugin() {}
 

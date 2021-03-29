@@ -38,7 +38,7 @@
 
 #include <numeric>
 
-PXR_NAMESPACE_USING_DIRECTIVE;
+PXR_NAMESPACE_USING_DIRECTIVE
 
 using namespace OpenSubdiv;
 

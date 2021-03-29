@@ -1437,7 +1437,7 @@ vec2T_to_vec3f_cast(const VtValue& input)
         return { static_cast<float>(val[0]), static_cast<float>(val[1]), 0.0 };
     });
     return VtValue { output };
-};
+}
 
 template<typename From>
 VtValue
@@ -1450,7 +1450,7 @@ vec3T_to_vec3f_cast(const VtValue& input)
         return { static_cast<float>(val[0]), static_cast<float>(val[1]), static_cast<float>(val[2]) };
     });
     return VtValue { output };
-};
+}
 
 }  // namespace
 
