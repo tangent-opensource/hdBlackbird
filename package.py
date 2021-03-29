@@ -48,9 +48,9 @@ with scope("config") as c:
 def private_build_requires():
     import sys
     if 'win' in str(sys.platform):
-        return ['visual_studio']
+        return ['cmake-3.18<3.20', 'visual_studio',]
     else:
-        return ['gcc-6']
+        return ['cmake-3.18<3.20', 'gcc-6']
 
 # Pass along rez version to cmake build
 def pre_build_commands():
