@@ -2,7 +2,7 @@
 
 name = 'hdcycles'
 
-version = '0.9.0'
+version = '0.9.1'
 
 authors = [
     'benjamin.skinner',
@@ -10,26 +10,15 @@ authors = [
 
 requires = [
     'usdcycles',
-    'cycles-1.13.0-ta.1.9.0',
+    'cycles-1.13.0-ta.1.9.2',
 ]
 
-linux_variants = [
-    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'houdini-18.5'],
-]
-
-windows_variants = [
+variants = [
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.11'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'houdini-18.5'],
+    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'houdini-18.5'],
 ]
-
-@early()
-def variants():
-    import sys
-    if 'win' in str(sys.platform):
-        return windows_variants
-    else:
-        return linux_variants
 
 build_system = "cmake"
 
