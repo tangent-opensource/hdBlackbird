@@ -144,6 +144,11 @@ private:
     void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
                          ccl::Scene* scene);
 
+    /**
+     * @brief Update the OpenVDB loader grid for mesh builder  
+     */
+    void _UpdateGrids();
+
     ccl::Object* m_cyclesObject;
 
     ccl::Mesh* m_cyclesVolume;

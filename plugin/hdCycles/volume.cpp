@@ -213,6 +213,23 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
 #endif
 }
 
+void HdCyclesVolume::_UpdateGrids(){
+#ifdef WITH_OPENVDB
+    if(m_cyclesVolume){
+        for (ccl::Attribute& attr : m_cyclesVolume->attributes.attributes) {
+            if (attr.element == ccl::ATTR_ELEMENT_VOXEL) {
+                ccl::ImageHandle &handle = attr.data_voxel();
+                auto* loader = static_cast<HdCyclesVolumeLoader*>(handle.vdb_loader());
+
+                if(loader){
+                    loader->UpdateGrid();
+                }
+            }
+        }
+    }
+#endif  
+}
+
 /* If the voxel attributes change, we need to rebuild the bounding mesh. */
 static ccl::vector<int>
 get_voxel_image_slots(ccl::Mesh* mesh)
@@ -310,7 +327,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 #endif
 
     if (update_volumes) {
-        
+        _UpdateGrids();
         m_cyclesVolume->use_motion_blur = m_useMotionBlur;
         
         bool rebuild = (old_voxel_slots

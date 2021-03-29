@@ -42,17 +42,44 @@ class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
     HdCyclesVolumeLoader(const char* filepath, const char* grid_name)
         : ccl::VDBImageLoader(grid_name)
+        , m_file_path(filepath)
     {
-        openvdb::io::File file(filepath);
+        UpdateGrid();
+    }
 
-        try {
-            file.setCopyMaxBytes(0);
-            file.open();
-            this->grid = file.readGrid(grid_name);
-        } catch (const openvdb::IoError& e) {
-            std::cout << "LOAD ERROR\n";
+    void UpdateGrid()
+    {
+        if(TF_VERIFY(!m_file_path.empty()))
+        {
+            try {
+                openvdb::io::File file(m_file_path);
+                file.setCopyMaxBytes(0);
+                file.open();
+
+                if(grid){
+                    grid.reset();
+                }
+
+                this->grid = file.readGrid(grid_name);
+            } catch (const openvdb::IoError& e) {
+                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
+            } catch(const std::exception& e) {
+                TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
+            }
+        }else{
+            TF_WARN("Volume file path is empty!");
         }
     }
+
+    void cleanup() override 
+    {
+        #ifdef WITH_NANOVDB
+        nanogrid.reset();
+        #endif
+    }
+
+private:
+    std::string m_file_path;
 };
 #endif
 
