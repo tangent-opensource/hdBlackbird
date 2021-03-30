@@ -42,9 +42,7 @@
 #include <pxr/usd/sdr/shaderProperty.h>
 #include <pxr/usdImaging/usdImaging/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -85,8 +83,6 @@ TF_MAKE_STATIC_DATA(NdrTokenVec, _sourceTypes)
     *_sourceTypes = { TfToken("OSL"), TfToken("cycles") };
 }
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
 std::map<TfToken, ccl::DisplacementMethod> DISPLACEMENT_CONVERSION = {
     { usdCyclesTokens->displacement_bump, ccl::DISPLACE_BUMP },
     { usdCyclesTokens->displacement_true, ccl::DISPLACE_TRUE },
@@ -107,8 +103,6 @@ std::map<TfToken, ccl::VolumeSampling> VOLUME_SAMPLING_CONVERSION = {
     { usdCyclesTokens->volume_sampling_multiple_importance,
       ccl::VOLUME_SAMPLING_MULTIPLE_IMPORTANCE },
 };
-
-#endif
 
 bool
 IsValidCyclesIdentifier(const std::string& identifier)
@@ -776,8 +770,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
     }
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
-#ifdef USE_USD_CYCLES_SCHEMA
-
         TfToken displacementMethod = _HdCyclesGetParam<TfToken>(
             sceneDelegate, id,
             usdCyclesTokens->cyclesMaterialDisplacement_method,
@@ -835,8 +827,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
                 = VOLUME_SAMPLING_CONVERSION[volume_sampling];
         }
         material_updated = true;
-
-#endif
     }
 
     if (material_updated) {

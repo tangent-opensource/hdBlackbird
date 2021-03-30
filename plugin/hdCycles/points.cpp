@@ -36,9 +36,7 @@
 #include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -112,8 +110,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     // Read Cycles Primvars
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
     if (HdChangeTracker::IsPrimvarDirty(
             *dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
         needs_newMesh = true;
@@ -143,8 +139,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_pointResolution      = std::max(resolutions, 10);
         }
     }
-
-#endif
 
     // Create Points
 

@@ -29,9 +29,7 @@
 
 #include <pxr/imaging/hd/extComputationUtils.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -756,11 +754,10 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
 
     HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-#ifdef USE_USD_CYCLES_SCHEMA
+
     auto refine_value         = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
     int refine_level          = refine_value.IsEmpty() ? 0 : refine_value.Cast<int>().UncheckedGet<int>();
     display_style.refineLevel = refine_level;
-#endif  // USE_USD_CYCLES_SCHEMA
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
     m_topology = HdMeshTopology(topology, display_style.refineLevel);
@@ -1134,13 +1131,11 @@ HdCyclesMesh::GetInitialDirtyBitsMask() const
 HdDirtyBits
 HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // Usd controls subdivision level globally, passed through the topology. Change of custom max subdiv level primvar
     // must mark SubdivTags dirty.
     if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level)) {
         bits |= HdChangeTracker::DirtySubdivTags;
     }
-#endif  // USE_USD_CYCLES_SCHEMA
 
     // subdivision request requires full topology update
     if (bits & HdChangeTracker::DirtySubdivTags) {
@@ -1186,7 +1181,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     // -------------------------------------
     // -- Resolve Drawstyles
-#ifdef USE_USD_CYCLES_SCHEMA
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
         { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
@@ -1261,7 +1255,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
         }
     }
-#endif
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         _sharedData.visible = sceneDelegate->GetVisible(id);
