@@ -39,3 +39,5 @@ if(${USE_HOUDINI_USD})
 else()
     include(cmake/FindPixarUsd.cmake)
 endif()
+
+message(STATUS "Using Usd Schema Generator: ${USD_SCHEMA_GENERATOR}")

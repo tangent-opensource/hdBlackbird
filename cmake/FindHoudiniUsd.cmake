@@ -96,3 +96,13 @@ foreach(_pxr_lib ${_houdini_pxr_libs})
     )
 
 endforeach()
+
+# Find Usd Schema Generator
+
+find_program(USD_SCHEMA_GENERATOR
+        NAMES
+        usdGenSchema
+        PATHS
+        ${HOUDINI_ROOT}/bin
+        REQUIRED
+        )

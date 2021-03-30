@@ -33,3 +33,9 @@ target_link_libraries(UsdInterface
     INTERFACE
     hd usdHydra usdImaging usdRender
     )
+
+find_program(USD_SCHEMA_GENERATOR
+        NAMES
+        usdGenSchema
+        REQUIRED
+        )

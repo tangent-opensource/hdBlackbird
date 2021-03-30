@@ -74,7 +74,7 @@ target_link_libraries(hdCycles
         PUBLIC
         Cycles::Cycles
         Usd::Usd
-        $<$<TARGET_EXISTS:usdCycles>:usdCycles>
+        usdCycles
         )
 
 target_compile_options(hdCycles
