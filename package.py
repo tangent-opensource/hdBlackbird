@@ -9,7 +9,6 @@ authors = [
 ]
 
 requires = [
-    'usdcycles',
     'cycles-1.13.0-ta.1.9.3',
 ]
 
