@@ -806,6 +806,8 @@ HdCyclesMesh::_PopulateMaterials(HdSceneDelegate* sceneDelegate, HdCyclesRenderP
     _PopulateSubSetsMaterials(sceneDelegate, id);
 
     renderParam->UpdateShadersTag(m_cyclesMesh->used_shaders);
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    m_shader_bindings = resource_registry->BindShaders(m_cyclesMesh->used_shaders);
 }
 
 void

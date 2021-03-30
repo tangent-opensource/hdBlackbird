@@ -170,21 +170,18 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id,
     , m_shaderGraph(nullptr)
     , m_renderDelegate(a_renderDelegate)
 {
+    // create shader that is not committed to the scene.
+    // RPrims make a request to commit shaders to the scene.
+
     m_shader        = new ccl::Shader();
     m_shader->name  = id.GetString();
     m_shaderGraph   = new ccl::ShaderGraph();
     m_shader->graph = m_shaderGraph;
-
-    if (m_renderDelegate)
-        m_renderDelegate->GetCyclesRenderParam()->AddShader(m_shader);
 }
 
 HdCyclesMaterial::~HdCyclesMaterial()
 {
-    if (m_shader) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveShader(m_shader);
-        delete m_shader;
-    }
+    delete m_shader;
 }
 
 // TODO: These conversion functions will be moved to a more generic

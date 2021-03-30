@@ -24,6 +24,7 @@
 
 #include "hdcycles.h"
 #include "meshRefiner.h"
+#include "sceneBinding.h"
 
 #include <util/util_transform.h>
 
@@ -266,6 +267,7 @@ private:
     VtFloat3Array m_limit_vs;
 
     HdCyclesRenderDelegate* m_renderDelegate;
+    std::vector<HdCyclesSceneBindingSharedPtr> m_shader_bindings;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

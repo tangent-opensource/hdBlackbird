@@ -21,6 +21,7 @@
 #define HD_CYCLES_RENDER_DELEGATE_H
 
 #include "api.h"
+#include "resourceRegistry.h"
 
 #include <pxr/base/tf/staticTokens.h>
 #include <pxr/imaging/hd/renderDelegate.h>
@@ -235,9 +236,12 @@ private:
     void _Initialize(HdRenderSettingsMap const& settingsMap);
 
 protected:  // data
+    static std::mutex m_resource_registry_mutex;
+    static std::atomic_int m_resource_registry_counter;
+    static HdCyclesResourceRegistrySharedPtr m_resourceRegistry;
+
     HdCyclesRenderPass* m_renderPass;
     HdRenderSettingDescriptorList m_settingDescriptors;
-    HdResourceRegistrySharedPtr m_resourceRegistry;
 
     std::unique_ptr<HdCyclesRenderParam> m_renderParam;
     bool m_hasStarted;
