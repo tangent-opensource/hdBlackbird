@@ -103,6 +103,10 @@ HdCyclesRenderDelegate::HdCyclesRenderDelegate(
     _Initialize(settingsMap);
 }
 
+std::mutex HdCyclesRenderDelegate::m_resource_registry_mutex;
+std::atomic_int HdCyclesRenderDelegate::m_resource_registry_counter;
+HdCyclesResourceRegistrySharedPtr HdCyclesRenderDelegate::m_resourceRegistry;
+
 void
 HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
 {
@@ -112,9 +116,13 @@ HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
     if (!m_renderParam->Initialize(settingsMap))
         return;
 
-    // -- Initialize Render Delegate components
+    // -- Initialize Resources Registry
+    std::lock_guard<std::mutex> guard{m_resource_registry_mutex};
+    if(m_resource_registry_counter.fetch_add(1) == 0) {
+        m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>();
+    }
 
-    m_resourceRegistry.reset(new HdResourceRegistry());
+    m_resourceRegistry->UpdateScene(m_renderParam->GetCyclesScene());
 }
 
 HdCyclesRenderDelegate::~HdCyclesRenderDelegate()

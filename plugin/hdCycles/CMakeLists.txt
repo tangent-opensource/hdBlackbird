@@ -61,6 +61,8 @@ add_library(hdCycles SHARED
         utils.h
         volume.cpp
         volume.h
+        resourceRegistry.cpp
+        resourceRegistry.h
         )
 
 target_include_directories(hdCycles
