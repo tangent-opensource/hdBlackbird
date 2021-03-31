@@ -23,7 +23,7 @@
 #include "utils.h"
 
 #include "hdcycles.h"
-#include "meshRefiner.h"
+#include "meshTopology.h"
 
 #include <util/util_transform.h>
 
@@ -243,8 +243,7 @@ private:
     int m_numTransformSamples;
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    HdMeshTopology m_topology;
-    std::shared_ptr<const HdCyclesMeshRefiner> m_refiner;
+    HdCyclesMeshTopologySharedPtr m_topology;
 
     float m_velocityScale;
 

@@ -63,6 +63,8 @@ add_library(hdCycles SHARED
         volume.h
         resourceRegistry.cpp
         resourceRegistry.h
+        meshTopology.cpp
+        meshTopology.h
         )
 
 target_include_directories(hdCycles
