@@ -221,14 +221,12 @@ HdCyclesRenderBuffer::Blit(HdFormat format, int width, int height, int offset,
                 if (convertAsInt) {
                     _ConvertPixel<int32_t>(
                         m_format,
-                        static_cast<uint8_t*>(
-                            &m_buffer[(j * m_width + i) * m_pixelSize]),
+                        &m_buffer[(j * m_width + i) * m_pixelSize],
                         format, &data[(jj * stride + offset + ii) * pixelSize]);
                 } else {
                     _ConvertPixel<float>(
                         m_format,
-                        static_cast<uint8_t*>(
-                            &m_buffer[(j * m_width + i) * m_pixelSize]),
+                        &m_buffer[(j * m_width + i) * m_pixelSize],
                         format, &data[(jj * stride + offset + ii) * pixelSize]);
                 }
             }
@@ -296,16 +294,14 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y,
 
                 if (convertAsInt) {
                     _ConvertPixel<int32_t>(m_format,
-                                           static_cast<uint8_t*>(
-                                               &m_buffer[mem_start]),
+                                           &m_buffer[mem_start],
                                            format, &data[tile_mem_start]);
                 } else {
                     if (mem_start >= m_buffer.size()) {
                         // TODO: This is triggered more times than it should be
                     } else {
                         _ConvertPixel<float>(m_format,
-                                             static_cast<uint8_t*>(
-                                                 &m_buffer[mem_start]),
+                                             &m_buffer[mem_start],
                                              format, &data[tile_mem_start]);
                     }
                 }

@@ -117,7 +117,7 @@ IsValidCyclesIdentifier(const std::string& identifier)
 
     // DEPRECATED:
     // Only needed for retroactive support of pre 0.8.0 cycles shaders
-    isvalid += (bool)(identifier.rfind("cycles:") == 0);
+    isvalid += (identifier.rfind("cycles:") == 0);
 
     return isvalid;
 }
@@ -620,10 +620,8 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
 
         // Link material nodes
         for (const HdMaterialRelationship& matRel : net.second.relationships) {
-            ccl::ShaderNode* tonode
-                = (ccl::ShaderNode*)conversionMap[matRel.outputId].second;
-            ccl::ShaderNode* fromnode
-                = (ccl::ShaderNode*)conversionMap[matRel.inputId].second;
+            ccl::ShaderNode* tonode = conversionMap[matRel.outputId].second;
+            ccl::ShaderNode* fromnode = conversionMap[matRel.inputId].second;
 
             HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
