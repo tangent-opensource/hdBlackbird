@@ -410,6 +410,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         sessionParams = &m_cyclesSession->params;
 
     bool session_updated = false;
+    bool samples_updated = false;
 
     // This is now handled by HdCycles depending on tiled or not tiled rendering...
     /*if (key == usdCyclesTokens->cyclesBackground) {
