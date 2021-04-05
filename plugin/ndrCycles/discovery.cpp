@@ -37,7 +37,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 );
 // clang-format on
 
-NDR_REGISTER_DISCOVERY_PLUGIN(NdrCyclesDiscoveryPlugin);
+NDR_REGISTER_DISCOVERY_PLUGIN(NdrCyclesDiscoveryPlugin)
 
 NdrCyclesDiscoveryPlugin::NdrCyclesDiscoveryPlugin() {}
 
@@ -74,7 +74,7 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
     temp_nodes.push_back("displacement");
 
     for (const std::string& n : temp_nodes) {
-        std::string cycles_id = std::string("cycles_" + n);
+        std::string cycles_id = "cycles_" + n;
         ret.emplace_back(NdrIdentifier(
                          TfStringPrintf("%s", cycles_id.c_str())),// identifier
                          NdrVersion(1, 0),                        // version
@@ -88,7 +88,7 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
 
         // DEPRECATED:
         // Added for backwards support whilst we transition to new identifier
-        cycles_id = std::string("cycles:" + n);
+        cycles_id = "cycles:" + n;
         ret.emplace_back(NdrIdentifier(
                          TfStringPrintf("%s", cycles_id.c_str())),// identifier
                          NdrVersion(1, 0),                        // version

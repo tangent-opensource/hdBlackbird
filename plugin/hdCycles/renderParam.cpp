@@ -1578,6 +1578,8 @@ HdCyclesRenderParam::Interrupt(bool a_forceUpdate)
 void
 HdCyclesRenderParam::CommitResources()
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
             if (m_numDomeLights <= 0)
@@ -1714,8 +1716,6 @@ HdCyclesRenderParam::_CyclesExit()
 void
 HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
-    lock_guard lock{m_cyclesScene->mutex};
-
     m_cyclesSession->progress.reset();
 
     if (m_curveUpdated || m_meshUpdated || m_geometryUpdated
