@@ -1527,6 +1527,10 @@ HdCyclesRenderParam::_CreateScene()
     default_object_display_color_surface->tag_update(m_cyclesScene);
     m_cyclesScene->shaders.push_back(default_object_display_color_surface);
 
+    default_vcol_display_color_surface = HdCyclesCreateDefaultShader();
+    default_vcol_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_vcol_display_color_surface);
+
     SetBackgroundShader(nullptr);
 
     m_cyclesSession->reset(m_bufferParams, m_sessionParams.samples);
