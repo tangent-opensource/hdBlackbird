@@ -118,7 +118,7 @@ protected:
     /**
      * @brief Fill in optional primvars
      */
-    void _PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* param, const SdfPath& id);
 
     /**
      * @brief Flag the object for update in the scene
@@ -192,7 +192,7 @@ private:
     void _AddAccelerations(const VtVec3fArray& accelerations);
 
 
-    void _AddColors(const VtVec3fArray& colors);
+    void _AddColors(const VtVec3fArray& colors, HdCyclesRenderParam* param);
     void _AddAlphas(const VtFloatArray& colors);
 
 

@@ -141,6 +141,8 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
     VtVec3fArray points = pointsValue.UncheckedGet<VtVec3fArray>();
 
+    printf("Initializing point cloud %d\n", (int)points.size());
+
     assert(m_cyclesPointCloud);
     m_cyclesPointCloud->clear();
     m_cyclesPointCloud->resize(points.size());
@@ -206,7 +208,7 @@ HdCyclesPoints::_PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& i
 }
 
 void
-HdCyclesPoints::_PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate* sceneDelegate, const SdfPath& id) {
+HdCyclesPoints::_PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* param, const SdfPath& id) {
     // Add velocities
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id,
                                         HdTokens->velocities)) {
@@ -244,7 +246,7 @@ HdCyclesPoints::_PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate*
         if (colorsValue.IsHolding<VtVec3fArray>()) {
             const VtVec3fArray& colors
                 = colorsValue.UncheckedGet<VtVec3fArray>();
-            _AddColors(colors);
+            _AddColors(colors, param);
         } else {
             TF_WARN("Unexpected type for points colors");
         }
@@ -328,6 +330,25 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 #endif
 
+    std::array<std::pair<HdInterpolation, HdPrimvarDescriptorVector>, 5> primvars_desc {
+        std::make_pair(HdInterpolationConstant, HdPrimvarDescriptorVector {}),
+        std::make_pair(HdInterpolationUniform, HdPrimvarDescriptorVector {}),
+        std::make_pair(HdInterpolationVertex, HdPrimvarDescriptorVector {}),
+        std::make_pair(HdInterpolationVarying, HdPrimvarDescriptorVector {}),
+        std::make_pair(HdInterpolationFaceVarying, HdPrimvarDescriptorVector {}),
+    };
+
+    for (auto& info : primvars_desc) {
+        info.second = sceneDelegate->GetPrimvarDescriptors(id, info.first);
+    }
+
+    for (auto& interpolation_description : primvars_desc) {
+        for (const HdPrimvarDescriptor& description : interpolation_description.second) {
+            std::cout << "Primvar " << description.name << " Interpolation " << interpolation_description.first << std::endl;
+        }
+    }
+
+
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         needs_update = true;
 
@@ -354,7 +375,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
-        _PopulatePrimvars(dirtyBits, sceneDelegate, id);
+        _PopulatePrimvars(dirtyBits, sceneDelegate, param, id);
         needs_update = true;
     }
 
@@ -720,7 +741,7 @@ HdCyclesPoints::_AddAccelerations(const VtVec3fArray& accelerations)
 }
 
 void
-HdCyclesPoints::_AddColors(const VtVec3fArray& colors) {
+HdCyclesPoints::_AddColors(const VtVec3fArray& colors, HdCyclesRenderParam* param) {
     if (_usingPointCloud()) {
         ccl::AttributeSet* attributes = &m_cyclesPointCloud->attributes;
 
@@ -749,6 +770,10 @@ HdCyclesPoints::_AddColors(const VtVec3fArray& colors) {
             }
         } else {
             TF_WARN("Unexpcted number of vertex colors\n");
+        }
+
+        if (m_cyclesPointCloud->used_shaders.empty()) {
+            m_cyclesPointCloud->used_shaders.push_back(param->default_vcol_display_color_surface);
         }
     }
 }
