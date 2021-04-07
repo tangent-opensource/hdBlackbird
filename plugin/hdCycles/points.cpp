@@ -65,7 +65,7 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
 HdCyclesPoints::~HdCyclesPoints()
 {
     // Remove points
-    for (int i = 0; i < m_cyclesObjects.size(); i++) {
+    for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
         m_renderDelegate->GetCyclesRenderParam()->RemoveObject(
             m_cyclesObjects[i]);
     }
@@ -165,13 +165,13 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (!pointsValue.IsEmpty() && pointsValue.IsHolding<VtVec3fArray>()) {
             const VtVec3fArray& points = pointsValue.Get<VtVec3fArray>();
 
-            for (int i = 0; i < m_cyclesObjects.size(); i++) {
+            for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
                 param->RemoveObject(m_cyclesObjects[i]);
             }
 
             m_cyclesObjects.clear();
 
-            for (int i = 0; i < points.size(); i++) {
+            for (size_t i = 0; i < points.size(); i++) {
                 ccl::Object* pointObject = _CreatePointsObject(
                     ccl::transform_translate(vec3f_to_float3(points[i])),
                     m_cyclesMesh);
@@ -190,9 +190,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         ccl::Transform newTransform = HdCyclesExtractTransform(sceneDelegate,
                                                                id);
 
-        for (int i = 0; i < m_cyclesObjects.size(); i++) {
+        for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
             m_cyclesObjects[i]->set_tfm(ccl::transform_inverse(m_transform)
-                                      * m_cyclesObjects[i]->get_tfm());
+                                        * m_cyclesObjects[i]->get_tfm());
             m_cyclesObjects[i]->set_tfm(newTransform * m_cyclesObjects[i]->get_tfm());
         }
 
@@ -210,7 +210,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             sceneDelegate->SamplePrimvar(id, HdTokens->widths, &xf);
             if (xf.count > 0) {
                 const VtFloatArray& widths = xf.values[0].Get<VtFloatArray>();
-                for (int i = 0; i < widths.size(); i++) {
+                for (size_t i = 0; i < widths.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
                         float w                 = widths[i];
                         m_cyclesObjects[i]->set_tfm(m_cyclesObjects[i]->get_tfm()
@@ -230,7 +230,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             sceneDelegate->SamplePrimvar(id, HdTokens->normals, &xf);
             if (xf.count > 0) {
                 const VtVec3fArray& normals = xf.values[0].Get<VtVec3fArray>();
-                for (int i = 0; i < normals.size(); i++) {
+                for (size_t i = 0; i < normals.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
                         ccl::float3 rotAxis
                             = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
@@ -257,7 +257,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         needs_update = true;
 
         bool visible = sceneDelegate->GetVisible(id);
-        for (int i = 0; i < m_cyclesObjects.size(); i++) {
+        for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
             if (visible) {
                 m_cyclesObjects[i]->set_visibility(m_cyclesObjects[i]->get_visibility() | ccl::PATH_RAY_ALL_VISIBILITY);
             } else {

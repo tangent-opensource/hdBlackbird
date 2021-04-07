@@ -29,7 +29,7 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-NDR_REGISTER_PARSER_PLUGIN(NdrCyclesParserPlugin);
+NDR_REGISTER_PARSER_PLUGIN(NdrCyclesParserPlugin)
 
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(_tokens,

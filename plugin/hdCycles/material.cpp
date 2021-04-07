@@ -117,9 +117,44 @@ IsValidCyclesIdentifier(const std::string& identifier)
 
     // DEPRECATED:
     // Only needed for retroactive support of pre 0.8.0 cycles shaders
-    isvalid += (bool)(identifier.rfind("cycles:") == 0);
+    isvalid += (identifier.rfind("cycles:") == 0);
 
     return isvalid;
+}
+
+void
+ApplyPrimvarAOVs(ccl::ShaderGraph* graph)
+{
+    if (graph) {
+        auto *geo = new ccl::GeometryNode();
+        graph->add(geo);
+        // P
+        {
+            auto *aov = new ccl::OutputAOVNode();
+            aov->set_name(ccl::ustring("P"));
+            graph->add(aov);
+            graph->connect(geo->output("Position"), aov->input("Color"));
+        }
+
+        // Pref
+        {
+            auto *attr = new ccl::AttributeNode();
+            graph->add(attr);
+            attr->set_attribute(ccl::ustring("Pref"));
+            auto *aov = new ccl::OutputAOVNode();
+            graph->add(aov);
+            aov->set_name(ccl::ustring("Pref"));
+            graph->connect(attr->output("Vector"), aov->input("Color"));
+        }
+
+        // Ng
+        {
+            auto *aov = new ccl::OutputAOVNode();
+            aov->set_name(ccl::ustring("Ngn"));
+            graph->add(aov);
+            graph->connect(geo->output("True Normal"), aov->input("Color"));
+        }
+    }
 }
 
 TfTokenVector const&
@@ -588,10 +623,8 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
 
         // Link material nodes
         for (const HdMaterialRelationship& matRel : net.second.relationships) {
-            ccl::ShaderNode* tonode
-                = (ccl::ShaderNode*)conversionMap[matRel.outputId].second;
-            ccl::ShaderNode* fromnode
-                = (ccl::ShaderNode*)conversionMap[matRel.inputId].second;
+            ccl::ShaderNode* tonode = conversionMap[matRel.outputId].second;
+            ccl::ShaderNode* fromnode = conversionMap[matRel.inputId].second;
 
             HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
@@ -658,6 +691,9 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate,
             }
         }
 
+        // Apply common AOV outputs eg. P and Pref
+        ApplyPrimvarAOVs(graph);
+
         // TODO: This is to allow retroactive material_output node support
         // As this becomes phased out, we can remove this.
         if (output_node != nullptr) {
@@ -692,9 +728,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
 
     param->GetCyclesScene()->mutex.lock();
     bool material_updated = false;
-
-    HdDirtyBits bits = *dirtyBits;
-
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
         VtValue vtMat = sceneDelegate->GetMaterialResource(id);

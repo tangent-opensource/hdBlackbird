@@ -34,6 +34,10 @@ class HdCyclesRenderPass;
 class HdCyclesRenderDelegate;
 
 // clang-format off
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((useDefaultBackground, "useDefaultBackground"))
     ((device, "device"))
@@ -80,6 +84,9 @@ TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((pixelFilterBox, "pixelFilter:box"))
     ((pixelFilterGaussian, "pixelFilter:gaussian"))
 );
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #define HDCYCLES_INTEGRATOR_TOKENS  \
     (BranchedPathTracing)           \
@@ -90,8 +97,8 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     HDCYCLES_INTEGRATOR_TOKENS
 );
 
-
 #define HDCYCLES_AOV_TOKENS \
+    (UV)                    \
     (Vector)                \
     (IndexMA)               \
                             \
@@ -100,10 +107,33 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     (TransDir)              \
     (VolumeDir)             \
                             \
+    (DiffInd)               \
+    (GlossInd)              \
+    (TransInd)              \
+    (VolumeInd)             \
+                            \
+    (DiffCol)               \
+    (GlossCol)              \
+    (TransCol)              \
+    (VolumeCol)             \
+                            \
     (Emit)                  \
     (Env)                   \
     (AO)                    \
-    (Shadow)
+    (Shadow)                \
+                            \
+    (CryptoObject)          \
+    (CryptoMaterial)        \
+    (CryptoAsset)           \
+                            \
+    (AOVC)                  \
+    (AOVV)                  \
+                            \
+    (P)                     \
+    (Pref)                  \
+    (Ngn)                   \
+    (RenderTime)            \
+    (SampleCount)
 
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens, 
     HDCYCLES_API, 

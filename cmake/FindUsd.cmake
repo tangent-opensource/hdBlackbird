@@ -1,4 +1,4 @@
-#  Copyright 2020 Tangent Animation
+#  Copyright 2021 Tangent Animation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,6 +17,25 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-add_subdirectory(usdCycles)
-add_subdirectory(ndrCycles)
-add_subdirectory(hdCycles)
+# Tangent specific build variables
+if(DEFINED ENV{REZ_HOUDINI_ROOT})
+    message(STATUS "Rez Houdini USD override")
+    set(USE_HOUDINI_USD TRUE)
+    set(HOUDINI_ROOT $ENV{HFS})
+elseif(DEFINED ENV{REZ_USD_ROOT})
+    message(STATUS "Rez Pixar USD override")
+    set(USE_HOUDINI_USD FALSE)
+    set(USD_ROOT $ENV{REZ_USD_ROOT})
+endif()
+
+# Usd interface
+add_library(UsdInterface INTERFACE)
+add_library(Usd::Usd ALIAS UsdInterface)
+
+message(STATUS "Use Houdini Usd ${USE_HOUDINI_USD}")
+
+if(${USE_HOUDINI_USD})
+    include(cmake/FindHoudiniUsd.cmake)
+else()
+    include(cmake/FindPixarUsd.cmake)
+endif()

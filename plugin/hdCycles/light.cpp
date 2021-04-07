@@ -42,10 +42,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType,
                              HdCyclesRenderDelegate* a_renderDelegate)
     : HdLight(id)
-    , m_cyclesLight(nullptr)
     , m_hdLightType(lightType)
+    , m_cyclesLight(nullptr)
     , m_shaderGraphBits(ShaderGraphBits::Default)
     , m_renderDelegate(a_renderDelegate)
+    , m_finalIntensity(1.0f)
 {
     // Added to prevent fallback lights
     // TODO: Is this the best solution...
@@ -218,7 +219,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             id, HdLightTokens->enableColorTemperature);
         if (enableTemperature.IsHolding<bool>()) {
             shaderGraphBits = enableTemperature.UncheckedGet<bool>() ? 
-                (ShaderGraphBits)(shaderGraphBits|ShaderGraphBits::Temperature) : (ShaderGraphBits)(shaderGraphBits);
+                (ShaderGraphBits)(shaderGraphBits|ShaderGraphBits::Temperature) : shaderGraphBits;
         }
 
         VtValue iesFile
@@ -249,10 +250,10 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (shaderGraphBits || 
             shaderGraphBits != m_shaderGraphBits) {
             graph = _GetDefaultShaderGraph(m_cyclesLight->get_light_type() == ccl::LIGHT_BACKGROUND);
-            outNode = (ccl::ShaderNode*)graph->output()->input("Surface")->link->parent;
+            outNode = graph->output()->input("Surface")->link->parent;
             m_shaderGraphBits = shaderGraphBits;
         } else {
-            outNode = (ccl::ShaderNode*)oldGraph->output()->input("Surface")->link->parent;
+            outNode = oldGraph->output()->input("Surface")->link->parent;
         }
 
         // -- Common params

@@ -39,8 +39,6 @@
 #include <render/film.h>
 #include <render/integrator.h>
 
-#include <boost/algorithm/string.hpp>
-
 #include <pxr/base/gf/api.h>
 #include <pxr/base/gf/vec2i.h>
 #include <pxr/base/tf/getenv.h>
@@ -146,9 +144,9 @@ HdCyclesRenderDelegate::GetSupportedBprimTypes() const
 void
 HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 {
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
 #ifdef USE_USD_CYCLES_SCHEMA
+    // static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
     // TODO: Undecided how to approach these
     /* m_settingDescriptors.push_back({ std::string("Exposure"),
                                      usdCyclesTokens->cyclesFilmExposure,
@@ -369,7 +367,7 @@ HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
         colorFormat = HdFormatFloat32Vec4;
     }
 
-    if (name == HdAovTokens->color) {
+    if (name == HdAovTokens->color || name == HdCyclesAovTokens->DiffDir) {
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->normal) {
         if (use_tiles) {
@@ -379,7 +377,7 @@ HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
     } else if (name == HdAovTokens->depth) {
         return HdAovDescriptor(HdFormatFloat32, false, VtValue(1.0f));
     } else if (name == HdAovTokens->primId || name == HdAovTokens->instanceId
-               || name == HdAovTokens->elementId) {
+               || name == HdAovTokens->elementId || name == HdCyclesAovTokens->IndexMA) {
         return HdAovDescriptor(HdFormatInt32, false, VtValue(-1));
     } else if (name == HdCyclesAovTokens->DiffDir) {
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));

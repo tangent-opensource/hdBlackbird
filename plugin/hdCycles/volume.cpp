@@ -48,6 +48,10 @@
 
 #include <iostream>
 
+#ifdef USE_USD_CYCLES_SCHEMA
+#    include <usdCycles/tokens.h>
+#endif
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // clang-format off
@@ -112,7 +116,7 @@ HdCyclesVolume::_CreateObject()
     ccl::Object* object = new ccl::Object();
 
     object->set_visibility(ccl::PATH_RAY_ALL_VISIBILITY);
-
+    object->set_velocity_scale(1.0f);
     return object;
 }
 
@@ -197,7 +201,6 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
                                            : m_cyclesVolume->attributes.add(
                                                name, ccl::TypeDesc::TypeFloat,
                                                ccl::ATTR_ELEMENT_VOXEL);
-
                 ccl::ImageLoader* loader
                     = new HdCyclesVolumeLoader(filepath.c_str(), name.c_str());
                 ccl::ImageParams params;
@@ -209,6 +212,23 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
         }
     }
 #endif
+}
+
+void HdCyclesVolume::_UpdateGrids(){
+#ifdef WITH_OPENVDB
+    if(m_cyclesVolume){
+        for (ccl::Attribute& attr : m_cyclesVolume->attributes.attributes) {
+            if (attr.element == ccl::ATTR_ELEMENT_VOXEL) {
+                ccl::ImageHandle &handle = attr.data_voxel();
+                auto* loader = static_cast<HdCyclesVolumeLoader*>(handle.vdb_loader());
+
+                if(loader){
+                    loader->UpdateGrid();
+                }
+            }
+        }
+    }
+#endif  
 }
 
 /* If the voxel attributes change, we need to rebuild the bounding mesh. */
@@ -236,7 +256,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     ccl::Scene* scene = param->GetCyclesScene();
 
     HdCyclesPDPIMap pdpi;
-    bool generate_new_curve = false;
     bool update_volumes     = false;
 
     ccl::vector<int> old_voxel_slots = get_voxel_image_slots(m_cyclesVolume);
@@ -257,7 +276,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate,
+        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, scene, sceneDelegate,
                                                   id, m_useMotionBlur);
 
         update_volumes = true;
@@ -265,15 +284,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
-
-        for (auto& primvarDescsEntry : pdpi) {
-            for (auto& pv : primvarDescsEntry.second) {
-                if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
-                    VtValue value = GetPrimvar(sceneDelegate, pv.name);
-                    
-                }
-            }
-        }
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
@@ -296,7 +306,31 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
+#ifdef USE_USD_CYCLES_SCHEMA
+
+    for (auto& primvarDescsEntry : pdpi) {
+        for (auto& pv : primvarDescsEntry.second) {
+            
+            m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblur,
+                m_useMotionBlur);
+            
+            m_cyclesObject->velocity_scale = _HdCyclesGetVolumeParam<float>(
+                pv, dirtyBits, id, this, sceneDelegate,
+                usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
+                m_cyclesObject->velocity_scale);
+
+            update_volumes               = true;
+        }
+    }
+
+#endif
+
     if (update_volumes) {
+        _UpdateGrids();
+        m_cyclesVolume->set_use_motion_blur(m_useMotionBlur);
+        
         bool rebuild = (old_voxel_slots
                         != get_voxel_image_slots(m_cyclesVolume));
 
