@@ -64,23 +64,6 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
 
 HdCyclesPoints::~HdCyclesPoints()
 {
-    // Remove mesh instances
-    for (int i = 0; i < m_cyclesObjects.size(); i++) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(
-            m_cyclesObjects[i]);
-        if (m_cyclesObjects[i]) {
-            delete m_cyclesObjects[i];
-        }
-    }
-    m_cyclesObjects.clear();
-
-    // Remove mesh or pointcloud. Currently both classes are allocated but only
-    // the active has data loaded into it.
-    if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
-        delete m_cyclesMesh;
-    }
-
     if (m_cyclesPointCloud) {
         m_renderDelegate->GetCyclesRenderParam()->RemovePointCloud(
             m_cyclesPointCloud);
@@ -111,10 +94,8 @@ HdCyclesPoints::Finalize(HdRenderParam* renderParam)
 
 void 
 HdCyclesPoints::_InitializeNewCyclesPointCloud() {
-    m_cyclesMesh = new ccl::Mesh();
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-
     m_cyclesPointCloud = new ccl::PointCloud();
+    m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)m_pointStyle;
     m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesPointCloud);
 
     m_cyclesObject             = new ccl::Object();
@@ -270,8 +251,6 @@ void
 HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits) {
     // todo: fix this
     //m_cyclesObject->visibility = _sharedData.visible ? m_visibilityFlags : 0;
-
-    m_cyclesMesh->tag_update(scene, true);
     m_cyclesObject->tag_update(scene);
 
     // todo: check the mesh code that marks the visibility
@@ -287,6 +266,8 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
+
+    std::lock_guard<std::mutex>(scene->mutex);
 
     //HdCyclesPDPIMap pdpi;
 
@@ -307,9 +288,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                      &xf);
         if (xf.count > 0) {
             const TfToken& styles = xf.values[0].Get<TfToken>();
-            m_pointStyle          = POINT_DISCS;
+            m_pointStyle          = ccl::POINT_CLOUD_POINT_DISC;
             if (styles == usdCyclesTokens->sphere) {
-                m_pointStyle = POINT_SPHERES;
+                m_pointStyle = ccl::POINT_CLOUD_POINT_SPHERE;
             }
         }
     }
@@ -352,6 +333,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         needs_update = true;
 
+#if 0
         bool visible = sceneDelegate->GetVisible(id);
         for (int i = 0; i < m_cyclesObjects.size(); i++) {
             if (visible) {
@@ -362,6 +344,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     &= ~ccl::PATH_RAY_ALL_VISIBILITY;
             }
         }
+#endif
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
@@ -398,6 +381,26 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     *dirtyBits = HdChangeTracker::Clean;
+
+    m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
+
+#if 1
+    ccl::AttributeSet& attributes = m_cyclesPointCloud->attributes;
+    ccl::Attribute* normals = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
+    if (normals) {
+        attributes.remove(ccl::ATTR_STD_VERTEX_NORMAL);
+    }
+    normals = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+    ccl::float3* N = normals->data_float3();
+    srand(12312152125);
+    for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
+        N[i].x = (float)rand() / RAND_MAX;
+        N[i].y = (float)rand() / RAND_MAX;
+        N[i].z = (float)rand() / RAND_MAX;
+        N[i] = ccl::normalize(N[i]);
+    }
+#endif
+
 
 #if 0
 
@@ -561,91 +564,6 @@ bool
 HdCyclesPoints::_usingPointCloud() const
 {
     return m_cyclesPointCloud != nullptr && m_cyclesObject != nullptr;
-}
-
-
-// Creates z up disc
-void
-HdCyclesPoints::_CreateDiscMesh()
-{
-    m_cyclesMesh->clear();
-    m_cyclesMesh->name             = ccl::ustring("generated_disc");
-    m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
-
-    int numVerts = m_pointResolution;
-    int numFaces = m_pointResolution - 2;
-
-    m_cyclesMesh->reserve_mesh(numVerts, numFaces);
-
-    m_cyclesMesh->verts.reserve(numVerts);
-
-    for (int i = 0; i < m_pointResolution; i++) {
-        float d = ((float)i / (float)m_pointResolution) * 2.0f * M_PI;
-        float x = sin(d) * 0.5f;
-        float y = cos(d) * 0.5f;
-        m_cyclesMesh->verts.push_back_reserved(ccl::make_float3(x, y, 0.0f));
-    }
-
-    for (int i = 1; i < m_pointResolution - 1; i++) {
-        int v0 = 0;
-        int v1 = i;
-        int v2 = i + 1;
-        m_cyclesMesh->add_triangle(v0, v1, v2, 0, true);
-    }
-
-    m_cyclesMesh->compute_bounds();
-}
-
-void
-HdCyclesPoints::_CreateSphereMesh()
-{
-    float radius = 0.5f;
-
-    int sectorCount = m_pointResolution;
-    int stackCount  = m_pointResolution;
-
-    m_cyclesMesh->clear();
-    m_cyclesMesh->name             = ccl::ustring("generated_sphere");
-    m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
-
-    float z, xy;
-
-    float sectorStep = 2 * M_PI / sectorCount;
-    float stackStep  = M_PI / stackCount;
-    float sectorAngle, stackAngle;
-
-    for (int i = 0; i <= stackCount; ++i) {
-        stackAngle = M_PI / 2 - i * stackStep;
-        xy         = radius * cosf(stackAngle);
-        z          = radius * sinf(stackAngle);
-
-        for (int j = 0; j <= sectorCount; ++j) {
-            sectorAngle = j * sectorStep;
-
-            m_cyclesMesh->verts.push_back_slow(
-                ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle),
-                                 z));
-            // TODO: Add normals and uvs
-        }
-    }
-
-    int k1, k2;
-    for (int i = 0; i < stackCount; ++i) {
-        k1 = i * (sectorCount + 1);
-        k2 = k1 + sectorCount + 1;
-
-        for (int j = 0; j < sectorCount; ++j, ++k1, ++k2) {
-            if (i != 0) {
-                m_cyclesMesh->add_triangle(k1, k2, k1 + 1, 0, true);
-            }
-
-            if (i != (stackCount - 1)) {
-                m_cyclesMesh->add_triangle(k1 + 1, k2, k2 + 1, 0, true);
-            }
-        }
-    }
-
-    m_cyclesMesh->compute_bounds();
 }
 
 ccl::Object*

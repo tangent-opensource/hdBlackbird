@@ -42,11 +42,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdSceneDelegate;
 class HdCyclesRenderDelegate;
 
-enum HdCyclesPointStyle {
-    POINT_DISCS,
-    POINT_SPHERES,
-};
-
 /**
  * @brief HdCycles Points Rprim mapped to Cycles point cloud or mesh instances
  * 
@@ -149,22 +144,6 @@ private:
      */
     bool _usingPointCloud() const;
 
-    /**
-     * @brief Create the cycles points as discs mesh and object representation
-     * 
-     * @param resolution Resolution of the disc geometry
-     * @return New allocated pointer to ccl::Mesh
-     */
-    void _CreateDiscMesh();
-
-    /**
-     * @brief Create the cycles points as spheres mesh and object representation
-     * 
-     * @param scene Cycles scene to add mesh to
-     * @param transform Initial transform for object
-     * @return New allocated pointer to ccl::Mesh
-     */
-    void _CreateSphereMesh();
 
     /**
      * @brief Create the cycles object for an individual point
@@ -196,17 +175,11 @@ private:
     void _AddAlphas(const VtFloatArray& colors);
 
 
-    // Control the shape of the primitive
-    int m_pointStyle;
-    int m_pointResolution;
-
-    // Used if the point style is POINT_SPHERES
     ccl::PointCloud* m_cyclesPointCloud;
     ccl::Object* m_cyclesObject;
 
-    // Used if the point style is not POINT_SPHERES
-    ccl::Mesh* m_cyclesMesh;
-    std::vector<ccl::Object*> m_cyclesObjects;
+    int m_pointResolution; // ?
+    int m_pointStyle; // ccl::PointCloudPointStyle
 
     HdCyclesRenderDelegate* m_renderDelegate;
 
@@ -214,7 +187,6 @@ private:
 
     bool m_useMotionBlur;
     int m_motionSteps;
-
 
     // -- Currently unused
 

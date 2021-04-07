@@ -25,6 +25,8 @@
 #include <pxr/base/tf/getenv.h>
 #include <pxr/base/tf/instantiateSingleton.h>
 
+#include <render/pointcloud.h>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 template<>
@@ -156,7 +158,7 @@ HdCyclesConfig::HdCyclesConfig()
 
     default_point_style
         = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE",
-                                HdCyclesPointStyle::POINT_SPHERES);
+                                ccl::POINT_CLOUD_POINT_SPHERE);
     default_point_resolution
         = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
 
