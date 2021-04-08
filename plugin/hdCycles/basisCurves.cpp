@@ -299,108 +299,83 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value,
 {
     ccl::ustring attribName = ccl::ustring(name.GetString());
 
-    // Add hair uvs
-    ccl::Attribute* attr_uv;
-    ccl::float2* uv;
+    // convert uniform uv attrib
+
+    auto fill_uniform_uv_attrib = [&attribName](auto& uvs, ccl::AttributeSet& attributes) {
+        ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
+        ccl::float2* std_uv_data    = attr_std_uv->data_float2();
+
+        for (size_t curve = 0; curve < uvs.size(); curve++) {
+            std_uv_data[curve][0] = uvs[curve][0];
+            std_uv_data[curve][1] = uvs[curve][1];
+        }
+    };
 
     if (interpolation == HdInterpolationUniform) {
         if (value.IsHolding<VtArray<GfVec2f>>()) {
-            VtVec2fArray uvs;
-            uvs = value.UncheckedGet<VtArray<GfVec2f>>();
+            VtVec2fArray uvs = value.UncheckedGet<VtArray<GfVec2f>>();
             if (m_cyclesHair) {
-                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
-                if (uv) {
-                    size_t i = 0;
-
-                    for (size_t curve = 0; curve < uvs.size(); curve++) {
-                        uv[i++] = vec2f_to_float2(uvs[curve]);
-                    }
-                }
+                fill_uniform_uv_attrib(uvs, m_cyclesHair->attributes);
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                ccl::Attribute* attr_std_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV, attribName);
             }
         } else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            VtVec3fArray uvs;
-            uvs = value.UncheckedGet<VtArray<GfVec3f>>();
+            VtVec3fArray uvs = value.UncheckedGet<VtArray<GfVec3f>>();
             if (m_cyclesHair) {
-                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
-                if (uv) {
-                    size_t i = 0;
-
-                    for (size_t curve = 0; curve < uvs.size(); curve++) {
-                        uv[i++] = vec3f_to_float2(uvs[curve]);
-                    }
-                }
+                fill_uniform_uv_attrib(uvs, m_cyclesHair->attributes);
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                ccl::Attribute* attr_std_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV, attribName);
             }
         }
-    } else if (interpolation == HdInterpolationVertex) {
+        return;
+    }
+
+    // convert vertex/varying uv attrib
+
+    auto fill_vertex_or_varying_uv_attrib = [&attribName](auto& uvs, ccl::AttributeSet& attributes, const VtIntArray& curveVertexCounts){
+        ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
+        ccl::float2* std_uv_data = attr_std_uv->data_float2();
+
+        ccl::Attribute* attr_st = attributes.add(attribName, ccl::TypeFloat2, ccl::ATTR_ELEMENT_CURVE_KEY);
+        ccl::float2* st_data = attr_st->data_float2();
+
+        for (size_t curve = 0, offset = 0; curve < curveVertexCounts.size(); ++curve) {
+            // std_uv - per curve
+            std_uv_data[curve][0] = uvs[offset][0];
+            std_uv_data[curve][1] = uvs[offset][1];
+
+            // st - per vertex
+            for (size_t vertex = 0; vertex < curveVertexCounts[curve]; ++vertex) {
+                st_data[offset + vertex][0] = uvs[offset + vertex][0];
+                st_data[offset + vertex][1] = uvs[offset + vertex][1];
+            }
+            offset += static_cast<size_t>(curveVertexCounts[curve]);
+        }
+    };
+
+    if (interpolation == HdInterpolationVertex || interpolation == HdInterpolationVarying) {
         VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
 
         if (value.IsHolding<VtArray<GfVec2f>>()) {
-            VtVec2fArray uvs;
-            uvs = value.UncheckedGet<VtArray<GfVec2f>>();
+            VtVec2fArray uvs = value.UncheckedGet<VtArray<GfVec2f>>();
             if (m_cyclesHair) {
-                // Support for vertex varying attributes is not supported in Cycles hair.
-                // For now we just get the root value and apply to the whole strand...
-                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
-                if (uv) {
-                    int curveOffset = 0;
-                    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
-                        uv[i] = vec2f_to_float2(uvs[curveOffset]);
-                        curveOffset += curveVertexCounts[i];
-                    }
-                }
+                fill_vertex_or_varying_uv_attrib(uvs, m_cyclesHair->attributes, curveVertexCounts);
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                ccl::Attribute* attr_std_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV, attribName);
             }
         } else if (value.IsHolding<VtArray<GfVec3f>>()) {
-            VtVec3fArray uvs;
-            uvs = value.UncheckedGet<VtArray<GfVec3f>>();
+            VtVec3fArray uvs = value.UncheckedGet<VtArray<GfVec3f>>();
             if (m_cyclesHair) {
-                // Support for vertex varying attributes is not supported in Cycles hair.
-                // For now we just get the root value and apply to the whole strand...
-                attr_uv = m_cyclesHair->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
-                if (uv) {
-                    int curveOffset = 0;
-                    for (size_t i = 0; i < curveVertexCounts.size(); i++) {
-                        uv[i] = vec3f_to_float2(uvs[curveOffset]);
-                        curveOffset += curveVertexCounts[i];
-                    }
-                }
+                fill_vertex_or_varying_uv_attrib(uvs, m_cyclesHair->attributes, curveVertexCounts);
             } else {
                 // @TODO: Unhandled support for deprecated curve mesh geo
-                attr_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV,
-                                                       attribName);
-
-                uv = attr_uv->data_float2();
+                ccl::Attribute* attr_std_uv = m_cyclesMesh->attributes.add(ccl::ATTR_STD_UV, attribName);
             }
         }
+        return;
     }
 }
 
