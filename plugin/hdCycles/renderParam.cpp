@@ -590,7 +590,7 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
     if (config.bvh_type.value == "STATIC")
         sceneParams->bvh_type = ccl::SceneParams::BVH_STATIC;
 
-    sceneParams->bvh_layout = ccl::BVH_LAYOUT_EMBREE;
+    sceneParams->bvh_layout = ccl::BVH_LAYOUT_BVH2;
 
     sceneParams->persistent_data = true;
 

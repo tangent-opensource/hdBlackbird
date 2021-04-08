@@ -403,7 +403,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 
 #if 0
-
     const bool needToUpdatePoints = (*dirtyBits & HdChangeTracker::DirtyPoints)
                                     || needs_newMesh;
 
