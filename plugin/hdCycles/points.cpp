@@ -41,6 +41,9 @@
 #    include <usdCycles/tokens.h>
 #endif
 
+// todo: remove
+#include <random>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
@@ -258,6 +261,23 @@ HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdD
     param->Interrupt();
 }
 
+// todo remove:
+static unsigned long x=123456789, y=362436069, z=521288629;
+unsigned long xorshf96(void) {          //period 2^96-1
+unsigned long t;
+    x ^= x << 16;
+    x ^= x >> 5;
+    x ^= x << 1;
+
+   t = x;
+   x = y;
+   y = z;
+   z = t ^ x ^ y;
+
+  return z;
+}
+#define RAND_FLT ((float)(xorshf96()) / std::numeric_limits<unsigned long>::max())
+
 void
 HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                      HdDirtyBits* dirtyBits, TfToken const& reprSelector)
@@ -382,9 +402,43 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     *dirtyBits = HdChangeTracker::Clean;
 
-    m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
+    m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_SPHERE;
 
 #if 1
+    size_t n_particles = 250000000;
+    ccl::float3 bb_min = ccl::make_float3(-3.f, -3.f, -3.f);
+    ccl::float3 bb_max = ccl::make_float3(3.f, 3.f, 3.f);
+    printf("Generating %llu particles\n", n_particles);
+
+    m_cyclesPointCloud->clear();
+    m_cyclesPointCloud->resize(n_particles);
+    for (size_t i = 0; i < n_particles; ++i) {
+        ccl::float3 pos;
+        pos.x = RAND_FLT;
+        pos.y = RAND_FLT;
+        pos.z = RAND_FLT;
+        pos = bb_min + (bb_max - bb_min) * pos;
+        m_cyclesPointCloud->points[i] = pos;
+        m_cyclesPointCloud->radius[i] = ((float)rand() / RAND_MAX) * 0.01f;
+    }
+
+    ccl::Attribute* attr_C = m_cyclesPointCloud->attributes.add(ccl::ustring("displayColor"), ccl::TypeDesc::TypeFloat4, ccl::ATTR_ELEMENT_VERTEX);
+    ccl::float4* C = attr_C->data_float4();
+    for (size_t i = 0; i < n_particles; ++i) {
+        C[i].x = (float)(i % 500) / 500;
+        C[i].y = (float)(i % 1242) / 5125;
+        C[i].z = (float)(i % 661231) / 12516;
+        C[i].w = 1.f;
+    }
+
+    if (m_cyclesPointCloud->used_shaders.empty()) {
+        m_cyclesPointCloud->used_shaders.push_back(param->default_vcol_display_color_surface);
+    }
+
+    printf("Finished generating\n");
+#endif
+
+#if 0
     ccl::AttributeSet& attributes = m_cyclesPointCloud->attributes;
     ccl::Attribute* normals = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
     if (normals) {
