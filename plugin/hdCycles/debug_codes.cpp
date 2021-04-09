@@ -20,23 +20,19 @@
 //  Usage of the debug codes follows Arnold's render delegate
 //  https://github.com/Autodesk/arnold-usd/blob/11eb3ced2b6a148bb5737fddeb25e4e21273607f/render_delegate/
 
-#ifndef HD_CYCLES_DEBUG_CODES_H
-#define HD_CYCLES_DEBUG_CODES_H
+#include "debug_codes.h"
 
-#include <pxr/pxr.h>
-
-#include <pxr/base/tf/debug.h>
+#include <pxr/base/tf/registryManager.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-// clang-format off
-TF_DEBUG_CODES(
-	HDCYCLES_MESH,
-	
-	CYCLES_MEMORY_STATS
-)
-// clang-format on
+TF_REGISTRY_FUNCTION(TfDebug)
+{
+    TF_DEBUG_ENVIRONMENT_SYMBOL(
+        HDCYCLES_MESH, "Print warnings when syncing cycles meshes");
+
+    TF_DEBUG_ENVIRONMENT_SYMBOL(
+        CYCLES_MEMORY_STATS, "Print info about memory usage every time the scene is rebuilt");
+}
 
 PXR_NAMESPACE_CLOSE_SCOPE
-
-#endif // HD_CYCLES_DEBUG_CODES_H
