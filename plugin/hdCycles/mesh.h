@@ -56,7 +56,7 @@ class HdCyclesRenderParam;
  */
 class HdCyclesMesh final : public HdMesh {
 public:
-    HF_MALLOC_TAG_NEW("new HdCyclesMesh");
+    HF_MALLOC_TAG_NEW("new HdCyclesMesh")
 
     /**
      * @brief Construct a new HdCycles Mesh object

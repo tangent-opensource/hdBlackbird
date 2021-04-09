@@ -78,26 +78,26 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 
 // For distinct generic delegate settings we still use the pixar TF_DEFINE_ENV_SETTING
 
-TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging");
+TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging")
 
 TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1,
-                      "Enable HdCycles progress reporting");
+                      "Enable HdCycles progress reporting")
 
 TF_DEFINE_ENV_SETTING(
     CYCLES_DUMP_SHADER_GRAPH_DIR, "",
-    "Valid, existing directory to dump shader graphs for render");
+    "Valid, existing directory to dump shader graphs for render")
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
-                      "Enable HdCycles Logging");
+                      "Enable HdCycles Logging")
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
-                      "Enable HdCycles progress reporting");
+                      "Enable HdCycles progress reporting")
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
-                      "Use Tiled Rendering (Experimental)");
+                      "Use Tiled Rendering (Experimental)")
 
 TF_DEFINE_ENV_SETTING(HD_CYCLES_UP_AXIS, "Z",
-                      "Set custom up axis (Z or Y currently supported)");
+                      "Set custom up axis (Z or Y currently supported)")
 
 // HdCycles Constructor
 HdCyclesConfig::HdCyclesConfig()

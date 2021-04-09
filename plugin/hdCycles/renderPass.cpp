@@ -66,6 +66,13 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(
         m_delegate->GetRenderParam());
 
+    if (renderParam->CollectRenderStatsOnce()) {
+        printf("HDCYCLES RENDER PASS STATS\n");
+        ccl::RenderStats stats;
+        renderParam->GetCyclesSession()->collect_statistics(&stats);
+        printf("%s\n", stats.full_report().c_str());
+    }
+
     HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
 
     if (renderParam->GetAovBindings() != aovBindings) {
@@ -193,8 +200,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
             // fail (Probably can be fixed with proper render thread management)
             if (!rb->WasUpdated()) {
                 if (aov.aovName == renderParam->GetDisplayAovToken()) {
-                    rb->Blit(colorFormat, w, h, 0, w,
-                             reinterpret_cast<uint8_t*>(hpixels));
+                    rb->Blit(colorFormat, w, h, 0, w, hpixels);
                 }
             } else {
                 rb->SetWasUpdated(false);

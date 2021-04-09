@@ -317,6 +317,12 @@ public:
      */
     void RemoveObject(ccl::Object* a_object);
 
+    /**
+     * @brief Returns true if the render stats are available (only the first time)
+     * 
+     */
+    bool CollectRenderStatsOnce();
+
 private:
     bool _CreateSession();
 
@@ -409,6 +415,9 @@ private:
     bool m_useSquareSamples;
 
     UpAxis m_upAxis;
+
+    // Makes sure that render stats are collected only once
+    bool m_hasCollectedRenderStats;
 
 public:
     const bool& IsTiledRender() const { return m_useTiledRendering; }

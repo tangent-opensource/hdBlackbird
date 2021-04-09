@@ -39,8 +39,6 @@
 #include <render/film.h>
 #include <render/integrator.h>
 
-#include <boost/algorithm/string.hpp>
-
 #include <pxr/base/gf/api.h>
 #include <pxr/base/gf/vec2i.h>
 #include <pxr/base/tf/getenv.h>

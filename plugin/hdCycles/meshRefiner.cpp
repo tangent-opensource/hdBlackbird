@@ -32,13 +32,13 @@
 #include <opensubdiv/far/primvarRefiner.h>
 #include <opensubdiv/far/ptexIndices.h>
 #include <opensubdiv/far/stencilTableFactory.h>
+#include <opensubdiv/osd/cpuEvaluator.h>
 #include <opensubdiv/osd/cpuPatchTable.h>
 #include <opensubdiv/osd/cpuVertexBuffer.h>
-#include <opensubdiv/osd/cpuEvaluator.h>
 
 #include <numeric>
 
-PXR_NAMESPACE_USING_DIRECTIVE;
+PXR_NAMESPACE_USING_DIRECTIVE
 
 using namespace OpenSubdiv;
 
@@ -151,7 +151,8 @@ public:
         // only float and double can be interpolated
         HdMeshUtil mesh_util { m_topology, m_id };
         VtValue triangulated;
-        if (!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(data), data.GetArraySize(),
+        if (!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(data),
+                                                             static_cast<int>(data.GetArraySize()),
                                                              HdGetValueTupleType(data).type, &triangulated)) {
             TF_CODING_ERROR("Unsupported uniform refinement");
             return {};
@@ -262,9 +263,9 @@ private:
 
 template<typename T>
 VtArray<T>
-RefineArrayWithStencils(const VtArray<T>& input, const Far::StencilTable* stencil_table, size_t stride)
+RefineArrayWithStencils(const VtArray<T>& input, const Far::StencilTable* stencil_table, int stride)
 {
-    VtArray<T> refined_array(stencil_table->GetNumStencils());
+    VtArray<T> refined_array(static_cast<size_t>(stencil_table->GetNumStencils()));
     Osd::BufferDescriptor src_descriptor(0, stride, stride);
     Osd::BufferDescriptor dst_descriptor(0, stride, stride);
 
@@ -279,7 +280,7 @@ VtValue
 RefineWithStencils(const VtValue& input, const Far::StencilTable* stencil_table)
 {
     HdTupleType value_tuple_type = HdGetValueTupleType(input);
-    size_t stride                = HdGetComponentCount(value_tuple_type.type);
+    int stride                   = static_cast<int>(HdGetComponentCount(value_tuple_type.type));
 
     switch (value_tuple_type.type) {
     case HdTypeFloat: {
@@ -312,7 +313,7 @@ public:
 
     VtValue RefineArray(const VtValue& input) const { return RefineWithStencils(input, m_stencils.get()); }
 
-    size_t Size() const { return m_stencils->GetNumStencils(); }
+    size_t Size() const { return static_cast<size_t>(m_stencils->GetNumStencils()); }
 
 private:
     std::unique_ptr<const Far::StencilTable> m_stencils;
@@ -353,7 +354,7 @@ public:
     VtValue RefineArray(const VtValue& input) const
     {
         HdTupleType value_tuple_type = HdGetValueTupleType(input);
-        size_t stride                = HdGetComponentCount(value_tuple_type.type);
+        auto stride                  = static_cast<int>(HdGetComponentCount(value_tuple_type.type));
 
         switch (value_tuple_type.type) {
         case HdTypeFloat: {
@@ -373,10 +374,10 @@ public:
     }
 
 private:
-    template<typename T> VtArray<T> RefineArray(const VtArray<T>& input, size_t stride) const
+    template<typename T> VtArray<T> RefineArray(const VtArray<T>& input, int stride) const
     {
         //
-        VtArray<T> refined_data(m_stencils->GetNumStencils());
+        VtArray<T> refined_data(static_cast<size_t>(m_stencils->GetNumStencils()));
         {
             Osd::BufferDescriptor src_descriptor(0, stride, stride);
             Osd::BufferDescriptor dst_descriptor(0, stride, stride);
@@ -419,27 +420,27 @@ public:
 
         explicit Float3fPrimvar(const float* srcPtr)
         {
-            for (size_t i = 0; i < 3; ++i)
+            for (int i = 0; i < 3; ++i)
                 v[i] = srcPtr[i];
         }
 
         Float3fPrimvar(const Float3fPrimvar& src)
         {
-            for (size_t i = 0; i < 3; ++i) {
+            for (int i = 0; i < 3; ++i) {
                 v[i] = src.v[i];
             }
         }
 
         void Clear()
         {
-            for (size_t i = 0; i < 3; ++i) {
+            for (int i = 0; i < 3; ++i) {
                 v[i] = 0;
             }
         }
 
         void AddWithWeight(const Float3fPrimvar& src, float weight)
         {
-            for (size_t i = 0; i < 3; ++i) {
+            for (int i = 0; i < 3; ++i) {
                 v[i] += weight * src.v[i];
             }
         }
@@ -627,7 +628,7 @@ public:
         HdMeshUtil mesh_util { &m_osd_topology, m_id };
         VtValue triangulated;
         if (!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(refined_value),
-                                                             refined_value.GetArraySize(),
+                                                             static_cast<int>(refined_value.GetArraySize()),
                                                              HdGetValueTupleType(refined_value).type, &triangulated)) {
             TF_CODING_ERROR("Unsupported uniform refinement");
             return {};

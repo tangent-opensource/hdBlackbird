@@ -166,6 +166,7 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
     , m_displayAovToken(HdAovTokens->color)
+    , m_hasCollectedRenderStats(false)
 {
     _InitializeDefaults();
 }
@@ -412,6 +413,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         sessionParams = &m_cyclesSession->params;
 
     bool session_updated = false;
+    bool samples_updated = false;
 
     // This is now handled by HdCycles depending on tiled or not tiled rendering...
     /*if (key == usdCyclesTokens->cyclesBackground) {
@@ -443,9 +445,29 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
     }
 
     if (key == usdCyclesTokens->cyclesSamples) {
+        // If branched-path mode is set, make sure to set samples to use the
+        // aa_samples instead from the integrator.
+        int samples = sessionParams->samples;
+        ccl::Integrator::Method method = ccl::Integrator::PATH;
+
+        if (m_cyclesScene) {
+            method = m_cyclesScene->integrator->method;
+
+            if (method == ccl::Integrator::BRANCHED_PATH) {
+                samples = m_cyclesScene->integrator->aa_samples;
+            }
+        }
+
         sessionParams->samples
-            = _HdCyclesGetVtValue<int>(value, sessionParams->samples,
-                                       &session_updated);
+            = _HdCyclesGetVtValue<int>(value, samples,
+                                       &samples_updated);
+        if (samples_updated) {
+            session_updated = true;
+
+            if (m_cyclesScene && method == ccl::Integrator::BRANCHED_PATH) {
+                sessionParams->samples = m_cyclesScene->integrator->aa_samples;
+            }
+        }
     }
 
     // Tiles
@@ -780,6 +802,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
 
     ccl::Integrator* integrator = m_cyclesScene->integrator;
     bool integrator_updated     = false;
+    bool method_updated         = false;
 
     if (key == usdCyclesTokens->cyclesIntegratorSeed) {
         integrator->seed = _HdCyclesGetVtValue<int>(value, integrator->seed,
@@ -801,23 +824,45 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
     if (key == usdCyclesTokens->cyclesIntegratorMethod) {
         TfToken integratorMethod
             = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->path,
-                                           &integrator_updated);
+                                           &method_updated);
         if (integratorMethod == usdCyclesTokens->path) {
             integrator->method = ccl::Integrator::PATH;
         } else {
             integrator->method = ccl::Integrator::BRANCHED_PATH;
         }
+
+        if (method_updated) {
+            integrator_updated = true;
+            if (integrator->method == ccl::Integrator::BRANCHED_PATH) {
+                m_cyclesSession->params.samples = integrator->aa_samples;
+            }
+        }
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorSampling_method) {
+        TfToken defaultPattern = usdCyclesTokens->sobol;
+        if (integrator->sampling_pattern == ccl::SAMPLING_PATTERN_CMJ) {
+            defaultPattern = usdCyclesTokens->cmj;
+        }
+        else if(integrator->sampling_pattern == ccl::SAMPLING_PATTERN_PMJ) {
+            defaultPattern = usdCyclesTokens->pmj;
+        }
+
         TfToken samplingMethod
-            = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->sobol,
+            = _HdCyclesGetVtValue<TfToken>(value, defaultPattern,
                                            &integrator_updated);
         if (samplingMethod == usdCyclesTokens->sobol) {
             integrator->sampling_pattern = ccl::SAMPLING_PATTERN_SOBOL;
         } else if (samplingMethod == usdCyclesTokens->cmj) {
             integrator->sampling_pattern = ccl::SAMPLING_PATTERN_CMJ;
         } else {
+            integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
+        }
+
+        // Adaptive sampling must use PMJ
+        if (m_cyclesSession->params.adaptive_sampling && 
+            integrator->sampling_pattern != ccl::SAMPLING_PATTERN_PMJ) {
+            integrator_updated = true;
             integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
         }
     }
@@ -889,6 +934,9 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
             if (m_useSquareSamples) {
                 integrator->aa_samples = integrator->aa_samples
                                          * integrator->aa_samples;
+            }
+            if (integrator->method == ccl::Integrator::BRANCHED_PATH) {
+                m_cyclesSession->params.samples = integrator->aa_samples;
             }
             integrator_updated = true;
         }
@@ -1586,6 +1634,8 @@ HdCyclesRenderParam::Interrupt(bool a_forceUpdate)
 void
 HdCyclesRenderParam::CommitResources()
 {
+    lock_guard lock{m_cyclesScene->mutex};
+
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
             if (m_numDomeLights <= 0)
@@ -1722,8 +1772,6 @@ HdCyclesRenderParam::_CyclesExit()
 void
 HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
-    lock_guard lock{m_cyclesScene->mutex};
-
     m_cyclesSession->progress.reset();
 
     if (m_curveUpdated || m_meshUpdated || m_geometryUpdated
@@ -1973,6 +2021,31 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
         Interrupt();
 }
 
+/*
+    This is a hacky way to collect render stats to check memory usage. 
+    If we want to collect stats on the fly and not just at the end, it
+    would help to have some kind of event/stage from cycles.
+    Checking the progress status string is not reliable and there is no 
+    concept of ordering of the steps.
+
+    This might not work for different code paths in the cycles session (tiled?)
+*/
+bool
+HdCyclesRenderParam::CollectRenderStatsOnce() {
+    if (m_hasCollectedRenderStats) {
+        return false;
+    }
+
+    // Really ugly
+    const float progress = m_cyclesSession->progress.get_progress();
+    if (progress > 1e-7) {
+        m_hasCollectedRenderStats = true;
+        return true;
+    }
+
+    return false;
+}
+
 void
 HdCyclesRenderParam::RemovePointCloud(ccl::PointCloud* a_pc) {
     for (ccl::vector<ccl::Geometry*>::iterator it
@@ -2150,6 +2223,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     m_aovs = a_aovs;
     m_bufferParams.passes.clear();
     bool has_combined = false;
+    bool has_sample_count = false;
     ccl::Film *film = m_cyclesScene->film;
 
     ccl::CryptomatteType cryptomatte_passes = ccl::CRYPT_NONE;
@@ -2170,6 +2244,9 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
             if (sourceName == cyclesAov.token) {
                 if (cyclesAov.type == ccl::PASS_COMBINED) {
                     has_combined = true;
+                }
+                else if(cyclesAov.type == ccl::PASS_SAMPLE_COUNT) {
+                    has_sample_count = true;
                 }
                 ccl::Pass::add(cyclesAov.type, m_bufferParams.passes, cyclesAov.name.c_str(), cyclesAov.filter);
                 continue;
@@ -2237,7 +2314,9 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     if (m_sessionParams.adaptive_sampling)
     {
         ccl::Pass::add(ccl::PASS_ADAPTIVE_AUX_BUFFER, m_bufferParams.passes);
-        ccl::Pass::add(ccl::PASS_SAMPLE_COUNT, m_bufferParams.passes);
+        if (!has_sample_count) {
+            ccl::Pass::add(ccl::PASS_SAMPLE_COUNT, m_bufferParams.passes);
+        }
     }
 
     if (!has_combined) {
