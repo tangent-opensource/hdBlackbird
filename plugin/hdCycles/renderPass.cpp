@@ -66,6 +66,13 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
     auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(
         m_delegate->GetRenderParam());
 
+    if (renderParam->CollectRenderStatsOnce()) {
+        printf("HDCYCLES RENDER PASS STATS\n");
+        ccl::RenderStats stats;
+        renderParam->GetCyclesSession()->collect_statistics(&stats);
+        printf("%s\n", stats.full_report().c_str());
+    }
+
     HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
 
     if (renderParam->GetAovBindings() != aovBindings) {
