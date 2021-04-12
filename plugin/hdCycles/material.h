@@ -44,8 +44,7 @@ PXR_NAMESPACE_OPEN_SCOPE
     ((volume, "volume"))                            \
     ((cyclesVolume, "cycles:volume"))
 
-TF_DECLARE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens, 
-    HDCYCLES_API,
+TF_DECLARE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens,
     HD_CYCLES_MATERIAL_TERMINAL_TOKENS
 );
 // clang-format on
@@ -64,8 +63,7 @@ public:
      * 
      * @param id Path to the Material
      */
-    HDCYCLES_API
-    HdCyclesMaterial(SdfPath const& id,
+        HdCyclesMaterial(SdfPath const& id,
                      HdCyclesRenderDelegate* a_renderDelegate);
 
     /**
@@ -84,8 +82,7 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    HDCYCLES_API
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
+        void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
               HdDirtyBits* dirtyBits) override;
 
     /**
@@ -94,15 +91,13 @@ public:
      * 
      * @return The initial dirty state this material wants to query
      */
-    HDCYCLES_API
-    HdDirtyBits GetInitialDirtyBitsMask() const override;
+        HdDirtyBits GetInitialDirtyBitsMask() const override;
 
     /**
      * @brief Causes the shader to be reloaded
      * 
      */
-    HDCYCLES_API
-    void Reload();
+        void Reload();
 
     /**
      * @return Return true if this material is valid
@@ -120,8 +115,7 @@ public:
      * 
      * @return ccl::Shader* cycles shader 
      */
-    HDCYCLES_API
-    ccl::Shader* GetCyclesShader() const;
+        ccl::Shader* GetCyclesShader() const;
 
 protected:
     ccl::Shader* m_shader;

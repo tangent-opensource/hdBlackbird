@@ -41,14 +41,14 @@ public:
      * 
      * @param id Path to the Render Buffer Primitive
      */
-    HDCYCLES_API HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegate,
+    HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegate,
                                       const SdfPath& id);
 
     /**
      * @brief Destroy the HdCycles Render Buffer object
      * 
      */
-    HDCYCLES_API ~HdCyclesRenderBuffer() override;
+    ~HdCyclesRenderBuffer() override;
 
     /**
      * @brief Allocates the memory used by the render buffer
@@ -59,39 +59,33 @@ public:
      * @param multiSampled Bool to indicate if the Render Buffer is multisampled
      * @return Returns true if allocation was successful
      */
-    HDCYCLES_API
-    bool Allocate(const GfVec3i& dimensions, HdFormat format,
+        bool Allocate(const GfVec3i& dimensions, HdFormat format,
                   bool multiSampled) override;
 
     /**
      * @return Returns the width of the render buffer
      */
-    HDCYCLES_API
-    unsigned int GetWidth() const override;
+        unsigned int GetWidth() const override;
 
     /**
      * @return Returns the height of the render buffer
      */
-    HDCYCLES_API
-    unsigned int GetHeight() const override;
+        unsigned int GetHeight() const override;
 
     /**
      * @return Returns the depth of the render buffer
      */
-    HDCYCLES_API
-    unsigned int GetDepth() const override;
+        unsigned int GetDepth() const override;
 
     /**
      * @return Returns the format of the render buffer
      */
-    HDCYCLES_API
-    HdFormat GetFormat() const override;
+        HdFormat GetFormat() const override;
 
     /**
      * @return Returns if the render buffer is multi-sampled
      */
-    HDCYCLES_API
-    bool IsMultiSampled() const override;
+        bool IsMultiSampled() const override;
 
     /**
      * @brief Maps the render buffer to the system memory.
@@ -99,36 +93,31 @@ public:
      * 
      * @return Pointer to the render buffer mapped to system memory
      */
-    HDCYCLES_API
-    void* Map() override;
+        void* Map() override;
 
     /**
      * @brief Unmaps the render buffer by decrementing ref count.
      * TODO: Should this free memory?
      * 
-     * @return HDCYCLES_API Unmap 
+     * @return Unmap 
      */
-    HDCYCLES_API
-    void Unmap() override;
+        void Unmap() override;
 
     /**
      * @return Returns true if the render buffer is mapped to system memory
      */
-    HDCYCLES_API
-    bool IsMapped() const override;
+        bool IsMapped() const override;
 
     /**
      * @brief Resolve the buffer so that reads reflect the latest writes
      * This does nothing.
      */
-    HDCYCLES_API
-    void Resolve() override;
+        void Resolve() override;
 
     /** 
      * @return Returns true if the buffer is converged.
      */
-    HDCYCLES_API
-    bool IsConverged() const override;
+        bool IsConverged() const override;
     /**
      * @brief Set whether or not the buffer is Converged
      * 
@@ -160,8 +149,7 @@ protected:
      * @brief Deallocate memory allocated by the render buffer
      * TODO: Implement this
      */
-    HDCYCLES_API
-    void _Deallocate() override;
+        void _Deallocate() override;
 
 private:
     unsigned int m_width;

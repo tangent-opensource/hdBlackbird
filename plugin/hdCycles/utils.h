@@ -64,11 +64,9 @@ class HdCyclesMesh;
 
 /* =========- Texture ========== */
 
-HDCYCLES_API
 bool
 HdCyclesPathIsUDIM(const ccl::string& a_filepath);
 
-HDCYCLES_API
 void
 HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles);
 
@@ -80,7 +78,6 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles);
  * @param a_size 
  * @return * Cycles 
  */
-HDCYCLES_API
 void
 HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
                          ccl::float3& a_size);
@@ -115,7 +112,6 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name);
  * @param id
  * @return Cycles Transform
  */
-HDCYCLES_API
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
 HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                      const SdfPath& id, bool use_motion);
