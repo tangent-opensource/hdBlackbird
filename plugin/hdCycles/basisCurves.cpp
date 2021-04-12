@@ -23,6 +23,7 @@
 #include "material.h"
 #include "renderParam.h"
 #include "utils.h"
+#include "attributeSource.h"
 
 #include <render/curves.h>
 #include <render/hair.h>
@@ -642,6 +643,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         update_curve = true;
     }
 
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
 
@@ -649,11 +652,24 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
             for (auto& pv : primvarDescsEntry.second) {
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     VtValue value = GetPrimvar(sceneDelegate, pv.name);
+
+                    // uvs
                     if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVS(pv.name, value, primvarDescsEntry.first);
-                    } else {
-                        _AddColors(pv.name, value, primvarDescsEntry.first);
+                        continue;;
                     }
+
+                    // colors
+                    if(pv.role == HdPrimvarRoleTokens->color) {
+                        _AddColors(pv.name, value, primvarDescsEntry.first);
+                        continue;
+                    }
+
+                    // any other primvar to be committed
+                    auto primvar_source = std::make_shared<HdCyclesHairAttributeSource>(pv.name, pv.role, value,
+                                                                                        m_cyclesHair,
+                                                                                        pv.interpolation);
+                    resource_registry->AddSource(std::move(primvar_source));
                 }
             }
         }

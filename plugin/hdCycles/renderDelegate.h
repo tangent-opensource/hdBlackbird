@@ -21,10 +21,10 @@
 #define HD_CYCLES_RENDER_DELEGATE_H
 
 #include "api.h"
+#include "resourceRegistry.h"
 
 #include <pxr/base/tf/staticTokens.h>
 #include <pxr/imaging/hd/renderDelegate.h>
-#include <pxr/imaging/hd/resourceRegistry.h>
 #include <pxr/pxr.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -237,7 +237,10 @@ private:
 protected:  // data
     HdCyclesRenderPass* m_renderPass;
     HdRenderSettingDescriptorList m_settingDescriptors;
-    HdResourceRegistrySharedPtr m_resourceRegistry;
+
+    static std::mutex m_resource_registry_mutex;
+    static std::atomic_int m_resource_registry_counter;
+    static HdCyclesResourceRegistrySharedPtr m_resourceRegistry;
 
     std::unique_ptr<HdCyclesRenderParam> m_renderParam;
     bool m_hasStarted;
