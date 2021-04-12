@@ -242,37 +242,43 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
 
         SUBCASE("Constant interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, VtValue {}, hair, HdInterpolationConstant };
+            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                                 HdInterpolationConstant };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_OBJECT);
         }
 
         SUBCASE("Uniform interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, VtValue {}, hair, HdInterpolationUniform };
+            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                                 HdInterpolationUniform };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_CURVE);
         }
 
         SUBCASE("Varying interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, VtValue {}, hair, HdInterpolationVarying };
+            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                                 HdInterpolationVarying };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_CURVE_KEY);
         }
 
         SUBCASE("Vertex interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, VtValue {}, hair, HdInterpolationVertex };
+            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                                 HdInterpolationVertex };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_CURVE_KEY);
         }
 
         SUBCASE("Face varying interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, VtValue {}, hair, HdInterpolationFaceVarying };
+            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                                 HdInterpolationFaceVarying };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_NONE);
         }
 
         SUBCASE("Instance interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, VtValue {}, hair, HdInterpolationInstance };
+            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                                 HdInterpolationInstance };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_NONE);
         }
     }
@@ -288,7 +294,8 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
     {
         TfErrorMark error_mark;
         V value_wrapper { d };
-        HdCyclesHairAttributeSource source { HdTokens->points, value_wrapper, hair, interpolation };
+        HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, value_wrapper, hair,
+                                             interpolation };
 
         auto is_valid = source.IsValid();
         CAPTURE(error_mark);
@@ -470,7 +477,8 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
 
         TfErrorMark error_mark;
         V value_wrapper { random_vector };
-        HdCyclesHairAttributeSource source { HdTokens->points, value_wrapper, hair, HdInterpolationVertex };
+        HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, value_wrapper, hair,
+                                             HdInterpolationVertex };
 
         // double check
         CAPTURE(error_mark);
