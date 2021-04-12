@@ -62,7 +62,7 @@ public:
 
                 this->grid = file.readGrid(grid_name);
             } catch (const openvdb::IoError& e) {
-                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
+                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name.c_str(), m_file_path.c_str());
             } catch(const std::exception& e) {
                 TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
             }

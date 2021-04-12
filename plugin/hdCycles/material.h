@@ -97,7 +97,7 @@ public:
      * @brief Causes the shader to be reloaded
      * 
      */
-        void Reload();
+        void Reload() override;
 
     /**
      * @return Return true if this material is valid
