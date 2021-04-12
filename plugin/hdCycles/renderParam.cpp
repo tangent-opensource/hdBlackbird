@@ -109,11 +109,20 @@ std::array<HdCyclesAov, 3> CryptomatteAovs = {{
     { "CryptoAsset", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoAsset, HdFormatFloat32Vec4, true },
 }};
 
+// Workaround for Houdini's default color buffer naming convention (not using HdAovTokens->color)
+const TfToken defaultHoudiniColor = TfToken("C.*");
+
 TfToken GetSourceName(const HdRenderPassAovBinding &aov) {
     const auto &it = aov.aovSettings.find(UsdRenderTokens->sourceName);
     if (it != aov.aovSettings.end()) {
         if (it->second.IsHolding<std::string>()) {
-            return TfToken(it->second.UncheckedGet<std::string>());
+            TfToken token = TfToken(it->second.UncheckedGet<std::string>());
+            if (token == defaultHoudiniColor) {
+                return HdAovTokens->color;
+            }
+            else {
+                return token;
+            }
         }
     }
 
