@@ -454,13 +454,16 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         // If branched-path mode is set, make sure to set samples to use the
         // aa_samples instead from the integrator.
         int samples = sessionParams->samples;
+        int aa_samples = 0;
         ccl::Integrator::Method method = ccl::Integrator::PATH;
 
         if (m_cyclesScene) {
             method = m_cyclesScene->integrator->method;
+            aa_samples = m_cyclesScene->integrator->aa_samples;
 
-            if (method == ccl::Integrator::BRANCHED_PATH) {
-                samples = m_cyclesScene->integrator->aa_samples;
+            // Don't apply aaSamples if it is 0
+            if (aa_samples && method == ccl::Integrator::BRANCHED_PATH) {
+                samples = aa_samples;
             }
         }
 
@@ -470,8 +473,9 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         if (samples_updated) {
             session_updated = true;
 
-            if (m_cyclesScene && method == ccl::Integrator::BRANCHED_PATH) {
-                sessionParams->samples = m_cyclesScene->integrator->aa_samples;
+            if (m_cyclesScene && aa_samples && 
+                method == ccl::Integrator::BRANCHED_PATH) {
+                sessionParams->samples = aa_samples;
             }
         }
     }
@@ -837,7 +841,8 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
 
         if (method_updated) {
             integrator_updated = true;
-            if (integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples && 
+                integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
         }
@@ -939,7 +944,8 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
                 integrator->aa_samples = integrator->aa_samples
                                          * integrator->aa_samples;
             }
-            if (integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples &&
+                integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
             integrator_updated = true;
