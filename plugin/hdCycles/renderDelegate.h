@@ -160,12 +160,9 @@ public:
     HdCyclesRenderParam* GetCyclesRenderParam() const;
 
     /// -- Supported types
-    virtual const TfTokenVector&
-    GetSupportedRprimTypes() const override;
-    virtual const TfTokenVector&
-    GetSupportedSprimTypes() const override;
-    virtual const TfTokenVector&
-    GetSupportedBprimTypes() const override;
+    virtual const TfTokenVector& GetSupportedRprimTypes() const override;
+    virtual const TfTokenVector& GetSupportedSprimTypes() const override;
+    virtual const TfTokenVector& GetSupportedBprimTypes() const override;
 
     bool IsPauseSupported() const override;
 
@@ -174,44 +171,32 @@ public:
 
     void _InitializeCyclesRenderSettings();
 
-    void SetRenderSetting(const TfToken& key,
-                                       const VtValue& value) override;
+    void SetRenderSetting(const TfToken& key, const VtValue& value) override;
 
-    HdRenderSettingDescriptorList
-    GetRenderSettingDescriptors() const override;
+    HdRenderSettingDescriptorList GetRenderSettingDescriptors() const override;
 
     virtual HdRenderSettingsMap GetRenderSettingsMap() const;
 
-    virtual HdResourceRegistrySharedPtr
-    GetResourceRegistry() const override;
+    virtual HdResourceRegistrySharedPtr GetResourceRegistry() const override;
 
     // Prims
-    virtual HdRenderPassSharedPtr
-    CreateRenderPass(HdRenderIndex* index,
-                     HdRprimCollection const& collection) override;
+    virtual HdRenderPassSharedPtr CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection) override;
 
-    HdInstancer*
-    CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id,
-                    SdfPath const& instancerId) override;
+    HdInstancer* CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& instancerId) override;
     void DestroyInstancer(HdInstancer* instancer) override;
 
-    HdRprim* CreateRprim(TfToken const& typeId,
-                                      SdfPath const& rprimId,
-                                      SdfPath const& instancerId) override;
+    HdRprim* CreateRprim(TfToken const& typeId, SdfPath const& rprimId, SdfPath const& instancerId) override;
     void DestroyRprim(HdRprim* rPrim) override;
 
-    HdSprim* CreateSprim(TfToken const& typeId,
-                                      SdfPath const& sprimId) override;
+    HdSprim* CreateSprim(TfToken const& typeId, SdfPath const& sprimId) override;
     HdSprim* CreateFallbackSprim(TfToken const& typeId) override;
     void DestroySprim(HdSprim* sprim) override;
 
-    HdBprim* CreateBprim(TfToken const& typeId,
-                                      SdfPath const& bprimId) override;
+    HdBprim* CreateBprim(TfToken const& typeId, SdfPath const& bprimId) override;
     HdBprim* CreateFallbackBprim(TfToken const& typeId) override;
     void DestroyBprim(HdBprim* bprim) override;
 
-    virtual HdAovDescriptor
-    GetDefaultAovDescriptor(TfToken const& name) const override;
+    virtual HdAovDescriptor GetDefaultAovDescriptor(TfToken const& name) const override;
 
     void CommitResources(HdChangeTracker* tracker) override;
 

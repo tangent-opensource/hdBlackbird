@@ -54,8 +54,7 @@ public:
      */
     HdRenderDelegate* CreateRenderDelegate() override;
 
-    HdRenderDelegate*
-    CreateRenderDelegate(HdRenderSettingsMap const& settingsMap) override;
+    HdRenderDelegate* CreateRenderDelegate(HdRenderSettingsMap const& settingsMap) override;
 
     /**
      * @brief Destroy a render delegate created by this class
@@ -63,7 +62,7 @@ public:
      * @param renderDelegate The render delegate to delete
      * @return 
      */
-        void DeleteRenderDelegate(HdRenderDelegate* renderDelegate) override;
+    void DeleteRenderDelegate(HdRenderDelegate* renderDelegate) override;
 
     /**
      * @brief Checks to see if the plugin is supported on the running system

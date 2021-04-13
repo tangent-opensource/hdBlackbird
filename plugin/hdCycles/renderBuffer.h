@@ -41,8 +41,7 @@ public:
      * 
      * @param id Path to the Render Buffer Primitive
      */
-    HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegate,
-                                      const SdfPath& id);
+    HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegate, const SdfPath& id);
 
     /**
      * @brief Destroy the HdCycles Render Buffer object
@@ -59,33 +58,32 @@ public:
      * @param multiSampled Bool to indicate if the Render Buffer is multisampled
      * @return Returns true if allocation was successful
      */
-        bool Allocate(const GfVec3i& dimensions, HdFormat format,
-                  bool multiSampled) override;
+    bool Allocate(const GfVec3i& dimensions, HdFormat format, bool multiSampled) override;
 
     /**
      * @return Returns the width of the render buffer
      */
-        unsigned int GetWidth() const override;
+    unsigned int GetWidth() const override;
 
     /**
      * @return Returns the height of the render buffer
      */
-        unsigned int GetHeight() const override;
+    unsigned int GetHeight() const override;
 
     /**
      * @return Returns the depth of the render buffer
      */
-        unsigned int GetDepth() const override;
+    unsigned int GetDepth() const override;
 
     /**
      * @return Returns the format of the render buffer
      */
-        HdFormat GetFormat() const override;
+    HdFormat GetFormat() const override;
 
     /**
      * @return Returns if the render buffer is multi-sampled
      */
-        bool IsMultiSampled() const override;
+    bool IsMultiSampled() const override;
 
     /**
      * @brief Maps the render buffer to the system memory.
@@ -93,7 +91,7 @@ public:
      * 
      * @return Pointer to the render buffer mapped to system memory
      */
-        void* Map() override;
+    void* Map() override;
 
     /**
      * @brief Unmaps the render buffer by decrementing ref count.
@@ -101,23 +99,23 @@ public:
      * 
      * @return Unmap 
      */
-        void Unmap() override;
+    void Unmap() override;
 
     /**
      * @return Returns true if the render buffer is mapped to system memory
      */
-        bool IsMapped() const override;
+    bool IsMapped() const override;
 
     /**
      * @brief Resolve the buffer so that reads reflect the latest writes
      * This does nothing.
      */
-        void Resolve() override;
+    void Resolve() override;
 
     /** 
      * @return Returns true if the buffer is converged.
      */
-        bool IsConverged() const override;
+    bool IsConverged() const override;
     /**
      * @brief Set whether or not the buffer is Converged
      * 
@@ -137,11 +135,9 @@ public:
      * @param stride Stride of pixel
      * @param data Pointer to data
      */
-    void Blit(HdFormat format, int width, int height, int offset, int stride,
-              uint8_t const* data);
+    void Blit(HdFormat format, int width, int height, int offset, int stride, uint8_t const* data);
 
-    void BlitTile(HdFormat format, unsigned int x, unsigned int y,
-                  unsigned int width, unsigned int height, int offset,
+    void BlitTile(HdFormat format, unsigned int x, unsigned int y, unsigned int width, unsigned int height, int offset,
                   int stride, uint8_t const* data);
 
 protected:
@@ -149,7 +145,7 @@ protected:
      * @brief Deallocate memory allocated by the render buffer
      * TODO: Implement this
      */
-        void _Deallocate() override;
+    void _Deallocate() override;
 
 private:
     unsigned int m_width;

@@ -64,27 +64,27 @@ public:
      * @brief Start cycles render session
      * 
      */
-        void StartRender();
+    void StartRender();
 
     /**
      * @brief Stop the current render and close cycles instance
      * 
      * @return StopRender 
      */
-        void StopRender();
+    void StopRender();
 
     /**
      * @brief Completely restart a cycles render
      * Currently unused, likely broken
      *  
      */
-        void RestartRender();
+    void RestartRender();
 
     /**
      * @brief Restarts the current cycles render
      * 
      */
-        void Interrupt(bool a_forceUpdate = false);
+    void Interrupt(bool a_forceUpdate = false);
 
     /**
      * @brief Initialize cycles renderer
@@ -107,9 +107,9 @@ public:
     /**
      * @return Progress completed of render
      */
-        float GetProgress();
+    float GetProgress();
 
-        bool IsConverged();
+    bool IsConverged();
 
     /**
      * @brief Key access point to set a HdCycles render setting via key and value
@@ -126,7 +126,6 @@ public:
     bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
 protected:
-
     /**
      * @brief Start a cycles render
      * 
@@ -183,8 +182,7 @@ public:
      * @param a_shader Shader to use
      * @param a_emissive Should the default bg be emissive
      */
-    void SetBackgroundShader(ccl::Shader* a_shader = nullptr,
-                             bool a_emissive       = true);
+    void SetBackgroundShader(ccl::Shader* a_shader = nullptr, bool a_emissive = true);
 
     /* ======= Cycles Settings ======= */
 
@@ -195,8 +193,7 @@ public:
      * @param params Specific params
      * @return Returns true if could set the device type
      */
-    bool SetDeviceType(ccl::DeviceType a_deviceType,
-                       ccl::SessionParams& params);
+    bool SetDeviceType(ccl::DeviceType a_deviceType, ccl::SessionParams& params);
 
     /**
      * @brief Set Cycles render device type
@@ -205,8 +202,7 @@ public:
      * @param params Specific params
      * @return Returns true if could set the device type
      */
-    bool SetDeviceType(const std::string& a_deviceType,
-                       ccl::SessionParams& params);
+    bool SetDeviceType(const std::string& a_deviceType, ccl::SessionParams& params);
 
     /**
      * @brief Set Cycles render device type
@@ -311,13 +307,11 @@ private:
     bool _CreateScene();
 
     void _UpdateDelegateFromConfig(bool a_forceInit = false);
-    void
-    _UpdateDelegateFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    void _UpdateDelegateFromRenderSettings(HdRenderSettingsMap const& settingsMap);
     bool _HandleDelegateRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateSessionFromConfig(bool a_forceInit = false);
-    void
-    _UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    void _UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap);
     bool _HandleSessionRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateSceneFromConfig(bool a_forceInit = false);
@@ -329,16 +323,12 @@ private:
     bool _HandleFilmRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateIntegratorFromConfig(bool a_forceInit = false);
-    void
-    _UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap);
-    bool _HandleIntegratorRenderSetting(const TfToken& key,
-                                        const VtValue& value);
+    void _UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleIntegratorRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateBackgroundFromConfig(bool a_forceInit = false);
-    void
-    _UpdateBackgroundFromRenderSettings(HdRenderSettingsMap const& settingsMap);
-    bool _HandleBackgroundRenderSetting(const TfToken& key,
-                                        const VtValue& value);
+    void _UpdateBackgroundFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleBackgroundRenderSetting(const TfToken& key, const VtValue& value);
 
     void _HandlePasses();
 
@@ -349,8 +339,7 @@ private:
      */
     void _InitializeDefaults();
 
-    bool _SetDevice(const ccl::DeviceType& a_deviceType,
-                    ccl::SessionParams& params);
+    bool _SetDevice(const ccl::DeviceType& a_deviceType, ccl::SessionParams& params);
 
     ccl::SessionParams m_sessionParams;
     ccl::SceneParams m_sceneParams;
@@ -438,7 +427,6 @@ private:
     TfToken m_displayAovToken;
 
 public:
-
     /**
      * @brief Set the default display AOV
      * 
@@ -449,34 +437,28 @@ public:
      * possible workaround is to just make Cycles render all AOVs at once in
      * display mode.
      */
-    void SetDisplayAov(HdRenderPassAovBinding const &a_aov);
+    void SetDisplayAov(HdRenderPassAovBinding const& a_aov);
 
     /**
      * @brief Get the default display AOV token
      * 
      * @return TfToken of the default AOV diplay
      */
-    const TfToken &GetDisplayAovToken() const
-    {
-        return m_displayAovToken;
-    }
+    const TfToken& GetDisplayAovToken() const { return m_displayAovToken; }
 
     /**
      * @brief Set the AOV bindings
      * 
      * @param a_aovs Set a HdRenderPassAovBindingVector from HdCyclesRenderPass
      */
-    void SetAovBindings(HdRenderPassAovBindingVector const &a_aovs);
+    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs);
 
     /**
      * @brief Get the AOV bindings
      * 
      * @return HdRenderPassAovBindingVector
      */
-    HdRenderPassAovBindingVector const &GetAovBindings() const
-    {
-        return m_aovs;
-    }
+    HdRenderPassAovBindingVector const& GetAovBindings() const { return m_aovs; }
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
