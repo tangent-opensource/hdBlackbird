@@ -23,15 +23,15 @@
 #include "api.h"
 #include <pxr/pxr.h>
 
-#include <pxr/imaging/hd/field.h>
 #include "renderDelegate.h"
+#include <pxr/imaging/hd/field.h>
 
 #include <mutex>
 #include <unordered_set>
 
 #ifdef WITH_OPENVDB
-#    include <render/image_vdb.h>
 #    include <openvdb/openvdb.h>
+#    include <render/image_vdb.h>
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -40,8 +40,8 @@ PXR_NAMESPACE_OPEN_SCOPE
 // Very temporary. Apparently Cycles has code to do this but it isnt in the head cycles standalone repo
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
-    HdCyclesVolumeLoader(const char* filepath, const char* grid_name)
-        : ccl::VDBImageLoader(grid_name)
+    HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in)
+        : ccl::VDBImageLoader(grid_name_in)
         , m_file_path(filepath)
     {
         UpdateGrid();
@@ -49,33 +49,32 @@ public:
 
     void UpdateGrid()
     {
-        if(TF_VERIFY(!m_file_path.empty()))
-        {
+        if (TF_VERIFY(!m_file_path.empty())) {
             try {
                 openvdb::io::File file(m_file_path);
                 file.setCopyMaxBytes(0);
                 file.open();
 
-                if(grid){
+                if (grid) {
                     grid.reset();
                 }
 
                 this->grid = file.readGrid(grid_name);
             } catch (const openvdb::IoError& e) {
-                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
-            } catch(const std::exception& e) {
+                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name.c_str(), m_file_path.c_str());
+            } catch (const std::exception& e) {
                 TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
             }
-        }else{
+        } else {
             TF_WARN("Volume file path is empty!");
         }
     }
 
-    void cleanup() override 
+    void cleanup() override
     {
-        #ifdef WITH_NANOVDB
+#    ifdef WITH_NANOVDB
         nanogrid.reset();
-        #endif
+#    endif
     }
 
 private:
@@ -91,7 +90,6 @@ public:
     ///
     /// @param delegate Pointer to the Render Delegate.
     /// @param id Path to the OpenVDB Asset.
-    HDCYCLES_API
     HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* delegate, const SdfPath& id);
 
     /// Syncing the Hydra Openvdb Asset to the Cycles Volume.
@@ -104,14 +102,11 @@ public:
     /// @param sceneDelegate Pointer to the Hydra Scene Delegate.
     /// @param renderParam Pointer to a HdCyclesRenderParam instance.
     /// @param dirtyBits Dirty Bits to sync.
-    HDCYCLES_API
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
 
     /// Returns the initial Dirty Bits for the Primitive.
     ///
     /// @return Initial Dirty Bits.
-    HDCYCLES_API
     HdDirtyBits GetInitialDirtyBitsMask() const override;
 
     /// Tracks a HdCyclesVolume primitive.
@@ -121,7 +116,6 @@ public:
     /// shared between multiple volumes, knows which volume it belongs to.
     ///
     /// @param id Path to the Hydra Volume.
-    HDCYCLES_API
     void TrackVolumePrimitive(const SdfPath& id);
 
 private:
