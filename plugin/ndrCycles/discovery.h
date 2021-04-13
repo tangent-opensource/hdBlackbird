@@ -39,15 +39,13 @@ public:
      * @brief Creates an instance of NdrCyclesDiscoveryPlugin
      * 
      */
-    NDRCYCLES_API
-    NdrCyclesDiscoveryPlugin();
+        NdrCyclesDiscoveryPlugin();
 
     /**
      * @brief Destructor of NdrCyclesDiscoveryPlugin
      * 
      */
-    NDRCYCLES_API
-    ~NdrCyclesDiscoveryPlugin() override;
+        ~NdrCyclesDiscoveryPlugin() override;
 
     /**
      * @brief Discovers the cycles shaders
@@ -55,8 +53,7 @@ public:
      * @param context NdrDiscoveryPluginContext of the discovery process
      * @return List of the discovered cycles nodes
      */
-    NDRCYCLES_API
-    NdrNodeDiscoveryResultVec DiscoverNodes(const Context& context) override;
+        NdrNodeDiscoveryResultVec DiscoverNodes(const Context& context) override;
 
     /**
      * @brief Returns the URIs used to search for cycles shader nodes.
