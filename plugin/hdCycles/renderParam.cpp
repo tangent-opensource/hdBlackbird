@@ -268,7 +268,6 @@ void _UpdateHuskSessionParams(ccl::SessionParams& session_params, const HdRender
             if(it != args.end() && (++it) != args.end()) {
                 try {
                     auto num_requested_threads = std::stoi(*it);
-                    std::cout << num_requested_threads << std::endl;
                     if(num_requested_threads >= 0) {
                         session_params.threads = num_requested_threads;
                     } else {
