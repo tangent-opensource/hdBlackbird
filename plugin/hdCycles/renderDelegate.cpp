@@ -190,7 +190,7 @@ HdRenderPassSharedPtr
 HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection)
 {
     HdRenderPassSharedPtr xx = HdRenderPassSharedPtr(new HdCyclesRenderPass(this, index, collection));
-    m_renderPass             = (HdCyclesRenderPass*)xx.get();
+    m_renderPass             = static_cast<HdCyclesRenderPass*>(xx.get());
     return xx;
 }
 

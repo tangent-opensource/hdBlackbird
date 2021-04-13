@@ -92,7 +92,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         m_projMtx = projMtx;
         m_viewMtx = viewMtx;
 
-        const float fov_rad = atan(1.0f / m_projMtx[1][1]) * 2.0f;
+        const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
         hdCam->SetFOV(fov_rad);
 
         shouldUpdate = true;
@@ -159,8 +159,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 
     HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;
 
-    unsigned char* hpixels = (display->half_float) ? (unsigned char*)display->rgba_half.host_pointer
-                                                   : (unsigned char*)display->rgba_byte.host_pointer;
+    unsigned char* hpixels = (display->half_float) ? static_cast<unsigned char*>(display->rgba_half.host_pointer)
+                                                   : static_cast<unsigned char*>(display->rgba_byte.host_pointer);
 
     if (!hpixels)
         return;

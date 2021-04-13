@@ -330,7 +330,7 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
     }
 
     // Dynamic cycles node object
-    ccl::ShaderNode* cyclesNode = (ccl::ShaderNode*)node_type->create(node_type);
+    ccl::ShaderNode* cyclesNode = static_cast<ccl::ShaderNode*>(node_type->create(node_type));
 
     cycles_shader_graph->add(cyclesNode);
 
@@ -363,7 +363,7 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
                 if (params.second.IsHolding<bool>()) {
                     cyclesNode->set(socket, params.second.Get<bool>());
                 } else if (params.second.IsHolding<int>()) {
-                    cyclesNode->set(socket, (bool)params.second.Get<int>());
+                    cyclesNode->set(socket, static_cast<bool>(params.second.Get<int>()));
                 }
             } break;
 
@@ -476,7 +476,7 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 
     // TODO: Check proper type
     if (cycles_node_name == "image_texture") {
-        ccl::ImageTextureNode* tex = (ccl::ImageTextureNode*)cyclesNode;
+        ccl::ImageTextureNode* tex = static_cast<ccl::ImageTextureNode*>(cyclesNode);
 
         // Handle udim tiles
         if (HdCyclesPathIsUDIM(tex->filename.string())) {

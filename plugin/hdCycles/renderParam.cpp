@@ -215,7 +215,7 @@ HdCyclesRenderParam::_SessionUpdateCallback()
 
     m_renderProgress = m_cyclesSession->progress.get_progress();
 
-    int newPercent = (int)(floor(m_renderProgress * 100));
+    int newPercent = static_cast<int>(floor(m_renderProgress * 100.0f));
     if (newPercent != m_renderPercent) {
         m_renderPercent = newPercent;
 
@@ -1547,7 +1547,8 @@ HdCyclesRenderParam::SetDeviceType(const std::string& a_deviceType)
 bool
 HdCyclesRenderParam::_SetDevice(const ccl::DeviceType& a_deviceType, ccl::SessionParams& params)
 {
-    std::vector<ccl::DeviceInfo> devices = ccl::Device::available_devices((ccl::DeviceTypeMask)(1 << a_deviceType));
+    std::vector<ccl::DeviceInfo> devices = ccl::Device::available_devices(
+        static_cast<ccl::DeviceTypeMask>(1 << a_deviceType));
 
     bool device_available = false;
 
@@ -1987,7 +1988,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     ccl::CryptomatteType cryptomatte_passes = ccl::CRYPT_NONE;
     if (film->cryptomatte_passes & ccl::CRYPT_ACCURATE) {
-        cryptomatte_passes = (ccl::CryptomatteType)(cryptomatte_passes | ccl::CRYPT_ACCURATE);
+        cryptomatte_passes = static_cast<ccl::CryptomatteType>(cryptomatte_passes | ccl::CRYPT_ACCURATE);
     }
     film->cryptomatte_passes = cryptomatte_passes;
 
@@ -2047,21 +2048,21 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     // Ordering matters
     if (cryptoObject) {
-        film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_OBJECT);
+        film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_OBJECT);
         for (int i = 0; i < cryptoObject; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoObject.GetText(), i).c_str());
         }
     }
     if (cryptoMaterial) {
-        film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_MATERIAL);
+        film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_MATERIAL);
         for (int i = 0; i < cryptoMaterial; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoMaterial.GetText(), i).c_str());
         }
     }
     if (cryptoAsset) {
-        film->cryptomatte_passes = (ccl::CryptomatteType)(film->cryptomatte_passes | ccl::CRYPT_ASSET);
+        film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_ASSET);
         for (int i = 0; i < cryptoAsset; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoAsset.GetText(), i).c_str());

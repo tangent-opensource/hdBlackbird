@@ -40,31 +40,31 @@ _ConvertPixel(HdFormat dstFormat, uint8_t* dst, HdFormat srcFormat, uint8_t cons
         T readValue = 0;
         if (c < srcComponentCount) {
             if (srcComponentFormat == HdFormatInt32) {
-                readValue = ((int32_t*)src)[c];
+                readValue = reinterpret_cast<const int32_t*>(src)[c];
             } else if (srcComponentFormat == HdFormatFloat16) {
                 GfHalf half;
-                half.setBits(((uint16_t*)src)[c]);
+                half.setBits(reinterpret_cast<const uint16_t*>(src)[c]);
                 readValue = static_cast<float>(half);
             } else if (srcComponentFormat == HdFormatFloat32) {
                 // We need to subtract one from here due to cycles prim defaulting to 0 but hydra to -1
-                readValue = ((float*)src)[c];
+                readValue = reinterpret_cast<const float*>(src)[c];
             } else if (srcComponentFormat == HdFormatUNorm8) {
-                readValue = ((uint8_t*)src)[c] / 255.0f;
+                readValue = reinterpret_cast<const uint8_t*>(src)[c] / 255.0f;
             } else if (srcComponentFormat == HdFormatSNorm8) {
-                readValue = ((int8_t*)src)[c] / 127.0f;
+                readValue = reinterpret_cast<const int8_t*>(src)[c] / 127.0f;
             }
         }
 
         if (dstComponentFormat == HdFormatInt32) {
-            ((int32_t*)dst)[c] = readValue;
+            reinterpret_cast<int32_t*>(dst)[c] = readValue;
         } else if (dstComponentFormat == HdFormatFloat16) {
-            ((uint16_t*)dst)[c] = GfHalf(float(readValue)).bits();
+            reinterpret_cast<uint16_t*>(dst)[c] = GfHalf(float(readValue)).bits();
         } else if (dstComponentFormat == HdFormatFloat32) {
-            ((float*)dst)[c] = readValue;
+            reinterpret_cast<float*>(dst)[c] = readValue;
         } else if (dstComponentFormat == HdFormatUNorm8) {
-            ((uint8_t*)dst)[c] = (readValue * 255.0f);
+            reinterpret_cast<uint8_t*>(dst)[c] = (readValue * 255.0f);
         } else if (dstComponentFormat == HdFormatSNorm8) {
-            ((int8_t*)dst)[c] = (readValue * 127.0f);
+            reinterpret_cast<int8_t*>(dst)[c] = (readValue * 127.0f);
         }
     }
 }
