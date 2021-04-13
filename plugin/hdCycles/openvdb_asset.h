@@ -40,8 +40,8 @@ PXR_NAMESPACE_OPEN_SCOPE
 // Very temporary. Apparently Cycles has code to do this but it isnt in the head cycles standalone repo
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
-    HdCyclesVolumeLoader(const char* filepath, const char* grid_name)
-        : ccl::VDBImageLoader(grid_name)
+    HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in)
+        : ccl::VDBImageLoader(grid_name_in)
         , m_file_path(filepath)
     {
         UpdateGrid();

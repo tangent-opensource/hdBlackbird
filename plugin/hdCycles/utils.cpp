@@ -235,7 +235,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         object->geometry->use_motion_blur = true;
 
         if (object->geometry->type == ccl::Geometry::MESH) {
-            ccl::Mesh* mesh = (ccl::Mesh*)object->geometry;
+            ccl::Mesh* mesh = static_cast<ccl::Mesh*>(object->geometry);
             if (mesh->transform_applied)
                 mesh->need_update = true;
         }
@@ -244,12 +244,12 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
         const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
         const int numMotionSteps   = sampleCount + sampleOffset;
         const float motionStepSize = (xf.times.back() - xf.times.front())
-                                     / (numMotionSteps - 1);
+                                     / static_cast<float>((numMotionSteps - 1));
         object->motion.resize(numMotionSteps, ccl::transform_empty());
 
         // For each step, we use the available data from the neighbors
         // to calculate the transforms at uniform steps
-        for (int i = 0; i < numMotionSteps; ++i) {
+        for (size_t i = 0; i < numMotionSteps; ++i) {
             const float stepTime = xf.times.front() + motionStepSize * i;
 
             // We always have the transforms at the boundaries
@@ -265,7 +265,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                 // If we only have three samples, we prefer to recalculate
                 // the intermediate one as the left/right are calculated
                 // using linear interpolation, leading to artifacts
-                if (i != 1 && (xf.times.data()[j] - stepTime) < 1e-5) {
+                if (i != 1 && (xf.times.data()[j] - stepTime) < 1e-5f) {
                     iXfPrev = iXfNext = j;
                     break;
                 }
@@ -315,7 +315,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate,
                                                    t);
             }
 
-            if (::std::fabs(stepTime) < 1e-5) {
+            if (::std::fabs(stepTime) < 1e-5f) {
                 object->tfm = object->motion[i];
             }
         }
@@ -414,13 +414,13 @@ vec2f_to_float2(const GfVec2f& a_vec)
 ccl::float2
 vec2i_to_float2(const GfVec2i& a_vec)
 {
-    return ccl::make_float2((float)a_vec[0], (float)a_vec[1]);
+    return ccl::make_float2(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]));
 }
 
 ccl::float2
 vec2d_to_float2(const GfVec2d& a_vec)
 {
-    return ccl::make_float2((float)a_vec[0], (float)a_vec[1]);
+    return ccl::make_float2(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]));
 }
 
 ccl::float2
@@ -450,13 +450,13 @@ vec3f_to_float3(const GfVec3f& a_vec)
 ccl::float3
 vec3i_to_float3(const GfVec3i& a_vec)
 {
-    return ccl::make_float3((float)a_vec[0], (float)a_vec[1], (float)a_vec[2]);
+    return ccl::make_float3(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]), static_cast<float>(a_vec[2]));
 }
 
 ccl::float3
 vec3d_to_float3(const GfVec3d& a_vec)
 {
-    return ccl::make_float3((float)a_vec[0], (float)a_vec[1], (float)a_vec[2]);
+    return ccl::make_float3(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]), static_cast<float>(a_vec[2]));
 }
 
 ccl::float3
@@ -492,14 +492,14 @@ vec4f_to_float4(const GfVec4f& a_vec)
 ccl::float4
 vec4i_to_float4(const GfVec4i& a_vec)
 {
-    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2],
+    return ccl::make_float4(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]), static_cast<float>(a_vec[2]),
                             (float)a_vec[3]);
 }
 
 ccl::float4
 vec4d_to_float4(const GfVec4d& a_vec)
 {
-    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2],
+    return ccl::make_float4(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]), static_cast<float>(a_vec[2]),
                             (float)a_vec[3]);
 }
 
@@ -607,12 +607,12 @@ HdCyclesPopulatePrimvarDescsPerInterpolation(
         return;
     }
 
-    auto interpolations = {
+    auto hd_interpolations = {
         HdInterpolationConstant,    HdInterpolationUniform,
         HdInterpolationVarying,     HdInterpolationVertex,
         HdInterpolationFaceVarying, HdInterpolationInstance,
     };
-    for (auto& interpolation : interpolations) {
+    for (auto& interpolation : hd_interpolations) {
         a_primvarDescsPerInterpolation->emplace(
             interpolation,
             a_sceneDelegate->GetPrimvarDescriptors(a_id, interpolation));
@@ -741,14 +741,14 @@ to_cycles<GfVec4i>(const GfVec4i& v) noexcept
 /* ========= MikkTSpace ========= */
 
 struct MikkUserData {
-    MikkUserData(const char* layer_name, ccl::Mesh* mesh, ccl::float3* tangent,
-                 float* tangent_sign)
-        : mesh(mesh)
+    MikkUserData(const char* layer_name, ccl::Mesh* mesh_in, ccl::float3* tangent_in,
+                 float* tangent_sign_in)
+        : mesh(mesh_in)
         , corner_normal(NULL)
         , vertex_normal(NULL)
         , texface(NULL)
-        , tangent(tangent)
-        , tangent_sign(tangent_sign)
+        , tangent(tangent_in)
+        , tangent_sign(tangent_sign_in)
     {
         const ccl::AttributeSet& attributes = (mesh->subd_faces.size())
                                                   ? mesh->subd_attributes
@@ -792,7 +792,7 @@ struct MikkUserData {
 int
 mikk_get_num_faces(const SMikkTSpaceContext* context)
 {
-    const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
+    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     if (userdata->mesh->subd_faces.size()) {
         return userdata->mesh->subd_faces.size();
     } else {
@@ -804,7 +804,7 @@ int
 mikk_get_num_verts_of_face(const SMikkTSpaceContext* context,
                            const int face_num)
 {
-    const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
+    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     if (userdata->mesh->subd_faces.size()) {
         const ccl::Mesh* mesh = userdata->mesh;
         return mesh->subd_faces[face_num].num_corners;
@@ -839,7 +839,7 @@ void
 mikk_get_position(const SMikkTSpaceContext* context, float P[3],
                   const int face_num, const int vert_num)
 {
-    const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
+    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     const ccl::Mesh* mesh        = userdata->mesh;
     const int vertex_index       = mikk_vertex_index(mesh, face_num, vert_num);
     const ccl::float3 vP         = mesh->verts[vertex_index];
@@ -852,7 +852,7 @@ void
 mikk_get_texture_coordinate(const SMikkTSpaceContext* context, float uv[2],
                             const int face_num, const int vert_num)
 {
-    const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
+    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     const ccl::Mesh* mesh        = userdata->mesh;
     if (userdata->texface != NULL) {
         const int corner_index = mikk_corner_index(mesh, face_num, vert_num);
@@ -869,7 +869,7 @@ void
 mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
                 const int face_num, const int vert_num)
 {
-    const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
+    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     const ccl::Mesh* mesh        = userdata->mesh;
     ccl::float3 vN;
 
@@ -905,7 +905,7 @@ void
 mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[],
                        const float sign, const int face_num, const int vert_num)
 {
-    MikkUserData* userdata = (MikkUserData*)context->m_pUserData;
+    MikkUserData* userdata = static_cast<MikkUserData*>(context->m_pUserData);
     const ccl::Mesh* mesh  = userdata->mesh;
     const int corner_index = mikk_corner_index(mesh, face_num, vert_num);
     userdata->tangent[corner_index] = ccl::make_float3(T[0], T[1], T[2]);

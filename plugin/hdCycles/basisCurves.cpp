@@ -122,7 +122,7 @@ HdCyclesBasisCurves::_CreateObject()
 void
 HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
 {
-    ccl::Scene* scene = ((HdCyclesRenderParam*)renderParam)->GetCyclesScene();
+    ccl::Scene* scene = (static_cast<HdCyclesRenderParam*>(renderParam))->GetCyclesScene();
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
@@ -416,7 +416,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 {
     SdfPath const& id = GetId();
 
-    HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
+    HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     ccl::Scene* scene = param->GetCyclesScene();
     ccl::thread_scoped_lock scene_lock(scene->mutex);
