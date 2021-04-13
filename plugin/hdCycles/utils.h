@@ -108,6 +108,9 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name);
 
 /* ========= Conversion ========= */
 
+const char*
+_HdInterpolationStr(const HdInterpolation& i);
+
 /**
  * @brief Create Cycles Transform from given HdSceneDelegate and SdfPath
  *

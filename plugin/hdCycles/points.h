@@ -35,6 +35,7 @@ class Object;
 class Mesh;
 class Scene;
 class PointCloud;
+class Shader;
 }  // namespace ccl
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -103,12 +104,12 @@ protected:
     /**
      * @brief Fills in the point positions
      */
-    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool& sizeHasChanged);
 
     /**
      * @brief Fill in the point widths
      */
-    void _PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
 
     /**
      * @brief Fill in optional primvars
@@ -118,7 +119,7 @@ protected:
     /**
      * @brief Flag the object for update in the scene
      */
-    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits);
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBVH = false);
 
     /**
      * @brief Initialize the given representation of this Rprim.
@@ -169,17 +170,27 @@ private:
      * @param accelerations
      */
     void _AddAccelerations(const VtVec3fArray& accelerations);
-
-
     void _AddColors(const VtVec3fArray& colors, HdCyclesRenderParam* param);
     void _AddAlphas(const VtFloatArray& colors);
 
 
+    /**
+     * @brief Check that the combination of object attributes matches
+     * the Cycles specification. If it doesn't, it notifies the user
+     * and reverts the object to a state where it doesn't crash
+     * the renderer internally.
+    */
+    void _CheckIntegrity();
+
     ccl::PointCloud* m_cyclesPointCloud;
     ccl::Object* m_cyclesObject;
 
+    ccl::Shader* m_point_display_color_shader;
+
     int m_pointResolution; // ?
     int m_pointStyle; // ccl::PointCloudPointStyle
+
+    unsigned int m_visibilityFlags;
 
     HdCyclesRenderDelegate* m_renderDelegate;
 
