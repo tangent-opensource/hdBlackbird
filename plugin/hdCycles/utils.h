@@ -47,6 +47,7 @@
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/mesh.h>
+#include <pxr/imaging/hd/points.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
 #include <pxr/imaging/hd/volume.h>
@@ -597,6 +598,28 @@ _HdCyclesGetVolumeParam(const HdPrimvarDescriptor& a_pvd, HdDirtyBits* a_dirtyBi
         if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
             VtValue v;
             v = a_volume->GetPrimvar(a_scene, a_token);
+            return _HdCyclesGetVtValue<T>(v, a_default);
+        }
+    }
+    return a_default;
+}
+
+// Get Points param
+
+template<typename T>
+T
+_HdCyclesGetPointsParam(const HdPrimvarDescriptor& a_pvd, HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                        HdPoints* a_point, HdSceneDelegate* a_scene, TfToken a_token, T a_default)
+{
+    // TODO: Optimize this
+    // Needed because our current schema stores tokens with primvars: prefix
+    // however the HdPrimvarDescriptor omits this.
+    // Solution could be to remove from usdCycles schema and add in all settings
+    // providers (houdini_cycles, blender exporter)
+    if ("primvars:" + a_pvd.name.GetString() == a_token.GetString()) {
+        if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
+            VtValue v;
+            v = a_point->GetPrimvar(a_scene, a_token);
             return _HdCyclesGetVtValue<T>(v, a_default);
         }
     }

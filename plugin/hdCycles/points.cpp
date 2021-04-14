@@ -46,7 +46,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
     : HdPoints(id, instancerId)
     , m_renderDelegate(a_renderDelegate)
-    , m_transform(ccl::transform_identity())
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_motion_blur.eval(m_useMotionBlur, true);
@@ -105,6 +104,88 @@ HdCyclesPoints::_InitializeNewCyclesPointCloud()
     m_cyclesObject->pass_id    = -1;
     m_cyclesObject->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
     m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+}
+
+void
+HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits)
+{
+    assert(m_cyclesObject);
+
+    std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
+        { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
+        { HdInterpolationVertex, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
+        { HdInterpolationConstant, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationConstant) },
+        { HdInterpolationUniform, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
+    };
+
+    for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
+        for (auto& pv : primvarDescsEntry.second) {
+            // Points specific
+
+            m_useMotionBlur = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                            usdCyclesTokens->primvarsCyclesObjectMblur,
+                                                            m_useMotionBlur);
+
+            m_motionSteps = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                          usdCyclesTokens->primvarsCyclesObjectMblurSteps,
+                                                          m_motionSteps);
+
+            // Object Generic
+
+            m_cyclesObject->is_shadow_catcher
+                = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
+                                                m_cyclesObject->is_shadow_catcher);
+
+            m_cyclesObject->pass_id = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                                    usdCyclesTokens->primvarsCyclesObjectPass_id,
+                                                                    m_cyclesObject->pass_id);
+
+            m_cyclesObject->use_holdout = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                                        usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+                                                                        m_cyclesObject->use_holdout);
+
+            // Visibility
+            m_visibilityFlags = 0;
+
+            bool bit;
+            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                          usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, bit);
+            if (bit) {
+                m_visibilityFlags |= ccl::PATH_RAY_CAMERA;
+            }
+
+            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                          usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse, bit);
+            if (bit) {
+                m_visibilityFlags |= ccl::PATH_RAY_DIFFUSE;
+            }
+
+            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                          usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, bit);
+            if (bit) {
+                m_visibilityFlags |= ccl::PATH_RAY_GLOSSY;
+            }
+
+            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                          usdCyclesTokens->primvarsCyclesObjectVisibilityScatter, bit);
+            if (bit) {
+                m_visibilityFlags |= ccl::PATH_RAY_VOLUME_SCATTER;
+            }
+
+            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                          usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, bit);
+            if (bit) {
+                m_visibilityFlags |= ccl::PATH_RAY_SHADOW;
+            }
+
+            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                          usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission, bit);
+            if (bit) {
+                m_visibilityFlags |= ccl::PATH_RAY_TRANSMIT;
+            }
+        }
+    }
 }
 
 void
@@ -451,14 +532,13 @@ HdCyclesPoints::_PopulateAccelerations(HdSceneDelegate* sceneDelegate, const Sdf
 void
 HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBVH)
 {
-    // todo: fix this
-    //m_cyclesObject->visibility = _sharedData.visible ? m_visibilityFlags : 0;
+    m_cyclesObject->visibility = _sharedData.visible ? m_visibilityFlags : 0;
     m_cyclesPointCloud->tag_update(scene, rebuildBVH);
     m_cyclesObject->tag_update(scene);
 
-    // todo: check the mesh code that marks the visibility
-
-    // Following the behavior of the mesh converter
+    // Mark visibility clean. When sync method is called object might be invisible. At that point we do not
+    // need to trigger the topology and data generation. It can be postponed until visibility becomes on.
+    // We need to manually mark visibility clean, but other flags remain dirty.
     if (!_sharedData.visible) {
         *dirtyBits &= ~HdChangeTracker::DirtyVisibility;
     }
@@ -481,7 +561,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     std::lock_guard<std::mutex>(scene->mutex);
 
     // Triggers only a bvh refit
-    bool needsUpdate     = false;
     bool needsRebuildBVH = false;
 
     // -------------------------------------
@@ -489,7 +568,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 #ifdef USE_USD_CYCLES_SCHEMA
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
         needsRebuildBVH = true;
-        needsUpdate     = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
         sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_style, &xf);
@@ -505,7 +583,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // todo: what do we do with PointDPI exactly? check other render delegates
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_resolution)) {
         needsRebuildBVH = true;
-        needsUpdate     = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
         sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
@@ -514,6 +591,8 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_pointResolution      = std::max(resolutions, 10);
         }
     }
+
+    _ReadObjectFlags(sceneDelegate, id, dirtyBits);
 #endif
 
     // Update object flags and exit if visibility is null
@@ -530,27 +609,17 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
-        TF_WARN("DoubleSided state has changed, but PointCloud is ignoring it.");
+        TF_WARN("DoubleSided state has changed, but point cloud is ignoring it.");
     }
 
-
-#if 0
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        ccl::Transform newTransform
-                = HdCyclesExtractTransform(sceneDelegate, id);
-        m_cyclesObject->tfm = newTransform;
-        m_transform         = newTransform;
-
-        needs_update = true;
+        HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
     }
-
-#endif
 
     // Checking points separately as they dictate the size of other attribute buffers
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         bool sizeHasChanged;
         _PopulatePoints(sceneDelegate, id, sizeHasChanged);
-        needsUpdate     = true;
         needsRebuildBVH = needsRebuildBVH || sizeHasChanged;
     }
 
@@ -576,8 +645,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
                 continue;
             }
-
-            std::cout << "Primvar " << description.name << std::endl;
 
             auto interpolation = interpolation_description.first;
             auto value         = GetPrimvar(sceneDelegate, description.name);
@@ -625,9 +692,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     _CheckIntegrity(param);
 
 
-    if (needsUpdate) {
-        _UpdateObject(scene, param, dirtyBits);
-    }
+    _UpdateObject(scene, param, dirtyBits);
     *dirtyBits = HdChangeTracker::Clean;
 }
 

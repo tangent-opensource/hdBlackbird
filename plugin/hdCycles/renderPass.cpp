@@ -63,16 +63,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 {
     auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(m_delegate->GetRenderParam());
 
-    if (renderParam->CollectRenderStatsOnce()) {
-        const float to_gb = 1.f / (1024 * 1024 * 1024);
-        printf("HDCYCLES RENDER PASS STATS\n");
-        printf("Device memory (including Embree) %.4f peak %.4f\n", 
-            to_gb * renderParam->GetCyclesSession()->device->stats.mem_used, to_gb * renderParam->GetCyclesSession()->device->stats.mem_peak);
-        ccl::RenderStats stats;
-        renderParam->GetCyclesSession()->collect_statistics(&stats);
-        printf("%s\n", stats.full_report().c_str());
-    }
-
     HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
 
     if (renderParam->GetAovBindings() != aovBindings) {

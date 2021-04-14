@@ -101,6 +101,11 @@ protected:
     void _InitializeNewCyclesPointCloud();
 
     /**
+     * @brief Reads various object flags before setting other geometric data
+     */
+    void _ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
+
+    /**
      * @brief Fills in the point positions
      */
     void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool& sizeHasChanged);
@@ -183,8 +188,6 @@ private:
     unsigned int m_visibilityFlags;
 
     HdCyclesRenderDelegate* m_renderDelegate;
-
-    ccl::Transform m_transform;
 
     bool m_useMotionBlur;
     int m_motionSteps;
