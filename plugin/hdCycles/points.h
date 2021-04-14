@@ -108,32 +108,38 @@ protected:
     /**
      * @brief Fill in the point widths
      */
-    void _PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+    void _PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                         const VtValue& value);
 
     /**
      * @brief Fill in the point colors
      */
-    void _PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+    void _PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                         const VtValue& value);
 
     /**
      * @brief Fill in the point colors
      */
-    void _PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+    void _PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                            const VtValue& value);
 
     /**
      * @brief Fill in the point normals
      */
-    void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+    void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                          const VtValue& value);
 
     /**
      * @brief Fill in the point normals
      */
-    void _PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+    void _PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                             const VtValue& value);
 
     /**
      * @brief Fill in the point accelerations if velocities
      */
-    void _PopulateAccelerations(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+    void _PopulateAccelerations(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                                const VtValue& value);
 
     /**
      * @brief Flag the object for update in the scene
@@ -171,8 +177,8 @@ private:
 
     ccl::Shader* m_point_display_color_shader;
 
-    int m_pointResolution; // ?
-    int m_pointStyle; // ccl::PointCloudPointStyle
+    int m_pointResolution;  // ?
+    int m_pointStyle;       // ccl::PointCloudPointStyle
 
     unsigned int m_visibilityFlags;
 

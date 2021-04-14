@@ -30,9 +30,6 @@ TF_REGISTRY_FUNCTION(TfDebug)
 {
     TF_DEBUG_ENVIRONMENT_SYMBOL(
         HDCYCLES_MESH, "Print warnings when syncing cycles meshes");
-
-    TF_DEBUG_ENVIRONMENT_SYMBOL(
-        CYCLES_RENDER_STATS, "Print info about memory usage every time the scene is rebuilt");
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

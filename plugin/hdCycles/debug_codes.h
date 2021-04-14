@@ -32,8 +32,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 // clang-format off
 TF_DEBUG_CODES(
 	HDCYCLES_MESH,
-	
-	CYCLES_RENDER_STATS
 )
 // clang-format on
 

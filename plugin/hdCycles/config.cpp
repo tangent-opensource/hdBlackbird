@@ -101,15 +101,12 @@ HdCyclesConfig::HdCyclesConfig()
 
     up_axis = TfGetEnvSetting(HD_CYCLES_UP_AXIS);
 
-    enable_motion_blur = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR",
-                                                true);
-    motion_steps       = HdCyclesEnvValue<int>("HD_CYCLES_MOTION_STEPS", 3);
-    enable_subdivision = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_SUBDIVISION",
-                                                false);
-    subdivision_dicing_rate
-        = HdCyclesEnvValue<float>("HD_CYCLES_SUBDIVISION_DICING_RATE", 1.0);
-    max_subdivision = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SUBDIVISION", 12);
-    enable_dof      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_DOF", true);
+    enable_motion_blur      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR", true);
+    motion_steps            = HdCyclesEnvValue<int>("HD_CYCLES_MOTION_STEPS", 3);
+    enable_subdivision      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_SUBDIVISION", false);
+    subdivision_dicing_rate = HdCyclesEnvValue<float>("HD_CYCLES_SUBDIVISION_DICING_RATE", 1.0);
+    max_subdivision         = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SUBDIVISION", 12);
+    enable_dof              = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_DOF", true);
 
     render_width   = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_WIDTH", 1280);
     render_height  = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_HEIGHT", 720);
@@ -134,11 +131,8 @@ HdCyclesConfig::HdCyclesConfig()
     start_resolution        = HdCyclesEnvValue<int>("HD_CYCLES_START_RESOLUTION", 8);
     shutter_motion_position = HdCyclesEnvValue<int>("HD_CYCLES_SHUTTER_MOTION_POSITION", 1);
 
-    default_point_style
-        = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE",
-                                ccl::POINT_CLOUD_POINT_SPHERE);
-    default_point_resolution
-        = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
+    default_point_style      = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE", ccl::POINT_CLOUD_POINT_SPHERE);
+    default_point_resolution = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
 
 
     // -- Curve Settings

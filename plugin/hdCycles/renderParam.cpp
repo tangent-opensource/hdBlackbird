@@ -35,9 +35,9 @@
 #include <render/integrator.h>
 #include <render/light.h>
 #include <render/mesh.h>
-#include <render/pointcloud.h>
 #include <render/nodes.h>
 #include <render/object.h>
+#include <render/pointcloud.h>
 #include <render/scene.h>
 #include <render/session.h>
 #include <render/stats.h>
@@ -177,7 +177,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
     , m_displayAovToken(HdAovTokens->color)
-    , m_hasCollectedRenderStats(false)
 {
     _InitializeDefaults();
 }
@@ -445,12 +444,12 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesSamples) {
         // If branched-path mode is set, make sure to set samples to use the
         // aa_samples instead from the integrator.
-        int samples = sessionParams->samples;
-        int aa_samples = 0;
+        int samples                    = sessionParams->samples;
+        int aa_samples                 = 0;
         ccl::Integrator::Method method = ccl::Integrator::PATH;
 
         if (m_cyclesScene) {
-            method = m_cyclesScene->integrator->method;
+            method     = m_cyclesScene->integrator->method;
             aa_samples = m_cyclesScene->integrator->aa_samples;
 
             // Don't apply aa_samples if it is 0
@@ -463,8 +462,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         if (samples_updated) {
             session_updated = true;
 
-            if (m_cyclesScene && aa_samples && 
-                method == ccl::Integrator::BRANCHED_PATH) {
+            if (m_cyclesScene && aa_samples && method == ccl::Integrator::BRANCHED_PATH) {
                 sessionParams->samples = aa_samples;
             }
         }
@@ -646,8 +644,6 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
         }
     }
 
-    sceneParams->bvh_type = ccl::SceneParams::BVH_DYNAMIC;
-
     if (key == usdCyclesTokens->cyclesCurve_subdivisions) {
         sceneParams->hair_subdivisions = _HdCyclesGetVtValue<int>(value, sceneParams->hair_subdivisions,
                                                                   &scene_updated);
@@ -785,8 +781,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
         if (method_updated) {
             integrator_updated = true;
-            if (integrator->aa_samples && 
-                integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples && integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
         }
@@ -873,8 +868,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
             if (m_useSquareSamples) {
                 integrator->aa_samples = integrator->aa_samples * integrator->aa_samples;
             }
-            if (integrator->aa_samples &&
-                integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples && integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
             integrator_updated = true;
@@ -1620,11 +1614,10 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
     m_cyclesSession->progress.reset();
 
-    if (m_curveUpdated || m_meshUpdated || m_geometryUpdated
-        || m_shadersUpdated || m_pointCloudUpdated) {
+    if (m_curveUpdated || m_meshUpdated || m_geometryUpdated || m_shadersUpdated || m_pointCloudUpdated) {
         m_cyclesScene->geometry_manager->tag_update(m_cyclesScene);
-        m_geometryUpdated = false;
-        m_meshUpdated     = false;
+        m_geometryUpdated   = false;
+        m_meshUpdated       = false;
         m_pointCloudUpdated = false;
     }
 
@@ -1751,6 +1744,8 @@ HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
 void
 HdCyclesRenderParam::AddPointCloud(ccl::PointCloud* a_pc)
 {
+    lock_guard lock { m_cyclesScene->mutex };
+
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1864,35 +1859,12 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
         Interrupt();
 }
 
-/*
-    This is a hacky way to collect render stats to check memory usage. 
-    If we want to collect stats on the fly and not just at the end, it
-    would help to have some kind of event/stage from cycles.
-    Checking the progress status string is not reliable and there is no 
-    concept of ordering of the steps.
-
-    This might not work for different code paths in the cycles session (tiled?)
-*/
-bool
-HdCyclesRenderParam::CollectRenderStatsOnce() {
-    if (m_hasCollectedRenderStats) {
-        return false;
-    }
-
-    // Really ugly
-    const float progress = m_cyclesSession->progress.get_progress();
-    if (progress > 1e-7) {
-        m_hasCollectedRenderStats = true;
-        return true;
-    }
-
-    return false;
-}
-
 void
-HdCyclesRenderParam::RemovePointCloud(ccl::PointCloud* a_pc) {
-    for (ccl::vector<ccl::Geometry*>::iterator it
-         = m_cyclesScene->geometry.begin();
+HdCyclesRenderParam::RemovePointCloud(ccl::PointCloud* a_pc)
+{
+    lock_guard lock { m_cyclesScene->mutex };
+
+    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
         if (a_pc == *it) {
             it = m_cyclesScene->geometry.erase(it);
@@ -1907,13 +1879,13 @@ HdCyclesRenderParam::RemovePointCloud(ccl::PointCloud* a_pc) {
 
     if (m_geometryUpdated)
         Interrupt();
-
 }
 
 void
-HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders) {
-    lock_guard lock{m_cyclesScene->mutex};
-    for(auto& shader : shaders) {
+HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
+{
+    lock_guard lock { m_cyclesScene->mutex };
+    for (auto& shader : shaders) {
         shader->tag_update(m_cyclesScene);
     }
 }
