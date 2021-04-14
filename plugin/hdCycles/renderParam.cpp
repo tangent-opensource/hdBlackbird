@@ -250,41 +250,6 @@ HdCyclesRenderParam::_SessionUpdateCallback()
     }
 }
 
-namespace {
-
-//
-// This is a temporary solution and when SideFx releases Husk TfTokens we can use them directly
-// Houdini's husk override for -j/--threads argument
-//
-void _UpdateHuskSessionParams(ccl::SessionParams& session_params, const HdRenderSettingsMap& settings) {
-    for(auto& setting : settings) {
-        if(setting.first == "batchCommandLine" && setting.second.IsHolding<VtStringArray>()) {
-            VtStringArray args = setting.second.UncheckedGet<VtStringArray>();
-
-            auto it = std::find_if(args.begin(), args.end(), [](const std::string& arg) {
-                return arg == "-j" || arg == "--threads";
-            });
-
-            if(it != args.end() && (++it) != args.end()) {
-                try {
-                    auto num_requested_threads = std::stoi(*it);
-                    if(num_requested_threads >= 0) {
-                        session_params.threads = num_requested_threads;
-                    } else {
-                        auto num_threads = ccl::system_cpu_thread_count() - std::abs(num_requested_threads);
-                        session_params.threads = num_threads < 0 ? 0 : num_threads;
-                    }
-
-                } catch (const std::exception& e) {
-                    std::cout << "Failed to convert --threads argument" << std::endl;
-                }
-            }
-        }
-    }
-}
-
-} // namespace
-
 /*
     This paradigm does cause unecessary loops through settingsMap for each feature. 
     This should be addressed in the future. For the moment, the flexibility of setting
@@ -302,7 +267,9 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateSessionFromConfig(true);
     _UpdateSessionFromRenderSettings(settingsMap);
     _UpdateSessionFromConfig();
-    _UpdateHuskSessionParams(m_sessionParams, settingsMap);
+
+    // Setting up number of threads, this is useful for applications(husk) that control task arena
+    m_sessionParams.threads = tbb::this_task_arena::max_concurrency();
 
     if (!_CreateSession()) {
         std::cout << "COULD NOT CREATE CYCLES SESSION\n";
@@ -537,10 +504,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
 
     if (key == usdCyclesTokens->cyclesPixel_size) {
         sessionParams->pixel_size = _HdCyclesGetVtValue<int>(value, sessionParams->pixel_size, &session_updated);
-    }
-
-    if (key == usdCyclesTokens->cyclesThreads) {
-        sessionParams->threads = _HdCyclesGetVtValue<int>(value, sessionParams->threads, &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
