@@ -658,6 +658,15 @@ HdCyclesPoints::_CheckIntegrity(HdCyclesRenderParam* param) {
             }
         }
     }
+
+    {
+        ccl::Attribute* attr_mP = m_cyclesPointCloud->attributes.find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+        ccl::Attribute* attr_V = m_cyclesPointCloud->attributes.find(ccl::ATTR_STD_VERTEX_VELOCITY);
+        ccl::Attribute* attr_A = m_cyclesPointCloud->attributes.find(ccl::ATTR_STD_VERTEX_ACCELERATION);
+        if (attr_mP) {
+            assert(!attr_V && !attr_A);
+        }
+    }
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
