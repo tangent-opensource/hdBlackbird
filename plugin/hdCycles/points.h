@@ -35,6 +35,7 @@ class Object;
 class Mesh;
 class Scene;
 class PointCloud;
+class Shader;
 }  // namespace ccl
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -102,22 +103,42 @@ protected:
     /**
      * @brief Fills in the point positions
      */
-    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool& sizeHasChanged);
 
     /**
      * @brief Fill in the point widths
      */
-    void _PopulateScales(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
 
     /**
-     * @brief Fill in optional primvars
+     * @brief Fill in the point colors
      */
-    void _PopulatePrimvars(const HdDirtyBits* dirtyBits, HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* param, const SdfPath& id);
+    void _PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+
+    /**
+     * @brief Fill in the point colors
+     */
+    void _PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+
+    /**
+     * @brief Fill in the point normals
+     */
+    void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+
+    /**
+     * @brief Fill in the point normals
+     */
+    void _PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
+
+    /**
+     * @brief Fill in the point accelerations if velocities
+     */
+    void _PopulateAccelerations(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation, const VtValue& value);
 
     /**
      * @brief Flag the object for update in the scene
      */
-    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits);
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBVH = false);
 
     /**
      * @brief Initialize the given representation of this Rprim.
@@ -138,46 +159,22 @@ protected:
 
 private:
     /**
-     * @brief Returns true if the cycles representation is a PointCloud
-     * 
-     */
-    bool _usingPointCloud() const;
-
-
-    /**
-     * @brief Create the cycles object for an individual point
-     * 
-     * @param transform Transform of the point
-     * @param mesh Mesh to populate the point with
-     * @return ccl::Object* 
-     */
-    ccl::Object* _CreatePointsObject(const ccl::Transform& transform, ccl::Mesh* mesh);
-
-
-    /**
-     * @brief Add velocities to the Cycles geometry
-     * 
-     * @param velocities
-     */
-    void _AddVelocities(const VtVec3fArray& velocities);
-
-    /**
-     * @brief Add accelerations to the Cycles geometry
-     * 
-     * @param accelerations
-     */
-    void _AddAccelerations(const VtVec3fArray& accelerations);
-
-
-    void _AddColors(const VtVec3fArray& colors, HdCyclesRenderParam* param);
-    void _AddAlphas(const VtFloatArray& colors);
-
+     * @brief Check that the combination of object attributes matches
+     * the Cycles specification. If it doesn't, it notifies the user
+     * and reverts the object to a state where it doesn't crash
+     * the renderer internally.
+    */
+    void _CheckIntegrity(HdCyclesRenderParam* param);
 
     ccl::PointCloud* m_cyclesPointCloud;
     ccl::Object* m_cyclesObject;
 
+    ccl::Shader* m_point_display_color_shader;
+
     int m_pointResolution; // ?
     int m_pointStyle; // ccl::PointCloudPointStyle
+
+    unsigned int m_visibilityFlags;
 
     HdCyclesRenderDelegate* m_renderDelegate;
 

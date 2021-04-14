@@ -177,6 +177,7 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
     , m_displayAovToken(HdAovTokens->color)
+    , m_hasCollectedRenderStats(false)
 {
     _InitializeDefaults();
 }
@@ -644,6 +645,8 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
             sceneParams->bvh_type = ccl::SceneParams::BVH_STATIC;
         }
     }
+
+    sceneParams->bvh_type = ccl::SceneParams::BVH_DYNAMIC;
 
     if (key == usdCyclesTokens->cyclesCurve_subdivisions) {
         sceneParams->hair_subdivisions = _HdCyclesGetVtValue<int>(value, sceneParams->hair_subdivisions,
@@ -1859,6 +1862,31 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 
     if (m_geometryUpdated)
         Interrupt();
+}
+
+/*
+    This is a hacky way to collect render stats to check memory usage. 
+    If we want to collect stats on the fly and not just at the end, it
+    would help to have some kind of event/stage from cycles.
+    Checking the progress status string is not reliable and there is no 
+    concept of ordering of the steps.
+
+    This might not work for different code paths in the cycles session (tiled?)
+*/
+bool
+HdCyclesRenderParam::CollectRenderStatsOnce() {
+    if (m_hasCollectedRenderStats) {
+        return false;
+    }
+
+    // Really ugly
+    const float progress = m_cyclesSession->progress.get_progress();
+    if (progress > 1e-7) {
+        m_hasCollectedRenderStats = true;
+        return true;
+    }
+
+    return false;
 }
 
 void

@@ -169,6 +169,21 @@ HdCyclesCreateAttribColorSurface()
     return shader;
 }
 
+
+// They should be mappable to usd geom tokens, but not sure 
+// if it's available in an hydra delegate
+const char*
+_HdInterpolationStr(const HdInterpolation& i) {
+    switch (i) {
+        case HdInterpolationConstant: return "Constant";
+        case HdInterpolationUniform: return "Uniform";
+        case HdInterpolationVarying: return "Varying";
+        case HdInterpolationFaceVarying: return "FaceVarying";
+        case HdInterpolationVertex: return "Vertex";
+        default: "Unknown";
+    }
+}
+
 bool
 _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 {

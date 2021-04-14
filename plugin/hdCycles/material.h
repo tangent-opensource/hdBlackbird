@@ -95,7 +95,11 @@ public:
      * @brief Causes the shader to be reloaded
      * 
      */
-    void Reload() override;
+    void Reload()
+    #if PXR_MAJOR_VERSION > 19
+    override
+    #endif
+    ;
 
     /**
      * @return Return true if this material is valid
