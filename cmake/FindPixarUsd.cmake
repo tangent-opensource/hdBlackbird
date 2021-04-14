@@ -1,4 +1,4 @@
-#  Copyright 2020 Tangent Animation
+#  Copyright 2021 Tangent Animation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,6 +17,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-add_subdirectory(usdCycles)
-add_subdirectory(ndrCycles)
-add_subdirectory(hdCycles)
+if(NOT DEFINED USD_ROOT)
+    message(FATAL_ERROR "USD_ROOT not defined")
+endif()
+
+find_package(pxr CONFIG REQUIRED PATHS ${USD_ROOT})
+
+target_compile_definitions(UsdInterface
+    INTERFACE
+    BOOST_NS=boost
+    $<$<CXX_COMPILER_ID:MSVC>:HAVE_SNPRINTF>
+    )
+
+target_link_libraries(UsdInterface
+    INTERFACE
+    hd usdHydra usdImaging usdRender
+    )

@@ -56,7 +56,7 @@ class HdCyclesRenderParam;
  */
 class HdCyclesMesh final : public HdMesh {
 public:
-    HF_MALLOC_TAG_NEW("new HdCyclesMesh");
+    HF_MALLOC_TAG_NEW("new HdCyclesMesh")
 
     /**
      * @brief Construct a new HdCycles Mesh object
@@ -126,8 +126,7 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene,
-                   HdInterpolation interpolation);
+    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene, HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/face normals (Not implemented)

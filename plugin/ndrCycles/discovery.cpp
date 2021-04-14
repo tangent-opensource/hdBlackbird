@@ -37,7 +37,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 );
 // clang-format on
 
-NDR_REGISTER_DISCOVERY_PLUGIN(NdrCyclesDiscoveryPlugin);
+NDR_REGISTER_DISCOVERY_PLUGIN(NdrCyclesDiscoveryPlugin)
 
 NdrCyclesDiscoveryPlugin::NdrCyclesDiscoveryPlugin() {}
 
@@ -74,30 +74,28 @@ NdrCyclesDiscoveryPlugin::DiscoverNodes(const Context& context)
     temp_nodes.push_back("displacement");
 
     for (const std::string& n : temp_nodes) {
-        std::string cycles_id = std::string("cycles_" + n);
-        ret.emplace_back(NdrIdentifier(
-                         TfStringPrintf("%s", cycles_id.c_str())),// identifier
-                         NdrVersion(1, 0),                        // version
-                         n.c_str(),                               // name
-                         _tokens->shader,                         // family
-                         _tokens->cycles,  // discoveryType
-                         _tokens->cycles,  // sourceType
-                         filename,         // uri
-                         filename          // resolvedUri
+        std::string cycles_id = "cycles_" + n;
+        ret.emplace_back(NdrIdentifier(TfStringPrintf("%s", cycles_id.c_str())),  // identifier
+                         NdrVersion(1, 0),                                        // version
+                         n.c_str(),                                               // name
+                         _tokens->shader,                                         // family
+                         _tokens->cycles,                                         // discoveryType
+                         _tokens->cycles,                                         // sourceType
+                         filename,                                                // uri
+                         filename                                                 // resolvedUri
         );
 
         // DEPRECATED:
         // Added for backwards support whilst we transition to new identifier
-        cycles_id = std::string("cycles:" + n);
-        ret.emplace_back(NdrIdentifier(
-                         TfStringPrintf("%s", cycles_id.c_str())),// identifier
-                         NdrVersion(1, 0),                        // version
-                         n.c_str(),                               // name
-                         _tokens->shader,                         // family
-                         _tokens->cycles,  // discoveryType
-                         _tokens->cycles,  // sourceType
-                         filename,         // uri
-                         filename          // resolvedUri
+        cycles_id = "cycles:" + n;
+        ret.emplace_back(NdrIdentifier(TfStringPrintf("%s", cycles_id.c_str())),  // identifier
+                         NdrVersion(1, 0),                                        // version
+                         n.c_str(),                                               // name
+                         _tokens->shader,                                         // family
+                         _tokens->cycles,                                         // discoveryType
+                         _tokens->cycles,                                         // sourceType
+                         filename,                                                // uri
+                         filename                                                 // resolvedUri
         );
     }
 
@@ -108,8 +106,7 @@ const NdrStringVec&
 NdrCyclesDiscoveryPlugin::GetSearchURIs() const
 {
     static const auto result = []() -> NdrStringVec {
-        NdrStringVec ret = TfStringSplit(TfGetenv("CYCLES_PLUGIN_PATH"),
-                                         ARCH_PATH_LIST_SEP);
+        NdrStringVec ret = TfStringSplit(TfGetenv("CYCLES_PLUGIN_PATH"), ARCH_PATH_LIST_SEP);
         ret.push_back("<built-in>");
         return ret;
     }();

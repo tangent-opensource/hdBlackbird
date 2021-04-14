@@ -43,8 +43,7 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
-                               HdCyclesRenderDelegate* a_renderDelegate)
+HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
     : HdPoints(id, instancerId)
     , m_renderDelegate(a_renderDelegate)
     , m_transform(ccl::transform_identity())
@@ -259,8 +258,8 @@ HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdD
 }
 
 void
-HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-                     HdDirtyBits* dirtyBits, TfToken const& reprSelector)
+HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+                     TfToken const& reprSelector)
 {
     HdCyclesRenderParam* param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
 
@@ -278,14 +277,11 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 #ifdef USE_USD_CYCLES_SCHEMA
 
-    if (HdChangeTracker::IsPrimvarDirty(
-            *dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
         needs_newMesh = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(id,
-                                     usdCyclesTokens->cyclesObjectPoint_style,
-                                     &xf);
+        sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_style, &xf);
         if (xf.count > 0) {
             const TfToken& styles = xf.values[0].Get<TfToken>();
             m_pointStyle          = ccl::POINT_CLOUD_POINT_DISC;
@@ -301,8 +297,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         needs_newMesh = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(
-            id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
+        sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
         if (xf.count > 0) {
             const int& resolutions = xf.values[0].Get<int>();
             m_pointResolution      = std::max(resolutions, 10);
@@ -453,14 +448,11 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_cyclesObjects.clear();
 
             for (size_t i = 0; i < points.size(); i++) {
-                ccl::Object* pointObject = _CreatePointsObject(
-                    ccl::transform_translate(vec3f_to_float3(points[i])),
-                    m_cyclesMesh);
+                ccl::Object* pointObject = _CreatePointsObject(ccl::transform_translate(vec3f_to_float3(points[i])),
+                                                               m_cyclesMesh);
 
                 pointObject->random_id = i;
-                pointObject->name
-                    = ccl::ustring::format("%s@%08x", pointObject->name,
-                                           pointObject->random_id);
+                pointObject->name      = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->random_id);
                 m_cyclesObjects.push_back(pointObject);
                 param->AddObject(pointObject);
             }
@@ -547,11 +539,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 HdDirtyBits
 HdCyclesPoints::GetInitialDirtyBitsMask() const
 {
-    return HdChangeTracker::DirtyPoints | HdChangeTracker::DirtyTransform
-           | HdChangeTracker::DirtyVisibility | HdChangeTracker::DirtyPrimvar
-           | HdChangeTracker::DirtyWidths | HdChangeTracker::DirtyMaterialId
-           | HdChangeTracker::DirtyInstanceIndex
-           | HdChangeTracker::DirtyNormals;
+    return HdChangeTracker::DirtyPoints | HdChangeTracker::DirtyTransform | HdChangeTracker::DirtyVisibility
+           | HdChangeTracker::DirtyPrimvar | HdChangeTracker::DirtyWidths | HdChangeTracker::DirtyMaterialId
+           | HdChangeTracker::DirtyInstanceIndex | HdChangeTracker::DirtyNormals;
 }
 
 bool

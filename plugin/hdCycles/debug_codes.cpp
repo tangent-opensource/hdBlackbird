@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,9 +17,22 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_API_H
-#define HD_CYCLES_API_H
+//  Usage of the debug codes follows Arnold's render delegate
+//  https://github.com/Autodesk/arnold-usd/blob/11eb3ced2b6a148bb5737fddeb25e4e21273607f/render_delegate/
 
-#include <embree3/rtcore.h>
+#include "debug_codes.h"
 
-#endif  // HD_CYCLES_API_H
+#include <pxr/base/tf/registryManager.h>
+
+PXR_NAMESPACE_OPEN_SCOPE
+
+TF_REGISTRY_FUNCTION(TfDebug)
+{
+    TF_DEBUG_ENVIRONMENT_SYMBOL(
+        HDCYCLES_MESH, "Print warnings when syncing cycles meshes");
+
+    TF_DEBUG_ENVIRONMENT_SYMBOL(
+        CYCLES_MEMORY_STATS, "Print info about memory usage every time the scene is rebuilt");
+}
+
+PXR_NAMESPACE_CLOSE_SCOPE
