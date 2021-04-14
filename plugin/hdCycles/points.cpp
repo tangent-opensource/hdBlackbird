@@ -42,8 +42,7 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
-                               HdCyclesRenderDelegate* a_renderDelegate)
+HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
     : HdPoints(id, instancerId)
     , m_renderDelegate(a_renderDelegate)
     , m_transform(ccl::transform_identity())
@@ -66,8 +65,7 @@ HdCyclesPoints::~HdCyclesPoints()
 {
     // Remove points
     for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(
-            m_cyclesObjects[i]);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObjects[i]);
     }
 
     m_cyclesObjects.clear();
@@ -96,10 +94,10 @@ HdCyclesPoints::Finalize(HdRenderParam* renderParam)
 }
 
 void
-HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-                     HdDirtyBits* dirtyBits, TfToken const& reprSelector)
+HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+                     TfToken const& reprSelector)
 {
-    HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
+    HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     const SdfPath& id = GetId();
 
@@ -114,14 +112,11 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
 #ifdef USE_USD_CYCLES_SCHEMA
 
-    if (HdChangeTracker::IsPrimvarDirty(
-            *dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
         needs_newMesh = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(id,
-                                     usdCyclesTokens->cyclesObjectPoint_style,
-                                     &xf);
+        sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_style, &xf);
         if (xf.count > 0) {
             const TfToken& styles = xf.values[0].Get<TfToken>();
             m_pointStyle          = POINT_DISCS;
@@ -131,13 +126,11 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-    if (HdChangeTracker::IsPrimvarDirty(
-            *dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_resolution)) {
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_resolution)) {
         needs_newMesh = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(
-            id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
+        sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
         if (xf.count > 0) {
             const int& resolutions = xf.values[0].Get<int>();
             m_pointResolution      = std::max(resolutions, 10);
@@ -172,14 +165,11 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_cyclesObjects.clear();
 
             for (size_t i = 0; i < points.size(); i++) {
-                ccl::Object* pointObject = _CreatePointsObject(
-                    ccl::transform_translate(vec3f_to_float3(points[i])),
-                    m_cyclesMesh);
+                ccl::Object* pointObject = _CreatePointsObject(ccl::transform_translate(vec3f_to_float3(points[i])),
+                                                               m_cyclesMesh);
 
                 pointObject->random_id = i;
-                pointObject->name
-                    = ccl::ustring::format("%s@%08x", pointObject->name,
-                                           pointObject->random_id);
+                pointObject->name      = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->random_id);
                 m_cyclesObjects.push_back(pointObject);
                 param->AddObject(pointObject);
             }
@@ -187,12 +177,10 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        ccl::Transform newTransform = HdCyclesExtractTransform(sceneDelegate,
-                                                               id);
+        ccl::Transform newTransform = HdCyclesExtractTransform(sceneDelegate, id);
 
         for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
-            m_cyclesObjects[i]->tfm = ccl::transform_inverse(m_transform)
-                                      * m_cyclesObjects[i]->tfm;
+            m_cyclesObjects[i]->tfm = ccl::transform_inverse(m_transform) * m_cyclesObjects[i]->tfm;
             m_cyclesObjects[i]->tfm = newTransform * m_cyclesObjects[i]->tfm;
         }
 
@@ -213,9 +201,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 for (size_t i = 0; i < widths.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
                         float w                 = widths[i];
-                        m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm
-                                                  * ccl::transform_scale(w, w,
-                                                                         w);
+                        m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm * ccl::transform_scale(w, w, w);
                     }
                 }
             }
@@ -232,19 +218,12 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 const VtVec3fArray& normals = xf.values[0].Get<VtVec3fArray>();
                 for (size_t i = 0; i < normals.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
-                        ccl::float3 rotAxis
-                            = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
-                                         ccl::make_float3(normals[i][0],
-                                                          normals[i][1],
-                                                          normals[i][2]));
-                        float d = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
-                                           ccl::make_float3(normals[i][0],
-                                                            normals[i][1],
-                                                            normals[i][2]));
-                        float angle = atan2f(ccl::len(rotAxis), d);
-                        m_cyclesObjects[i]->tfm
-                            = m_cyclesObjects[i]->tfm
-                              * ccl::transform_rotate((angle), rotAxis);
+                        ccl::float3 rotAxis     = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                                                         ccl::make_float3(normals[i][0], normals[i][1], normals[i][2]));
+                        float d                 = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                                           ccl::make_float3(normals[i][0], normals[i][1], normals[i][2]));
+                        float angle             = atan2f(ccl::len(rotAxis), d);
+                        m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm * ccl::transform_rotate((angle), rotAxis);
                     }
                 }
             } else {
@@ -275,11 +254,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 HdDirtyBits
 HdCyclesPoints::GetInitialDirtyBitsMask() const
 {
-    return HdChangeTracker::DirtyPoints | HdChangeTracker::DirtyTransform
-           | HdChangeTracker::DirtyVisibility | HdChangeTracker::DirtyPrimvar
-           | HdChangeTracker::DirtyWidths | HdChangeTracker::DirtyMaterialId
-           | HdChangeTracker::DirtyInstanceIndex
-           | HdChangeTracker::DirtyNormals;
+    return HdChangeTracker::DirtyPoints | HdChangeTracker::DirtyTransform | HdChangeTracker::DirtyVisibility
+           | HdChangeTracker::DirtyPrimvar | HdChangeTracker::DirtyWidths | HdChangeTracker::DirtyMaterialId
+           | HdChangeTracker::DirtyInstanceIndex | HdChangeTracker::DirtyNormals;
 }
 
 bool
@@ -304,7 +281,7 @@ HdCyclesPoints::_CreateDiscMesh()
     m_cyclesMesh->verts.reserve(numVerts);
 
     for (int i = 0; i < m_pointResolution; i++) {
-        float d = ((float)i / (float)m_pointResolution) * 2.0f * M_PI;
+        float d = (static_cast<float>(i) / static_cast<float>(m_pointResolution)) * 2.0f * M_PI_F;
         float x = sin(d) * 0.5f;
         float y = cos(d) * 0.5f;
         m_cyclesMesh->verts.push_back_reserved(ccl::make_float3(x, y, 0.0f));
@@ -334,21 +311,19 @@ HdCyclesPoints::_CreateSphereMesh()
 
     float z, xy;
 
-    float sectorStep = 2 * M_PI / sectorCount;
-    float stackStep  = M_PI / stackCount;
+    float sectorStep = 2.0f * M_PI_F / sectorCount;
+    float stackStep  = M_PI_F / stackCount;
     float sectorAngle, stackAngle;
 
     for (int i = 0; i <= stackCount; ++i) {
-        stackAngle = M_PI / 2 - i * stackStep;
+        stackAngle = M_PI_F / 2.0f - i * stackStep;
         xy         = radius * cosf(stackAngle);
         z          = radius * sinf(stackAngle);
 
         for (int j = 0; j <= sectorCount; ++j) {
             sectorAngle = j * sectorStep;
 
-            m_cyclesMesh->verts.push_back_slow(
-                ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle),
-                                 z));
+            m_cyclesMesh->verts.push_back_slow(ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle), z));
             // TODO: Add normals and uvs
         }
     }
@@ -373,8 +348,7 @@ HdCyclesPoints::_CreateSphereMesh()
 }
 
 ccl::Object*
-HdCyclesPoints::_CreatePointsObject(const ccl::Transform& transform,
-                                    ccl::Mesh* mesh)
+HdCyclesPoints::_CreatePointsObject(const ccl::Transform& transform, ccl::Mesh* mesh)
 {
     /* create object*/
     ccl::Object* object = new ccl::Object();
