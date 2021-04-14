@@ -104,5 +104,17 @@ find_program(USD_SCHEMA_GENERATOR
         usdGenSchema
         PATHS
         ${HOUDINI_ROOT}/bin
-        REQUIRED
         )
+
+# Fallback to py script, remove after 18.5.519 release and add REQUIORED to usdGenSchema find_program
+
+if(NOT USD_SCHEMA_GENERATOR)
+    find_program(USD_SCHEMA_GENERATOR
+            NAMES
+            usdGenSchema.py
+            PATHS
+            ${HOUDINI_ROOT}/bin
+            REQUIRED
+            )
+    list(PREPEND USD_SCHEMA_GENERATOR hython)
+endif()
