@@ -36,7 +36,7 @@ with scope("config") as c:
 def private_build_requires():
     import sys
     if 'win' in str(sys.platform):
-        return ['cmake-3.18<3.20', 'visual_studio',]
+        return ['cmake-3.18<3.20', 'visual_studio', 'Jinja2', 'usd_gen_schema']
     else:
         return ['cmake-3.18<3.20', 'gcc-6']
 
