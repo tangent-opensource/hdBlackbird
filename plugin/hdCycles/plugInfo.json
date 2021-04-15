@@ -7,7 +7,7 @@
                         "bases": [
                             "HdRendererPlugin"
                         ],
-                        "displayName": "Cycles",
+                        "displayName": "Blackbird",
                         "priority": 99
                     }
                 }
