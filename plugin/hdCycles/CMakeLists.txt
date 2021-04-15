@@ -105,7 +105,7 @@ if(MSVC)
 endif()    
 
 # plugInfo.json
-set(PLUG_INFO_LIBRARY_PATH "hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(PLUG_INFO_LIBRARY_PATH "../hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
 set(PLUG_INFO_RESOURCE_PATH "resources")
 set(PLUG_INFO_ROOT "..")
 configure_file(plugInfo.json plugInfo.json @ONLY)
