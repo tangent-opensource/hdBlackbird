@@ -190,12 +190,16 @@ target_compile_definitions(_usdCycles
         MFB_PACKAGE_NAME=usdCycles
         MFB_ALT_PACKAGE_NAME=usdCycles
         )
-                                
 
 set_target_properties(_usdCycles PROPERTIES
         PREFIX ""
         INSTALL_RPATH "$ORIGIN/../../usd"
         )
+
+if(WIN32)
+        set_target_properties(_usdCycles PROPERTIES SUFFIX ".pyd")
+endif()
+
 install(TARGETS _usdCycles DESTINATION plugin/python/UsdCycles)
 install(FILES __init__.py DESTINATION plugin/python/UsdCycles)
 if (MSVC)
