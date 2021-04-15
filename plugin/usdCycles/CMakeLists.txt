@@ -116,8 +116,13 @@ target_link_libraries(usdCycles
 
 target_compile_options(usdCycles
         PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
+        $<$<CXX_COMPILER_ID:MSVC>:/wd4273 /Zi>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
+        )
+
+target_link_options(usdCycles
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/ignore:4217 /ignore:4049>
         )
 
 target_compile_definitions(usdCycles
