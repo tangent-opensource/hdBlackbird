@@ -60,4 +60,5 @@ def commands():
 
     env.PYTHONPATH.prepend('{root}/plugin/python')
 
-    env.PATH.append("{0}".format(env.HDCYCLES_TOOLS_ROOT))
+    # required on windows
+    env.PATH.append('{root}/plugin/usd')

@@ -97,6 +97,7 @@ target_compile_definitions(hdCycles
 
 set_target_properties(hdCycles PROPERTIES
         PREFIX ""
+        INSTALL_RPATH "$ORIGIN"
         )
 install(TARGETS hdCycles DESTINATION plugin/usd)
 
