@@ -98,10 +98,10 @@ target_compile_definitions(hdCycles
 set_target_properties(hdCycles PROPERTIES
         PREFIX ""
         )
-install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
+install(TARGETS hdCycles DESTINATION plugin/usd)
 
 if(MSVC)
-    install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd/hdCycles OPTIONAL)
+    install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd OPTIONAL)
 endif()    
 
 # plugInfo.json

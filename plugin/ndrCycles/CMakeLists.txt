@@ -52,9 +52,9 @@ target_compile_definitions(ndrCycles
 set_target_properties(ndrCycles PROPERTIES
         PREFIX ""
         )
-install(TARGETS ndrCycles DESTINATION plugin/usd/ndrCycles)
+install(TARGETS ndrCycles DESTINATION plugin/usd)
 if (MSVC)
-    install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd/ndrCycles OPTIONAL)
+    install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd OPTIONAL)
 endif()
 
 # plugInfo.json

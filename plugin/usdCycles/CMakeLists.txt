@@ -134,9 +134,9 @@ target_compile_definitions(usdCycles
 set_target_properties(usdCycles PROPERTIES
         PREFIX ""
         )
-install(TARGETS usdCycles DESTINATION plugin/usd/usdCycles)
+install(TARGETS usdCycles DESTINATION plugin/usd)
 if (MSVC)
-    install(FILES $<TARGET_PDB_FILE:usdCycles> DESTINATION plugin/usd/usdCycles OPTIONAL)
+    install(FILES $<TARGET_PDB_FILE:usdCycles> DESTINATION plugin/usd OPTIONAL)
 endif()
 #
 

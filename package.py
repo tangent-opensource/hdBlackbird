@@ -54,7 +54,8 @@ def commands():
     env.HDCYCLES_PLUGIN_ROOT.set('{root}/plugin')
     env.HDCYCLES_TOOLS_ROOT.set('{root}/tools')
 
-    env.PXR_PLUGINPATH_NAME.append('{0}/usd/ndrCycles/resources'.format(env.HDCYCLES_PLUGIN_ROOT))
-    env.PXR_PLUGINPATH_NAME.append('{0}/usd/hdCycles/resources'.format(env.HDCYCLES_PLUGIN_ROOT))
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/ndrCycles/resources')
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/usdCycles/resources')
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/hdCycles/resources')
 
     env.PATH.append("{0}".format(env.HDCYCLES_TOOLS_ROOT))
