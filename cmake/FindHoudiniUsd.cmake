@@ -116,5 +116,6 @@ if(NOT USD_SCHEMA_GENERATOR)
             ${HOUDINI_ROOT}/bin
             REQUIRED
             )
-    set(PYTHON_EXECUTABLE hython)
+    list(PREPEND USD_SCHEMA_GENERATOR hython)
+    set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
 endif()
