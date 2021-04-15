@@ -50,4 +50,3 @@ find_package(Cycles REQUIRED)
 include(cmake/FindUsd.cmake)
 
 add_subdirectory(plugin)
-add_subdirectory(tools)
