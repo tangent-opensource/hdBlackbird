@@ -81,6 +81,13 @@ HdCyclesPoints::_InitRepr(TfToken const& reprToken, HdDirtyBits* dirtyBits)
 HdDirtyBits
 HdCyclesPoints::_PropagateDirtyBits(HdDirtyBits bits) const
 {
+    /*
+        If the point style has changed, the internal bvh representation also
+        needs to be changed, so we tag the points as dirty
+    */
+    if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->cyclesObjectPoint_style)) {
+        bits |= HdChangeTracker::DirtyPoints;
+    }
     return bits;
 }
 
@@ -148,37 +155,42 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
             // Visibility
             m_visibilityFlags = 0;
 
-            bool bit;
+            bool bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                           usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_CAMERA;
             }
 
+            bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                           usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_DIFFUSE;
             }
 
+            bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                           usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_GLOSSY;
             }
 
+            bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                           usdCyclesTokens->primvarsCyclesObjectVisibilityScatter, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_VOLUME_SCATTER;
             }
 
+            bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                           usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_SHADOW;
             }
 
+            bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                           usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission, bit);
             if (bit) {
@@ -211,9 +223,12 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
     VtVec3fArray points = pointsValue.UncheckedGet<VtVec3fArray>();
 
-    if (points.size() != m_cyclesPointCloud->points.size()) {
+    const bool styleHasChanged = m_cyclesPointCloud->point_style == (ccl::PointCloudPointStyle)m_pointStyle;
+
+    if (points.size() != m_cyclesPointCloud->points.size() || styleHasChanged) {
         m_cyclesPointCloud->clear();
         m_cyclesPointCloud->resize(points.size());
+        m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)m_pointStyle;
         sizeHasChanged = true;
 
         // We set the size of the radius buffers to a default value
@@ -560,23 +575,28 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     std::lock_guard<std::mutex>(scene->mutex);
 
-    // Triggers only a bvh refit
+    // Rebuild the acceleration structure only if really necessary
     bool needsRebuildBVH = false;
 
     // -------------------------------------
     // -- Resolve Drawstyles
 #ifdef USE_USD_CYCLES_SCHEMA
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
-        needsRebuildBVH = true;
-
-        HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_style, &xf);
-        if (xf.count > 0) {
-            const TfToken& styles = xf.values[0].Get<TfToken>();
-            m_pointStyle          = ccl::POINT_CLOUD_POINT_DISC;
-            if (styles == usdCyclesTokens->sphere) {
+        VtValue point_style_ = GetPrimvar(sceneDelegate, usdCyclesTokens->cyclesObjectPoint_style);
+        if (point_style_.IsEmpty()) {
+            TF_WARN("Point style primvar exists, but is empty for point cloud %s", id.GetText());
+        } else {
+            TfToken point_style = point_style_.Cast<TfToken>().UncheckedGet<TfToken>();
+            if (point_style == usdCyclesTokens->sphere){
                 m_pointStyle = ccl::POINT_CLOUD_POINT_SPHERE;
+            } else if (point_style == usdCyclesTokens->disc) {
+                m_pointStyle = ccl::POINT_CLOUD_POINT_DISC;
+            } else if (point_style == usdCyclesTokens->disc_oriented) {
+                m_pointStyle = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
+            } else {
+                TF_WARN("Unrecognized point style %s for point cloud %s", point_style.GetText(), id.GetText());
             }
+            needsRebuildBVH = true;
         }
     }
 
@@ -671,28 +691,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-#if 1
-    auto N_attr    = m_cyclesPointCloud->attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-    ccl::float3* N = N_attr->data_float3();
-
-    srand(125125125);
-    for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
-        N[i].x = (float)rand() / RAND_MAX;
-        N[i].y = (float)rand() / RAND_MAX;
-        N[i].z = (float)rand() / RAND_MAX;
-        N[i]   = ccl::normalize(N[i]);
-    }
-
-    m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
-
-#endif
-
-    //m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC;
-
     _CheckIntegrity(param);
 
-
-    _UpdateObject(scene, param, dirtyBits);
+    _UpdateObject(scene, param, dirtyBits, needsRebuildBVH);
     *dirtyBits = HdChangeTracker::Clean;
 }
 
@@ -727,7 +728,13 @@ HdCyclesPoints::_CheckIntegrity(HdCyclesRenderParam* param)
 
     // Assigning a default material to the point cloud if none is present
     if (m_cyclesPointCloud->used_shaders.empty()) {
-        m_cyclesPointCloud->used_shaders.push_back(param->default_vcol_display_color_surface);
+        m_cyclesPointCloud->used_shaders.push_back(m_point_display_color_shader);
+
+        // We also need to assign the shader indices
+        for (size_t i = 0; i < m_cyclesPointCloud->shader.size(); ++i) {
+            m_cyclesPointCloud->shader[i] = 0;
+        }
+
 
         // If no colors are present we also set a beautiful magenta
         ccl::ustring attr_color_name("displayColor");
@@ -738,7 +745,7 @@ HdCyclesPoints::_CheckIntegrity(HdCyclesRenderParam* param)
             ccl::float4* colors = attr_colors->data_float4();
 
             for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
-                colors[i] = ccl::make_float4(1.f, 0.f, 1.f, 1.f);
+                colors[i] = ccl::make_float4(1.f, 0.f, 1.f, 0.5f);
             }
         }
     }

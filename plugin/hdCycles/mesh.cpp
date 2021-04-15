@@ -923,6 +923,8 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                 m_texture_names.emplace_back(description.name.data(), description.name.size());
             }
 
+            std::cout << "Mesh primvar " << description.name << std::endl;
+
             if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
                 continue;
             }
