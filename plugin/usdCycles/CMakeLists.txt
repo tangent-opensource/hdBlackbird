@@ -185,11 +185,19 @@ target_link_options(_usdCycles
         $<$<CXX_COMPILER_ID:MSVC>:/ignore:4217 /ignore:4049>
         )
 
+target_compile_definitions(_usdCycles
+        PRIVATE
+        MFB_PACKAGE_NAME=usdCycles
+        MFB_ALT_PACKAGE_NAME=usdCycles
+        )
+                                
+
 set_target_properties(_usdCycles PROPERTIES
         PREFIX ""
+        INSTALL_RPATH "$ORIGIN/../../usd"
         )
-install(TARGETS _usdCycles DESTINATION python/pxr/UsdCycles)
-install(FILES __init__.py DESTINATION python/pxr/UsdCycles)
+install(TARGETS _usdCycles DESTINATION plugin/python/UsdCycles)
+install(FILES __init__.py DESTINATION plugin/python/UsdCycles)
 if (MSVC)
-    install(FILES $<TARGET_PDB_FILE:_usdCycles> DESTINATION python/pxr/UsdCycles OPTIONAL)
+    install(FILES $<TARGET_PDB_FILE:_usdCycles> DESTINATION plugin/python/UsdCycles OPTIONAL)
 endif()

@@ -2,7 +2,7 @@
 
 name = 'hdcycles'
 
-version = '0.9.1'
+version = '0.10.0'
 
 authors = [
     'benjamin.skinner',
@@ -58,6 +58,6 @@ def commands():
     env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/usdCycles/resources')
     env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/hdCycles/resources')
 
-    env.PYTHONPATH.prepend('{root}/python')
+    env.PYTHONPATH.prepend('{root}/plugin/python')
 
     env.PATH.append("{0}".format(env.HDCYCLES_TOOLS_ROOT))
