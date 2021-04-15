@@ -229,7 +229,7 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
         m_cyclesPointCloud->clear();
         m_cyclesPointCloud->resize(points.size());
         m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)m_pointStyle;
-        sizeHasChanged = true;
+        sizeHasChanged                  = true;
 
         // We set the size of the radius buffers to a default value
         for (size_t i = 0; i < m_cyclesPointCloud->radius.size(); ++i) {
@@ -587,7 +587,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             TF_WARN("Point style primvar exists, but is empty for point cloud %s", id.GetText());
         } else {
             TfToken point_style = point_style_.Cast<TfToken>().UncheckedGet<TfToken>();
-            if (point_style == usdCyclesTokens->sphere){
+            if (point_style == usdCyclesTokens->sphere) {
                 m_pointStyle = ccl::POINT_CLOUD_POINT_SPHERE;
             } else if (point_style == usdCyclesTokens->disc) {
                 m_pointStyle = ccl::POINT_CLOUD_POINT_DISC;
