@@ -92,7 +92,6 @@ set(USD_CYCLES_SCHEMA_OUTPUT_FILES
         wrapBakeSettingsAPI.cpp
         )
 
-message(STATUS ${PYTHON_EXECUTABLE})
 add_custom_command(OUTPUT ${USD_CYCLES_SCHEMA_OUTPUT_FILES} plugInfo.json generatedSchema.usda
         COMMAND ${USD_SCHEMA_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
         COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
