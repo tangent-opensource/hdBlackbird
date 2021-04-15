@@ -1,4 +1,4 @@
-#  Copyright 2020 Tangent Animation
+#  Copyright 2021 Tangent Animation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,82 +17,89 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-set(USD_CYCLES_SCHEMA_OUTPUT_FILES
+set(USD_CYCLES_SCHEMA_SOURCE_OUTPUT
         # api
         api.h
 
         # tokens
         tokens.h
         tokens.cpp
-        wrapTokens.cpp
 
         # render
         rendererSettingsAPI.h
         rendererSettingsAPI.cpp
-        wrapRendererSettingsAPI.cpp
 
         # denoise
         denoiseSettingsAPI.h
         denoiseSettingsAPI.cpp
-        wrapDenoiseSettingsAPI.cpp
 
         # integrator
         integratorSettingsAPI.h
         integratorSettingsAPI.cpp
-        wrapIntegratorSettingsAPI.cpp
 
         # film
         filmSettingsAPI.h
         filmSettingsAPI.cpp
-        wrapFilmSettingsAPI.cpp
 
         # light
         lightSettingsAPI.h
         lightSettingsAPI.cpp
-        wrapLightSettingsAPI.cpp
 
         # camera
         cameraSettingsAPI.h
         cameraSettingsAPI.cpp
-        wrapCameraSettingsAPI.cpp
 
         # object
         objectSettingsAPI.h
         objectSettingsAPI.cpp
-        wrapObjectSettingsAPI.cpp
 
         # mesh
         meshSettingsAPI.h
         meshSettingsAPI.cpp
-        wrapMeshSettingsAPI.cpp
 
         # material
         materialSettingsAPI.h
         materialSettingsAPI.cpp
-        wrapMaterialSettingsAPI.cpp
 
         # background
         backgroundAPI.h
         backgroundAPI.cpp
-        wrapBackgroundAPI.cpp
 
         # curve
         curveSettingsAPI.h
         curveSettingsAPI.cpp
-        wrapCurveSettingsAPI.cpp
 
         # points
         pointsSettingsAPI.h
         pointsSettingsAPI.cpp
-        wrapPointsSettingsAPI.cpp
 
         # bake
         bakeSettingsAPI.h
         bakeSettingsAPI.cpp
+        )
+
+
+set(USD_CYCLES_SCHEMA_WRAP_OUTPUT
+        wrapTokens.cpp
+        wrapRendererSettingsAPI.cpp
+        wrapDenoiseSettingsAPI.cpp
+        wrapIntegratorSettingsAPI.cpp
+        wrapFilmSettingsAPI.cpp
+        wrapLightSettingsAPI.cpp
+        wrapCameraSettingsAPI.cpp
+        wrapObjectSettingsAPI.cpp
+        wrapMeshSettingsAPI.cpp
+        wrapMaterialSettingsAPI.cpp
+        wrapBackgroundAPI.cpp
+        wrapCurveSettingsAPI.cpp
+        wrapPointsSettingsAPI.cpp
         wrapBakeSettingsAPI.cpp
         )
 
-add_custom_command(OUTPUT ${USD_CYCLES_SCHEMA_OUTPUT_FILES} plugInfo.json generatedSchema.usda
+add_custom_command(OUTPUT
+        ${USD_CYCLES_SCHEMA_SOURCE_OUTPUT}
+        ${USD_CYCLES_SCHEMA_WRAP_OUTPUT}
+        plugInfo.json generatedSchema.usda
         COMMAND ${USD_SCHEMA_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
         COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
         DEPENDS
@@ -101,7 +108,9 @@ add_custom_command(OUTPUT ${USD_CYCLES_SCHEMA_OUTPUT_FILES} plugInfo.json genera
         VERBATIM
         )
 
-add_library(usdCycles SHARED ${USD_CYCLES_SCHEMA_OUTPUT_FILES})
+# usdCycles
+
+add_library(usdCycles SHARED ${USD_CYCLES_SCHEMA_SOURCE_OUTPUT})
 
 target_include_directories(usdCycles
         PUBLIC
@@ -138,9 +147,7 @@ install(TARGETS usdCycles DESTINATION plugin/usd)
 if (MSVC)
     install(FILES $<TARGET_PDB_FILE:usdCycles> DESTINATION plugin/usd OPTIONAL)
 endif()
-#
 
-# plugInfo.json
 install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/plugInfo.json
         ${CMAKE_CURRENT_BINARY_DIR}/generatedSchema.usda
@@ -148,3 +155,41 @@ install(FILES
         )
 
 install(FILES schema.usda DESTINATION plugin/usd/usdCycles/resources/usdCycles)
+
+# _usdCycles - python
+
+add_library(_usdCycles SHARED
+        ${USD_CYCLES_SCHEMA_WRAP_OUTPUT}
+        module.cpp
+        moduleDeps.cpp
+        )
+
+target_include_directories(_usdCycles
+        PUBLIC
+        ${CMAKE_CURRENT_BINARY_DIR}/../
+        )
+
+target_link_libraries(_usdCycles
+        PUBLIC
+        usdCycles
+        )
+
+target_compile_options(_usdCycles
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/wd4273 /Zi>
+        $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
+        )
+
+target_link_options(_usdCycles
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/ignore:4217 /ignore:4049>
+        )
+
+set_target_properties(_usdCycles PROPERTIES
+        PREFIX ""
+        )
+install(TARGETS _usdCycles DESTINATION python/pxr/UsdCycles)
+install(FILES __init__.py DESTINATION python/pxr/UsdCycles)
+if (MSVC)
+    install(FILES $<TARGET_PDB_FILE:_usdCycles> DESTINATION python/pxr/UsdCycles OPTIONAL)
+endif()

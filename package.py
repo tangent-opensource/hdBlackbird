@@ -58,4 +58,6 @@ def commands():
     env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/usdCycles/resources')
     env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/hdCycles/resources')
 
+    env.PYTHONPATH.prepend('{root}/python')
+
     env.PATH.append("{0}".format(env.HDCYCLES_TOOLS_ROOT))
