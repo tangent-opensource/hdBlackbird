@@ -101,7 +101,7 @@ HdCyclesConfig::HdCyclesConfig()
 
     up_axis = TfGetEnvSetting(HD_CYCLES_UP_AXIS);
 
-    enable_motion_blur      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR", false);
+    enable_motion_blur      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR", true);
     motion_steps            = HdCyclesEnvValue<int>("HD_CYCLES_MOTION_STEPS", 3);
     enable_subdivision      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_SUBDIVISION", false);
     subdivision_dicing_rate = HdCyclesEnvValue<float>("HD_CYCLES_SUBDIVISION_DICING_RATE", 1.0);
