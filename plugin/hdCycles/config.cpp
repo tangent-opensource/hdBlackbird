@@ -120,7 +120,6 @@ HdCyclesConfig::HdCyclesConfig()
 
     max_samples = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SAMPLES", 512);
 
-    num_threads             = HdCyclesEnvValue<int>("HD_CYCLES_NUM_THREADS", 0);
     pixel_size              = HdCyclesEnvValue<int>("HD_CYCLES_PIXEL_SIZE", 1);
     tile_size_x             = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_X", 64);
     tile_size_y             = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_Y", 64);

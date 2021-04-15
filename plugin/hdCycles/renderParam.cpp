@@ -41,6 +41,7 @@
 #include <render/session.h>
 #include <render/stats.h>
 #include <util/util_murmurhash.h>
+#include <util/util_task.h>
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
@@ -266,6 +267,9 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateSessionFromConfig(true);
     _UpdateSessionFromRenderSettings(settingsMap);
     _UpdateSessionFromConfig();
+
+    // Setting up number of threads, this is useful for applications(husk) that control task arena
+    m_sessionParams.threads = tbb::this_task_arena::max_concurrency();
 
     if (!_CreateSession()) {
         std::cout << "COULD NOT CREATE CYCLES SESSION\n";
@@ -500,10 +504,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
 
     if (key == usdCyclesTokens->cyclesPixel_size) {
         sessionParams->pixel_size = _HdCyclesGetVtValue<int>(value, sessionParams->pixel_size, &session_updated);
-    }
-
-    if (key == usdCyclesTokens->cyclesThreads) {
-        sessionParams->threads = _HdCyclesGetVtValue<int>(value, sessionParams->threads, &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {

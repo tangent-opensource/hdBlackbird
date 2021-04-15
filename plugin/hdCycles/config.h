@@ -246,12 +246,6 @@ public:
     HdCyclesEnvValue<int> max_samples;
 
     /**
-     * @brief Number of threads to use for cycles render
-     *
-     */
-    HdCyclesEnvValue<int> num_threads;
-
-    /**
      * @brief Size of pixel
      *
      */
