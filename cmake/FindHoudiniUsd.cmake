@@ -116,5 +116,5 @@ if(NOT USD_SCHEMA_GENERATOR)
             ${HOUDINI_ROOT}/bin
             REQUIRED
             )
-    list(PREPEND USD_SCHEMA_GENERATOR hython)
+    set(PYTHON_EXECUTABLE hython)
 endif()
