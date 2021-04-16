@@ -23,8 +23,8 @@
 #include "api.h"
 
 #include "hdcycles.h"
-#include "utils.h"
 #include "renderDelegate.h"
+#include "utils.h"
 
 #include <util/util_transform.h>
 
@@ -60,8 +60,7 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this curve
      * as a prototype
      */
-    HdCyclesBasisCurves(SdfPath const& id, SdfPath const& instancerId,
-                        HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesBasisCurves(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
     /**
      * @brief Destroy the HdCycles Basis Curves object
      * 
@@ -78,8 +77,8 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits, TfToken const& reprSelector) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+              TfToken const& reprSelector) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -175,7 +174,7 @@ protected:
     ccl::CurveShapeType m_curveShape;
     int m_curveResolution;
 
-    ccl::vector<ccl::Shader *> m_usedShaders;
+    ccl::vector<ccl::Shader*> m_usedShaders;
 
 private:
     /**

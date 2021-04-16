@@ -29,7 +29,7 @@
 
 namespace ccl {
 class Mesh;
-};
+}
 
 PXR_NAMESPACE_OPEN_SCOPE
 

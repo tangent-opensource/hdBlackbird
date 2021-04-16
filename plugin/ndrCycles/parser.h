@@ -34,14 +34,12 @@ public:
      * @brief Creates an instance of NdrCyclesParserPlugin.
      * 
      */
-    NDRCYCLES_API
     NdrCyclesParserPlugin();
 
     /**
      * @brief Destructor for NdrCyclesParserPlugin.
      * 
      */
-    NDRCYCLES_API
     ~NdrCyclesParserPlugin() override;
 
     /**
@@ -50,16 +48,13 @@ public:
      * @param discoveryResult NdrNodeDiscoveryResult returned by the discovery plugin.
      * @return The parsed Ndr Node.
      */
-    NDRCYCLES_API
-    NdrNodeUniquePtr
-    Parse(const NdrNodeDiscoveryResult& discoveryResult) override;
+    NdrNodeUniquePtr Parse(const NdrNodeDiscoveryResult& discoveryResult) override;
 
     /**
      * @brief Returns all the supported discovery types.
      * 
      * @return Returns "cycles" as the only supported discovery type.
      */
-    NDRCYCLES_API
     const NdrTokenVec& GetDiscoveryTypes() const override;
 
     /**
@@ -67,7 +62,6 @@ public:
      * 
      * @return Returns "cycles" as the only supported source type.
      */
-    NDRCYCLES_API
     const TfToken& GetSourceType() const override;
 };
 

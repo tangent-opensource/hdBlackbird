@@ -29,7 +29,7 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-NDR_REGISTER_PARSER_PLUGIN(NdrCyclesParserPlugin);
+NDR_REGISTER_PARSER_PLUGIN(NdrCyclesParserPlugin)
 
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(_tokens,
@@ -45,20 +45,15 @@ namespace {
 // value will match the SdfType, as the SdfType comes from the default value.
 class CyclesShaderProperty : public SdrShaderProperty {
 public:
-    CyclesShaderProperty(const TfToken& name, const SdfValueTypeName& typeName,
-                         const VtValue& defaultValue, bool isOutput,
-                         size_t arraySize, const NdrTokenMap& metadata,
-                         const NdrTokenMap& hints, const NdrOptionVec& options)
-        : SdrShaderProperty(name, typeName.GetAsToken(), defaultValue, isOutput,
-                            arraySize, metadata, hints, options)
+    CyclesShaderProperty(const TfToken& name, const SdfValueTypeName& typeName, const VtValue& defaultValue,
+                         bool isOutput, size_t arraySize, const NdrTokenMap& metadata, const NdrTokenMap& hints,
+                         const NdrOptionVec& options)
+        : SdrShaderProperty(name, typeName.GetAsToken(), defaultValue, isOutput, arraySize, metadata, hints, options)
         , _typeName(typeName)
     {
     }
 
-    const SdfTypeIndicator GetTypeAsSdfType() const override
-    {
-        return { _typeName, _typeName.GetAsToken() };
-    }
+    const SdfTypeIndicator GetTypeAsSdfType() const override { return { _typeName, _typeName.GetAsToken() }; }
 
 private:
     SdfValueTypeName _typeName;
@@ -75,26 +70,24 @@ NdrCyclesParserPlugin::Parse(const NdrNodeDiscoveryResult& discoveryResult)
 {
     NdrPropertyUniquePtrVec properties;
 #if PXR_MINOR_VERSION >= 20 && PXR_PATCH_VERSION >= 5
-    return NdrNodeUniquePtr(
-        new SdrShaderNode(discoveryResult.identifier,     // identifier
-                            discoveryResult.version,        // version
-                            discoveryResult.name,           // name
-                            discoveryResult.family,         // family
-                            discoveryResult.discoveryType,  // context
-                            discoveryResult.sourceType,     // sourceType
-                            discoveryResult.uri,            // uri
-                            discoveryResult.uri,            // resolvedUri
-                            std::move(properties)));
+    return NdrNodeUniquePtr(new SdrShaderNode(discoveryResult.identifier,     // identifier
+                                              discoveryResult.version,        // version
+                                              discoveryResult.name,           // name
+                                              discoveryResult.family,         // family
+                                              discoveryResult.discoveryType,  // context
+                                              discoveryResult.sourceType,     // sourceType
+                                              discoveryResult.uri,            // uri
+                                              discoveryResult.uri,            // resolvedUri
+                                              std::move(properties)));
 #else
-    return NdrNodeUniquePtr(
-        new SdrShaderNode(discoveryResult.identifier,     // identifier
-                          discoveryResult.version,        // version
-                          discoveryResult.name,           // name
-                          discoveryResult.family,         // family
-                          discoveryResult.discoveryType,  // context
-                          discoveryResult.sourceType,     // sourceType
-                          discoveryResult.uri,            // uri
-                          std::move(properties)));
+    return NdrNodeUniquePtr(new SdrShaderNode(discoveryResult.identifier,     // identifier
+                                              discoveryResult.version,        // version
+                                              discoveryResult.name,           // name
+                                              discoveryResult.family,         // family
+                                              discoveryResult.discoveryType,  // context
+                                              discoveryResult.sourceType,     // sourceType
+                                              discoveryResult.uri,            // uri
+                                              std::move(properties)));
 #endif
 }
 
