@@ -653,6 +653,14 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     VtValue value = GetPrimvar(sceneDelegate, pv.name);
 
+                    if(pv.name == HdTokens->points) {
+                        continue;
+                    }
+
+                    if(pv.name == HdTokens->widths) {
+                        continue;
+                    }
+
                     // uvs
                     if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVS(pv.name, value, primvarDescsEntry.first);
