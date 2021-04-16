@@ -31,7 +31,7 @@ target_compile_definitions(UsdInterface
     BOOST_NS=hboost
 )
 
-set(_houdini_libs OpenImageIO_sidefx;hboost_filesystem-mt-x64;hboost_iostreams-mt-x64;hboost_system-mt-x64;hboost_regex-mt-x64;jemalloc)
+set(_houdini_libs OpenImageIO_sidefx;hboost_filesystem-mt-x64;hboost_iostreams-mt-x64;hboost_system-mt-x64;hboost_regex-mt-x64)
 foreach(_houdini_lib ${_houdini_libs})
     find_library(${_houdini_lib}_path
             NAMES
