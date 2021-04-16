@@ -1623,6 +1623,9 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 
     if (m_objectsUpdated || m_shadersUpdated) {
         m_cyclesScene->object_manager->tag_update(m_cyclesScene);
+        if (m_shadersUpdated) {
+            m_cyclesScene->background->tag_update(m_cyclesScene);
+        }
         m_objectsUpdated = false;
         m_shadersUpdated = false;
     }
