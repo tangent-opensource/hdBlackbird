@@ -22,28 +22,4 @@
 
 #include <embree3/rtcore.h>
 
-#include <pxr/base/arch/export.h>
-
-#if defined(PXR_STATIC)
-#    define NDRCYCLES_API
-#    define NDRCYCLES_API_TEMPLATE_CLASS(...)
-#    define NDRCYCLES_API_TEMPLATE_STRUCT(...)
-#    define NDRCYCLES_LOCAL
-#else
-#    if defined(NDRCYCLES_EXPORTS)
-#        define NDRCYCLES_API ARCH_EXPORT
-#        define NDRCYCLES_API_TEMPLATE_CLASS(...)                              \
-            ARCH_EXPORT_TEMPLATE(class, __VA_ARGS__)
-#        define NDRCYCLES_API_TEMPLATE_STRUCT(...)                             \
-            ARCH_EXPORT_TEMPLATE(struct, __VA_ARGS__)
-#    else
-#        define NDRCYCLES_API ARCH_IMPORT
-#        define NDRCYCLES_API_TEMPLATE_CLASS(...)                              \
-            ARCH_IMPORT_TEMPLATE(class, __VA_ARGS__)
-#        define NDRCYCLES_API_TEMPLATE_STRUCT(...)                             \
-            ARCH_IMPORT_TEMPLATE(struct, __VA_ARGS__)
-#    endif
-#    define NDRCYCLES_LOCAL ARCH_HIDDEN
-#endif
-
 #endif  // NDR_CYCLES_API_H
