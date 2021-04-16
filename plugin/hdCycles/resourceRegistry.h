@@ -20,9 +20,11 @@
 #ifndef HDCYCLES_RESOURCEREGISTRY_H
 #define HDCYCLES_RESOURCEREGISTRY_H
 
-#include <pxr/imaging/hd/resourceRegistry.h>
-#include <pxr/imaging/hd/instanceRegistry.h>
+#include "objectSource.h"
+
 #include <pxr/imaging/hd/bufferSource.h>
+#include <pxr/imaging/hd/instanceRegistry.h>
+#include <pxr/imaging/hd/resourceRegistry.h>
 
 #include <tbb/concurrent_vector.h>
 
@@ -32,7 +34,6 @@ class Scene;
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-
 class HdCyclesResourceRegistry final : public HdResourceRegistry {
 public:
 
@@ -40,15 +41,14 @@ public:
 
     void UpdateScene(ccl::Scene* scene) { m_scene = scene; }
 
-    void AddSource(HdBufferSourceSharedPtr source);
+    HdInstance<HdCyclesObjectSourceSharedPtr> GetObjectInstance(const SdfPath& id);
 
 private:
     void _Commit() override;
     void _GarbageCollect() override;
 
     ccl::Scene* m_scene{};
-
-    tbb::concurrent_vector<HdBufferSourceSharedPtr> m_pending_sources;
+    HdInstanceRegistry<HdCyclesObjectSourceSharedPtr> m_object_sources;
 };
 
 using HdCyclesResourceRegistrySharedPtr = std::shared_ptr<HdCyclesResourceRegistry>;

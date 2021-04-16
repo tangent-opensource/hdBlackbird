@@ -63,6 +63,8 @@ add_library(hdCycles SHARED
         volume.h
         resourceRegistry.cpp
         resourceRegistry.h
+        objectSource.cpp
+        objectSource.h
         attributeSource.cpp
         attributeSource.h
         )

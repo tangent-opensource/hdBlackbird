@@ -19,6 +19,9 @@
 
 #include "resourceRegistry.h"
 
+#include <pxr/base/work/loops.h>
+#include <pxr/usd/sdf/path.h>
+
 #include <render/scene.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE
@@ -28,12 +31,17 @@ HdCyclesResourceRegistry::_Commit()
 {
     ccl::thread_scoped_lock scene_lock { m_scene->mutex };
 
-    // resolve pending sources
-    for (auto& source : m_pending_sources) {
-        if (!source->IsValid()) {
+    // 1) bind objects to the scene
+    for (auto& object_source : m_object_sources) {
+        if (!object_source.second.value->IsValid()) {
             continue;
         }
-        source->Resolve();
+        object_source.second.value->Resolve();
+    }
+
+    // 2) commit all pending resources
+    for (auto& object_source : m_object_sources) {
+        object_source.second.value->ResolvePendingSources();
     }
 }
 
@@ -42,12 +50,11 @@ HdCyclesResourceRegistry::_GarbageCollect()
 {
     ccl::thread_scoped_lock scene_lock { m_scene->mutex };
 
-    // cleanup pending sources
-    m_pending_sources.clear();
+    m_object_sources.GarbageCollect();
 }
 
-void
-HdCyclesResourceRegistry::AddSource(HdBufferSourceSharedPtr source)
+HdInstance<HdCyclesObjectSourceSharedPtr>
+HdCyclesResourceRegistry::GetObjectInstance(const SdfPath& id)
 {
-    m_pending_sources.push_back(std::move(source));
+    return m_object_sources.GetInstance(id.GetHash());
 }

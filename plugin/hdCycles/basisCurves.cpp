@@ -442,6 +442,13 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
 {
     SdfPath const& id = GetId();
 
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    if(object_instance.IsFirstInstance()) {
+        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
+        m_object_source = object_instance.GetValue();
+    }
+
     HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
 
     ccl::Scene* scene = param->GetCyclesScene();
@@ -643,8 +650,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
         update_curve = true;
     }
 
-    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
-
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
 
@@ -673,11 +678,13 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate,
                         continue;
                     }
 
-                    // any other primvar to be committed
-                    auto primvar_source = std::make_shared<HdCyclesHairAttributeSource>(pv.name, pv.role, value,
-                                                                                        m_cyclesHair,
-                                                                                        pv.interpolation);
-                    resource_registry->AddSource(std::move(primvar_source));
+                    // any other primvar for hair to be committed
+                    if (m_cyclesHair) {
+                        auto primvar_source = std::make_shared<HdCyclesHairAttributeSource>(pv.name, pv.role, value,
+                                                                                            m_cyclesHair,
+                                                                                            pv.interpolation);
+                        object_instance.GetValue()->AddSource(std::move(primvar_source));
+                    }
                 }
             }
         }

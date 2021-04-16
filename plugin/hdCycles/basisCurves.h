@@ -25,6 +25,7 @@
 #include "hdcycles.h"
 #include "utils.h"
 #include "renderDelegate.h"
+#include "objectSource.h"
 
 #include <util/util_transform.h>
 
@@ -215,6 +216,7 @@ private:
     ccl::Hair* m_cyclesHair;
     ccl::Geometry* m_cyclesGeometry;
 
+    HdCyclesObjectSourceSharedPtr m_object_source;
     HdCyclesRenderDelegate* m_renderDelegate;
 };
 
