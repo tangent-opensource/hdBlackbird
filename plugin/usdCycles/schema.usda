@@ -551,7 +551,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Size of volume marching step"
     )
 
-    uniform int cycles:integrator:aa_samples = 18 (
+    uniform int cycles:integrator:aa_samples = 0 (
         customData = {
             string apiName = "integrator_aa_samples"
         }
