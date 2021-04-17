@@ -40,9 +40,11 @@ HdCyclesResourceRegistry::_Commit()
     }
 
     // 2) commit all pending resources
-    for (auto& object_source : m_object_sources) {
+    using ValueType = HdInstanceRegistry<HdCyclesObjectSourceSharedPtr>::const_iterator::value_type;
+    WorkParallelForEach(m_object_sources.begin(), m_object_sources.end(), [](const ValueType& object_source) {
+        // resolve per object
         object_source.second.value->ResolvePendingSources();
-    }
+    });
 }
 
 void
