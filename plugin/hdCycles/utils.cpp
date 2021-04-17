@@ -766,7 +766,7 @@ mikk_get_num_faces(const SMikkTSpaceContext* context)
 int
 mikk_get_num_verts_of_face(const SMikkTSpaceContext* context, const int face_num)
 {
-    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
+    auto userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     if (userdata->mesh->subd_faces.size()) {
         const ccl::Mesh* mesh = userdata->mesh;
         return mesh->subd_faces[face_num].num_corners;
