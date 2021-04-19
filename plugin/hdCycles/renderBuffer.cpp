@@ -40,31 +40,31 @@ _ConvertPixel(HdFormat dstFormat, uint8_t* dst, HdFormat srcFormat, uint8_t cons
         T readValue = 0;
         if (c < srcComponentCount) {
             if (srcComponentFormat == HdFormatInt32) {
-                readValue = reinterpret_cast<const int32_t*>(src)[c];
+                readValue = static_cast<T>(reinterpret_cast<const int32_t*>(src)[c]);
             } else if (srcComponentFormat == HdFormatFloat16) {
                 GfHalf half;
                 half.setBits(reinterpret_cast<const uint16_t*>(src)[c]);
-                readValue = static_cast<float>(half);
+                readValue = static_cast<T>(half);
             } else if (srcComponentFormat == HdFormatFloat32) {
                 // We need to subtract one from here due to cycles prim defaulting to 0 but hydra to -1
-                readValue = reinterpret_cast<const float*>(src)[c];
+                readValue = static_cast<T>(reinterpret_cast<const float*>(src)[c]);
             } else if (srcComponentFormat == HdFormatUNorm8) {
-                readValue = reinterpret_cast<const uint8_t*>(src)[c] / 255.0f;
+                readValue = static_cast<T>(reinterpret_cast<const uint8_t*>(src)[c] / 255.0f);
             } else if (srcComponentFormat == HdFormatSNorm8) {
-                readValue = reinterpret_cast<const int8_t*>(src)[c] / 127.0f;
+                readValue = static_cast<T>(reinterpret_cast<const int8_t*>(src)[c] / 127.0f);
             }
         }
 
         if (dstComponentFormat == HdFormatInt32) {
-            reinterpret_cast<int32_t*>(dst)[c] = readValue;
+            reinterpret_cast<int32_t*>(dst)[c] = static_cast<int32_t>(readValue);
         } else if (dstComponentFormat == HdFormatFloat16) {
             reinterpret_cast<uint16_t*>(dst)[c] = GfHalf(float(readValue)).bits();
         } else if (dstComponentFormat == HdFormatFloat32) {
-            reinterpret_cast<float*>(dst)[c] = readValue;
+            reinterpret_cast<float*>(dst)[c] = static_cast<float>(readValue);
         } else if (dstComponentFormat == HdFormatUNorm8) {
-            reinterpret_cast<uint8_t*>(dst)[c] = (readValue * 255.0f);
+            reinterpret_cast<uint8_t*>(dst)[c] = static_cast<uint8_t>(static_cast<float>(readValue) * 255.0f);
         } else if (dstComponentFormat == HdFormatSNorm8) {
-            reinterpret_cast<int8_t*>(dst)[c] = (readValue * 127.0f);
+            reinterpret_cast<int8_t*>(dst)[c] = static_cast<int8_t>(static_cast<float>(readValue) * 127.0f);
         }
     }
 }
@@ -96,10 +96,10 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
         return false;
     }
 
-    m_width     = dimensions[0];
-    m_height    = dimensions[1];
+    m_width     = static_cast<unsigned int>(dimensions[0]);
+    m_height    = static_cast<unsigned int>(dimensions[1]);
     m_format    = format;
-    m_pixelSize = HdDataSizeOfFormat(format);
+    m_pixelSize = static_cast<unsigned int>(HdDataSizeOfFormat(format));
     m_buffer.resize(m_width * m_height * m_pixelSize, 0);
 
     return true;
@@ -183,12 +183,12 @@ HdCyclesRenderBuffer::Blit(HdFormat format, int width, int height, int offset, i
             }
         } else {
             // Blit pixel by pixel, with nearest point sampling.
-            float scalei = width / float(m_width);
-            float scalej = height / float(m_height);
+            float scalei = static_cast<float>(width) / float(m_width);
+            float scalej = static_cast<float>(height) / float(m_height);
             for (unsigned int j = 0; j < m_height; ++j) {
                 for (unsigned int i = 0; i < m_width; ++i) {
-                    unsigned int ii = scalei * i;
-                    unsigned int jj = scalej * j;
+                    auto ii = static_cast<unsigned int>(scalei * static_cast<float>(i));
+                    auto jj = static_cast<unsigned int>(scalej * static_cast<float>(j));
                     memcpy(&m_buffer[(j * m_width + i) * m_pixelSize], &data[(jj * stride + offset + ii) * m_pixelSize],
                            m_pixelSize);
                 }
@@ -201,12 +201,12 @@ HdCyclesRenderBuffer::Blit(HdFormat format, int width, int height, int offset, i
         bool convertAsInt = (HdGetComponentFormat(format) == HdFormatInt32)
                             && (HdGetComponentFormat(m_format) == HdFormatInt32);
 
-        float scalei = width / float(m_width);
-        float scalej = height / float(m_height);
+        float scalei = static_cast<float>(width) / float(m_width);
+        float scalej = static_cast<float>(height) / float(m_height);
         for (unsigned int j = 0; j < m_height; ++j) {
             for (unsigned int i = 0; i < m_width; ++i) {
-                unsigned int ii = scalei * i;
-                unsigned int jj = scalej * j;
+                auto ii = static_cast<unsigned int>(scalei * static_cast<float>(i));
+                auto jj = static_cast<unsigned int>(scalej * static_cast<float>(j));
                 if (convertAsInt) {
                     _ConvertPixel<int32_t>(m_format, &m_buffer[(j * m_width + i) * m_pixelSize], format,
                                            &data[(jj * stride + offset + ii) * pixelSize]);
@@ -250,10 +250,10 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
         for (unsigned int j = 0; j < height; ++j) {
             if ((x + width) <= m_width) {
                 if ((y + height) <= m_height) {
-                    int mem_start = (((y + j) * m_width) * pixelSize) + (x * pixelSize);
+                    int mem_start = static_cast<int>((((y + j) * m_width) * pixelSize) + (x * pixelSize));
 
 
-                    int tile_mem_start = (j * width) * pixelSize;
+                    unsigned int tile_mem_start = (j * width) * static_cast<unsigned int>(pixelSize);
 
                     memcpy(&m_buffer[mem_start], &data[tile_mem_start], width * pixelSize);
                 }
@@ -269,7 +269,7 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
             for (unsigned int i = 0; i < width; ++i) {
                 size_t mem_start = (((y + j) * m_width) * m_pixelSize) + ((x + i) * m_pixelSize);
 
-                int tile_mem_start = ((j * width) * pixelSize) + (i * pixelSize);
+                int tile_mem_start = static_cast<int>(((j * width) * pixelSize) + (i * pixelSize));
 
                 if (convertAsInt) {
                     _ConvertPixel<int32_t>(m_format, &m_buffer[mem_start], format, &data[tile_mem_start]);
