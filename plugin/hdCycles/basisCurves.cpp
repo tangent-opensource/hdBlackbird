@@ -154,7 +154,7 @@ HdCyclesBasisCurves::_PopulateMotion()
 
     m_cyclesGeometry->use_motion_blur = true;
 
-    m_cyclesGeometry->motion_steps = static_cast<uint>(m_pointSamples.count + 1);
+    m_cyclesGeometry->motion_steps = static_cast<unsigned int>(m_pointSamples.count + 1);
 
     ccl::Attribute* attr_mP = m_cyclesGeometry->attributes.find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
@@ -750,7 +750,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         }
 
         if (attr_random != nullptr) {
-            attr_random->add(ccl::hash_uint2_to_float(static_cast<uint>(num_curves), 0));
+            attr_random->add(ccl::hash_uint2_to_float(static_cast<unsigned int>(num_curves), 0));
         }
 
         m_cyclesHair->add_curve(static_cast<int>(num_keys), 0);

@@ -718,7 +718,7 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
 
     m_cyclesMesh->use_motion_blur = true;
-    m_cyclesMesh->motion_steps    = static_cast<uint>(numSamples + ((numSamples % 2) ? 0 : 1));
+    m_cyclesMesh->motion_steps    = static_cast<unsigned int>(numSamples + ((numSamples % 2) ? 0 : 1));
 
     ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
