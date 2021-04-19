@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include "material.h"
 #include "renderParam.h"
 #include "utils.h"
+#include "attributeSource.h"
 
 #include <render/curves.h>
 #include <render/hair.h>
@@ -400,6 +401,14 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 {
     SdfPath const& id = GetId();
 
+
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    if(object_instance.IsFirstInstance()) {
+        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
+        m_object_source = object_instance.GetValue();
+    }
+
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     ccl::Scene* scene = param->GetCyclesScene();
@@ -591,10 +600,33 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             for (auto& pv : primvarDescsEntry.second) {
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     VtValue value = GetPrimvar(sceneDelegate, pv.name);
+
+                    if(pv.name == HdTokens->points) {
+                        continue;
+                    }
+
+                    if(pv.name == HdTokens->widths) {
+                        continue;
+                    }
+
+                    // uvs
                     if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVS(pv.name, value, primvarDescsEntry.first);
-                    } else {
+                        continue;;
+                    }
+
+                    // colors
+                    if(pv.role == HdPrimvarRoleTokens->color) {
                         _AddColors(pv.name, value, primvarDescsEntry.first);
+                        continue;
+                    }
+
+                    // any other primvar for hair to be committed
+                    if (m_cyclesHair) {
+                        auto primvar_source = std::make_shared<HdCyclesHairAttributeSource>(pv.name, pv.role, value,
+                                                                                            m_cyclesHair,
+                                                                                            pv.interpolation);
+                        object_instance.GetValue()->AddSource(std::move(primvar_source));
                     }
                 }
             }
