@@ -41,6 +41,7 @@
 #include <render/session.h>
 #include <render/stats.h>
 #include <util/util_murmurhash.h>
+#include <util/util_task.h>
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
@@ -265,6 +266,9 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateSessionFromRenderSettings(settingsMap);
     _UpdateSessionFromConfig();
 
+    // Setting up number of threads, this is useful for applications(husk) that control task arena
+    m_sessionParams.threads = tbb::this_task_arena::max_concurrency();
+
     if (!_CreateSession()) {
         std::cout << "COULD NOT CREATE CYCLES SESSION\n";
         // Couldn't create session, big issue
@@ -433,12 +437,12 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesSamples) {
         // If branched-path mode is set, make sure to set samples to use the
         // aa_samples instead from the integrator.
-        int samples = sessionParams->samples;
-        int aa_samples = 0;
+        int samples                    = sessionParams->samples;
+        int aa_samples                 = 0;
         ccl::Integrator::Method method = ccl::Integrator::PATH;
 
         if (m_cyclesScene) {
-            method = m_cyclesScene->integrator->method;
+            method     = m_cyclesScene->integrator->method;
             aa_samples = m_cyclesScene->integrator->aa_samples;
 
             // Don't apply aa_samples if it is 0
@@ -451,8 +455,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         if (samples_updated) {
             session_updated = true;
 
-            if (m_cyclesScene && aa_samples && 
-                method == ccl::Integrator::BRANCHED_PATH) {
+            if (m_cyclesScene && aa_samples && method == ccl::Integrator::BRANCHED_PATH) {
                 sessionParams->samples = aa_samples;
             }
         }
@@ -491,10 +494,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
 
     if (key == usdCyclesTokens->cyclesPixel_size) {
         sessionParams->pixel_size = _HdCyclesGetVtValue<int>(value, sessionParams->pixel_size, &session_updated);
-    }
-
-    if (key == usdCyclesTokens->cyclesThreads) {
-        sessionParams->threads = _HdCyclesGetVtValue<int>(value, sessionParams->threads, &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
@@ -766,8 +765,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
         if (method_updated) {
             integrator_updated = true;
-            if (integrator->aa_samples && 
-                integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples && integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
         }
@@ -854,8 +852,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
             if (m_useSquareSamples) {
                 integrator->aa_samples = integrator->aa_samples * integrator->aa_samples;
             }
-            if (integrator->aa_samples &&
-                integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples && integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
             integrator_updated = true;
@@ -1343,16 +1340,16 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             }
 
             // Pixels we will use to get from cycles.
-            int numComponents = HdGetComponentCount(cyclesAov.format);
+            size_t numComponents = HdGetComponentCount(cyclesAov.format);
             ccl::vector<float> tileData(w * h * numComponents);
 
             rb->SetConverged(IsConverged());
 
             bool read = false;
             if (!custom) {
-                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, numComponents, &tileData[0]);
+                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents), &tileData[0]);
             } else {
-                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, numComponents, &tileData[0]);
+                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents), &tileData[0]);
             }
 
             if (!read) {
@@ -1601,6 +1598,9 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 
     if (m_objectsUpdated || m_shadersUpdated) {
         m_cyclesScene->object_manager->tag_update(m_cyclesScene);
+        if (m_shadersUpdated) {
+            m_cyclesScene->background->tag_update(m_cyclesScene);
+        }
         m_objectsUpdated = false;
         m_shadersUpdated = false;
     }
@@ -1933,8 +1933,9 @@ HdCyclesRenderParam::GetRenderStats() const
 
     if (cryptoAsset) {
         std::string cryptoName        = HdCyclesAovTokens->CryptoAsset.GetText();
+        auto cryptoNameLength         = static_cast<int>(cryptoName.length());
         std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
         std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
         result[prefix + "name"]       = VtValue(cryptoName);
         result[prefix + "hash"]       = VtValue("MurmurHash3_32");
@@ -1944,8 +1945,9 @@ HdCyclesRenderParam::GetRenderStats() const
 
     if (cryptoObject) {
         std::string cryptoName        = HdCyclesAovTokens->CryptoObject.GetText();
+        auto cryptoNameLength         = static_cast<int>(cryptoName.length());
         std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
         std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
         result[prefix + "name"]       = VtValue(cryptoName);
         result[prefix + "hash"]       = VtValue("MurmurHash3_32");
@@ -1955,8 +1957,9 @@ HdCyclesRenderParam::GetRenderStats() const
 
     if (cryptoMaterial) {
         std::string cryptoName        = HdCyclesAovTokens->CryptoMaterial.GetText();
+        auto cryptoNameLength         = static_cast<int>(cryptoName.length());
         std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
         std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
         result[prefix + "name"]       = VtValue(cryptoName);
         result[prefix + "hash"]       = VtValue("MurmurHash3_32");

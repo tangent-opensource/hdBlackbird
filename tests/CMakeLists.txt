@@ -1,4 +1,4 @@
-#  Copyright 2020 Tangent Animation
+#  Copyright 2021 Tangent Animation
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -17,6 +17,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-if(USE_LEGACY_HOUDINI)
-    add_subdirectory(houdini)
-endif()
+add_executable(tests tests.cpp)
+
+target_include_directories(tests
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/doctest/
+        )
+
+target_link_libraries(tests
+        PRIVATE
+        hdCycles
+        )

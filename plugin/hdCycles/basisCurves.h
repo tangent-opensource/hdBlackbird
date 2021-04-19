@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 
 #include "hdcycles.h"
 #include "renderDelegate.h"
+#include "objectSource.h"
 #include "utils.h"
 
 #include <util/util_transform.h>
@@ -214,6 +215,7 @@ private:
     ccl::Hair* m_cyclesHair;
     ccl::Geometry* m_cyclesGeometry;
 
+    HdCyclesObjectSourceSharedPtr m_object_source;
     HdCyclesRenderDelegate* m_renderDelegate;
 };
 
