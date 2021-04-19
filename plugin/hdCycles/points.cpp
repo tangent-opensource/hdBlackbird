@@ -116,6 +116,7 @@ HdCyclesPoints::_InitializeNewCyclesPointCloud()
 void
 HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits)
 {
+#ifdef USE_USD_CYCLES_SCHEMA
     assert(m_cyclesObject);
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
@@ -198,6 +199,7 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
             }
         }
     }
+#endif
 }
 
 void
