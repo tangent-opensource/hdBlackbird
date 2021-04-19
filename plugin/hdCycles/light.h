@@ -150,11 +150,7 @@ private:
     ccl::Light* m_cyclesLight;
     ShaderGraphBits m_shaderGraphBits;
 
-    bool m_normalize;
-
     HdCyclesRenderDelegate* m_renderDelegate;
-
-    float m_finalIntensity;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
