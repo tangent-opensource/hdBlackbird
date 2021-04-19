@@ -154,7 +154,7 @@ HdCyclesBasisCurves::_PopulateMotion()
 
     m_cyclesGeometry->use_motion_blur = true;
 
-    m_cyclesGeometry->motion_steps = m_pointSamples.count + 1;
+    m_cyclesGeometry->motion_steps = static_cast<uint>(m_pointSamples.count + 1);
 
     ccl::Attribute* attr_mP = m_cyclesGeometry->attributes.find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
@@ -688,11 +688,11 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     size_t num_keys   = 0;
 
     for (size_t i = 0; i < num_curves; i++) {
-        num_keys += curveVertexCounts[i];
+        num_keys += static_cast<size_t>(curveVertexCounts[i]);
     }
 
-    ccl::Attribute* attr_intercept = NULL;
-    ccl::Attribute* attr_random    = NULL;
+    ccl::Attribute* attr_intercept = nullptr;
+    ccl::Attribute* attr_random    = nullptr;
 
     attr_intercept = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_INTERCEPT);
 
@@ -700,7 +700,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 
     // We have patched the Cycles API to allow shape to be set per curve
     m_cyclesHair->curve_shape = m_curveShape;
-    m_cyclesHair->reserve_curves(num_curves, num_keys);
+    m_cyclesHair->reserve_curves(static_cast<int>(num_curves), static_cast<int>(num_keys));
 
     num_curves = 0;
     num_keys   = 0;
@@ -712,7 +712,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         size_t num_curve_keys = 0;
 
         // For every section
-        for (int j = 0; j < curveVertexCounts[i]; j++) {
+        for (size_t j = 0; j < curveVertexCounts[i]; j++) {
             size_t idx = j + currentPointCount;
 
             const float time = static_cast<float>(j) / static_cast<float>(curveVertexCounts[i] - 1);
@@ -729,7 +729,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
 
-            int width_idx = std::min(idx, m_widths.size() - 1);
+            size_t width_idx = std::min(idx, m_widths.size() - 1);
 
             if (m_widthsInterpolation == HdInterpolationUniform)
                 width_idx = std::min(i, m_widths.size() - 1);
@@ -749,11 +749,11 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
             num_curve_keys++;
         }
 
-        if (attr_random != NULL) {
-            attr_random->add(ccl::hash_uint2_to_float(num_curves, 0));
+        if (attr_random != nullptr) {
+            attr_random->add(ccl::hash_uint2_to_float(static_cast<uint>(num_curves), 0));
         }
 
-        m_cyclesHair->add_curve(num_keys, 0);
+        m_cyclesHair->add_curve(static_cast<int>(num_keys), 0);
         num_keys += num_curve_keys;
         currentPointCount += curveVertexCounts[i];
         num_curves++;
@@ -821,7 +821,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
         // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
 
-        int width_idx = std::min(i, m_widths.size() - 1);
+        size_t width_idx = std::min(i, m_widths.size() - 1);
 
         if (m_widthsInterpolation == HdInterpolationUniform)
             width_idx = std::min(i, m_widths.size() - 1);
@@ -851,8 +851,8 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int first_idx = (i * curveVertexCounts[i]);
-            int idx       = j + (i * curveVertexCounts[i]);
+            int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
 
             ickey_loc = vec3f_to_float3(m_points[idx]);
 
@@ -940,8 +940,8 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int first_idx = (i * curveVertexCounts[i]);
-            int idx       = j + (i * curveVertexCounts[i]);
+            int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
 
             ccl::float3 xbasis = firstxbasis;
             ccl::float3 v1;
@@ -970,8 +970,8 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int first_idx = (i * curveVertexCounts[i]);
-            int idx       = j + (i * curveVertexCounts[i]);
+            int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
             ccl::float3 xbasis;
             ccl::float3 ybasis;
             ccl::float3 v1;
@@ -998,7 +998,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
 
-            int width_idx = std::min(idx, static_cast<int>(m_widths.size() - 1));
+            size_t width_idx = std::min(static_cast<size_t>(idx), m_widths.size() - 1);
 
             if (m_widthsInterpolation == HdInterpolationUniform)
                 width_idx = std::min(i, m_widths.size() - 1);

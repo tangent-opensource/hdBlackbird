@@ -61,7 +61,6 @@ if(${USE_TESTS} AND ${USE_ASAN})
 endif()
 
 add_subdirectory(plugin)
-add_subdirectory(tools)
 
 if(${USE_TESTS})
     add_subdirectory(tests)

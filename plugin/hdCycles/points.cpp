@@ -168,7 +168,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 ccl::Object* pointObject = _CreatePointsObject(ccl::transform_translate(vec3f_to_float3(points[i])),
                                                                m_cyclesMesh);
 
-                pointObject->random_id = i;
+                pointObject->random_id = static_cast<uint>(i);
                 pointObject->name      = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->random_id);
                 m_cyclesObjects.push_back(pointObject);
                 param->AddObject(pointObject);
@@ -311,17 +311,17 @@ HdCyclesPoints::_CreateSphereMesh()
 
     float z, xy;
 
-    float sectorStep = 2.0f * M_PI_F / sectorCount;
-    float stackStep  = M_PI_F / stackCount;
+    float sectorStep = 2.0f * M_PI_F / static_cast<float>(sectorCount);
+    float stackStep  = M_PI_F / static_cast<float>(stackCount);
     float sectorAngle, stackAngle;
 
     for (int i = 0; i <= stackCount; ++i) {
-        stackAngle = M_PI_F / 2.0f - i * stackStep;
+        stackAngle = M_PI_F / 2.0f - static_cast<float>(i) * stackStep;
         xy         = radius * cosf(stackAngle);
         z          = radius * sinf(stackAngle);
 
         for (int j = 0; j <= sectorCount; ++j) {
-            sectorAngle = j * sectorStep;
+            sectorAngle = static_cast<float>(j) * sectorStep;
 
             m_cyclesMesh->verts.push_back_slow(ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle), z));
             // TODO: Add normals and uvs

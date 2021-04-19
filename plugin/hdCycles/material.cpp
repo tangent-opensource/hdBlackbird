@@ -572,6 +572,15 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
             HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
 
+            // Skip invalid connections. I don't know where they come from, but they exist.
+            assert(tonode);
+            assert(fromnode);
+            assert(hd_tonode);
+            assert(hd_fromnode);
+            if (fromnode == nullptr || hd_fromnode == nullptr || hd_tonode == nullptr || hd_fromnode == nullptr) {
+                continue;
+            }
+
             std::string to_identifier   = hd_tonode->identifier.GetString();
             std::string from_identifier = hd_fromnode->identifier.GetString();
 
