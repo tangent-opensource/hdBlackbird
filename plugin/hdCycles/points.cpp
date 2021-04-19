@@ -168,7 +168,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 ccl::Object* pointObject = _CreatePointsObject(ccl::transform_translate(vec3f_to_float3(points[i])),
                                                                m_cyclesMesh);
 
-                pointObject->random_id = static_cast<uint>(i);
+                pointObject->random_id = static_cast<unsigned int>(i);
                 pointObject->name      = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->random_id);
                 m_cyclesObjects.push_back(pointObject);
                 param->AddObject(pointObject);
