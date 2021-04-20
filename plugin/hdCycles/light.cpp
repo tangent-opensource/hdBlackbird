@@ -179,10 +179,12 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
 }
 
 ccl::ShaderNode*
-HdCyclesLight::_FindShaderNode(const ccl::ShaderGraph* graph, const ccl::NodeType* type)
+HdCyclesLight::_FindShaderNode(const ccl::ShaderGraph* graph, 
+                               const ccl::NodeType* type, 
+                               const ccl::ustring name)
 {
     for (ccl::ShaderNode* node : graph->nodes) {
-        if (node->type == type) {
+        if ((node->type == type) && (node->name == name)) {
             return node;
         }
     }
@@ -476,9 +478,31 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         }
 
         if (m_hdLightType == HdPrimTypeTokens->domeLight) {
-            ccl::BackgroundNode* backroundNode = static_cast<ccl::BackgroundNode*>(outNode);
-            backroundNode->color               = m_cyclesLight->strength;
-            backroundNode->strength = intensity * powf(2.0f, exposure);
+
+            ccl::BackgroundNode* backgroundNode = static_cast<ccl::BackgroundNode*>(outNode);
+            ccl::VectorMathNode* strengthNode = nullptr;
+            if (shaderGraphBits & ShaderGraphBits::Texture ||
+                shaderGraphBits & ShaderGraphBits::Temperature) {
+                if (graph) {
+                    strengthNode = new ccl::VectorMathNode();
+                    strengthNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                    strengthNode->name = ccl::ustring("strength");
+                    strengthNode->vector1 = ccl::make_float3(1.0f, 1.0f, 1.0f);
+                    graph->add(strengthNode);
+                    if (blackbodyNode) {
+                        graph->disconnect(backgroundNode->input("Color"));
+                        graph->connect(blackbodyNode->output("Color"), strengthNode->input("Vector1"));
+                    }
+                    graph->connect(strengthNode->output("Vector"), backgroundNode->input("Color"));
+                } else {
+                    strengthNode = static_cast<ccl::VectorMathNode*>(
+                        _FindShaderNode(oldGraph, ccl::VectorMathNode::node_type, ccl::ustring("strength")));
+                }
+                assert(strengthNode != nullptr);
+                strengthNode->vector2 = m_cyclesLight->strength * intensity * powf(2.0f, exposure);
+            }
+            backgroundNode->color = m_cyclesLight->strength * intensity * powf(2.0f, exposure);
+            backgroundNode->strength = 1.0f;
             m_cyclesLight->strength = ccl::make_float3(1.0f, 1.0f, 1.0f);
 
             if (shaderGraphBits & ShaderGraphBits::Texture) {
@@ -508,17 +532,17 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
                     if ((shaderGraphBits & ShaderGraphBits::Temperature) && blackbodyNode) {
                         ccl::VectorMathNode* vecMathNode = new ccl::VectorMathNode();
-                        vecMathNode->type                = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                        vecMathNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
                         graph->add(vecMathNode);
 
                         graph->connect(backgroundTexture->output("Color"), vecMathNode->input("Vector1"));
 
                         graph->connect(blackbodyNode->output("Color"), vecMathNode->input("Vector2"));
 
-                        graph->disconnect(outNode->input("Color"));
-                        graph->connect(vecMathNode->output("Vector"), outNode->input("Color"));
+                        graph->disconnect(strengthNode->input("Vector1"));
+                        graph->connect(vecMathNode->output("Vector"), strengthNode->input("Vector1"));
                     } else {
-                        graph->connect(backgroundTexture->output("Color"), outNode->input("Color"));
+                        graph->connect(backgroundTexture->output("Color"), strengthNode->input("Vector1"));
                     }
                 } else {
                     backgroundTexture = static_cast<ccl::EnvironmentTextureNode*>(

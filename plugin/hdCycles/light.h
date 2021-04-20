@@ -144,7 +144,9 @@ private:
      * @param type The type of ShaderNode to search for
      * @return The first ShaderNode found based on type in graph
      */
-    ccl::ShaderNode* _FindShaderNode(const ccl::ShaderGraph* graph, const ccl::NodeType* type);
+    ccl::ShaderNode* _FindShaderNode(const ccl::ShaderGraph* graph, 
+                                     const ccl::NodeType* type, 
+                                     const ccl::ustring name = ccl::ustring());
 
     const TfToken m_hdLightType;
     ccl::Light* m_cyclesLight;
