@@ -208,6 +208,7 @@ private:
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
+    void _PopulateComputedVertices(const SdfPath& id, VtValue points_value);
     void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& id, ccl::Scene* scene);
 

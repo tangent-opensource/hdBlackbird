@@ -23,10 +23,27 @@
 
 #include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/enums.h>
+#include <pxr/imaging/hd/timeSampleArray.h>
 
 #include <render/attribute.h>
+#include <render/geometry.h>
+#include <render/object.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+///
+/// Max motion samples dictated by Cycles(Embree)
+///
+static constexpr unsigned int HD_CYCLES_MAX_TRANSFORM_STEPS = ccl::Object::MAX_MOTION_STEPS;
+static constexpr unsigned int HD_CYCLES_MAX_GEOMETRY_STEPS  = ccl::Geometry::MAX_MOTION_STEPS;
+
+///
+/// Static capacity, dynamic size
+///
+using HdCyclesMatrix4dTimeSampleArray      = HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MAX_TRANSFORM_STEPS>;
+using HdCyclesMatrix4dArrayTimeSampleArray = HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MAX_TRANSFORM_STEPS>;
+using HdCyclesValueTimeSampleArray         = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_GEOMETRY_STEPS>;
+using HdCyclesVec3fArrayTimeSampleArray         = HdTimeSampleArray<VtVec3fArray, HD_CYCLES_MAX_GEOMETRY_STEPS>;
 
 ///
 /// Cycles Attribute to be resolved
