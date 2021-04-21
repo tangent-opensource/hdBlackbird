@@ -39,9 +39,7 @@
 #include <pxr/base/gf/vec3i.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -466,8 +464,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
         m_useMotionBlur = (bool)_HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
                                                              usdCyclesTokens->primvarsCyclesObjectMblur,
                                                              m_useMotionBlur);
@@ -539,7 +535,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
         m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
         m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
         m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
-#endif
+
         if (HdCyclesIsPrimvarExists(_tokens->cyclesCurveResolution, pdpi)) {
             VtIntArray resolution = sceneDelegate->Get(id, _tokens->cyclesCurveResolution).Get<VtIntArray>();
             if (resolution.size() > 0) {

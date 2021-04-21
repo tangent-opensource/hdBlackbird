@@ -1,0 +1,5 @@
+set(PLUG_INFO_LIBRARY_PATH "../usdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(PLUG_INFO_RESOURCE_PATH "resources")
+set(PLUG_INFO_ROOT "..")
+
+configure_file(${CMAKE_CURRENT_BINARY_DIR}/plugInfo.json ${CMAKE_CURRENT_BINARY_DIR}/plugInfo.json @ONLY)

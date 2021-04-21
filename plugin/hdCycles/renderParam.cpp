@@ -48,9 +48,7 @@
 #endif
 
 #include <pxr/usd/usdRender/tokens.h>
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -331,8 +329,6 @@ HdCyclesRenderParam::_UpdateDelegateFromRenderSettings(HdRenderSettingsMap const
 bool
 HdCyclesRenderParam::_HandleDelegateRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     bool delegate_updated = false;
 
     if (key == usdCyclesTokens->cyclesUse_square_samples) {
@@ -344,9 +340,6 @@ HdCyclesRenderParam::_HandleDelegateRenderSetting(const TfToken& key, const VtVa
         //Interrupt();
         return true;
     }
-
-#endif
-
     return false;
 }
 
@@ -408,8 +401,6 @@ HdCyclesRenderParam::_UpdateSessionFromRenderSettings(HdRenderSettingsMap const&
 bool
 HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     ccl::SessionParams* sessionParams = &m_sessionParams;
 
     if (m_cyclesSession)
@@ -566,7 +557,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -614,7 +604,6 @@ HdCyclesRenderParam::_UpdateSceneFromRenderSettings(HdRenderSettingsMap const& s
 bool
 HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // -- Scene
 
     ccl::SceneParams* sceneParams = &m_sceneParams;
@@ -677,7 +666,6 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -749,8 +737,6 @@ HdCyclesRenderParam::_UpdateIntegratorFromRenderSettings(HdRenderSettingsMap con
 bool
 HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     // -- Integrator Settings
 
     ccl::Integrator* integrator = m_cyclesScene->integrator;
@@ -1027,7 +1013,6 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1062,7 +1047,6 @@ HdCyclesRenderParam::_UpdateFilmFromRenderSettings(HdRenderSettingsMap const& se
 bool
 HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // -- Film Settings
 
     ccl::Film* film   = m_cyclesScene->film;
@@ -1132,7 +1116,6 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1166,8 +1149,6 @@ HdCyclesRenderParam::_UpdateBackgroundFromRenderSettings(HdRenderSettingsMap con
 bool
 HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     // -- Background Settings
 
     ccl::Background* background = m_cyclesScene->background;
@@ -1250,7 +1231,6 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const Vt
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1270,13 +1250,11 @@ HdCyclesRenderParam::SetRenderSetting(const TfToken& key, const VtValue& value)
 {
     // This has some inherent performance overheads (runs multiple times, unecessary)
     // however for now, this works the most clearly due to Cycles restrictions
-#ifdef USE_USD_CYCLES_SCHEMA
     _HandleSessionRenderSetting(key, value);
     _HandleSceneRenderSetting(key, value);
     _HandleIntegratorRenderSetting(key, value);
     _HandleFilmRenderSetting(key, value);
     _HandleBackgroundRenderSetting(key, value);
-#endif
     return false;
 }
 

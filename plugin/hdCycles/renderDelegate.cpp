@@ -46,9 +46,7 @@
 #include <pxr/imaging/hd/camera.h>
 #include <pxr/imaging/hd/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -151,7 +149,6 @@ HdCyclesRenderDelegate::GetSupportedBprimTypes() const
 void
 HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
     // TODO: Undecided how to approach these
@@ -163,8 +160,6 @@ HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
     m_settingDescriptors.push_back({ std::string("Samples"),
                                      usdCyclesTokens->cyclesSamples,
                                      VtValue(config.exposure.) });*/
-
-#endif
 }
 
 void

@@ -33,9 +33,7 @@
 #include <pxr/usd/sdf/assetPath.h>
 #include <pxr/usd/usdLux/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -507,8 +505,6 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         }
     }
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
     m_cyclesLight->use_diffuse = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
                                                               usdCyclesTokens->cyclesLightUse_diffuse,
                                                               m_cyclesLight->use_diffuse);
@@ -535,9 +531,6 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
     m_cyclesLight->max_bounces = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->cyclesLightMax_bounces,
                                                              m_cyclesLight->max_bounces);
-
-#endif
-
 
     // TODO: Light is_enabled doesn't seem to have any effect
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {

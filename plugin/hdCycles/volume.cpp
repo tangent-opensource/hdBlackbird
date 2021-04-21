@@ -47,9 +47,7 @@
 
 #include <iostream>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -285,8 +283,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
     for (auto& primvarDescsEntry : pdpi) {
         for (auto& pv : primvarDescsEntry.second) {
             m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
@@ -301,8 +297,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             update_volumes = true;
         }
     }
-
-#endif
 
     if (update_volumes) {
         _UpdateGrids();
