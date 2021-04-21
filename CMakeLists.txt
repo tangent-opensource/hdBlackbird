@@ -80,7 +80,7 @@ if(DEFINED ENV{REZ_PYTHON_BASE})
   endif()
 endif()
 
-find_package(Python COMPONENTS Development Interpreter REQUIRED)
+find_package(Python ${BB_PYTHON_VERSION} COMPONENTS Development Interpreter REQUIRED)
 
 # TODO: Temp fix due to python2 linux issues
 if(DEFINED ENV{REZ_PYTHON_BASE})
