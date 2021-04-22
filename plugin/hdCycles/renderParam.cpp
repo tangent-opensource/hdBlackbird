@@ -1452,7 +1452,7 @@ HdCyclesRenderParam::Interrupt(bool a_forceUpdate)
 void
 HdCyclesRenderParam::CommitResources()
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
@@ -1566,7 +1566,7 @@ HdCyclesRenderParam::_CyclesExit()
 {
     m_cyclesSession->set_pause(true);
 
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     m_cyclesScene->shaders.clear();
     m_cyclesScene->geometry.clear();
@@ -1643,7 +1643,7 @@ HdCyclesRenderParam::DirectReset()
 void
 HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add light to scene. Scene is null.");
@@ -1662,7 +1662,7 @@ HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add object to scene. Scene is null.");
@@ -1679,7 +1679,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -1696,7 +1696,7 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 void
 HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -1711,7 +1711,7 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 void
 HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
         if (a_object == *it) {
@@ -1731,7 +1731,7 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     for (auto it = m_cyclesScene->geometry.begin(); it != m_cyclesScene->geometry.end();) {
         if (geometry == *it) {
@@ -1752,7 +1752,7 @@ HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
 void
 HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
         if (a_light == *it) {
@@ -1779,7 +1779,7 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
     for (auto& shader : shaders) {
         shader->tag_update(m_cyclesScene);
     }
@@ -1788,7 +1788,7 @@ HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
 void
 HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
         if (a_shader == *it) {
