@@ -49,8 +49,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 #endif
 // clang-format on
 
-HdCyclesRenderPass::HdCyclesRenderPass(HdCyclesRenderDelegate* delegate,
-                                       HdRenderIndex* index,
+HdCyclesRenderPass::HdCyclesRenderPass(HdCyclesRenderDelegate* delegate, HdRenderIndex* index,
                                        HdRprimCollection const& collection)
     : HdRenderPass(index, collection)
     , m_delegate(delegate)
@@ -60,11 +59,9 @@ HdCyclesRenderPass::HdCyclesRenderPass(HdCyclesRenderDelegate* delegate,
 HdCyclesRenderPass::~HdCyclesRenderPass() {}
 
 void
-HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
-                             TfTokenVector const& renderTags)
+HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, TfTokenVector const& renderTags)
 {
-    auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(
-        m_delegate->GetRenderParam());
+    auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(m_delegate->GetRenderParam());
 
     HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
 
@@ -158,12 +155,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState,
 
     ccl::thread_scoped_lock display_lock = renderParam->GetCyclesSession()->acquire_display_lock();
 
-    HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4
-                                               : HdFormatUNorm8Vec4;
+    HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;
 
-    unsigned char* hpixels
-        = (display->half_float)
-              ? (unsigned char*)display->rgba_half.host_pointer
+    unsigned char* hpixels = (display->half_float) ? (unsigned char*)display->rgba_half.host_pointer
               : (unsigned char*)display->rgba_byte.host_pointer;
 
     if (!hpixels)

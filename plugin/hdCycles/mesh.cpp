@@ -20,12 +20,12 @@
 #include "mesh.h"
 
 #include "config.h"
+#include "debug_codes.h"
 #include "instancer.h"
 #include "material.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
 #include "utils.h"
-#include "debug_codes.h"
 
 #include <pxr/imaging/hd/extComputationUtils.h>
 
@@ -330,8 +330,7 @@ HdCyclesMesh::_AddAccelerations(const SdfPath& id, const VtValue& value, HdInter
         return;
     }
 
-    ccl::Attribute* attr_accel = attributes->find(
-        ccl::ATTR_STD_VERTEX_ACCELERATION);
+    ccl::Attribute* attr_accel = attributes->find(ccl::ATTR_STD_VERTEX_ACCELERATION);
     if (!attr_accel) {
         attr_accel = attributes->add(ccl::ATTR_STD_VERTEX_ACCELERATION);
     }
@@ -346,7 +345,6 @@ HdCyclesMesh::_AddAccelerations(const SdfPath& id, const VtValue& value, HdInter
     } else {
         TF_WARN("Acceleration requires per-vertex interpolation");
     }
-
 }
 
 void
@@ -541,8 +539,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     if (!GetPrimvarInterpolation(interpolation)) {
         m_cyclesMesh->add_face_normals();
         m_cyclesMesh->add_vertex_normals();
-        TF_INFO(HDCYCLES_MESH)
-            .Msg("Generating smooth normals for: %s", id.GetText());
+        TF_INFO(HDCYCLES_MESH).Msg("Generating smooth normals for: %s", id.GetText());
         return;
     }
     assert(interpolation >= 0 && interpolation < HdInterpolationCount);
@@ -711,7 +708,8 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
     // todo: this should be shared with the points for the center motion step
     std::vector<float> times(HD_CYCLES_MOTION_STEPS);
     std::vector<VtValue> values(HD_CYCLES_MOTION_STEPS);
-    const size_t numSamples = sceneDelegate->SamplePrimvar(id, HdTokens->points, HD_CYCLES_MOTION_STEPS, times.data(), values.data());
+    const size_t numSamples = sceneDelegate->SamplePrimvar(id, HdTokens->points, HD_CYCLES_MOTION_STEPS, times.data(),
+                                                           values.data());
 
     if (numSamples <= 1) {
         return;
@@ -1050,7 +1048,6 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     // TODO: populate motion ?
-
 }
 
 void

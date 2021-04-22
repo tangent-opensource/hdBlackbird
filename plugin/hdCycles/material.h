@@ -63,8 +63,7 @@ public:
      * 
      * @param id Path to the Material
      */
-        HdCyclesMaterial(SdfPath const& id,
-                     HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_renderDelegate);
 
     /**
      * @brief Destroy the HdCycles Material 
@@ -82,8 +81,7 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-        void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -91,13 +89,13 @@ public:
      * 
      * @return The initial dirty state this material wants to query
      */
-        HdDirtyBits GetInitialDirtyBitsMask() const override;
+    HdDirtyBits GetInitialDirtyBitsMask() const override;
 
     /**
      * @brief Causes the shader to be reloaded
      * 
      */
-        void Reload() override;
+    void Reload() override;
 
     /**
      * @return Return true if this material is valid
@@ -115,7 +113,7 @@ public:
      * 
      * @return ccl::Shader* cycles shader 
      */
-        ccl::Shader* GetCyclesShader() const;
+    ccl::Shader* GetCyclesShader() const;
 
 protected:
     ccl::Shader* m_shader;
