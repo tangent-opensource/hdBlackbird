@@ -242,6 +242,10 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     ccl::vector<int> old_voxel_slots = get_voxel_image_slots(m_cyclesVolume);
 
+    // Defaults
+    m_useMotionBlur = false;
+    m_cyclesObject->velocity_scale = 1.0f;
+
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
         m_cyclesVolume->clear();
         _PopulateVolume(id, sceneDelegate, scene);
