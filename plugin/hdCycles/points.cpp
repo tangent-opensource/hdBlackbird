@@ -70,7 +70,7 @@ HdCyclesPoints::~HdCyclesPoints()
 
     // Remove mesh
 
-    m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
 
     delete m_cyclesMesh;
 }

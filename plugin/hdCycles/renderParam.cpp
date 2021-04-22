@@ -164,8 +164,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useTiledRendering(false)
     , m_objectsUpdated(false)
     , m_geometryUpdated(false)
-    , m_curveUpdated(false)
-    , m_meshUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
     , m_shouldUpdate(false)
@@ -1347,9 +1345,11 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
 
             bool read = false;
             if (!custom) {
-                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents), &tileData[0]);
+                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
             } else {
-                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents), &tileData[0]);
+                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
             }
 
             if (!read) {
@@ -1586,14 +1586,9 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
     m_cyclesSession->progress.reset();
 
-    if (m_curveUpdated || m_meshUpdated || m_geometryUpdated || m_shadersUpdated) {
+    if (m_geometryUpdated || m_shadersUpdated) {
         m_cyclesScene->geometry_manager->tag_update(m_cyclesScene);
         m_geometryUpdated = false;
-        m_meshUpdated     = false;
-    }
-
-    if (m_curveUpdated) {
-        m_curveUpdated = false;
     }
 
     if (m_objectsUpdated || m_shadersUpdated) {
@@ -1699,40 +1694,6 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 }
 
 void
-HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_meshUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_mesh);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_curveUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_curve);
-
-    Interrupt();
-}
-
-void
 HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 {
     lock_guard lock { m_cyclesScene->mutex };
@@ -1768,6 +1729,27 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 }
 
 void
+HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
+{
+    lock_guard lock { m_cyclesScene->mutex };
+
+    for (auto it = m_cyclesScene->geometry.begin(); it != m_cyclesScene->geometry.end();) {
+        if (geometry == *it) {
+            it = m_cyclesScene->geometry.erase(it);
+
+            m_geometryUpdated = true;
+
+            break;
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_geometryUpdated)
+        Interrupt();
+}
+
+void
 HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 {
     lock_guard lock { m_cyclesScene->mutex };
@@ -1795,56 +1777,12 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 }
 
 void
-HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_mesh == *it) {
-            it = m_cyclesScene->geometry.erase(it);
-
-            m_meshUpdated = true;
-
-            break;
-        } else {
-            ++it;
-        }
-    }
-
-    if (m_geometryUpdated)
-        Interrupt();
-}
-
-void
 HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
 {
     lock_guard lock { m_cyclesScene->mutex };
     for (auto& shader : shaders) {
         shader->tag_update(m_cyclesScene);
     }
-}
-
-void
-HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_hair == *it) {
-            it = m_cyclesScene->geometry.erase(it);
-
-            m_curveUpdated = true;
-
-            break;
-        } else {
-            ++it;
-        }
-    }
-
-    if (m_geometryUpdated)
-        Interrupt();
 }
 
 void

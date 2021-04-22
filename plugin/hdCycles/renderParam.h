@@ -229,20 +229,6 @@ public:
     void AddGeometry(ccl::Geometry* a_geometry);
 
     /**
-     * @brief Add mesh to scene
-     * 
-     * @param a_geometry Mesh to add
-     */
-    void AddMesh(ccl::Mesh* a_mesh);
-
-    /**
-     * @brief Add geometry to scene
-     * 
-     * @param a_geometry Geometry to add
-     */
-    void AddCurve(ccl::Geometry* a_curve);
-
-    /**
      * @brief Add shader to scene
      * 
      * @param a_shader Shader to add
@@ -255,13 +241,6 @@ public:
      * @param a_object Object to add
      */
     void AddObject(ccl::Object* a_object);
-
-    /**
-     * @brief Remove hair geometry from cycles scene
-     * 
-     * @param a_hair Hair to remove
-     */
-    void RemoveCurve(ccl::Hair* a_hair);
 
     /**
      * @brief Remove light from cycles scene
@@ -278,18 +257,12 @@ public:
     void RemoveShader(ccl::Shader* a_shader);
 
     /**
-     * @brief Remove mesh geometry from cycles scene
-     * 
-     * @param a_mesh Mesh to remove
-     */
-    void RemoveMesh(ccl::Mesh* a_mesh);
-
-    /**
      * @brief Remove object from cycles scene
      * 
      * @param a_object Object to remove
      */
     void RemoveObject(ccl::Object* a_object);
+    void RemoveGeometry(ccl::Geometry* geometry);
 
 private:
     bool _CreateSession();
@@ -363,8 +336,6 @@ private:
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;
-    bool m_curveUpdated;
-    bool m_meshUpdated;
     bool m_lightsUpdated;
     bool m_shadersUpdated;
 

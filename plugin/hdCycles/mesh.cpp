@@ -72,7 +72,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
 HdCyclesMesh::~HdCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
@@ -1077,7 +1077,7 @@ void
 HdCyclesMesh::_InitializeNewCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
