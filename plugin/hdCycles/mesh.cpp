@@ -1175,7 +1175,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    std::lock_guard<std::mutex>(scene->mutex);
+    ccl::thread_scoped_lock lock{scene->mutex};
 
     // -------------------------------------
     // -- Resolve Drawstyles

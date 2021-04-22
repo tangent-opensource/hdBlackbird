@@ -1779,7 +1779,6 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
 {
-    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
     for (auto& shader : shaders) {
         shader->tag_update(m_cyclesScene);
     }
