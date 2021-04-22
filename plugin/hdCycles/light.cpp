@@ -61,10 +61,10 @@ HdCyclesLight::~HdCyclesLight()
 
     if (m_cyclesLight) {
         if (m_cyclesLight->shader) {
-            m_renderDelegate->GetCyclesRenderParam()->RemoveShader(m_cyclesLight->shader);
+            m_renderDelegate->GetCyclesRenderParam()->RemoveShaderSafe(m_cyclesLight->shader);
             delete m_cyclesLight->shader;
         }
-        m_renderDelegate->GetCyclesRenderParam()->RemoveLight(m_cyclesLight);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveLightSafe(m_cyclesLight);
         delete m_cyclesLight;
     }
 }
@@ -110,9 +110,9 @@ HdCyclesLight::_CreateCyclesLight(SdfPath const& id, HdCyclesRenderParam* render
         shader->set_graph(_GetDefaultShaderGraph());
     }
 
-    renderParam->AddLight(m_cyclesLight);
+    renderParam->AddLightSafe(m_cyclesLight);
 
-    renderParam->AddShader(shader);
+    renderParam->AddShaderSafe(shader);
 
     // Set defaults
     m_cyclesLight->use_diffuse      = true;

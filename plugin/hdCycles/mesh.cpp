@@ -72,19 +72,19 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
 HdCyclesMesh::~HdCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
     if (m_cyclesInstances.size() > 0) {
         for (auto instance : m_cyclesInstances) {
             if (instance) {
-                m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
                 delete instance;
             }
         }
@@ -1077,12 +1077,12 @@ void
 HdCyclesMesh::_InitializeNewCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
@@ -1108,8 +1108,8 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
     m_cyclesObject->name     = GetId().GetString();
     m_cyclesObject->geometry = m_cyclesMesh;
 
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
 }
 
 void
@@ -1323,7 +1323,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
                     if (instance) {
-                        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
                         delete instance;
                     }
                 }
@@ -1374,7 +1374,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
                     m_cyclesInstances.push_back(instanceObj);
 
-                    m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
+                    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(instanceObj);
                 }
 
                 // Hide prototype

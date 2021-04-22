@@ -161,13 +161,13 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_
     m_shader->graph = m_shaderGraph;
 
     if (m_renderDelegate)
-        m_renderDelegate->GetCyclesRenderParam()->AddShader(m_shader);
+        m_renderDelegate->GetCyclesRenderParam()->AddShaderSafe(m_shader);
 }
 
 HdCyclesMaterial::~HdCyclesMaterial()
 {
     if (m_shader) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveShader(m_shader);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveShaderSafe(m_shader);
         delete m_shader;
     }
 }

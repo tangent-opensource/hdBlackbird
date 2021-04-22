@@ -77,15 +77,15 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& insta
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
 {
     if (m_cyclesHair) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesHair);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesHair);
         delete m_cyclesHair;
     }
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 }
