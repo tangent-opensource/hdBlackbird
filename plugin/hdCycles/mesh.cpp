@@ -1213,18 +1213,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
             // Object Generic
 
-            m_cyclesObject->is_shadow_catcher
-                = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+            m_cyclesObject->set_is_shadow_catcher(_HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                               usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
-                                              m_cyclesObject->is_shadow_catcher);
+                                              m_cyclesObject->get_is_shadow_catcher()));
 
-            m_cyclesObject->pass_id = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+            m_cyclesObject->set_pass_id(_HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                                                   usdCyclesTokens->primvarsCyclesObjectPass_id,
-                                                                  m_cyclesObject->pass_id);
+                                                                  m_cyclesObject->get_pass_id()));
 
-            m_cyclesObject->use_holdout = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+            m_cyclesObject->set_use_holdout(_HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                                                       usdCyclesTokens->primvarsCyclesObjectUse_holdout,
-                                                                      m_cyclesObject->use_holdout);
+                                                                      m_cyclesObject->get_use_holdout()));
 
             // Visibility
 

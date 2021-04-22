@@ -316,10 +316,10 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 usdCyclesTokens->primvarsCyclesObjectMblur,
                 m_useMotionBlur);
             
-            m_cyclesObject->velocity_scale = _HdCyclesGetVolumeParam<float>(
+            m_cyclesObject->set_velocity_scale(_HdCyclesGetVolumeParam<float>(
                 pv, dirtyBits, id, this, sceneDelegate,
                 usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
-                m_cyclesObject->velocity_scale);
+                m_cyclesObject->get_velocity_scale()));
 
             update_volumes               = true;
         }

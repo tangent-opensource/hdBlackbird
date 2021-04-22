@@ -448,10 +448,10 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
         ccl::Integrator::Method method = ccl::Integrator::PATH;
 
         if (m_cyclesScene) {
-            method = m_cyclesScene->integrator->method;
+            method = m_cyclesScene->integrator->get_method();
 
             if (method == ccl::Integrator::BRANCHED_PATH) {
-                samples = m_cyclesScene->integrator->aa_samples;
+                samples = m_cyclesScene->integrator->get_aa_samples();
             }
         }
 
@@ -462,7 +462,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key,
             session_updated = true;
 
             if (m_cyclesScene && method == ccl::Integrator::BRANCHED_PATH) {
-                sessionParams->samples = m_cyclesScene->integrator->aa_samples;
+                sessionParams->samples = m_cyclesScene->integrator->get_aa_samples();
             }
         }
     }
@@ -829,18 +829,18 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
 
         if (method_updated) {
             integrator_updated = true;
-            if (integrator->method == ccl::Integrator::BRANCHED_PATH) {
-                m_cyclesSession->params.samples = integrator->aa_samples;
+            if (integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
+                m_cyclesSession->params.samples = integrator->get_aa_samples();
             }
         }
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorSampling_method) {
         TfToken defaultPattern = usdCyclesTokens->sobol;
-        if (integrator->sampling_pattern == ccl::SAMPLING_PATTERN_CMJ) {
+        if (integrator->get_sampling_pattern() == ccl::SAMPLING_PATTERN_CMJ) {
             defaultPattern = usdCyclesTokens->cmj;
         }
-        else if(integrator->sampling_pattern == ccl::SAMPLING_PATTERN_PMJ) {
+        else if(integrator->get_sampling_pattern() == ccl::SAMPLING_PATTERN_PMJ) {
             defaultPattern = usdCyclesTokens->pmj;
         }
 
@@ -857,9 +857,9 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
 
         // Adaptive sampling must use PMJ
         if (m_cyclesSession->params.adaptive_sampling && 
-            integrator->sampling_pattern != ccl::SAMPLING_PATTERN_PMJ) {
+            integrator->get_sampling_pattern() != ccl::SAMPLING_PATTERN_PMJ) {
             integrator_updated = true;
-            integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
+            integrator->set_sampling_pattern(ccl::SAMPLING_PATTERN_PMJ);
         }
     }
 
@@ -931,8 +931,8 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
                 integrator->set_aa_samples(integrator->get_aa_samples()
                                          * integrator->get_aa_samples());
             }
-            if (integrator->method == ccl::Integrator::BRANCHED_PATH) {
-                m_cyclesSession->params.samples = integrator->aa_samples;
+            if (integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
+                m_cyclesSession->params.samples =integrator->get_aa_samples();
             }
             integrator_updated = true;
         }
@@ -1121,7 +1121,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key,
     }
 
     if (integrator_updated) {
-        integrator->tag_update(m_cyclesScene, ccl::Integrator::UPDATE_ALL);
+        integrator->tag_update(m_cyclesScene);
         return true;
     }
 
@@ -1239,7 +1239,7 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key,
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
         int cryptomatte_depth = _HdCyclesGetVtValue<int>(value, 4, 
                                                          &film_updated, false);
-        film->cryptomatte_depth = ccl::divide_up(ccl::min(16, cryptomatte_depth), 2);
+        film->set_cryptomatte_depth(ccl::divide_up(ccl::min(16, cryptomatte_depth), 2));
     }
 
     if (film_updated) {
