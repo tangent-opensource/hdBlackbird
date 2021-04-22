@@ -45,7 +45,7 @@ HdCyclesInstancer::Sync()
     HF_MALLOC_TAG_FUNCTION();
 
     const SdfPath& instancerId = GetId();
-    auto& changeTracker = GetDelegate()->GetRenderIndex().GetChangeTracker();
+    auto& changeTracker        = GetDelegate()->GetRenderIndex().GetChangeTracker();
 
     // Use the double-checked locking pattern to check if this instancer's
     // primvars are dirty.
@@ -60,12 +60,9 @@ HdCyclesInstancer::Sync()
         return;
     }
 
-    auto primvarDescs
-        = GetDelegate()->GetPrimvarDescriptors(instancerId,
-                                               HdInterpolationInstance);
+    auto primvarDescs = GetDelegate()->GetPrimvarDescriptors(instancerId, HdInterpolationInstance);
     for (auto& desc : primvarDescs) {
-        if (!HdChangeTracker::IsPrimvarDirty(dirtyBits, instancerId,
-                                             desc.name)) {
+        if (!HdChangeTracker::IsPrimvarDirty(dirtyBits, instancerId, desc.name)) {
             continue;
         }
 
@@ -102,10 +99,8 @@ HdCyclesInstancer::ComputeTransforms(SdfPath const& prototypeId)
 {
     Sync();
 
-    GfMatrix4d instancerTransform = GetDelegate()->GetInstancerTransform(
-        GetId());
-    VtIntArray instanceIndices = GetDelegate()->GetInstanceIndices(GetId(),
-                                                                   prototypeId);
+    GfMatrix4d instancerTransform = GetDelegate()->GetInstancerTransform(GetId());
+    VtIntArray instanceIndices    = GetDelegate()->GetInstanceIndices(GetId(), prototypeId);
 
     VtMatrix4dArray transforms;
     transforms.reserve(instanceIndices.size());
@@ -132,19 +127,16 @@ HdCyclesInstancer::ComputeTransforms(SdfPath const& prototypeId)
             transform = m_transform.cdata()[idx];
         }
 
-        transforms.push_back(transform * scaleMat * rotateMat * translateMat
-                             * instancerTransform);
+        transforms.push_back(transform * scaleMat * rotateMat * translateMat * instancerTransform);
     }
 
-    auto parentInstancer = static_cast<HdCyclesInstancer*>(
-        GetDelegate()->GetRenderIndex().GetInstancer(GetParentId()));
+    auto parentInstancer = static_cast<HdCyclesInstancer*>(GetDelegate()->GetRenderIndex().GetInstancer(GetParentId()));
     if (!parentInstancer) {
         return transforms;
     }
 
     VtMatrix4dArray wordTransform;
-    for (const GfMatrix4d& parentTransform :
-         parentInstancer->ComputeTransforms(GetId())) {
+    for (const GfMatrix4d& parentTransform : parentInstancer->ComputeTransforms(GetId())) {
         for (const GfMatrix4d& localTransform : transforms) {
             wordTransform.push_back(parentTransform * localTransform);
         }
@@ -158,8 +150,7 @@ namespace {
 // samples seen, up to maxNumSamples.
 template<typename T1, typename T2, unsigned int C>
 void
-AccumulateSampleTimes(HdTimeSampleArray<T1, C> const& in,
-                      HdTimeSampleArray<T2, C>* out)
+AccumulateSampleTimes(HdTimeSampleArray<T1, C> const& in, HdTimeSampleArray<T2, C>* out)
 {
     if (in.count > out->count) {
         out->Resize(in.count);
@@ -170,8 +161,7 @@ AccumulateSampleTimes(HdTimeSampleArray<T1, C> const& in,
 // Apply transforms referenced by instanceIndices
 template<typename Op, typename T>
 void
-ApplyTransform(VtValue const& allTransformsValue,
-               VtIntArray const& instanceIndices, GfMatrix4d* transforms)
+ApplyTransform(VtValue const& allTransformsValue, VtIntArray const& instanceIndices, GfMatrix4d* transforms)
 {
     auto& allTransforms = allTransformsValue.Get<VtArray<T>>();
     if (allTransforms.empty()) {
@@ -180,16 +170,14 @@ ApplyTransform(VtValue const& allTransformsValue,
     }
 
     for (size_t i = 0; i < instanceIndices.size(); ++i) {
-        transforms[i] = Op {}(allTransforms[instanceIndices[i]])
-                        * transforms[i];
+        transforms[i] = Op {}(allTransforms[instanceIndices[i]]) * transforms[i];
     }
 }
 
 // Apply interpolated transforms referenced by instanceIndices
 template<typename Op, typename T>
 void
-ApplyTransform(float alpha, VtValue const& allTransformsValue0,
-               VtValue const& allTransformsValue1,
+ApplyTransform(float alpha, VtValue const& allTransformsValue0, VtValue const& allTransformsValue1,
                VtIntArray const& instanceIndices, GfMatrix4d* transforms)
 {
     auto& allTransforms0 = allTransformsValue0.Get<VtArray<T>>();
@@ -200,25 +188,22 @@ ApplyTransform(float alpha, VtValue const& allTransformsValue0,
     }
 
     for (size_t i = 0; i < instanceIndices.size(); ++i) {
-        auto transform
-            = HdResampleNeighbors(alpha, allTransforms0[instanceIndices[i]],
-                                  allTransforms1[instanceIndices[i]]);
-        transforms[i] = Op {}(transform)*transforms[i];
+        auto transform = HdResampleNeighbors(alpha, allTransforms0[instanceIndices[i]],
+                                             allTransforms1[instanceIndices[i]]);
+        transforms[i]  = Op {}(transform)*transforms[i];
     }
 }
 
 template<typename Op, typename T>
 void
-ApplyTransform(HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> const& samples,
-               VtIntArray const& instanceIndices, float time,
-               GfMatrix4d* transforms)
+ApplyTransform(HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> const& samples, VtIntArray const& instanceIndices,
+               float time, GfMatrix4d* transforms)
 {
     size_t i = 0;
     for (; i < samples.count; ++i) {
         if (samples.times[i] == time) {
             // Exact time match
-            return ApplyTransform<Op, T>(samples.values[i], instanceIndices,
-                                         transforms);
+            return ApplyTransform<Op, T>(samples.values[i], instanceIndices, transforms);
         }
         if (samples.times[i] > time) {
             break;
@@ -227,26 +212,19 @@ ApplyTransform(HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> const& samples
 
     if (i == 0) {
         // time is before the first sample.
-        return ApplyTransform<Op, T>(samples.values[0], instanceIndices,
-                                     transforms);
+        return ApplyTransform<Op, T>(samples.values[0], instanceIndices, transforms);
     } else if (i == samples.count) {
         // time is after the last sample.
-        return ApplyTransform<Op, T>(samples.values[samples.count - 1],
-                                     instanceIndices, transforms);
+        return ApplyTransform<Op, T>(samples.values[samples.count - 1], instanceIndices, transforms);
     } else if (samples.times[i] == samples.times[i - 1]) {
         // Neighboring samples have identical parameter.
         // Arbitrarily choose a sample.
-        TF_WARN("overlapping samples at %f; using first sample",
-                samples.times[i]);
-        return ApplyTransform<Op, T>(samples.values[i - 1], instanceIndices,
-                                     transforms);
+        TF_WARN("overlapping samples at %f; using first sample", samples.times[i]);
+        return ApplyTransform<Op, T>(samples.values[i - 1], instanceIndices, transforms);
     } else {
         // Linear blend of neighboring samples.
-        float alpha = (samples.times[i] - time)
-                      / (samples.times[i] - samples.times[i - 1]);
-        return ApplyTransform<Op, T>(alpha, samples.values[i - 1],
-                                     samples.values[i], instanceIndices,
-                                     transforms);
+        float alpha = (samples.times[i] - time) / (samples.times[i] - samples.times[i - 1]);
+        return ApplyTransform<Op, T>(alpha, samples.values[i - 1], samples.values[i], instanceIndices, transforms);
     }
 }
 
@@ -265,22 +243,13 @@ struct RotateOp {
 };
 
 struct ScaleOp {
-    template<typename T> GfMatrix4d operator()(T const& scale)
-    {
-        return GfMatrix4d(1).SetScale(GfVec3d(scale));
-    }
+    template<typename T> GfMatrix4d operator()(T const& scale) { return GfMatrix4d(1).SetScale(GfVec3d(scale)); }
 };
 
 struct TransformOp {
-    GfMatrix4d const& operator()(GfMatrix4d const& transform)
-    {
-        return transform;
-    }
+    GfMatrix4d const& operator()(GfMatrix4d const& transform) { return transform; }
 
-    GfMatrix4d operator()(GfMatrix4f const& transform)
-    {
-        return GfMatrix4d(transform);
-    }
+    GfMatrix4d operator()(GfMatrix4f const& transform) { return GfMatrix4d(transform); }
 };
 
 }  // namespace
@@ -291,8 +260,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
     HdSceneDelegate* delegate  = GetDelegate();
     const SdfPath& instancerId = GetId();
 
-    VtIntArray instanceIndices = delegate->GetInstanceIndices(instancerId,
-                                                              prototypeId);
+    VtIntArray instanceIndices = delegate->GetInstanceIndices(instancerId, prototypeId);
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> instancerXform;
     HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> instanceXforms;
@@ -300,8 +268,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
     HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> rotates;
     HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> scales;
     delegate->SampleInstancerTransform(instancerId, &instancerXform);
-    delegate->SamplePrimvar(instancerId, _tokens->instanceTransform,
-                            &instanceXforms);
+    delegate->SamplePrimvar(instancerId, _tokens->instanceTransform, &instanceXforms);
     delegate->SamplePrimvar(instancerId, _tokens->translate, &translates);
     delegate->SamplePrimvar(instancerId, _tokens->scale, &scales);
     delegate->SamplePrimvar(instancerId, _tokens->rotate, &rotates);
@@ -311,8 +278,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
     if (instancerXform.count > 1) {
         size_t iSample = 1;
         for (; iSample < instancerXform.values.size(); ++iSample) {
-            if (!GfIsClose(instancerXform.values[iSample - 1],
-                           instancerXform.values[iSample], 1e-6)) {
+            if (!GfIsClose(instancerXform.values[iSample - 1], instancerXform.values[iSample], 1e-6)) {
                 break;
             }
         }
@@ -347,59 +313,42 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
         if (translates.count > 0 && translates.values[0].IsArrayValued()) {
             auto& type = translates.values[0].GetElementTypeid();
             if (type == typeid(GfVec3f)) {
-                ApplyTransform<TranslateOp, GfVec3f>(translates,
-                                                     instanceIndices, t,
-                                                     transforms.data());
+                ApplyTransform<TranslateOp, GfVec3f>(translates, instanceIndices, t, transforms.data());
             } else if (type == typeid(GfVec3d)) {
-                ApplyTransform<TranslateOp, GfVec3d>(translates,
-                                                     instanceIndices, t,
-                                                     transforms.data());
+                ApplyTransform<TranslateOp, GfVec3d>(translates, instanceIndices, t, transforms.data());
             } else if (type == typeid(GfVec3h)) {
-                ApplyTransform<TranslateOp, GfVec3h>(translates,
-                                                     instanceIndices, t,
-                                                     transforms.data());
+                ApplyTransform<TranslateOp, GfVec3h>(translates, instanceIndices, t, transforms.data());
             }
         }
 
         if (rotates.count > 0 && rotates.values[0].IsArrayValued()) {
             auto& type = rotates.values[0].GetElementTypeid();
             if (type == typeid(GfQuath)) {
-                ApplyTransform<RotateOp, GfQuath>(rotates, instanceIndices, t,
-                                                  transforms.data());
+                ApplyTransform<RotateOp, GfQuath>(rotates, instanceIndices, t, transforms.data());
             } else if (type == typeid(GfQuatf)) {
-                ApplyTransform<RotateOp, GfQuatf>(rotates, instanceIndices, t,
-                                                  transforms.data());
+                ApplyTransform<RotateOp, GfQuatf>(rotates, instanceIndices, t, transforms.data());
             } else if (type == typeid(GfQuatd)) {
-                ApplyTransform<RotateOp, GfQuatd>(rotates, instanceIndices, t,
-                                                  transforms.data());
+                ApplyTransform<RotateOp, GfQuatd>(rotates, instanceIndices, t, transforms.data());
             }
         }
 
         if (scales.count > 0 && scales.values[0].IsArrayValued()) {
             auto& type = scales.values[0].GetElementTypeid();
             if (type == typeid(GfVec3f)) {
-                ApplyTransform<ScaleOp, GfVec3f>(scales, instanceIndices, t,
-                                                 transforms.data());
+                ApplyTransform<ScaleOp, GfVec3f>(scales, instanceIndices, t, transforms.data());
             } else if (type == typeid(GfVec3d)) {
-                ApplyTransform<ScaleOp, GfVec3d>(scales, instanceIndices, t,
-                                                 transforms.data());
+                ApplyTransform<ScaleOp, GfVec3d>(scales, instanceIndices, t, transforms.data());
             } else if (type == typeid(GfVec3h)) {
-                ApplyTransform<ScaleOp, GfVec3h>(scales, instanceIndices, t,
-                                                 transforms.data());
+                ApplyTransform<ScaleOp, GfVec3h>(scales, instanceIndices, t, transforms.data());
             }
         }
 
-        if (instanceXforms.count > 0
-            && instanceXforms.values[0].IsArrayValued()) {
+        if (instanceXforms.count > 0 && instanceXforms.values[0].IsArrayValued()) {
             auto& type = instanceXforms.values[0].GetElementTypeid();
             if (type == typeid(GfMatrix4d)) {
-                ApplyTransform<TransformOp, GfMatrix4d>(instanceXforms,
-                                                        instanceIndices, t,
-                                                        transforms.data());
+                ApplyTransform<TransformOp, GfMatrix4d>(instanceXforms, instanceIndices, t, transforms.data());
             } else if (type == typeid(GfMatrix4f)) {
-                ApplyTransform<TransformOp, GfMatrix4f>(instanceXforms,
-                                                        instanceIndices, t,
-                                                        transforms.data());
+                ApplyTransform<TransformOp, GfMatrix4f>(instanceXforms, instanceIndices, t, transforms.data());
             }
         }
     }
@@ -410,13 +359,11 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
         return sa;
     }
 
-    HdInstancer* parentInstancer = GetDelegate()->GetRenderIndex().GetInstancer(
-        GetParentId());
+    HdInstancer* parentInstancer = GetDelegate()->GetRenderIndex().GetInstancer(GetParentId());
     if (!TF_VERIFY(parentInstancer)) {
         return sa;
     }
-    auto cyclesParentInstancer = static_cast<HdCyclesInstancer*>(
-        parentInstancer);
+    auto cyclesParentInstancer = static_cast<HdCyclesInstancer*>(parentInstancer);
 
     // Multiply the instance samples against the parent instancer samples.
     auto parentXf = cyclesParentInstancer->SampleInstanceTransforms(GetId());
@@ -439,8 +386,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
         result.resize(curParentXf.size() * curChildXf.size());
         for (size_t j = 0; j < curParentXf.size(); ++j) {
             for (size_t k = 0; k < curChildXf.size(); ++k) {
-                result[j * curChildXf.size() + k] = curChildXf[k]
-                                                    * curParentXf[j];
+                result[j * curChildXf.size() + k] = curChildXf[k] * curParentXf[j];
             }
         }
     }

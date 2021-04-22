@@ -54,8 +54,7 @@ public:
      */
     HDCYCLES_API HdRenderDelegate* CreateRenderDelegate() override;
 
-    HDCYCLES_API HdRenderDelegate*
-    CreateRenderDelegate(HdRenderSettingsMap const& settingsMap) override;
+    HDCYCLES_API HdRenderDelegate* CreateRenderDelegate(HdRenderSettingsMap const& settingsMap) override;
 
     /**
      * @brief Destroy a render delegate created by this class

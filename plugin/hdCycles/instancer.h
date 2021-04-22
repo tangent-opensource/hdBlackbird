@@ -42,16 +42,14 @@ class HdSceneDelegate;
  */
 class HdCyclesInstancer : public HdInstancer {
 public:
-    HdCyclesInstancer(HdSceneDelegate* delegate, SdfPath const& id,
-                      SdfPath const& parentInstancerId)
+    HdCyclesInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& parentInstancerId)
         : HdInstancer(delegate, id, parentInstancerId)
     {
     }
 
     VtMatrix4dArray ComputeTransforms(SdfPath const& prototypeId);
 
-    HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS>
-    SampleInstanceTransforms(SdfPath const& prototypeId);
+    HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS> SampleInstanceTransforms(SdfPath const& prototypeId);
 
 private:
     void Sync();

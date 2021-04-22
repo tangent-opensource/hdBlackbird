@@ -24,27 +24,22 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-HdCyclesOpenvdbAsset::HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* a_delegate,
-                                           const SdfPath& id)
+HdCyclesOpenvdbAsset::HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* a_delegate, const SdfPath& id)
     : HdField(id)
 {
     TF_UNUSED(a_delegate);
 }
 
 void
-HdCyclesOpenvdbAsset::Sync(HdSceneDelegate* a_sceneDelegate,
-                           HdRenderParam* a_renderParam,
-                           HdDirtyBits* a_dirtyBits)
+HdCyclesOpenvdbAsset::Sync(HdSceneDelegate* a_sceneDelegate, HdRenderParam* a_renderParam, HdDirtyBits* a_dirtyBits)
 {
     TF_UNUSED(a_renderParam);
     if (*a_dirtyBits & HdField::DirtyParams) {
-        auto& changeTracker
-            = a_sceneDelegate->GetRenderIndex().GetChangeTracker();
+        auto& changeTracker = a_sceneDelegate->GetRenderIndex().GetChangeTracker();
         // But accessing this list happens on a single thread,
         // as bprims are synced before rprims.
         for (const auto& volume : _volumeList) {
-            changeTracker.MarkRprimDirty(volume,
-                                         HdChangeTracker::DirtyTopology);
+            changeTracker.MarkRprimDirty(volume, HdChangeTracker::DirtyTopology);
         }
     }
     *a_dirtyBits = HdField::Clean;

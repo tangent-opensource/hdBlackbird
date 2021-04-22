@@ -51,8 +51,7 @@ public:
      * @return The parsed Ndr Node.
      */
     NDRCYCLES_API
-    NdrNodeUniquePtr
-    Parse(const NdrNodeDiscoveryResult& discoveryResult) override;
+    NdrNodeUniquePtr Parse(const NdrNodeDiscoveryResult& discoveryResult) override;
 
     /**
      * @brief Returns all the supported discovery types.

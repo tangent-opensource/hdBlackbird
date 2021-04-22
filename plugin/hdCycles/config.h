@@ -66,8 +66,7 @@ template<typename T> struct HdCyclesEnvValue {
 
         if (hasOverride) {
             a_previous = value;
-            std::cout << "[" << envName << "] has been set: " << a_previous
-                      << '\n';
+            std::cout << "[" << envName << "] has been set: " << a_previous << '\n';
         }
 
         return hasOverride;
@@ -84,8 +83,7 @@ template<typename T> struct HdCyclesEnvValue {
 
         if (hasOverride) {
             node->set(*a_previous, value);
-            std::cout << "[" << envName << "] has been set: " << value
-                      << '\n';
+            std::cout << "[" << envName << "] has been set: " << value << '\n';
         }
 
         return hasOverride;

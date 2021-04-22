@@ -67,9 +67,7 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    virtual void Sync(HdSceneDelegate* sceneDelegate,
-                      HdRenderParam* renderParam,
-                      HdDirtyBits* dirtyBits) override;
+    virtual void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -83,8 +81,7 @@ public:
      * @return Return time sampled xforms that were quereied during Sync
      */
     HDCYCLES_API
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> const&
-    GetTimeSampleXforms() const
+    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> const& GetTimeSampleXforms() const
     {
         return m_transformSamples;
     }

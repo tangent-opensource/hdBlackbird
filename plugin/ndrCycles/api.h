@@ -32,16 +32,12 @@
 #else
 #    if defined(NDRCYCLES_EXPORTS)
 #        define NDRCYCLES_API ARCH_EXPORT
-#        define NDRCYCLES_API_TEMPLATE_CLASS(...)                              \
-            ARCH_EXPORT_TEMPLATE(class, __VA_ARGS__)
-#        define NDRCYCLES_API_TEMPLATE_STRUCT(...)                             \
-            ARCH_EXPORT_TEMPLATE(struct, __VA_ARGS__)
+#        define NDRCYCLES_API_TEMPLATE_CLASS(...) ARCH_EXPORT_TEMPLATE(class, __VA_ARGS__)
+#        define NDRCYCLES_API_TEMPLATE_STRUCT(...) ARCH_EXPORT_TEMPLATE(struct, __VA_ARGS__)
 #    else
 #        define NDRCYCLES_API ARCH_IMPORT
-#        define NDRCYCLES_API_TEMPLATE_CLASS(...)                              \
-            ARCH_IMPORT_TEMPLATE(class, __VA_ARGS__)
-#        define NDRCYCLES_API_TEMPLATE_STRUCT(...)                             \
-            ARCH_IMPORT_TEMPLATE(struct, __VA_ARGS__)
+#        define NDRCYCLES_API_TEMPLATE_CLASS(...) ARCH_IMPORT_TEMPLATE(class, __VA_ARGS__)
+#        define NDRCYCLES_API_TEMPLATE_STRUCT(...) ARCH_IMPORT_TEMPLATE(struct, __VA_ARGS__)
 #    endif
 #    define NDRCYCLES_LOCAL ARCH_HIDDEN
 #endif
