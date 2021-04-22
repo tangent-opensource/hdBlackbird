@@ -212,57 +212,29 @@ public:
      */
     bool SetDeviceType(const std::string& a_deviceType);
 
-    /* ====== HdCycles Settings ====== */
+    /* ====== Thread unsafe operations ====== */
 
-    /**
-     * @brief Add light to scene
-     * 
-     * @param a_light Light to add
-     */
-    void AddLight(ccl::Light* a_light);
+    void AddShader(ccl::Shader* shader);
+    void AddLight(ccl::Light* light);
+    void AddObject(ccl::Object* object);
+    void AddGeometry(ccl::Geometry* geometry);
 
-    /**
-     * @brief Add geometry to scene
-     * 
-     * @param a_geometry Geometry to add
-     */
-    void AddGeometry(ccl::Geometry* a_geometry);
-
-    /**
-     * @brief Add shader to scene
-     * 
-     * @param a_shader Shader to add
-     */
-    void AddShader(ccl::Shader* a_shader);
-
-    /**
-     * @brief Add object to scene
-     * 
-     * @param a_object Object to add
-     */
-    void AddObject(ccl::Object* a_object);
-
-    /**
-     * @brief Remove light from cycles scene
-     * 
-     * @param a_light Light to remove
-     */
-    void RemoveLight(ccl::Light* a_light);
-
-    /**
-     * @brief Remove shader from cycles scene
-     * 
-     * @param a_shader Shader to remove
-     */
-    void RemoveShader(ccl::Shader* a_shader);
-
-    /**
-     * @brief Remove object from cycles scene
-     * 
-     * @param a_object Object to remove
-     */
-    void RemoveObject(ccl::Object* a_object);
+    void RemoveShader(ccl::Shader* shader);
+    void RemoveLight(ccl::Light* light);
+    void RemoveObject(ccl::Object* object);
     void RemoveGeometry(ccl::Geometry* geometry);
+
+    /* ====== Thread safe operations ====== */
+
+    void AddShaderSafe(ccl::Shader* shader);
+    void AddLightSafe(ccl::Light* light);
+    void AddObjectSafe(ccl::Object* object);
+    void AddGeometrySafe(ccl::Geometry* geometry);
+
+    void RemoveShaderSafe(ccl::Shader* shader);
+    void RemoveLightSafe(ccl::Light* light);
+    void RemoveObjectSafe(ccl::Object* object);
+    void RemoveGeometrySafe(ccl::Geometry* geometry);
 
 private:
     bool _CreateSession();
@@ -386,13 +358,6 @@ public:
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
-
-    using lock_guard = std::lock_guard<std::mutex>;
-
-    std::mutex m_lights_mutex;
-    std::mutex m_objects_mutex;
-    std::mutex m_geometry_mutex;
-    std::mutex m_shaders_mutex;
 
     HdRenderPassAovBindingVector m_aovs;
     TfToken m_displayAovToken;

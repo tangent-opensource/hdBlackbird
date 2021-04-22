@@ -68,10 +68,10 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, Hd
     m_useMotionBlur                     = config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
 
     m_cyclesVolume = _CreateVolume();
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesVolume);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesVolume);
 
     m_cyclesObject->geometry = m_cyclesVolume;
 }
@@ -79,12 +79,12 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, Hd
 HdCyclesVolume::~HdCyclesVolume()
 {
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
     if (m_cyclesVolume) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesVolume);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesVolume);
         delete m_cyclesVolume;
     }
 }
