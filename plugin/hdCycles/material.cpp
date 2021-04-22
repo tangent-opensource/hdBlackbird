@@ -663,7 +663,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
     const SdfPath& id = GetId();
 
-    param->GetCyclesScene()->mutex.lock();
+    ccl::thread_scoped_lock lock{param->GetCyclesScene()->mutex};
     bool material_updated = false;
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
@@ -764,8 +764,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
         _DumpGraph(m_shaderGraph, m_shader->name.c_str());
     }
-
-    param->GetCyclesScene()->mutex.unlock();
 
     *dirtyBits = Clean;
 }
