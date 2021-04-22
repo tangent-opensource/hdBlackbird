@@ -64,31 +64,27 @@ public:
      * @brief Start cycles render session
      * 
      */
-    HDCYCLES_API
-    void StartRender();
+        void StartRender();
 
     /**
      * @brief Stop the current render and close cycles instance
      * 
-     * @return HDCYCLES_API StopRender 
+     * @return StopRender 
      */
-    HDCYCLES_API
-    void StopRender();
+        void StopRender();
 
     /**
      * @brief Completely restart a cycles render
      * Currently unused, likely broken
      *  
      */
-    HDCYCLES_API
-    void RestartRender();
+        void RestartRender();
 
     /**
      * @brief Restarts the current cycles render
      * 
      */
-    HDCYCLES_API
-    void Interrupt(bool a_forceUpdate = false);
+        void Interrupt(bool a_forceUpdate = false);
 
     /**
      * @brief Initialize cycles renderer
@@ -111,11 +107,9 @@ public:
     /**
      * @return Progress completed of render
      */
-    HDCYCLES_API
-    float GetProgress();
+        float GetProgress();
 
-    HDCYCLES_API
-    bool IsConverged();
+        bool IsConverged();
 
     /**
      * @brief Key access point to set a HdCycles render setting via key and value

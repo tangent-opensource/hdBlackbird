@@ -40,8 +40,8 @@ PXR_NAMESPACE_OPEN_SCOPE
 // Very temporary. Apparently Cycles has code to do this but it isnt in the head cycles standalone repo
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
-    HdCyclesVolumeLoader(const char* filepath, const char* grid_name)
-        : ccl::VDBImageLoader(grid_name)
+    HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in)
+        : ccl::VDBImageLoader(grid_name_in)
         , m_file_path(filepath)
     {
         UpdateGrid();
@@ -62,7 +62,7 @@ public:
 
                 this->grid = file.readGrid(grid_name);
             } catch (const openvdb::IoError& e) {
-                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
+                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name.c_str(), m_file_path.c_str());
             } catch(const std::exception& e) {
                 TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
             }
@@ -91,8 +91,7 @@ public:
     ///
     /// @param delegate Pointer to the Render Delegate.
     /// @param id Path to the OpenVDB Asset.
-    HDCYCLES_API
-    HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* delegate, const SdfPath& id);
+        HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* delegate, const SdfPath& id);
 
     /// Syncing the Hydra Openvdb Asset to the Cycles Volume.
     ///
@@ -104,15 +103,13 @@ public:
     /// @param sceneDelegate Pointer to the Hydra Scene Delegate.
     /// @param renderParam Pointer to a HdCyclesRenderParam instance.
     /// @param dirtyBits Dirty Bits to sync.
-    HDCYCLES_API
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
+        void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
               HdDirtyBits* dirtyBits) override;
 
     /// Returns the initial Dirty Bits for the Primitive.
     ///
     /// @return Initial Dirty Bits.
-    HDCYCLES_API
-    HdDirtyBits GetInitialDirtyBitsMask() const override;
+        HdDirtyBits GetInitialDirtyBitsMask() const override;
 
     /// Tracks a HdCyclesVolume primitive.
     ///
@@ -121,8 +118,7 @@ public:
     /// shared between multiple volumes, knows which volume it belongs to.
     ///
     /// @param id Path to the Hydra Volume.
-    HDCYCLES_API
-    void TrackVolumePrimitive(const SdfPath& id);
+        void TrackVolumePrimitive(const SdfPath& id);
 
 private:
     std::mutex _volumeListMutex;  ///< Lock for the _volumeList.

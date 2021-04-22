@@ -82,8 +82,7 @@ public:
     /**
      * @return Return time sampled xforms that were quereied during Sync
      */
-    HDCYCLES_API
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> const&
+        HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> const&
     GetTimeSampleXforms() const
     {
         return m_transformSamples;

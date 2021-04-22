@@ -99,7 +99,7 @@ void
 HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                      HdDirtyBits* dirtyBits, TfToken const& reprSelector)
 {
-    HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
+    HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     const SdfPath& id = GetId();
 

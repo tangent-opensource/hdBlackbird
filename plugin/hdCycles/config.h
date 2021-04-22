@@ -100,8 +100,7 @@ template<typename T> struct HdCyclesEnvValue {
 class HdCyclesConfig {
 public:
     /// Return an instance of HdCyclesConfig.
-    HDCYCLES_API
-    static const HdCyclesConfig& GetInstance();
+        static const HdCyclesConfig& GetInstance();
 
     /* ====== Cycles Settings ====== */
 
@@ -381,9 +380,9 @@ private:
     /**
      * @brief Constructor for reading the values from the environment variables.
      * 
-     * @return HDCYCLES_API 
+     * @return 
      */
-    HDCYCLES_API HdCyclesConfig();
+    HdCyclesConfig();
     ~HdCyclesConfig()                     = default;
     HdCyclesConfig(const HdCyclesConfig&) = delete;
     HdCyclesConfig(HdCyclesConfig&&)      = delete;

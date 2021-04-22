@@ -34,15 +34,13 @@ public:
      * @brief Creates an instance of NdrCyclesParserPlugin.
      * 
      */
-    NDRCYCLES_API
-    NdrCyclesParserPlugin();
+        NdrCyclesParserPlugin();
 
     /**
      * @brief Destructor for NdrCyclesParserPlugin.
      * 
      */
-    NDRCYCLES_API
-    ~NdrCyclesParserPlugin() override;
+        ~NdrCyclesParserPlugin() override;
 
     /**
      * @brief Parses a node discovery result to a NdrNode.
@@ -50,8 +48,7 @@ public:
      * @param discoveryResult NdrNodeDiscoveryResult returned by the discovery plugin.
      * @return The parsed Ndr Node.
      */
-    NDRCYCLES_API
-    NdrNodeUniquePtr
+        NdrNodeUniquePtr
     Parse(const NdrNodeDiscoveryResult& discoveryResult) override;
 
     /**
@@ -59,16 +56,14 @@ public:
      * 
      * @return Returns "cycles" as the only supported discovery type.
      */
-    NDRCYCLES_API
-    const NdrTokenVec& GetDiscoveryTypes() const override;
+        const NdrTokenVec& GetDiscoveryTypes() const override;
 
     /**
      * @brief Returns all the supported source types.
      * 
      * @return Returns "cycles" as the only supported source type.
      */
-    NDRCYCLES_API
-    const TfToken& GetSourceType() const override;
+        const TfToken& GetSourceType() const override;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

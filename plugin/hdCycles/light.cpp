@@ -202,7 +202,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 {
     SdfPath id = GetId();
 
-    HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
+    HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     ccl::Scene* scene = param->GetCyclesScene();
 
@@ -531,7 +531,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                         backgroundTexture->tex_mapping.scale = 
                             ccl::make_float3(-1.0f, 1.0f, 1.0f);
                         backgroundTexture->tex_mapping.rotation = 
-                            ccl::make_float3(0.0f, 0.0f, M_PI * -0.5f);
+                            ccl::make_float3(0.0f, 0.0f, M_PI_F * -0.5f);
                     }
 
                     graph->add(backgroundTexture);

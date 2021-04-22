@@ -722,7 +722,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate,
                        HdRenderParam* renderParam, HdDirtyBits* dirtyBits)
 {
     auto cyclesRenderParam     = static_cast<HdCyclesRenderParam*>(renderParam);
-    HdCyclesRenderParam* param = (HdCyclesRenderParam*)renderParam;
+    HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     const SdfPath& id = GetId();
 
