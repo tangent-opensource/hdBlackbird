@@ -73,7 +73,7 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, Hd
     m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
 
     m_cyclesVolume = _CreateVolume();
-    m_renderDelegate->GetCyclesRenderParam()->AddMesh(m_cyclesVolume);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesVolume);
 
     m_cyclesObject->geometry = m_cyclesVolume;
 }
@@ -86,7 +86,7 @@ HdCyclesVolume::~HdCyclesVolume()
     }
 
     if (m_cyclesVolume) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesVolume);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesVolume);
         delete m_cyclesVolume;
     }
 }

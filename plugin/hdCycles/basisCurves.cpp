@@ -79,11 +79,11 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& insta
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
 {
     if (m_cyclesHair) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveCurve(m_cyclesHair);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesHair);
         delete m_cyclesHair;
     }
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
         delete m_cyclesMesh;
     }
     if (m_cyclesObject) {
@@ -558,7 +558,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     if (generate_new_curve) {
         if (m_cyclesGeometry) {
             scene_lock.unlock();
-            param->RemoveCurve(m_cyclesHair);
+            param->RemoveGeometry(m_cyclesHair);
             scene_lock.lock();
 
             m_cyclesGeometry->clear();
@@ -579,7 +579,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             _PopulateGenerated();
 
             scene_lock.unlock();
-            param->AddCurve(m_cyclesGeometry);
+            param->AddGeometry(m_cyclesGeometry);
             scene_lock.lock();
         }
 
