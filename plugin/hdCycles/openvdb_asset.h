@@ -23,15 +23,15 @@
 #include "api.h"
 #include <pxr/pxr.h>
 
-#include "renderDelegate.h"
 #include <pxr/imaging/hd/field.h>
+#include "renderDelegate.h"
 
 #include <mutex>
 #include <unordered_set>
 
 #ifdef WITH_OPENVDB
-#    include <openvdb/openvdb.h>
 #    include <render/image_vdb.h>
+#    include <openvdb/openvdb.h>
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -49,32 +49,33 @@ public:
 
     void UpdateGrid()
     {
-        if (TF_VERIFY(!m_file_path.empty())) {
+        if(TF_VERIFY(!m_file_path.empty()))
+        {
             try {
                 openvdb::io::File file(m_file_path);
                 file.setCopyMaxBytes(0);
                 file.open();
 
-                if (grid) {
+                if(grid){
                     grid.reset();
                 }
 
                 this->grid = file.readGrid(grid_name);
             } catch (const openvdb::IoError& e) {
                 TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name, m_file_path);
-            } catch (const std::exception& e) {
+            } catch(const std::exception& e) {
                 TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
             }
-        } else {
+        }else{
             TF_WARN("Volume file path is empty!");
         }
     }
 
-    void cleanup() override
+    void cleanup() override 
     {
-#    ifdef WITH_NANOVDB
+        #ifdef WITH_NANOVDB
         nanogrid.reset();
-#    endif
+        #endif
     }
 
 private:
@@ -104,7 +105,8 @@ public:
     /// @param renderParam Pointer to a HdCyclesRenderParam instance.
     /// @param dirtyBits Dirty Bits to sync.
     HDCYCLES_API
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
+              HdDirtyBits* dirtyBits) override;
 
     /// Returns the initial Dirty Bits for the Primitive.
     ///

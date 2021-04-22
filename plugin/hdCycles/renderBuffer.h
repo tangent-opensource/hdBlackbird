@@ -41,7 +41,8 @@ public:
      * 
      * @param id Path to the Render Buffer Primitive
      */
-    HDCYCLES_API HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegate, const SdfPath& id);
+    HDCYCLES_API HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegate,
+                                      const SdfPath& id);
 
     /**
      * @brief Destroy the HdCycles Render Buffer object
@@ -59,7 +60,8 @@ public:
      * @return Returns true if allocation was successful
      */
     HDCYCLES_API
-    bool Allocate(const GfVec3i& dimensions, HdFormat format, bool multiSampled) override;
+    bool Allocate(const GfVec3i& dimensions, HdFormat format,
+                  bool multiSampled) override;
 
     /**
      * @return Returns the width of the render buffer
@@ -146,9 +148,11 @@ public:
      * @param stride Stride of pixel
      * @param data Pointer to data
      */
-    void Blit(HdFormat format, int width, int height, int offset, int stride, uint8_t const* data);
+    void Blit(HdFormat format, int width, int height, int offset, int stride,
+              uint8_t const* data);
 
-    void BlitTile(HdFormat format, unsigned int x, unsigned int y, unsigned int width, unsigned int height, int offset,
+    void BlitTile(HdFormat format, unsigned int x, unsigned int y,
+                  unsigned int width, unsigned int height, int offset,
                   int stride, uint8_t const* data);
 
 protected:

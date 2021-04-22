@@ -162,9 +162,12 @@ public:
     HDCYCLES_API HdCyclesRenderParam* GetCyclesRenderParam() const;
 
     /// -- Supported types
-    HDCYCLES_API virtual const TfTokenVector& GetSupportedRprimTypes() const override;
-    HDCYCLES_API virtual const TfTokenVector& GetSupportedSprimTypes() const override;
-    HDCYCLES_API virtual const TfTokenVector& GetSupportedBprimTypes() const override;
+    HDCYCLES_API virtual const TfTokenVector&
+    GetSupportedRprimTypes() const override;
+    HDCYCLES_API virtual const TfTokenVector&
+    GetSupportedSprimTypes() const override;
+    HDCYCLES_API virtual const TfTokenVector&
+    GetSupportedBprimTypes() const override;
 
     HDCYCLES_API bool IsPauseSupported() const override;
 
@@ -173,35 +176,44 @@ public:
 
     HDCYCLES_API void _InitializeCyclesRenderSettings();
 
-    HDCYCLES_API void SetRenderSetting(const TfToken& key, const VtValue& value) override;
+    HDCYCLES_API void SetRenderSetting(const TfToken& key,
+                                       const VtValue& value) override;
 
-    HDCYCLES_API HdRenderSettingDescriptorList GetRenderSettingDescriptors() const override;
+    HDCYCLES_API HdRenderSettingDescriptorList
+    GetRenderSettingDescriptors() const override;
 
     HDCYCLES_API virtual HdRenderSettingsMap GetRenderSettingsMap() const;
 
-    HDCYCLES_API virtual HdResourceRegistrySharedPtr GetResourceRegistry() const override;
+    HDCYCLES_API virtual HdResourceRegistrySharedPtr
+    GetResourceRegistry() const override;
 
     // Prims
-    HDCYCLES_API virtual HdRenderPassSharedPtr CreateRenderPass(HdRenderIndex* index,
-                                                                HdRprimCollection const& collection) override;
+    HDCYCLES_API virtual HdRenderPassSharedPtr
+    CreateRenderPass(HdRenderIndex* index,
+                     HdRprimCollection const& collection) override;
 
-    HDCYCLES_API HdInstancer* CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id,
-                                              SdfPath const& instancerId) override;
+    HDCYCLES_API HdInstancer*
+    CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id,
+                    SdfPath const& instancerId) override;
     HDCYCLES_API void DestroyInstancer(HdInstancer* instancer) override;
 
-    HDCYCLES_API HdRprim* CreateRprim(TfToken const& typeId, SdfPath const& rprimId,
+    HDCYCLES_API HdRprim* CreateRprim(TfToken const& typeId,
+                                      SdfPath const& rprimId,
                                       SdfPath const& instancerId) override;
     HDCYCLES_API void DestroyRprim(HdRprim* rPrim) override;
 
-    HDCYCLES_API HdSprim* CreateSprim(TfToken const& typeId, SdfPath const& sprimId) override;
+    HDCYCLES_API HdSprim* CreateSprim(TfToken const& typeId,
+                                      SdfPath const& sprimId) override;
     HDCYCLES_API HdSprim* CreateFallbackSprim(TfToken const& typeId) override;
     HDCYCLES_API void DestroySprim(HdSprim* sprim) override;
 
-    HDCYCLES_API HdBprim* CreateBprim(TfToken const& typeId, SdfPath const& bprimId) override;
+    HDCYCLES_API HdBprim* CreateBprim(TfToken const& typeId,
+                                      SdfPath const& bprimId) override;
     HDCYCLES_API HdBprim* CreateFallbackBprim(TfToken const& typeId) override;
     HDCYCLES_API void DestroyBprim(HdBprim* bprim) override;
 
-    HDCYCLES_API virtual HdAovDescriptor GetDefaultAovDescriptor(TfToken const& name) const override;
+    HDCYCLES_API virtual HdAovDescriptor
+    GetDefaultAovDescriptor(TfToken const& name) const override;
 
     HDCYCLES_API void CommitResources(HdChangeTracker* tracker) override;
 

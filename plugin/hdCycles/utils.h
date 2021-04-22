@@ -47,9 +47,9 @@
 #include <pxr/base/vt/value.h>
 #include <pxr/imaging/hd/basisCurves.h>
 #include <pxr/imaging/hd/mesh.h>
+#include <pxr/imaging/hd/volume.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
-#include <pxr/imaging/hd/volume.h>
 #include <pxr/pxr.h>
 
 #include <iostream>
@@ -82,7 +82,8 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::array<int>& a_tiles);
  */
 HDCYCLES_API
 void
-HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc, ccl::float3& a_size);
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
+                         ccl::float3& a_size);
 
 /* ========== Material ========== */
 
@@ -116,8 +117,8 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name);
  */
 HDCYCLES_API
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
-HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate, const SdfPath& id,
-                     bool use_motion);
+HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate,
+                     const SdfPath& id, bool use_motion);
 
 ccl::Transform
 HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id);
@@ -366,7 +367,8 @@ struct HdCyclesPrimvar {
     HdInterpolation interpolation;  // Type of interpolation used for the value
     bool dirtied;                   // If the primvar has been dirtied
 
-    HdCyclesPrimvar(const VtValue& a_value, const TfToken& a_role, HdInterpolation a_interpolation)
+    HdCyclesPrimvar(const VtValue& a_value, const TfToken& a_role,
+                    HdInterpolation a_interpolation)
         : value(a_value)
         , role(a_role)
         , interpolation(a_interpolation)
@@ -375,30 +377,36 @@ struct HdCyclesPrimvar {
     }
 };
 
-using HdCyclesPrimvarMap = std::unordered_map<TfToken, HdCyclesPrimvar, TfToken::HashFunctor>;
+using HdCyclesPrimvarMap
+    = std::unordered_map<TfToken, HdCyclesPrimvar, TfToken::HashFunctor>;
 
 // Get Computed primvars
 bool
-HdCyclesGetComputedPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, HdDirtyBits a_dirtyBits,
+HdCyclesGetComputedPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id,
+                            HdDirtyBits a_dirtyBits,
                             HdCyclesPrimvarMap& a_primvars);
 
 // Get Non-computed primvars
 bool
-HdCyclesGetPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, HdDirtyBits a_dirtyBits,
-                    bool a_multiplePositionKeys, HdCyclesPrimvarMap& a_primvars);
+HdCyclesGetPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id,
+                    HdDirtyBits a_dirtyBits, bool a_multiplePositionKeys,
+                    HdCyclesPrimvarMap& a_primvars);
 
 typedef std::map<HdInterpolation, HdPrimvarDescriptorVector> HdCyclesPDPIMap;
 
 void
-HdCyclesPopulatePrimvarDescsPerInterpolation(HdSceneDelegate* a_sceneDelegate, SdfPath const& a_id,
-                                             HdCyclesPDPIMap* a_primvarDescsPerInterpolation);
+HdCyclesPopulatePrimvarDescsPerInterpolation(
+    HdSceneDelegate* a_sceneDelegate, SdfPath const& a_id,
+    HdCyclesPDPIMap* a_primvarDescsPerInterpolation);
 
 bool
-HdCyclesIsPrimvarExists(TfToken const& a_name, HdCyclesPDPIMap const& a_primvarDescsPerInterpolation,
+HdCyclesIsPrimvarExists(TfToken const& a_name,
+                        HdCyclesPDPIMap const& a_primvarDescsPerInterpolation,
                         HdInterpolation* a_interpolation = nullptr);
 
 
-using HdCyclesSampledPrimvarType = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
+using HdCyclesSampledPrimvarType
+    = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_PRIMVAR_SAMPLES>;
 
 /* ======== VtValue Utils ========= */
 
@@ -466,7 +474,8 @@ _CheckForVec2iValue(const VtValue& value, F&& f)
 
 template<typename T>
 T
-_HdCyclesGetVtValue(VtValue a_value, T a_default, bool* a_hasChanged = nullptr, bool a_checkWithDefault = false)
+_HdCyclesGetVtValue(VtValue a_value, T a_default, bool* a_hasChanged = nullptr,
+                    bool a_checkWithDefault = false)
 {
     if (!a_value.IsEmpty()) {
         if (a_value.IsHolding<T>()) {
@@ -487,13 +496,15 @@ _HdCyclesGetVtValue(VtValue a_value, T a_default, bool* a_hasChanged = nullptr, 
 
 template<>
 bool
-_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default, bool* a_hasChanged, bool a_checkWithDefault);
+_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default, bool* a_hasChanged,
+                          bool a_checkWithDefault);
 
 // Get abitrary param
 
 template<typename T>
 T
-_HdCyclesGetParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token, T a_default)
+_HdCyclesGetParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
+                  T a_default)
 {
     // TODO: This is not Get() Because of the reasons listed here:
     // https://groups.google.com/g/usd-interest/c/k-N05Ac7SRk/m/RtK5HvglAQAJ
@@ -506,8 +517,10 @@ _HdCyclesGetParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token, T a_d
 
 template<typename T>
 T
-_HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd, HdDirtyBits* a_dirtyBits, const SdfPath& a_id, HdMesh* a_mesh,
-                      HdSceneDelegate* a_scene, TfToken a_token, T a_default)
+_HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd,
+                      HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                      HdMesh* a_mesh, HdSceneDelegate* a_scene, TfToken a_token,
+                      T a_default)
 {
     // TODO: Optimize this
     // Needed because our current schema stores tokens with primvars: prefix
@@ -529,8 +542,10 @@ _HdCyclesGetMeshParam(const HdPrimvarDescriptor& a_pvd, HdDirtyBits* a_dirtyBits
 // This needs to be refactored.
 template<typename T>
 T
-_HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd, HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
-                         HdBasisCurves* a_curve, HdSceneDelegate* a_scene, TfToken a_token, T a_default)
+_HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd,
+                         HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                         HdBasisCurves* a_curve, HdSceneDelegate* a_scene,
+                         TfToken a_token, T a_default)
 {
     // Needed because our current schema stores tokens with primvars: prefix
     // however the HdPrimvarDescriptor omits this.
@@ -552,7 +567,8 @@ _HdCyclesGetCurvePrimvar(const HdPrimvarDescriptor& a_pvd, HdDirtyBits* a_dirtyB
 
 template<typename T>
 T
-_HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id, HdBasisCurves* a_curves, HdSceneDelegate* a_scene,
+_HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                       HdBasisCurves* a_curves, HdSceneDelegate* a_scene,
                        TfToken a_token, T a_default)
 {
     if (HdChangeTracker::IsPrimvarDirty(*a_dirtyBits, a_id, a_token)) {
@@ -567,7 +583,8 @@ _HdCyclesGetCurveParam(HdDirtyBits* a_dirtyBits, const SdfPath& a_id, HdBasisCur
 
 template<typename T>
 T
-_HdCyclesGetLightParam(const SdfPath& a_id, HdSceneDelegate* a_scene, TfToken a_token, T a_default)
+_HdCyclesGetLightParam(const SdfPath& a_id, HdSceneDelegate* a_scene,
+                       TfToken a_token, T a_default)
 {
     VtValue v = a_scene->GetLightParamValue(a_id, a_token);
     return _HdCyclesGetVtValue<T>(v, a_default);
@@ -577,7 +594,8 @@ _HdCyclesGetLightParam(const SdfPath& a_id, HdSceneDelegate* a_scene, TfToken a_
 
 template<typename T>
 T
-_HdCyclesGetCameraParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token, T a_default)
+_HdCyclesGetCameraParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
+                        T a_default)
 {
     VtValue v = a_scene->GetCameraParamValue(a_id, a_token);
     return _HdCyclesGetVtValue<T>(v, a_default);
@@ -587,8 +605,10 @@ _HdCyclesGetCameraParam(HdSceneDelegate* a_scene, SdfPath a_id, TfToken a_token,
 
 template<typename T>
 T
-_HdCyclesGetVolumeParam(const HdPrimvarDescriptor& a_pvd, HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
-                        HdVolume* a_volume, HdSceneDelegate* a_scene, TfToken a_token, T a_default)
+_HdCyclesGetVolumeParam(const HdPrimvarDescriptor& a_pvd,
+                      HdDirtyBits* a_dirtyBits, const SdfPath& a_id,
+                      HdVolume* a_volume, HdSceneDelegate* a_scene, TfToken a_token,
+                      T a_default)
 {
     // TODO: Optimize this
     // Needed because our current schema stores tokens with primvars: prefix
@@ -611,29 +631,37 @@ int
 mikk_get_num_faces(const SMikkTSpaceContext* context);
 
 int
-mikk_get_num_verts_of_face(const SMikkTSpaceContext* context, const int face_num);
+mikk_get_num_verts_of_face(const SMikkTSpaceContext* context,
+                           const int face_num);
 
 int
-mikk_vertex_index(const ccl::Mesh* mesh, const int face_num, const int vert_num);
+mikk_vertex_index(const ccl::Mesh* mesh, const int face_num,
+                  const int vert_num);
 
 int
-mikk_corner_index(const ccl::Mesh* mesh, const int face_num, const int vert_num);
+mikk_corner_index(const ccl::Mesh* mesh, const int face_num,
+                  const int vert_num);
 
 void
-mikk_get_position(const SMikkTSpaceContext* context, float P[3], const int face_num, const int vert_num);
+mikk_get_position(const SMikkTSpaceContext* context, float P[3],
+                  const int face_num, const int vert_num);
 
 void
-mikk_get_texture_coordinate(const SMikkTSpaceContext* context, float uv[2], const int face_num, const int vert_num);
+mikk_get_texture_coordinate(const SMikkTSpaceContext* context, float uv[2],
+                            const int face_num, const int vert_num);
 
 void
-mikk_get_normal(const SMikkTSpaceContext* context, float N[3], const int face_num, const int vert_num);
+mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
+                const int face_num, const int vert_num);
 
 void
-mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[], const float sign, const int face_num,
+mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[],
+                       const float sign, const int face_num,
                        const int vert_num);
 
 void
-mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, bool active_render);
+mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
+                      bool active_render);
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

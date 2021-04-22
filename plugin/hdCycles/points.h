@@ -60,7 +60,8 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this curve
      * as a prototype
      */
-    HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
+                   HdCyclesRenderDelegate* a_renderDelegate);
     /**
      * @brief Destroy the HdCycles Points object
      * 
@@ -77,8 +78,8 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
-              TfToken const& reprSelector) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
+              HdDirtyBits* dirtyBits, TfToken const& reprSelector) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -141,7 +142,8 @@ private:
      * @param mesh Mesh to populate the point with
      * @return ccl::Object* 
      */
-    ccl::Object* _CreatePointsObject(const ccl::Transform& transform, ccl::Mesh* mesh);
+    ccl::Object* _CreatePointsObject(const ccl::Transform& transform,
+                                     ccl::Mesh* mesh);
 
     ccl::Mesh* m_cyclesMesh;
 

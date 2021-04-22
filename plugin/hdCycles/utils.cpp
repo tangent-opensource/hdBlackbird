@@ -70,9 +70,12 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::array<int>& a_tiles)
     std::vector<std::string> files;
 
     BOOST_NS::filesystem::path path(ccl::path_dirname(a_filepath));
-    for (BOOST_NS::filesystem::directory_iterator it(path); it != BOOST_NS::filesystem::directory_iterator(); ++it) {
-        if (BOOST_NS::filesystem::is_regular_file(it->status()) || BOOST_NS::filesystem::is_symlink(it->status())) {
-            std::string foundFile = BOOST_NS::filesystem::basename(it->path().filename());
+    for (BOOST_NS::filesystem::directory_iterator it(path);
+         it != BOOST_NS::filesystem::directory_iterator(); ++it) {
+        if (BOOST_NS::filesystem::is_regular_file(it->status())
+            || BOOST_NS::filesystem::is_symlink(it->status())) {
+            std::string foundFile = BOOST_NS::filesystem::basename(
+                it->path().filename());
 
             if (baseFileName == (foundFile.substr(0, offset))) {
                 files.push_back(foundFile);
@@ -88,7 +91,8 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::array<int>& a_tiles)
 }
 
 void
-HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc, ccl::float3& a_size)
+HdCyclesMeshTextureSpace(ccl::Geometry* a_geom, ccl::float3& a_loc,
+                         ccl::float3& a_size)
 {
     // m_cyclesMesh->compute_bounds must be called before this
     a_loc  = (a_geom->bounds.max + a_geom->bounds.min) / 2.0f;
@@ -131,10 +135,10 @@ HdCyclesCreateDefaultShader()
 ccl::Shader*
 HdCyclesCreateObjectColorSurface()
 {
-    auto shader   = new ccl::Shader();
+    auto shader = new ccl::Shader();
     shader->graph = new ccl::ShaderGraph();
 
-    auto oi   = new ccl::ObjectInfoNode {};
+    auto oi = new ccl::ObjectInfoNode{};
     auto bsdf = new ccl::PrincipledBsdfNode();
 
     shader->graph->add(bsdf);
@@ -148,12 +152,11 @@ HdCyclesCreateObjectColorSurface()
 }
 
 ccl::Shader*
-HdCyclesCreateAttribColorSurface()
-{
-    auto shader   = new ccl::Shader();
+HdCyclesCreateAttribColorSurface() {
+    auto shader = new ccl::Shader();
     shader->graph = new ccl::ShaderGraph();
 
-    auto attrib = new ccl::AttributeNode {};
+    auto attrib = new ccl::AttributeNode{};
     attrib->set_attribute(ccl::ustring("displayColor"));
 
     auto bsdf = new ccl::PrincipledBsdfNode();
@@ -177,7 +180,8 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
     if (config.cycles_shader_graph_dump_dir.size() > 0) {
-        std::string dump_location = config.cycles_shader_graph_dump_dir + "/" + TfMakeValidIdentifier(name)
+        std::string dump_location = config.cycles_shader_graph_dump_dir + "/"
+                                    + TfMakeValidIdentifier(name)
                                     + "_graph.txt";
         std::cout << "Dumping shader graph: " << dump_location << '\n';
         try {
@@ -201,8 +205,8 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 // The function now resamples the transforms at uniform intervals
 // rendering more correctly.
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
-HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate, const SdfPath& id,
-                     bool use_motion)
+HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate,
+                     const SdfPath& id, bool use_motion)
 {
     if (!object)
         return {};
@@ -239,7 +243,8 @@ HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* de
         // Rounding to odd number of samples to have one in the center
         const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
         const int numMotionSteps   = sampleCount + sampleOffset;
-        const float motionStepSize = (xf.times.back() - xf.times.front()) / (numMotionSteps - 1);
+        const float motionStepSize = (xf.times.back() - xf.times.front())
+                                     / (numMotionSteps - 1);
         object->get_motion().resize(numMotionSteps, ccl::transform_empty());
 
         // For each step, we use the available data from the neighbors
@@ -279,28 +284,35 @@ HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* de
             // If there is an authored sample for this specific timestep
             // we copy it.
             if (iXfPrev == iXfNext) {
-                object->get_motion()[i] = mat4d_to_transform(xf.values.data()[iXfPrev]);
+                object->get_motion()[i] = mat4d_to_transform(
+                    xf.values.data()[iXfPrev]);
             }
             // Otherwise we interpolate the neighboring matrices
             else {
                 // Should the type conversion be precomputed?
-                ccl::Transform xfPrev = mat4d_to_transform(xf.values.data()[iXfPrev]);
-                ccl::Transform xfNext = mat4d_to_transform(xf.values.data()[iXfNext]);
+                ccl::Transform xfPrev = mat4d_to_transform(
+                    xf.values.data()[iXfPrev]);
+                ccl::Transform xfNext = mat4d_to_transform(
+                    xf.values.data()[iXfNext]);
 
                 ccl::DecomposedTransform dxf[2];
                 transform_motion_decompose(dxf + 0, &xfPrev, 1);
                 transform_motion_decompose(dxf + 1, &xfNext, 1);
 
                 // Preferring the smaller rotation difference
-                if (ccl::len_squared(dxf[0].x - dxf[1].x) > ccl::len_squared(dxf[0].x + dxf[1].x)) {
+                if (ccl::len_squared(dxf[0].x - dxf[1].x)
+                    > ccl::len_squared(dxf[0].x + dxf[1].x)) {
                     dxf[1].x = -dxf[1].x;
                 }
 
                 // Weighting by distance to sample
-                const float timeDiff = xf.times.data()[iXfNext] - xf.times.data()[iXfPrev];
-                const float t        = (stepTime - xf.times.data()[iXfPrev]) / timeDiff;
+                const float timeDiff = xf.times.data()[iXfNext]
+                                       - xf.times.data()[iXfPrev];
+                const float t = (stepTime - xf.times.data()[iXfPrev])
+                                / timeDiff;
 
-                transform_motion_array_interpolate(&object->get_motion()[i], dxf, 2, t);
+                transform_motion_array_interpolate(&object->get_motion()[i], dxf, 2,
+                                                   t);
             }
 
             if (::std::fabs(stepTime) < 1e-5) {
@@ -480,25 +492,29 @@ vec4f_to_float4(const GfVec4f& a_vec)
 ccl::float4
 vec4i_to_float4(const GfVec4i& a_vec)
 {
-    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2], (float)a_vec[3]);
+    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2],
+                            (float)a_vec[3]);
 }
 
 ccl::float4
 vec4d_to_float4(const GfVec4d& a_vec)
 {
-    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2], (float)a_vec[3]);
+    return ccl::make_float4((float)a_vec[0], (float)a_vec[1], (float)a_vec[2],
+                            (float)a_vec[3]);
 }
 
 /* ========= Primvars ========= */
 
 const std::array<HdInterpolation, HdInterpolationCount> interpolations {
-    HdInterpolationConstant, HdInterpolationUniform,     HdInterpolationVarying,
-    HdInterpolationVertex,   HdInterpolationFaceVarying, HdInterpolationInstance,
+    HdInterpolationConstant,    HdInterpolationUniform,
+    HdInterpolationVarying,     HdInterpolationVertex,
+    HdInterpolationFaceVarying, HdInterpolationInstance,
 };
 
 inline void
-_HdCyclesInsertPrimvar(HdCyclesPrimvarMap& primvars, const TfToken& name, const TfToken& role,
-                       HdInterpolation interpolation, const VtValue& value)
+_HdCyclesInsertPrimvar(HdCyclesPrimvarMap& primvars, const TfToken& name,
+                       const TfToken& role, HdInterpolation interpolation,
+                       const VtValue& value)
 {
     auto it = primvars.find(name);
     if (it == primvars.end()) {
@@ -513,16 +529,20 @@ _HdCyclesInsertPrimvar(HdCyclesPrimvarMap& primvars, const TfToken& name, const 
 
 // Get Computed primvars
 bool
-HdCyclesGetComputedPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, HdDirtyBits a_dirtyBits,
+HdCyclesGetComputedPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id,
+                            HdDirtyBits a_dirtyBits,
                             HdCyclesPrimvarMap& a_primvars)
 {
     // First we are querying which primvars need to be computed, and storing them in a list to rely
     // on the batched computation function in HdExtComputationUtils.
     HdExtComputationPrimvarDescriptorVector dirtyPrimvars;
     for (HdInterpolation interpolation : interpolations) {
-        auto computedPrimvars = a_delegate->GetExtComputationPrimvarDescriptors(a_id, interpolation);
+        auto computedPrimvars
+            = a_delegate->GetExtComputationPrimvarDescriptors(a_id,
+                                                              interpolation);
         for (const auto& primvar : computedPrimvars) {
-            if (HdChangeTracker::IsPrimvarDirty(a_dirtyBits, a_id, primvar.name)) {
+            if (HdChangeTracker::IsPrimvarDirty(a_dirtyBits, a_id,
+                                                primvar.name)) {
                 dirtyPrimvars.emplace_back(primvar);
             }
         }
@@ -533,15 +553,18 @@ HdCyclesGetComputedPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, Hd
         return false;
     }
 
-    auto changed    = false;
-    auto valueStore = HdExtComputationUtils::GetComputedPrimvarValues(dirtyPrimvars, a_delegate);
+    auto changed = false;
+    auto valueStore
+        = HdExtComputationUtils::GetComputedPrimvarValues(dirtyPrimvars,
+                                                          a_delegate);
     for (const auto& primvar : dirtyPrimvars) {
         const auto itComputed = valueStore.find(primvar.name);
         if (itComputed == valueStore.end()) {
             continue;
         }
         changed = true;
-        _HdCyclesInsertPrimvar(a_primvars, primvar.name, primvar.role, primvar.interpolation, itComputed->second);
+        _HdCyclesInsertPrimvar(a_primvars, primvar.name, primvar.role,
+                               primvar.interpolation, itComputed->second);
     }
 
     return changed;
@@ -549,20 +572,25 @@ HdCyclesGetComputedPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, Hd
 
 // Get Non-computed primvars
 bool
-HdCyclesGetPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, HdDirtyBits a_dirtyBits,
-                    bool a_multiplePositionKeys, HdCyclesPrimvarMap& a_primvars)
+HdCyclesGetPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id,
+                    HdDirtyBits a_dirtyBits, bool a_multiplePositionKeys,
+                    HdCyclesPrimvarMap& a_primvars)
 {
     for (auto interpolation : interpolations) {
-        const auto primvarDescs = a_delegate->GetPrimvarDescriptors(a_id, interpolation);
+        const auto primvarDescs
+            = a_delegate->GetPrimvarDescriptors(a_id, interpolation);
         for (const auto& primvarDesc : primvarDescs) {
             if (primvarDesc.name == HdTokens->points) {
                 continue;
             }
             // The number of motion keys has to be matched between points and normals, so
-            _HdCyclesInsertPrimvar(a_primvars, primvarDesc.name, primvarDesc.role, primvarDesc.interpolation,
-                                   (a_multiplePositionKeys && primvarDesc.name == HdTokens->normals)
+            _HdCyclesInsertPrimvar(a_primvars, primvarDesc.name,
+                                   primvarDesc.role, primvarDesc.interpolation,
+                                   (a_multiplePositionKeys
+                                    && primvarDesc.name == HdTokens->normals)
                                        ? VtValue {}
-                                       : a_delegate->Get(a_id, primvarDesc.name));
+                                       : a_delegate->Get(a_id,
+                                                         primvarDesc.name));
         }
     }
 
@@ -571,25 +599,29 @@ HdCyclesGetPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, HdDirtyBit
 
 
 void
-HdCyclesPopulatePrimvarDescsPerInterpolation(HdSceneDelegate* a_sceneDelegate, SdfPath const& a_id,
-                                             HdCyclesPDPIMap* a_primvarDescsPerInterpolation)
+HdCyclesPopulatePrimvarDescsPerInterpolation(
+    HdSceneDelegate* a_sceneDelegate, SdfPath const& a_id,
+    HdCyclesPDPIMap* a_primvarDescsPerInterpolation)
 {
     if (!a_primvarDescsPerInterpolation->empty()) {
         return;
     }
 
     auto interpolations = {
-        HdInterpolationConstant, HdInterpolationUniform,     HdInterpolationVarying,
-        HdInterpolationVertex,   HdInterpolationFaceVarying, HdInterpolationInstance,
+        HdInterpolationConstant,    HdInterpolationUniform,
+        HdInterpolationVarying,     HdInterpolationVertex,
+        HdInterpolationFaceVarying, HdInterpolationInstance,
     };
     for (auto& interpolation : interpolations) {
-        a_primvarDescsPerInterpolation->emplace(interpolation,
-                                                a_sceneDelegate->GetPrimvarDescriptors(a_id, interpolation));
+        a_primvarDescsPerInterpolation->emplace(
+            interpolation,
+            a_sceneDelegate->GetPrimvarDescriptors(a_id, interpolation));
     }
 }
 
 bool
-HdCyclesIsPrimvarExists(TfToken const& a_name, HdCyclesPDPIMap const& a_primvarDescsPerInterpolation,
+HdCyclesIsPrimvarExists(TfToken const& a_name,
+                        HdCyclesPDPIMap const& a_primvarDescsPerInterpolation,
                         HdInterpolation* a_interpolation)
 {
     for (auto& entry : a_primvarDescsPerInterpolation) {
@@ -660,19 +692,22 @@ template<>
 inline ccl::float3
 to_cycles<GfVec3h>(const GfVec3h& v) noexcept
 {
-    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]));
+    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]));
 }
 template<>
 inline ccl::float3
 to_cycles<GfVec3d>(const GfVec3d& v) noexcept
 {
-    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]));
+    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]));
 }
 template<>
 inline ccl::float3
 to_cycles<GfVec3i>(const GfVec3i& v) noexcept
 {
-    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]));
+    return ccl::make_float3(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]));
 }
 
 template<>
@@ -685,28 +720,29 @@ template<>
 inline ccl::float4
 to_cycles<GfVec4h>(const GfVec4h& v) noexcept
 {
-    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]),
-                            static_cast<float>(v[3]));
+    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]), static_cast<float>(v[3]));
 }
 template<>
 inline ccl::float4
 to_cycles<GfVec4d>(const GfVec4d& v) noexcept
 {
-    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]),
-                            static_cast<float>(v[3]));
+    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]), static_cast<float>(v[3]));
 }
 template<>
 inline ccl::float4
 to_cycles<GfVec4i>(const GfVec4i& v) noexcept
 {
-    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]),
-                            static_cast<float>(v[3]));
+    return ccl::make_float4(static_cast<float>(v[0]), static_cast<float>(v[1]),
+                            static_cast<float>(v[2]), static_cast<float>(v[3]));
 }
 
 /* ========= MikkTSpace ========= */
 
 struct MikkUserData {
-    MikkUserData(const char* layer_name, ccl::Mesh* mesh, ccl::float3* tangent, float* tangent_sign)
+    MikkUserData(const char* layer_name, ccl::Mesh* mesh, ccl::float3* tangent,
+                 float* tangent_sign)
         : mesh(mesh)
         , corner_normal(NULL)
         , vertex_normal(NULL)
@@ -714,7 +750,9 @@ struct MikkUserData {
         , tangent(tangent)
         , tangent_sign(tangent_sign)
     {
-        const ccl::AttributeSet& attributes = (mesh->get_num_subd_faces()) ? mesh->subd_attributes : mesh->attributes;
+        const ccl::AttributeSet& attributes = (mesh->get_num_subd_faces())
+                                                  ? mesh->subd_attributes
+                                                  : mesh->attributes;
 
         ccl::Attribute* attr_vN = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::Attribute* attr_cN = attributes.find(ccl::ATTR_STD_CORNER_NORMAL);
@@ -763,7 +801,8 @@ mikk_get_num_faces(const SMikkTSpaceContext* context)
 }
 
 int
-mikk_get_num_verts_of_face(const SMikkTSpaceContext* context, const int face_num)
+mikk_get_num_verts_of_face(const SMikkTSpaceContext* context,
+                           const int face_num)
 {
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     if (userdata->mesh->get_num_subd_faces()) {
@@ -797,7 +836,8 @@ mikk_corner_index(const ccl::Mesh* mesh, const int face_num, const int vert_num)
 }
 
 void
-mikk_get_position(const SMikkTSpaceContext* context, float P[3], const int face_num, const int vert_num)
+mikk_get_position(const SMikkTSpaceContext* context, float P[3],
+                  const int face_num, const int vert_num)
 {
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     const ccl::Mesh* mesh        = userdata->mesh;
@@ -809,7 +849,8 @@ mikk_get_position(const SMikkTSpaceContext* context, float P[3], const int face_
 }
 
 void
-mikk_get_texture_coordinate(const SMikkTSpaceContext* context, float uv[2], const int face_num, const int vert_num)
+mikk_get_texture_coordinate(const SMikkTSpaceContext* context, float uv[2],
+                            const int face_num, const int vert_num)
 {
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     const ccl::Mesh* mesh        = userdata->mesh;
@@ -825,7 +866,8 @@ mikk_get_texture_coordinate(const SMikkTSpaceContext* context, float uv[2], cons
 }
 
 void
-mikk_get_normal(const SMikkTSpaceContext* context, float N[3], const int face_num, const int vert_num)
+mikk_get_normal(const SMikkTSpaceContext* context, float N[3],
+                const int face_num, const int vert_num)
 {
     const MikkUserData* userdata = (const MikkUserData*)context->m_pUserData;
     const ccl::Mesh* mesh        = userdata->mesh;
@@ -837,7 +879,8 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3], const int face_nu
         if (userdata->corner_normal) {
             vN = userdata->corner_normal[face.start_corner + vert_num];
         } else if (face.smooth) {
-            const int vertex_index = mikk_vertex_index(mesh, face_num, vert_num);
+            const int vertex_index = mikk_vertex_index(mesh, face_num,
+                                                       vert_num);
             vN                     = userdata->vertex_normal[vertex_index];
         } else {
             vN = face.normal(mesh);
@@ -846,7 +889,8 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3], const int face_nu
         if (userdata->corner_normal) {
             vN = userdata->corner_normal[face_num * 3 + vert_num];
         } else if (mesh->get_smooth()[face_num]) {
-            const int vertex_index = mikk_vertex_index(mesh, face_num, vert_num);
+            const int vertex_index = mikk_vertex_index(mesh, face_num,
+                                                       vert_num);
             vN                     = userdata->vertex_normal[vertex_index];
         } else {
             const ccl::Mesh::Triangle tri = mesh->get_triangle(face_num);
@@ -859,12 +903,12 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3], const int face_nu
 }
 
 void
-mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[], const float sign, const int face_num,
-                       const int vert_num)
+mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[],
+                       const float sign, const int face_num, const int vert_num)
 {
-    MikkUserData* userdata          = (MikkUserData*)context->m_pUserData;
-    const ccl::Mesh* mesh           = userdata->mesh;
-    const int corner_index          = mikk_corner_index(mesh, face_num, vert_num);
+    MikkUserData* userdata = (MikkUserData*)context->m_pUserData;
+    const ccl::Mesh* mesh  = userdata->mesh;
+    const int corner_index = mikk_corner_index(mesh, face_num, vert_num);
     userdata->tangent[corner_index] = ccl::make_float3(T[0], T[1], T[2]);
     if (userdata->tangent_sign != NULL) {
         userdata->tangent_sign[corner_index] = sign;
@@ -872,10 +916,13 @@ mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[], const
 }
 
 void
-mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, bool active_render)
+mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign,
+                      bool active_render)
 {
     /* Create tangent attributes. */
-    ccl::AttributeSet& attributes = (mesh->get_num_subd_faces()) ? mesh->subd_attributes : mesh->attributes;
+    ccl::AttributeSet& attributes = (mesh->get_num_subd_faces())
+                                        ? mesh->subd_attributes
+                                        : mesh->attributes;
     ccl::Attribute* attr;
     ccl::ustring name;
 
@@ -888,7 +935,8 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, b
     if (active_render) {
         attr = attributes.add(ccl::ATTR_STD_UV_TANGENT, name);
     } else {
-        attr = attributes.add(name, ccl::TypeDesc::TypeVector, ccl::ATTR_ELEMENT_CORNER);
+        attr = attributes.add(name, ccl::TypeDesc::TypeVector,
+                              ccl::ATTR_ELEMENT_CORNER);
     }
     ccl::float3* tangent = attr->data_float3();
     /* Create bitangent sign attribute. */
@@ -898,15 +946,18 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, b
         ccl::ustring name_sign;
 
         if (layer_name != NULL) {
-            name_sign = ccl::ustring((std::string(layer_name) + ".tangent_sign").c_str());
+            name_sign = ccl::ustring(
+                (std::string(layer_name) + ".tangent_sign").c_str());
         } else {
             name_sign = ccl::ustring("orco.tangent_sign");
         }
 
         if (active_render) {
-            attr_sign = attributes.add(ccl::ATTR_STD_UV_TANGENT_SIGN, name_sign);
+            attr_sign = attributes.add(ccl::ATTR_STD_UV_TANGENT_SIGN,
+                                       name_sign);
         } else {
-            attr_sign = attributes.add(name_sign, ccl::TypeDesc::TypeFloat, ccl::ATTR_ELEMENT_CORNER);
+            attr_sign = attributes.add(name_sign, ccl::TypeDesc::TypeFloat,
+                                       ccl::ATTR_ELEMENT_CORNER);
         }
         tangent_sign = attr_sign->data_float();
     }
@@ -932,7 +983,8 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, b
 
 template<>
 bool
-_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default, bool* a_hasChanged, bool a_checkWithDefault)
+_HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default, bool* a_hasChanged,
+                          bool a_checkWithDefault)
 {
     bool val = a_default;
     if (!a_value.IsEmpty()) {

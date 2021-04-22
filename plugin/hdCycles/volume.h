@@ -22,9 +22,9 @@
 
 #include "api.h"
 
+#include "utils.h"
 #include "hdcycles.h"
 #include "renderDelegate.h"
-#include "utils.h"
 
 #include <util/util_transform.h>
 
@@ -33,7 +33,7 @@
 #include <pxr/pxr.h>
 
 #ifdef WITH_OPENVDB
-#    include <openvdb/openvdb.h>
+#include <openvdb/openvdb.h>
 #endif
 
 namespace ccl {
@@ -61,7 +61,8 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this volume
      * as a prototype
      */
-    HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId,
+                   HdCyclesRenderDelegate* a_renderDelegate);
     /**
      * @brief Destroy the HdCycles Volume object
      * 
@@ -78,8 +79,8 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
-              TfToken const& reprSelector) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
+              HdDirtyBits* dirtyBits, TfToken const& reprSelector) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -140,7 +141,8 @@ private:
     /**
      * @brief Populate the Cycles mesh representation from delegate's data
      */
-    void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, ccl::Scene* scene);
+    void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
+                         ccl::Scene* scene);
 
     /**
      * @brief Update the OpenVDB loader grid for mesh builder  
@@ -155,7 +157,7 @@ private:
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    ccl::array<ccl::Node*> m_usedShaders;
+    ccl::array<ccl::Node *> m_usedShaders;
 
     //openvdb::VolumeGridVector* grids;
 };

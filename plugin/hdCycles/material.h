@@ -65,7 +65,8 @@ public:
      * @param id Path to the Material
      */
     HDCYCLES_API
-    HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesMaterial(SdfPath const& id,
+                     HdCyclesRenderDelegate* a_renderDelegate);
 
     /**
      * @brief Destroy the HdCycles Material 
@@ -84,7 +85,8 @@ public:
      * @param dirtyBits Which bits of scene data has changed
      */
     HDCYCLES_API
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
+              HdDirtyBits* dirtyBits) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in

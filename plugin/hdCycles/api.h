@@ -32,12 +32,16 @@
 #else
 #    if defined(HDCYCLES_EXPORTS)
 #        define HDCYCLES_API ARCH_EXPORT
-#        define HDCYCLES_API_TEMPLATE_CLASS(...) ARCH_EXPORT_TEMPLATE(class, __VA_ARGS__)
-#        define HDCYCLES_API_TEMPLATE_STRUCT(...) ARCH_EXPORT_TEMPLATE(struct, __VA_ARGS__)
+#        define HDCYCLES_API_TEMPLATE_CLASS(...)                               \
+            ARCH_EXPORT_TEMPLATE(class, __VA_ARGS__)
+#        define HDCYCLES_API_TEMPLATE_STRUCT(...)                              \
+            ARCH_EXPORT_TEMPLATE(struct, __VA_ARGS__)
 #    else
 #        define HDCYCLES_API ARCH_IMPORT
-#        define HDCYCLES_API_TEMPLATE_CLASS(...) ARCH_IMPORT_TEMPLATE(class, __VA_ARGS__)
-#        define HDCYCLES_API_TEMPLATE_STRUCT(...) ARCH_IMPORT_TEMPLATE(struct, __VA_ARGS__)
+#        define HDCYCLES_API_TEMPLATE_CLASS(...)                               \
+            ARCH_IMPORT_TEMPLATE(class, __VA_ARGS__)
+#        define HDCYCLES_API_TEMPLATE_STRUCT(...)                              \
+            ARCH_IMPORT_TEMPLATE(struct, __VA_ARGS__)
 #    endif
 #    define HDCYCLES_LOCAL ARCH_HIDDEN
 #endif

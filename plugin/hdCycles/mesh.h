@@ -126,7 +126,8 @@ protected:
      * @param uvs 
      * @param interpolation 
      */
-    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene, HdInterpolation interpolation);
+    void _AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* scene,
+                   HdInterpolation interpolation);
 
     /**
      * @brief Add vertex/face normals (Not implemented)
