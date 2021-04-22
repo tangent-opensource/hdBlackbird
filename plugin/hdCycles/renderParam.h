@@ -212,7 +212,7 @@ public:
      */
     bool SetDeviceType(const std::string& a_deviceType);
 
-    /* ====== Thread unsafe safe operations ====== */
+    /* ====== Thread unsafe operations ====== */
 
     void AddShader(ccl::Shader* shader);
     void AddLight(ccl::Light* light);
