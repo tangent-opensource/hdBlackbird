@@ -383,7 +383,14 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 
             case ccl::SocketType::ENUM: {
                 if (params.second.IsHolding<int>()) {
-                    cyclesNode->set(socket, (*socket.enum_values)[params.second.Get<int>()].string().c_str());
+                    auto index = params.second.Get<int>();
+                    if (index < socket.size()) {
+                        const std::string& str = socket.enum_values->operator[](index).string();
+                        cyclesNode->set(socket, str.c_str());
+                    } else {
+                        TF_CODING_ERROR("Invalid enumerator for: %s", usd_node.identifier.GetString().c_str());
+                        return nullptr;
+                    }
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket, params.second.Get<std::string>().c_str());
                 } else if (params.second.IsHolding<TfToken>()) {
@@ -663,7 +670,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
     const SdfPath& id = GetId();
 
-    ccl::thread_scoped_lock lock{param->GetCyclesScene()->mutex};
+    ccl::thread_scoped_lock lock { param->GetCyclesScene()->mutex };
     bool material_updated = false;
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
@@ -708,7 +715,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
     }
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
-
         TfToken displacementMethod = _HdCyclesGetParam<TfToken>(sceneDelegate, id,
                                                                 usdCyclesTokens->cyclesMaterialDisplacement_method,
                                                                 usdCyclesTokens->displacement_bump);
