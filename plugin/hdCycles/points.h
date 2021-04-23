@@ -123,7 +123,7 @@ protected:
                          const VtValue& value);
 
     /**
-     * @brief Fill in the point colors
+     * @brief Fill in the point alpha
      */
     void _PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
                             const VtValue& value);
@@ -145,6 +145,13 @@ protected:
      */
     void _PopulateAccelerations(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
                                 const VtValue& value);
+
+
+    /**
+     * @brief Fills in the point positions
+     */
+    void _PopulateGenerated(ccl::Scene* scene, const SdfPath& id);
+
 
     /**
      * @brief Flag the object for update in the scene

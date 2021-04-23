@@ -551,6 +551,22 @@ HdCyclesPoints::_PopulateAccelerations(HdSceneDelegate* sceneDelegate, const Sdf
 }
 
 void
+HdCyclesPoints::_PopulateGenerated(ccl::Scene* scene, const SdfPath& id) {
+    if (m_cyclesPointCloud->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
+        ccl::float3 loc, size;
+        HdCyclesMeshTextureSpace(m_cyclesPointCloud, loc, size);
+
+        ccl::AttributeSet* attributes = &m_cyclesPointCloud->attributes;
+        ccl::Attribute* attr          = attributes->add(ccl::ATTR_STD_GENERATED);
+
+        ccl::float3* generated = attr->data_float3();
+        for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
+            generated[i] = m_cyclesPointCloud->points[i] * size - loc;
+        }
+    }
+}
+
+void
 HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBVH)
 {
     m_cyclesObject->visibility = _sharedData.visible ? m_visibilityFlags : 0;
@@ -696,6 +712,8 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     _CheckIntegrity(param);
+
+    _PopulateGenerated(scene, id);
 
     _UpdateObject(scene, param, dirtyBits, needsRebuildBVH);
     *dirtyBits = HdChangeTracker::Clean;
