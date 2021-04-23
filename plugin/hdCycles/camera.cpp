@@ -30,9 +30,7 @@
 
 #include <pxr/usd/usdGeom/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -65,8 +63,6 @@ EvalCameraParam(T* value, const TfToken& paramName, HdSceneDelegate* sceneDelega
 }
 }  // namespace
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
 std::map<TfToken, ccl::MotionPosition> MOTION_POSITION_CONVERSION = {
     { usdCyclesTokens->start, ccl::MOTION_POSITION_START },
     { usdCyclesTokens->center, ccl::MOTION_POSITION_CENTER },
@@ -90,8 +86,6 @@ std::map<TfToken, ccl::Camera::StereoEye> STEREO_EYE_CONVERSION = {
     { usdCyclesTokens->left, ccl::Camera::STEREO_LEFT },
     { usdCyclesTokens->right, ccl::Camera::STEREO_RIGHT },
 };
-
-#endif
 
 HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_renderDelegate)
     : HdCamera(id)
@@ -264,8 +258,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_apertureRatio  = 1.0f;
         }
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
         // Motion Position
         TfToken motionPosition = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
                                                                   usdCyclesTokens->cyclesCameraMotion_position,
@@ -381,7 +373,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_poleMergeAngleTo = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
                                                             usdCyclesTokens->cyclesCameraPole_merge_angle_to,
                                                             m_poleMergeAngleTo);
-#endif
     }
 
     if (*dirtyBits & HdCamera::DirtyProjMatrix) {

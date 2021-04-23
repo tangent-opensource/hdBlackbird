@@ -213,99 +213,29 @@ public:
      */
     bool SetDeviceType(const std::string& a_deviceType);
 
-    /* ====== HdCycles Settings ====== */
+    /* ====== Thread unsafe operations ====== */
 
-    /**
-     * @brief Add light to scene
-     * 
-     * @param a_light Light to add
-     */
-    void AddLight(ccl::Light* a_light);
+    void AddShader(ccl::Shader* shader);
+    void AddLight(ccl::Light* light);
+    void AddObject(ccl::Object* object);
+    void AddGeometry(ccl::Geometry* geometry);
 
-    /**
-     * @brief Add geometry to scene
-     * 
-     * @param a_geometry Geometry to add
-     */
-    void AddGeometry(ccl::Geometry* a_geometry);
+    void RemoveShader(ccl::Shader* shader);
+    void RemoveLight(ccl::Light* light);
+    void RemoveObject(ccl::Object* object);
+    void RemoveGeometry(ccl::Geometry* geometry);
 
-    /**
-     * @brief Add mesh to scene
-     * 
-     * @param a_geometry Mesh to add
-     */
-    void AddMesh(ccl::Mesh* a_mesh);
+    /* ====== Thread safe operations ====== */
 
-    /**
-     * @brief Add point cloud to scene
-     * 
-     * @param a_geometry Point cloud to add
-     */
-    void AddPointCloud(ccl::PointCloud* a_pc);
+    void AddShaderSafe(ccl::Shader* shader);
+    void AddLightSafe(ccl::Light* light);
+    void AddObjectSafe(ccl::Object* object);
+    void AddGeometrySafe(ccl::Geometry* geometry);
 
-    /**
-     * @brief Add geometry to scene
-     * 
-     * @param a_geometry Geometry to add
-     */
-    void AddCurve(ccl::Geometry* a_curve);
-
-    /**
-     * @brief Add shader to scene
-     * 
-     * @param a_shader Shader to add
-     */
-    void AddShader(ccl::Shader* a_shader);
-
-    /**
-     * @brief Add object to scene
-     * 
-     * @param a_object Object to add
-     */
-    void AddObject(ccl::Object* a_object);
-
-    /**
-     * @brief Remove hair geometry from cycles scene
-     * 
-     * @param a_hair Hair to remove
-     */
-    void RemoveCurve(ccl::Hair* a_hair);
-
-    /**
-     * @brief Remove light from cycles scene
-     * 
-     * @param a_light Light to remove
-     */
-    void RemoveLight(ccl::Light* a_light);
-
-    /**
-     * @brief Remove shader from cycles scene
-     * 
-     * @param a_shader Shader to remove
-     */
-    void RemoveShader(ccl::Shader* a_shader);
-
-    /**
-     * @brief Remove mesh geometry from cycles scene
-     * 
-     * @param a_mesh Mesh to remove
-     */
-    void RemoveMesh(ccl::Mesh* a_mesh);
-
-    /**
-     * @brief Remove point cloud geometry from cycles scene
-     * 
-     * @param a_mesh Mesh to remove
-     */
-    void RemovePointCloud(ccl::PointCloud* a_mesh);
-
-
-    /**
-     * @brief Remove object from cycles scene
-     * 
-     * @param a_object Object to remove
-     */
-    void RemoveObject(ccl::Object* a_object);
+    void RemoveShaderSafe(ccl::Shader* shader);
+    void RemoveLightSafe(ccl::Light* light);
+    void RemoveObjectSafe(ccl::Object* object);
+    void RemoveGeometrySafe(ccl::Geometry* geometry);
 
 private:
     bool _CreateSession();
@@ -379,9 +309,6 @@ private:
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;
-    bool m_curveUpdated;
-    bool m_meshUpdated;
-    bool m_pointCloudUpdated;
     bool m_lightsUpdated;
     bool m_shadersUpdated;
 
@@ -433,13 +360,6 @@ public:
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
-
-    using lock_guard = std::lock_guard<std::mutex>;
-
-    std::mutex m_lights_mutex;
-    std::mutex m_objects_mutex;
-    std::mutex m_geometry_mutex;
-    std::mutex m_shaders_mutex;
 
     HdRenderPassAovBindingVector m_aovs;
     TfToken m_displayAovToken;

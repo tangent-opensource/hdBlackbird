@@ -42,9 +42,7 @@
 #include <pxr/usd/sdr/shaderProperty.h>
 #include <pxr/usdImaging/usdImaging/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -81,8 +79,6 @@ TF_DEFINE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens, HD_CYCLES_MATERIAL_TERMI
 
 TF_MAKE_STATIC_DATA(NdrTokenVec, _sourceTypes) { *_sourceTypes = { TfToken("OSL"), TfToken("cycles") }; }
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
 std::map<TfToken, ccl::DisplacementMethod> DISPLACEMENT_CONVERSION = {
     { usdCyclesTokens->displacement_bump, ccl::DISPLACE_BUMP },
     { usdCyclesTokens->displacement_true, ccl::DISPLACE_TRUE },
@@ -99,8 +95,6 @@ std::map<TfToken, ccl::VolumeSampling> VOLUME_SAMPLING_CONVERSION = {
     { usdCyclesTokens->volume_sampling_equiangular, ccl::VOLUME_SAMPLING_EQUIANGULAR },
     { usdCyclesTokens->volume_sampling_multiple_importance, ccl::VOLUME_SAMPLING_MULTIPLE_IMPORTANCE },
 };
-
-#endif
 
 bool
 IsValidCyclesIdentifier(const std::string& identifier)
@@ -167,13 +161,13 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_
     m_shader->graph = m_shaderGraph;
 
     if (m_renderDelegate)
-        m_renderDelegate->GetCyclesRenderParam()->AddShader(m_shader);
+        m_renderDelegate->GetCyclesRenderParam()->AddShaderSafe(m_shader);
 }
 
 HdCyclesMaterial::~HdCyclesMaterial()
 {
     if (m_shader) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveShader(m_shader);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveShaderSafe(m_shader);
         delete m_shader;
     }
 }
@@ -572,6 +566,15 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
             HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
 
+            // Skip invalid connections. I don't know where they come from, but they exist.
+            assert(tonode);
+            assert(fromnode);
+            assert(hd_tonode);
+            assert(hd_fromnode);
+            if (fromnode == nullptr || hd_fromnode == nullptr || hd_tonode == nullptr || hd_fromnode == nullptr) {
+                continue;
+            }
+
             std::string to_identifier   = hd_tonode->identifier.GetString();
             std::string from_identifier = hd_fromnode->identifier.GetString();
 
@@ -660,7 +663,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
     const SdfPath& id = GetId();
 
-    param->GetCyclesScene()->mutex.lock();
+    ccl::thread_scoped_lock lock{param->GetCyclesScene()->mutex};
     bool material_updated = false;
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
@@ -705,7 +708,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
     }
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
-#ifdef USE_USD_CYCLES_SCHEMA
 
         TfToken displacementMethod = _HdCyclesGetParam<TfToken>(sceneDelegate, id,
                                                                 usdCyclesTokens->cyclesMaterialDisplacement_method,
@@ -749,8 +751,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
             m_shader->volume_sampling_method = VOLUME_SAMPLING_CONVERSION[volume_sampling];
         }
         material_updated = true;
-
-#endif
     }
 
     if (material_updated) {
@@ -764,8 +764,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
         _DumpGraph(m_shaderGraph, m_shader->name.c_str());
     }
-
-    param->GetCyclesScene()->mutex.unlock();
 
     *dirtyBits = Clean;
 }

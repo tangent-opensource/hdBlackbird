@@ -29,9 +29,7 @@
 
 #include <pxr/imaging/hd/extComputationUtils.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -74,19 +72,19 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
 HdCyclesMesh::~HdCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
     if (m_cyclesInstances.size() > 0) {
         for (auto instance : m_cyclesInstances) {
             if (instance) {
-                m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
                 delete instance;
             }
         }
@@ -718,7 +716,7 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
 
     m_cyclesMesh->use_motion_blur = true;
-    m_cyclesMesh->motion_steps    = numSamples + ((numSamples % 2) ? 0 : 1);
+    m_cyclesMesh->motion_steps    = static_cast<unsigned int>(numSamples + ((numSamples % 2) ? 0 : 1));
 
     ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
@@ -754,11 +752,10 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
 
     HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-#ifdef USE_USD_CYCLES_SCHEMA
+
     auto refine_value         = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
     int refine_level          = refine_value.IsEmpty() ? 0 : refine_value.Cast<int>().UncheckedGet<int>();
     display_style.refineLevel = refine_level;
-#endif  // USE_USD_CYCLES_SCHEMA
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
     m_topology = HdMeshTopology(topology, display_style.refineLevel);
@@ -768,7 +765,8 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     // Because process of updating vertices can fail for unknown reason,
     // we can end up with an empty vertex array. Indices must point to a valid vertex array(resize).
     m_cyclesMesh->clear();
-    m_cyclesMesh->resize_mesh(m_refiner->GetNumRefinedVertices(), m_refiner->GetNumRefinedTriangles());
+    m_cyclesMesh->resize_mesh(static_cast<int>(m_refiner->GetNumRefinedVertices()),
+                              static_cast<int>(m_refiner->GetNumRefinedTriangles()));
 
     const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
     for (size_t i = 0; i < refined_indices.size(); ++i) {
@@ -866,15 +864,15 @@ HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const Sd
             auto search_it = material_map.find(subset.materialId);
             if (search_it == material_map.end()) {
                 used_shaders.push_back(sub_mat->GetCyclesShader());
-                material_map[subset.materialId] = used_shaders.size();
-                subset_material_id              = used_shaders.size();
+                material_map[subset.materialId] = static_cast<int>(used_shaders.size());
+                subset_material_id              = static_cast<int>(used_shaders.size());
             } else {
                 subset_material_id = search_it->second;
             }
         }
 
         for (int i : subset.indices) {
-            face_materials[i] = std::max(subset_material_id - 1, 0);
+            face_materials[static_cast<size_t>(i)] = std::max(subset_material_id - 1, 0);
         }
     }
 
@@ -1079,12 +1077,12 @@ void
 HdCyclesMesh::_InitializeNewCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
@@ -1110,8 +1108,8 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
     m_cyclesObject->name     = GetId().GetString();
     m_cyclesObject->geometry = m_cyclesMesh;
 
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
 }
 
 void
@@ -1131,13 +1129,11 @@ HdCyclesMesh::GetInitialDirtyBitsMask() const
 HdDirtyBits
 HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // Usd controls subdivision level globally, passed through the topology. Change of custom max subdiv level primvar
     // must mark SubdivTags dirty.
     if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level)) {
         bits |= HdChangeTracker::DirtySubdivTags;
     }
-#endif  // USE_USD_CYCLES_SCHEMA
 
     // subdivision request requires full topology update
     if (bits & HdChangeTracker::DirtySubdivTags) {
@@ -1179,11 +1175,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    std::lock_guard<std::mutex>(scene->mutex);
+    ccl::thread_scoped_lock lock{scene->mutex};
 
     // -------------------------------------
     // -- Resolve Drawstyles
-#ifdef USE_USD_CYCLES_SCHEMA
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
         { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
@@ -1258,7 +1253,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
         }
     }
-#endif
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         _sharedData.visible = sceneDelegate->GetVisible(id);
@@ -1329,7 +1323,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
                     if (instance) {
-                        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
                         delete instance;
                     }
                 }
@@ -1337,6 +1331,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             }
 
             if (newNumInstances != 0) {
+                using size_type = typename decltype(m_transformSamples.values)::size_type;
+
                 std::vector<TfSmallVector<GfMatrix4d, 1>> combinedTransforms;
                 combinedTransforms.reserve(newNumInstances);
                 for (size_t i = 0; i < newNumInstances; ++i) {
@@ -1346,11 +1342,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
                     if (m_transformSamples.count == 0
                         || (m_transformSamples.count == 1 && (m_transformSamples.values[0] == GfMatrix4d(1)))) {
-                        for (size_t j = 0; j < instanceTransforms.count; ++j) {
+                        for (size_type j = 0; j < instanceTransforms.count; ++j) {
                             instanceTransform[j] = instanceTransforms.values[j][i];
                         }
                     } else {
-                        for (size_t j = 0; j < instanceTransforms.count; ++j) {
+                        for (size_type j = 0; j < instanceTransforms.count; ++j) {
                             GfMatrix4d xf_j      = m_transformSamples.Resample(instanceTransforms.times[j]);
                             instanceTransform[j] = xf_j * instanceTransforms.values[j][i];
                         }
@@ -1378,7 +1374,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
                     m_cyclesInstances.push_back(instanceObj);
 
-                    m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
+                    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(instanceObj);
                 }
 
                 // Hide prototype
@@ -1408,58 +1404,6 @@ HdCyclesMesh::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDir
     }
 
     param->Interrupt();
-}
-
-namespace {
-template<typename From>
-VtValue
-value_to_vec3f_cast(const VtValue& input)
-{
-    auto& array = input.UncheckedGet<VtArray<From>>();
-    VtArray<GfVec3f> output(array.size());
-    std::transform(array.begin(), array.end(), output.begin(), [](const From& val) -> GfVec3f {
-        return { static_cast<float>(val), static_cast<float>(val), static_cast<float>(val) };
-    });
-    return VtValue { output };
-}
-
-template<typename From>
-VtValue
-vec2T_to_vec3f_cast(const VtValue& input)
-{
-    auto& array = input.UncheckedGet<VtArray<From>>();
-
-    VtArray<GfVec3f> output(array.size());
-    std::transform(array.begin(), array.end(), output.begin(), [](const From& val) -> GfVec3f {
-        return { static_cast<float>(val[0]), static_cast<float>(val[1]), 0.0 };
-    });
-    return VtValue { output };
-}
-
-template<typename From>
-VtValue
-vec3T_to_vec3f_cast(const VtValue& input)
-{
-    auto& array = input.UncheckedGet<VtArray<From>>();
-
-    VtArray<GfVec3f> output(array.size());
-    std::transform(array.begin(), array.end(), output.begin(), [](const From& val) -> GfVec3f {
-        return { static_cast<float>(val[0]), static_cast<float>(val[1]), static_cast<float>(val[2]) };
-    });
-    return VtValue { output };
-}
-
-}  // namespace
-
-TF_REGISTRY_FUNCTION_WITH_TAG(VtValue, HdCyclesMesh)
-{
-    VtValue::RegisterCast<VtArray<int>, VtArray<GfVec3f>>(&value_to_vec3f_cast<int>);
-    VtValue::RegisterCast<VtArray<bool>, VtArray<GfVec3f>>(&value_to_vec3f_cast<bool>);
-    VtValue::RegisterCast<VtArray<float>, VtArray<GfVec3f>>(&value_to_vec3f_cast<float>);
-
-    VtValue::RegisterCast<VtArray<GfVec2i>, VtArray<GfVec3f>>(&vec2T_to_vec3f_cast<GfVec2i>);
-    VtValue::RegisterCast<VtArray<GfVec3i>, VtArray<GfVec3f>>(&vec3T_to_vec3f_cast<GfVec3i>);
-    VtValue::RegisterCast<VtArray<GfVec4i>, VtArray<GfVec3f>>(&vec3T_to_vec3f_cast<GfVec4i>);
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

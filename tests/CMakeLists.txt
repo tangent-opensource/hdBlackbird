@@ -17,27 +17,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# Tangent specific build variables
-if(DEFINED ENV{REZ_HOUDINI_ROOT})
-    message(STATUS "Rez Houdini USD override")
-    set(USE_HOUDINI_USD TRUE)
-    set(HOUDINI_ROOT $ENV{HFS})
-elseif(DEFINED ENV{REZ_USD_ROOT})
-    message(STATUS "Rez Pixar USD override")
-    set(USE_HOUDINI_USD FALSE)
-    set(USD_ROOT $ENV{REZ_USD_ROOT})
-endif()
+add_executable(tests tests.cpp)
 
-# Usd interface
-add_library(UsdInterface INTERFACE)
-add_library(Usd::Usd ALIAS UsdInterface)
+target_include_directories(tests
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/doctest/
+        )
 
-message(STATUS "Use Houdini Usd ${USE_HOUDINI_USD}")
-
-if(${USE_HOUDINI_USD})
-    include(cmake/FindHoudiniUsd.cmake)
-else()
-    include(cmake/FindPixarUsd.cmake)
-endif()
-
-message(STATUS "Using Usd Schema Generator: ${USD_SCHEMA_GENERATOR}")
+target_link_libraries(tests
+        PRIVATE
+        hdCycles
+        )

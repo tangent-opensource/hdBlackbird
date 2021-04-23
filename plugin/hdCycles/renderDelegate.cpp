@@ -46,9 +46,7 @@
 #include <pxr/imaging/hd/camera.h>
 #include <pxr/imaging/hd/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -95,6 +93,11 @@ HdCyclesRenderDelegate::HdCyclesRenderDelegate()
     _Initialize({});
 }
 
+
+std::mutex HdCyclesRenderDelegate::m_resource_registry_mutex;
+std::atomic_int HdCyclesRenderDelegate::m_resource_registry_counter;
+HdCyclesResourceRegistrySharedPtr HdCyclesRenderDelegate::m_resourceRegistry;
+
 HdCyclesRenderDelegate::HdCyclesRenderDelegate(HdRenderSettingsMap const& settingsMap)
     : HdRenderDelegate(settingsMap)
     , m_hasStarted(false)
@@ -112,14 +115,17 @@ HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
         return;
 
     // -- Initialize Render Delegate components
+    std::lock_guard<std::mutex> guard{m_resource_registry_mutex};
+    if(m_resource_registry_counter.fetch_add(1) == 0) {
+        m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>();
+    }
 
-    m_resourceRegistry.reset(new HdResourceRegistry());
+    m_resourceRegistry->UpdateScene(m_renderParam->GetCyclesScene());
 }
 
 HdCyclesRenderDelegate::~HdCyclesRenderDelegate()
 {
     m_renderParam->StopRender();
-    m_resourceRegistry.reset();
 }
 
 TfTokenVector const&
@@ -143,7 +149,6 @@ HdCyclesRenderDelegate::GetSupportedBprimTypes() const
 void
 HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
     // TODO: Undecided how to approach these
@@ -155,8 +160,6 @@ HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
     m_settingDescriptors.push_back({ std::string("Samples"),
                                      usdCyclesTokens->cyclesSamples,
                                      VtValue(config.exposure.) });*/
-
-#endif
 }
 
 void
@@ -205,6 +208,13 @@ HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
             m_renderParam->StartRender();
             m_hasStarted = true;
         }
+    }
+
+    // commit resource to the scene
+    m_resourceRegistry->Commit();
+    if(tracker->IsGarbageCollectionNeeded()) {
+        m_resourceRegistry->GarbageCollect();
+        tracker->ClearGarbageCollectionNeeded();
     }
 
     m_renderParam->CommitResources();

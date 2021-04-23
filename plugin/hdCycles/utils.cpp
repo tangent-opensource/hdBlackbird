@@ -247,21 +247,21 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate, const SdfPa
         object->geometry->use_motion_blur = true;
 
         if (object->geometry->type == ccl::Geometry::MESH) {
-            ccl::Mesh* mesh = static_cast<ccl::Mesh*>(object->geometry);
+            auto mesh = dynamic_cast<ccl::Mesh*>(object->geometry);
             if (mesh->transform_applied)
                 mesh->need_update = true;
         }
 
         // Rounding to odd number of samples to have one in the center
-        const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
-        const int numMotionSteps   = sampleCount + sampleOffset;
+        const size_t sampleOffset     = (sampleCount % 2) ? 0 : 1;
+        const size_t numMotionSteps   = sampleCount + static_cast<size_t>(sampleOffset);
         const float motionStepSize = (xf.times.back() - xf.times.front()) / static_cast<float>((numMotionSteps - 1));
         object->motion.resize(numMotionSteps, ccl::transform_empty());
 
         // For each step, we use the available data from the neighbors
         // to calculate the transforms at uniform steps
         for (size_t i = 0; i < numMotionSteps; ++i) {
-            const float stepTime = xf.times.front() + motionStepSize * i;
+            const float stepTime = xf.times.front() + motionStepSize * static_cast<float>(i);
 
             // We always have the transforms at the boundaries
             if (i == 0 || i == numMotionSteps - 1) {
@@ -272,7 +272,7 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate, const SdfPa
             // Find closest left/right neighbors
             float prevTimeDiff = -INFINITY, nextTimeDiff = INFINITY;
             int iXfPrev = -1, iXfNext = -1;
-            for (size_t j = 0; j < sampleCount; ++j) {
+            for (int j = 0; j < sampleCount; ++j) {
                 // If we only have three samples, we prefer to recalculate
                 // the intermediate one as the left/right are calculated
                 // using linear interpolation, leading to artifacts
@@ -772,18 +772,18 @@ struct MikkUserData {
 int
 mikk_get_num_faces(const SMikkTSpaceContext* context)
 {
-    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
+    auto userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     if (userdata->mesh->subd_faces.size()) {
-        return userdata->mesh->subd_faces.size();
+        return static_cast<int>(userdata->mesh->subd_faces.size());
     } else {
-        return userdata->mesh->num_triangles();
+        return static_cast<int>(userdata->mesh->num_triangles());
     }
 }
 
 int
 mikk_get_num_verts_of_face(const SMikkTSpaceContext* context, const int face_num)
 {
-    const MikkUserData* userdata = static_cast<const MikkUserData*>(context->m_pUserData);
+    auto userdata = static_cast<const MikkUserData*>(context->m_pUserData);
     if (userdata->mesh->subd_faces.size()) {
         const ccl::Mesh* mesh = userdata->mesh;
         return mesh->subd_faces[face_num].num_corners;

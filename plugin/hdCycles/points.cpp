@@ -37,14 +37,19 @@
 #include <pxr/imaging/hd/mesh.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
 HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
     : HdPoints(id, instancerId)
+    , m_cyclesPointCloud(nullptr)
+    , m_cyclesObject(nullptr)
+    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
+    , m_point_display_color_shader(nullptr)
+    , m_pointStyle(ccl::POINT_CLOUD_POINT_DISC)
+    , m_useMotionBlur(false)
+    , m_motionSteps(1)
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
@@ -63,7 +68,7 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
 HdCyclesPoints::~HdCyclesPoints()
 {
     if (m_cyclesPointCloud) {
-        m_renderDelegate->GetCyclesRenderParam()->RemovePointCloud(m_cyclesPointCloud);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesPointCloud);
         delete m_cyclesPointCloud;
     }
 
@@ -81,6 +86,7 @@ HdCyclesPoints::_InitRepr(TfToken const& reprToken, HdDirtyBits* dirtyBits)
 HdDirtyBits
 HdCyclesPoints::_PropagateDirtyBits(HdDirtyBits bits) const
 {
+
     /*
         If the point style has changed, the internal bvh representation also
         needs to be changed, so we tag the points as dirty
@@ -116,7 +122,6 @@ HdCyclesPoints::_InitializeNewCyclesPointCloud()
 void
 HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     assert(m_cyclesObject);
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
@@ -199,7 +204,6 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
             }
         }
     }
-#endif
 }
 
 void
@@ -300,7 +304,7 @@ HdCyclesPoints::_PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& i
     ccl::Attribute* attr_C = attributes->find(attrib_name);
     bool reset_opacity     = false;
     if (!attr_C) {
-        attr_C        = attributes->add(attrib_name, ccl::TypeDesc::TypeFloat4, ccl::ATTR_ELEMENT_VERTEX);
+        attr_C        = attributes->add(attrib_name, ccl::TypeRGBA, ccl::ATTR_ELEMENT_VERTEX);
         reset_opacity = true;
     }
 
@@ -366,7 +370,7 @@ HdCyclesPoints::_PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath
     ccl::ustring attrib_name("displayColor");
     ccl::Attribute* attr_C = attributes->find(attrib_name);
     if (!attr_C) {
-        attr_C = attributes->add(attrib_name, ccl::TypeDesc::TypeFloat4, ccl::ATTR_ELEMENT_VERTEX);
+        attr_C = attributes->add(attrib_name, ccl::TypeRGBA, ccl::ATTR_ELEMENT_VERTEX);
     }
 
     ccl::float4* C = attr_C->data_float4();
@@ -575,14 +579,13 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    std::lock_guard<std::mutex>(scene->mutex);
+    ccl::thread_scoped_lock lock{scene->mutex};
 
     // Rebuild the acceleration structure only if really necessary
     bool needsRebuildBVH = false;
 
     // -------------------------------------
     // -- Resolve Drawstyles
-#ifdef USE_USD_CYCLES_SCHEMA
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
         VtValue point_style_ = GetPrimvar(sceneDelegate, usdCyclesTokens->cyclesObjectPoint_style);
         if (point_style_.IsEmpty()) {
@@ -615,7 +618,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     _ReadObjectFlags(sceneDelegate, id, dirtyBits);
-#endif
 
     // Update object flags and exit if visibility is null
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
@@ -742,7 +744,7 @@ HdCyclesPoints::_CheckIntegrity(HdCyclesRenderParam* param)
         ccl::ustring attr_color_name("displayColor");
         ccl::Attribute* attr_colors = m_cyclesPointCloud->attributes.find(attr_color_name);
         if (!attr_colors) {
-            attr_colors         = m_cyclesPointCloud->attributes.add(attr_color_name, ccl::TypeDesc::TypeFloat4,
+            attr_colors         = m_cyclesPointCloud->attributes.add(attr_color_name, ccl::TypeRGBA,
                                                              ccl::ATTR_ELEMENT_VERTEX);
             ccl::float4* colors = attr_colors->data_float4();
 

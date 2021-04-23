@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include "material.h"
 #include "renderParam.h"
 #include "utils.h"
+#include "attributeSource.h"
 
 #include <render/curves.h>
 #include <render/hair.h>
@@ -38,9 +39,7 @@
 #include <pxr/base/gf/vec3i.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -78,15 +77,15 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& insta
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
 {
     if (m_cyclesHair) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveCurve(m_cyclesHair);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesHair);
         delete m_cyclesHair;
     }
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 }
@@ -153,7 +152,7 @@ HdCyclesBasisCurves::_PopulateMotion()
 
     m_cyclesGeometry->use_motion_blur = true;
 
-    m_cyclesGeometry->motion_steps = m_pointSamples.count + 1;
+    m_cyclesGeometry->motion_steps = static_cast<unsigned int>(m_pointSamples.count + 1);
 
     ccl::Attribute* attr_mP = m_cyclesGeometry->attributes.find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
 
@@ -400,6 +399,14 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 {
     SdfPath const& id = GetId();
 
+
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    if(object_instance.IsFirstInstance()) {
+        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
+        m_object_source = object_instance.GetValue();
+    }
+
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     ccl::Scene* scene = param->GetCyclesScene();
@@ -456,8 +463,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
-
-#ifdef USE_USD_CYCLES_SCHEMA
 
         m_useMotionBlur = (bool)_HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
                                                              usdCyclesTokens->primvarsCyclesObjectMblur,
@@ -530,7 +535,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
         m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
         m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
         m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
-#endif
+
         if (HdCyclesIsPrimvarExists(_tokens->cyclesCurveResolution, pdpi)) {
             VtIntArray resolution = sceneDelegate->Get(id, _tokens->cyclesCurveResolution).Get<VtIntArray>();
             if (resolution.size() > 0) {
@@ -548,9 +553,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     if (generate_new_curve) {
         if (m_cyclesGeometry) {
-            scene_lock.unlock();
-            param->RemoveCurve(m_cyclesHair);
-            scene_lock.lock();
+            param->RemoveGeometry(m_cyclesHair);
 
             m_cyclesGeometry->clear();
             delete m_cyclesGeometry;
@@ -559,19 +562,13 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
-            scene_lock.unlock();
             m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
-            scene_lock.lock();
-
             m_cyclesObject->geometry = m_cyclesGeometry;
-
             m_cyclesGeometry->compute_bounds();
 
             _PopulateGenerated();
 
-            scene_lock.unlock();
-            param->AddCurve(m_cyclesGeometry);
-            scene_lock.lock();
+            param->AddGeometry(m_cyclesGeometry);
         }
 
         if (m_useMotionBlur)
@@ -591,10 +588,33 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             for (auto& pv : primvarDescsEntry.second) {
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     VtValue value = GetPrimvar(sceneDelegate, pv.name);
+
+                    if(pv.name == HdTokens->points) {
+                        continue;
+                    }
+
+                    if(pv.name == HdTokens->widths) {
+                        continue;
+                    }
+
+                    // uvs
                     if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVS(pv.name, value, primvarDescsEntry.first);
-                    } else {
+                        continue;;
+                    }
+
+                    // colors
+                    if(pv.role == HdPrimvarRoleTokens->color) {
                         _AddColors(pv.name, value, primvarDescsEntry.first);
+                        continue;
+                    }
+
+                    // any other primvar for hair to be committed
+                    if (m_cyclesHair) {
+                        auto primvar_source = std::make_shared<HdCyclesHairAttributeSource>(pv.name, pv.role, value,
+                                                                                            m_cyclesHair,
+                                                                                            pv.interpolation);
+                        object_instance.GetValue()->AddSource(std::move(primvar_source));
                     }
                 }
             }
@@ -656,11 +676,11 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     size_t num_keys   = 0;
 
     for (size_t i = 0; i < num_curves; i++) {
-        num_keys += curveVertexCounts[i];
+        num_keys += static_cast<size_t>(curveVertexCounts[i]);
     }
 
-    ccl::Attribute* attr_intercept = NULL;
-    ccl::Attribute* attr_random    = NULL;
+    ccl::Attribute* attr_intercept = nullptr;
+    ccl::Attribute* attr_random    = nullptr;
 
     attr_intercept = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_INTERCEPT);
 
@@ -668,7 +688,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 
     // We have patched the Cycles API to allow shape to be set per curve
     m_cyclesHair->curve_shape = m_curveShape;
-    m_cyclesHair->reserve_curves(num_curves, num_keys);
+    m_cyclesHair->reserve_curves(static_cast<int>(num_curves), static_cast<int>(num_keys));
 
     num_curves = 0;
     num_keys   = 0;
@@ -680,7 +700,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         size_t num_curve_keys = 0;
 
         // For every section
-        for (int j = 0; j < curveVertexCounts[i]; j++) {
+        for (size_t j = 0; j < curveVertexCounts[i]; j++) {
             size_t idx = j + currentPointCount;
 
             const float time = static_cast<float>(j) / static_cast<float>(curveVertexCounts[i] - 1);
@@ -697,7 +717,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
 
-            int width_idx = std::min(idx, m_widths.size() - 1);
+            size_t width_idx = std::min(idx, m_widths.size() - 1);
 
             if (m_widthsInterpolation == HdInterpolationUniform)
                 width_idx = std::min(i, m_widths.size() - 1);
@@ -717,11 +737,11 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
             num_curve_keys++;
         }
 
-        if (attr_random != NULL) {
-            attr_random->add(ccl::hash_uint2_to_float(num_curves, 0));
+        if (attr_random != nullptr) {
+            attr_random->add(ccl::hash_uint2_to_float(static_cast<unsigned int>(num_curves), 0));
         }
 
-        m_cyclesHair->add_curve(num_keys, 0);
+        m_cyclesHair->add_curve(static_cast<int>(num_keys), 0);
         num_keys += num_curve_keys;
         currentPointCount += curveVertexCounts[i];
         num_curves++;
@@ -789,7 +809,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
         // Hydra/USD treats widths as diameters so we halve before sending to cycles
         float radius = 0.1f;
 
-        int width_idx = std::min(i, m_widths.size() - 1);
+        size_t width_idx = std::min(i, m_widths.size() - 1);
 
         if (m_widthsInterpolation == HdInterpolationUniform)
             width_idx = std::min(i, m_widths.size() - 1);
@@ -819,8 +839,8 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int first_idx = (i * curveVertexCounts[i]);
-            int idx       = j + (i * curveVertexCounts[i]);
+            int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
 
             ickey_loc = vec3f_to_float3(m_points[idx]);
 
@@ -908,8 +928,8 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int first_idx = (i * curveVertexCounts[i]);
-            int idx       = j + (i * curveVertexCounts[i]);
+            int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
 
             ccl::float3 xbasis = firstxbasis;
             ccl::float3 v1;
@@ -938,8 +958,8 @@ HdCyclesBasisCurves::_CreateTubeMesh()
 
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
-            int first_idx = (i * curveVertexCounts[i]);
-            int idx       = j + (i * curveVertexCounts[i]);
+            int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
             ccl::float3 xbasis;
             ccl::float3 ybasis;
             ccl::float3 v1;
@@ -966,7 +986,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
 
-            int width_idx = std::min(idx, static_cast<int>(m_widths.size() - 1));
+            size_t width_idx = std::min(static_cast<size_t>(idx), m_widths.size() - 1);
 
             if (m_widthsInterpolation == HdInterpolationUniform)
                 width_idx = std::min(i, m_widths.size() - 1);

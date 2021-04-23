@@ -101,7 +101,7 @@ HdCyclesConfig::HdCyclesConfig()
 
     up_axis = TfGetEnvSetting(HD_CYCLES_UP_AXIS);
 
-    enable_motion_blur      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR", true);
+    enable_motion_blur      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR", false);
     motion_steps            = HdCyclesEnvValue<int>("HD_CYCLES_MOTION_STEPS", 3);
     enable_subdivision      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_SUBDIVISION", false);
     subdivision_dicing_rate = HdCyclesEnvValue<float>("HD_CYCLES_SUBDIVISION_DICING_RATE", 1.0);
@@ -124,7 +124,6 @@ HdCyclesConfig::HdCyclesConfig()
 
     max_samples = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SAMPLES", 512);
 
-    num_threads             = HdCyclesEnvValue<int>("HD_CYCLES_NUM_THREADS", 0);
     pixel_size              = HdCyclesEnvValue<int>("HD_CYCLES_PIXEL_SIZE", 1);
     tile_size_x             = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_X", 64);
     tile_size_y             = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_Y", 64);

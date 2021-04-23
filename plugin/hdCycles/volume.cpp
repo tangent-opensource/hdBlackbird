@@ -47,9 +47,7 @@
 
 #include <iostream>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -70,10 +68,10 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, Hd
     m_useMotionBlur                     = config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
 
     m_cyclesVolume = _CreateVolume();
-    m_renderDelegate->GetCyclesRenderParam()->AddMesh(m_cyclesVolume);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesVolume);
 
     m_cyclesObject->geometry = m_cyclesVolume;
 }
@@ -81,12 +79,12 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, Hd
 HdCyclesVolume::~HdCyclesVolume()
 {
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
     if (m_cyclesVolume) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesVolume);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesVolume);
         delete m_cyclesVolume;
     }
 }
@@ -285,8 +283,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
     for (auto& primvarDescsEntry : pdpi) {
         for (auto& pv : primvarDescsEntry.second) {
             m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
@@ -301,8 +297,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             update_volumes = true;
         }
     }
-
-#endif
 
     if (update_volumes) {
         _UpdateGrids();

@@ -42,15 +42,14 @@
 #include <render/session.h>
 #include <render/stats.h>
 #include <util/util_murmurhash.h>
+#include <util/util_task.h>
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
 #endif
 
 #include <pxr/usd/usdRender/tokens.h>
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -166,9 +165,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useTiledRendering(false)
     , m_objectsUpdated(false)
     , m_geometryUpdated(false)
-    , m_curveUpdated(false)
-    , m_meshUpdated(false)
-    , m_pointCloudUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
     , m_shouldUpdate(false)
@@ -269,6 +265,9 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateSessionFromRenderSettings(settingsMap);
     _UpdateSessionFromConfig();
 
+    // Setting up number of threads, this is useful for applications(husk) that control task arena
+    m_sessionParams.threads = tbb::this_task_arena::max_concurrency();
+
     if (!_CreateSession()) {
         std::cout << "COULD NOT CREATE CYCLES SESSION\n";
         // Couldn't create session, big issue
@@ -329,8 +328,6 @@ HdCyclesRenderParam::_UpdateDelegateFromRenderSettings(HdRenderSettingsMap const
 bool
 HdCyclesRenderParam::_HandleDelegateRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     bool delegate_updated = false;
 
     if (key == usdCyclesTokens->cyclesUse_square_samples) {
@@ -342,9 +339,6 @@ HdCyclesRenderParam::_HandleDelegateRenderSetting(const TfToken& key, const VtVa
         //Interrupt();
         return true;
     }
-
-#endif
-
     return false;
 }
 
@@ -406,8 +400,6 @@ HdCyclesRenderParam::_UpdateSessionFromRenderSettings(HdRenderSettingsMap const&
 bool
 HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     ccl::SessionParams* sessionParams = &m_sessionParams;
 
     if (m_cyclesSession)
@@ -503,10 +495,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         sessionParams->pixel_size = _HdCyclesGetVtValue<int>(value, sessionParams->pixel_size, &session_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesThreads) {
-        sessionParams->threads = _HdCyclesGetVtValue<int>(value, sessionParams->threads, &session_updated);
-    }
-
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
         sessionParams->adaptive_sampling = _HdCyclesGetVtValue<bool>(value, sessionParams->adaptive_sampling,
                                                                      &session_updated);
@@ -568,7 +556,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -616,7 +603,6 @@ HdCyclesRenderParam::_UpdateSceneFromRenderSettings(HdRenderSettingsMap const& s
 bool
 HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // -- Scene
 
     ccl::SceneParams* sceneParams = &m_sceneParams;
@@ -679,7 +665,6 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -751,8 +736,6 @@ HdCyclesRenderParam::_UpdateIntegratorFromRenderSettings(HdRenderSettingsMap con
 bool
 HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     // -- Integrator Settings
 
     ccl::Integrator* integrator = m_cyclesScene->integrator;
@@ -1029,7 +1012,6 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1064,7 +1046,6 @@ HdCyclesRenderParam::_UpdateFilmFromRenderSettings(HdRenderSettingsMap const& se
 bool
 HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // -- Film Settings
 
     ccl::Film* film   = m_cyclesScene->film;
@@ -1134,7 +1115,6 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1168,8 +1148,6 @@ HdCyclesRenderParam::_UpdateBackgroundFromRenderSettings(HdRenderSettingsMap con
 bool
 HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     // -- Background Settings
 
     ccl::Background* background = m_cyclesScene->background;
@@ -1252,7 +1230,6 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const Vt
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1272,13 +1249,11 @@ HdCyclesRenderParam::SetRenderSetting(const TfToken& key, const VtValue& value)
 {
     // This has some inherent performance overheads (runs multiple times, unecessary)
     // however for now, this works the most clearly due to Cycles restrictions
-#ifdef USE_USD_CYCLES_SCHEMA
     _HandleSessionRenderSetting(key, value);
     _HandleSceneRenderSetting(key, value);
     _HandleIntegratorRenderSetting(key, value);
     _HandleFilmRenderSetting(key, value);
     _HandleBackgroundRenderSetting(key, value);
-#endif
     return false;
 }
 
@@ -1364,16 +1339,18 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             }
 
             // Pixels we will use to get from cycles.
-            int numComponents = HdGetComponentCount(cyclesAov.format);
+            size_t numComponents = HdGetComponentCount(cyclesAov.format);
             ccl::vector<float> tileData(w * h * numComponents);
 
             rb->SetConverged(IsConverged());
 
             bool read = false;
             if (!custom) {
-                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, numComponents, &tileData[0]);
+                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
             } else {
-                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, numComponents, &tileData[0]);
+                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
             }
 
             if (!read) {
@@ -1480,7 +1457,7 @@ HdCyclesRenderParam::Interrupt(bool a_forceUpdate)
 void
 HdCyclesRenderParam::CommitResources()
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
@@ -1594,7 +1571,7 @@ HdCyclesRenderParam::_CyclesExit()
 {
     m_cyclesSession->set_pause(true);
 
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     m_cyclesScene->shaders.clear();
     m_cyclesScene->geometry.clear();
@@ -1614,19 +1591,16 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
     m_cyclesSession->progress.reset();
 
-    if (m_curveUpdated || m_meshUpdated || m_geometryUpdated || m_shadersUpdated || m_pointCloudUpdated) {
+    if (m_geometryUpdated || m_shadersUpdated) {
         m_cyclesScene->geometry_manager->tag_update(m_cyclesScene);
-        m_geometryUpdated   = false;
-        m_meshUpdated       = false;
-        m_pointCloudUpdated = false;
-    }
-
-    if (m_curveUpdated) {
-        m_curveUpdated = false;
+        m_geometryUpdated = false;
     }
 
     if (m_objectsUpdated || m_shadersUpdated) {
         m_cyclesScene->object_manager->tag_update(m_cyclesScene);
+        if (m_shadersUpdated) {
+            m_cyclesScene->background->tag_update(m_cyclesScene);
+        }
         m_objectsUpdated = false;
         m_shadersUpdated = false;
     }
@@ -1672,114 +1646,16 @@ HdCyclesRenderParam::DirectReset()
 }
 
 void
-HdCyclesRenderParam::AddLight(ccl::Light* a_light)
+HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add light to scene. Scene is null.");
-        return;
-    }
-
-    m_lightsUpdated = true;
-
-    m_cyclesScene->lights.push_back(a_light);
-
-    if (a_light->type == ccl::LIGHT_BACKGROUND) {
-        m_numDomeLights += 1;
+    for (auto& shader : shaders) {
+        shader->tag_update(m_cyclesScene);
     }
 }
 
 void
-HdCyclesRenderParam::AddObject(ccl::Object* a_object)
+HdCyclesRenderParam::AddShader(ccl::Shader* shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add object to scene. Scene is null.");
-        return;
-    }
-
-    m_objectsUpdated = true;
-
-    m_cyclesScene->objects.push_back(a_object);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_geometryUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_geometry);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_meshUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_mesh);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddPointCloud(ccl::PointCloud* a_pc)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_pointCloudUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_pc);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_curveUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_curve);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1787,40 +1663,85 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 
     m_shadersUpdated = true;
 
-    m_cyclesScene->shaders.push_back(a_shader);
+    m_cyclesScene->shaders.push_back(shader);
+}
+
+
+void
+HdCyclesRenderParam::AddLight(ccl::Light* light)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add light to scene. Scene is null.");
+        return;
+    }
+
+    m_lightsUpdated = true;
+
+    m_cyclesScene->lights.push_back(light);
+
+    if (light->type == ccl::LIGHT_BACKGROUND) {
+        m_numDomeLights += 1;
+    }
 }
 
 void
-HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
+HdCyclesRenderParam::AddObject(ccl::Object* object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add object to scene. Scene is null.");
+        return;
+    }
 
-    for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
-        if (a_object == *it) {
-            it = m_cyclesScene->objects.erase(it);
+    m_objectsUpdated = true;
 
-            m_objectsUpdated = true;
+    m_cyclesScene->objects.push_back(object);
+
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::AddGeometry(ccl::Geometry* geometry)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add geometry to scene. Scene is null.");
+        return;
+    }
+
+    m_geometryUpdated = true;
+
+    m_cyclesScene->geometry.push_back(geometry);
+
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemoveShader(ccl::Shader* shader)
+{
+    for (auto it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
+        if (shader == *it) {
+            it = m_cyclesScene->shaders.erase(it);
+
+            m_shadersUpdated = true;
+
             break;
         } else {
             ++it;
         }
     }
 
-    if (m_objectsUpdated)
+    if (m_shadersUpdated)
         Interrupt();
 }
 
 void
-HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
+HdCyclesRenderParam::RemoveLight(ccl::Light* light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
-        if (a_light == *it) {
+    for (auto it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
+        if (light == *it) {
             it = m_cyclesScene->lights.erase(it);
 
             // TODO: This doesnt respect multiple dome lights
-            if (a_light->type == ccl::LIGHT_BACKGROUND) {
+            if (light->type == ccl::LIGHT_BACKGROUND) {
                 m_numDomeLights = std::max(0, m_numDomeLights - 1);
             }
 
@@ -1837,17 +1758,33 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         Interrupt();
 }
 
-void
-HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
 
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_mesh == *it) {
+void
+HdCyclesRenderParam::RemoveObject(ccl::Object* object)
+{
+    for (auto it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
+        if (object == *it) {
+            it = m_cyclesScene->objects.erase(it);
+
+            m_objectsUpdated = true;
+            break;
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_objectsUpdated)
+        Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
+{
+    for (auto it = m_cyclesScene->geometry.begin(); it != m_cyclesScene->geometry.end();) {
+        if (geometry == *it) {
             it = m_cyclesScene->geometry.erase(it);
 
-            m_meshUpdated = true;
+            m_geometryUpdated = true;
 
             break;
         } else {
@@ -1860,77 +1797,59 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 }
 
 void
-HdCyclesRenderParam::RemovePointCloud(ccl::PointCloud* a_pc)
+HdCyclesRenderParam::AddShaderSafe(ccl::Shader* shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_pc == *it) {
-            it = m_cyclesScene->geometry.erase(it);
-
-            m_pointCloudUpdated = true;
-
-            break;
-        } else {
-            ++it;
-        }
-    }
-
-    if (m_geometryUpdated)
-        Interrupt();
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddShader(shader);
 }
 
 void
-HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
+HdCyclesRenderParam::AddLightSafe(ccl::Light* light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-    for (auto& shader : shaders) {
-        shader->tag_update(m_cyclesScene);
-    }
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddLight(light);
 }
 
 void
-HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
+HdCyclesRenderParam::AddObjectSafe(ccl::Object* object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_hair == *it) {
-            it = m_cyclesScene->geometry.erase(it);
-
-            m_curveUpdated = true;
-
-            break;
-        } else {
-            ++it;
-        }
-    }
-
-    if (m_geometryUpdated)
-        Interrupt();
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddObject(object);
 }
 
 void
-HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
+HdCyclesRenderParam::AddGeometrySafe(ccl::Geometry* geometry)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddGeometry(geometry);
+}
 
-    for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
-        if (a_shader == *it) {
-            it = m_cyclesScene->shaders.erase(it);
+void
+HdCyclesRenderParam::RemoveShaderSafe(ccl::Shader* shader)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveShader(shader);
+}
 
-            m_shadersUpdated = true;
+void
+HdCyclesRenderParam::RemoveLightSafe(ccl::Light* light)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveLight(light);
+}
 
-            break;
-        } else {
-            ++it;
-        }
-    }
+void
+HdCyclesRenderParam::RemoveObjectSafe(ccl::Object* object)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveObject(object);
+}
 
-    if (m_shadersUpdated)
-        Interrupt();
+void
+HdCyclesRenderParam::RemoveGeometrySafe(ccl::Geometry* geometry)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveGeometry(geometry);
 }
 
 VtDictionary
@@ -1998,8 +1917,9 @@ HdCyclesRenderParam::GetRenderStats() const
 
     if (cryptoAsset) {
         std::string cryptoName        = HdCyclesAovTokens->CryptoAsset.GetText();
+        auto cryptoNameLength         = static_cast<int>(cryptoName.length());
         std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
         std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
         result[prefix + "name"]       = VtValue(cryptoName);
         result[prefix + "hash"]       = VtValue("MurmurHash3_32");
@@ -2009,8 +1929,9 @@ HdCyclesRenderParam::GetRenderStats() const
 
     if (cryptoObject) {
         std::string cryptoName        = HdCyclesAovTokens->CryptoObject.GetText();
+        auto cryptoNameLength         = static_cast<int>(cryptoName.length());
         std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
         std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
         result[prefix + "name"]       = VtValue(cryptoName);
         result[prefix + "hash"]       = VtValue("MurmurHash3_32");
@@ -2020,8 +1941,9 @@ HdCyclesRenderParam::GetRenderStats() const
 
     if (cryptoMaterial) {
         std::string cryptoName        = HdCyclesAovTokens->CryptoMaterial.GetText();
+        auto cryptoNameLength         = static_cast<int>(cryptoName.length());
         std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
+                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
         std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
         result[prefix + "name"]       = VtValue(cryptoName);
         result[prefix + "hash"]       = VtValue("MurmurHash3_32");
