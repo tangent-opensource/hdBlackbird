@@ -311,6 +311,29 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value, HdInterpolation interp
                 // @TODO: Unhandled support for deprecated curve mesh geo
                 assert(0);
             }
+        }
+        return;
+    }
+
+    // convert vertex/varying uv attrib
+
+    auto fill_vertex_or_varying_uv_attrib = [&attribName](auto& uvs, ccl::AttributeSet& attributes, const VtIntArray& curveVertexCounts){
+        ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
+        ccl::float2* std_uv_data = attr_std_uv->data_float2();
+
+        ccl::Attribute* attr_st = attributes.add(attribName, ccl::TypeFloat2, ccl::ATTR_ELEMENT_CURVE_KEY);
+        ccl::float2* st_data = attr_st->data_float2();
+
+        for (size_t curve = 0, offset = 0; curve < curveVertexCounts.size(); ++curve) {
+            // std_uv - per curve
+            std_uv_data[curve][0] = uvs[offset][0];
+            std_uv_data[curve][1] = uvs[offset][1];
+
+            // st - per vertex
+            for (size_t vertex = 0; vertex < curveVertexCounts[curve]; ++vertex) {
+                st_data[offset + vertex][0] = uvs[offset + vertex][0];
+                st_data[offset + vertex][1] = uvs[offset + vertex][1];
+            }
             offset += static_cast<size_t>(curveVertexCounts[curve]);
         }
     };

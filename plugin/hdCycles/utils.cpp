@@ -240,7 +240,7 @@ HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* de
         const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
         const int numMotionSteps   = sampleCount + sampleOffset;
         const float motionStepSize = (xf.times.back() - xf.times.front()) / static_cast<float>((numMotionSteps - 1));
-        object->motion.resize(numMotionSteps, ccl::transform_empty());
+        object->get_motion().resize(numMotionSteps, ccl::transform_empty());
 
         // For each step, we use the available data from the neighbors
         // to calculate the transforms at uniform steps
