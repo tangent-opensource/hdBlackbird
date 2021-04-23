@@ -86,7 +86,6 @@ HdCyclesPoints::_InitRepr(TfToken const& reprToken, HdDirtyBits* dirtyBits)
 HdDirtyBits
 HdCyclesPoints::_PropagateDirtyBits(HdDirtyBits bits) const
 {
-
     /*
         If the point style has changed, the internal bvh representation also
         needs to be changed, so we tag the points as dirty
