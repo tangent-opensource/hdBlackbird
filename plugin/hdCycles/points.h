@@ -108,7 +108,7 @@ protected:
     /**
      * @brief Fills in the point positions
      */
-    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool& sizeHasChanged);
+    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool styleHasChanged, bool& sizeHasChanged);
 
     /**
      * @brief Fill in the point widths
@@ -190,7 +190,6 @@ private:
     ccl::Shader* m_point_display_color_shader;
 
     int m_pointResolution;  // ?
-    int m_pointStyle;       // ccl::PointCloudPointStyle
 
     unsigned int m_visibilityFlags;
 

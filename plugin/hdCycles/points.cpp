@@ -47,7 +47,6 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
     , m_cyclesObject(nullptr)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_point_display_color_shader(nullptr)
-    , m_pointStyle(ccl::POINT_CLOUD_POINT_DISC)
     , m_useMotionBlur(false)
     , m_motionSteps(1)
     , m_renderDelegate(a_renderDelegate)
@@ -55,7 +54,6 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
-    config.default_point_style.eval(m_pointStyle, true);
     config.default_point_resolution.eval(m_pointResolution, true);
 
     if (m_useMotionBlur) {
@@ -104,9 +102,14 @@ HdCyclesPoints::Finalize(HdRenderParam* renderParam)
 void
 HdCyclesPoints::_InitializeNewCyclesPointCloud()
 {
+    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+
+    int default_point_style;
+    config.default_point_style.eval(default_point_style, true);
+
     m_cyclesPointCloud = new ccl::PointCloud();
     assert(m_cyclesPointCloud);
-    m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)m_pointStyle;
+    m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)default_point_style;
     m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesPointCloud);
 
     m_cyclesObject = new ccl::Object();
@@ -206,7 +209,7 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
 }
 
 void
-HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool& sizeHasChanged)
+HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool styleHasChanged, bool& sizeHasChanged)
 {
     assert(m_cyclesPointCloud);
     sizeHasChanged = false;
@@ -228,12 +231,9 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
     VtVec3fArray points = pointsValue.UncheckedGet<VtVec3fArray>();
 
-    const bool styleHasChanged = m_cyclesPointCloud->point_style == (ccl::PointCloudPointStyle)m_pointStyle;
-
     if (points.size() != m_cyclesPointCloud->points.size() || styleHasChanged) {
         m_cyclesPointCloud->clear();
         m_cyclesPointCloud->resize(points.size());
-        m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)m_pointStyle;
         sizeHasChanged                  = true;
 
         // We set the size of the radius buffers to a default value
@@ -598,6 +598,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     // Rebuild the acceleration structure only if really necessary
     bool needsRebuildBVH = false;
+    bool styleHasChanged = false;
 
     // -------------------------------------
     // -- Resolve Drawstyles
@@ -608,15 +609,16 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         } else {
             TfToken point_style = point_style_.Cast<TfToken>().UncheckedGet<TfToken>();
             if (point_style == usdCyclesTokens->sphere) {
-                m_pointStyle = ccl::POINT_CLOUD_POINT_SPHERE;
+                m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_SPHERE;
             } else if (point_style == usdCyclesTokens->disc) {
-                m_pointStyle = ccl::POINT_CLOUD_POINT_DISC;
+                m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC;
             } else if (point_style == usdCyclesTokens->disc_oriented) {
-                m_pointStyle = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
+                m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
             } else {
                 TF_WARN("Unrecognized point style %s for point cloud %s", point_style.GetText(), id.GetText());
             }
             needsRebuildBVH = true;
+            styleHasChanged = true;
         }
     }
 
@@ -658,7 +660,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // Checking points separately as they dictate the size of other attribute buffers
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         bool sizeHasChanged;
-        _PopulatePoints(sceneDelegate, id, sizeHasChanged);
+        _PopulatePoints(sceneDelegate, id, sizeHasChanged, styleHasChanged);
         needsRebuildBVH = needsRebuildBVH || sizeHasChanged;
     }
 
