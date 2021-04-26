@@ -730,6 +730,10 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 _PopulateVelocities(sceneDelegate, id, interpolation, value);
             } else if (description.name == HdTokens->accelerations) {
                 _PopulateAccelerations(sceneDelegate, id, interpolation, value);
+            } else {
+                HdCyclesPointCloudAttributeSource source {
+                    description.name, HdPrimvarRoleTokens->none, { value }, m_cyclesPointCloud, interpolation
+                };
             }
         }
     }

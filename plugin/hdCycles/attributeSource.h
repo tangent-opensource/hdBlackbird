@@ -26,6 +26,10 @@
 
 #include <render/attribute.h>
 
+namespace ccl {
+    class PointCloud;
+}
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 ///
@@ -104,6 +108,16 @@ public:
     HdCyclesMeshAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
                                 const HdInterpolation& interpolation);
 };
+
+///
+/// Cycles PointCloud
+///
+class HdCyclesPointCloudAttributeSource : public HdCyclesAttributeSource {
+public:
+    HdCyclesPointCloudAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::PointCloud* pc,
+                                const HdInterpolation& interpolation);
+};
+
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
