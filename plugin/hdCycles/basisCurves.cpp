@@ -416,6 +416,13 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     bool generate_new_curve = false;
     bool update_curve       = false;
 
+    // Defaults
+    m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
+    m_useMotionBlur = false;
+    m_cyclesObject->is_shadow_catcher = false;
+    m_cyclesObject->pass_id = 0;
+    m_cyclesObject->use_holdout = false;
+
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
         if (HdCyclesIsPrimvarExists(HdTokens->points, pdpi)) {

@@ -200,6 +200,16 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
     bool light_updated = false;
 
+    // Defaults
+    m_cyclesLight->use_diffuse = true;
+    m_cyclesLight->use_glossy = true;
+    m_cyclesLight->use_transmission = true;
+    m_cyclesLight->use_scatter = true;
+    m_cyclesLight->use_mis = true;
+    m_cyclesLight->is_portal = false;
+    m_cyclesLight->samples = 1;
+    m_cyclesLight->max_bounces = 1024;
+
     if (*dirtyBits & HdLight::DirtyParams) {
         light_updated              = true;
         ccl::ShaderGraph* oldGraph = m_cyclesLight->shader->graph;
