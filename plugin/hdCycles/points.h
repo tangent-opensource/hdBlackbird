@@ -114,37 +114,37 @@ protected:
      * @brief Fill in the point widths
      */
     void _PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                         const VtValue& value);
+                         VtValue value);
 
     /**
      * @brief Fill in the point colors
      */
     void _PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                         const VtValue& value);
+                         VtValue value);
 
     /**
      * @brief Fill in the point alpha
      */
     void _PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                            const VtValue& value);
+                            VtValue value);
 
     /**
      * @brief Fill in the point normals
      */
     void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                          const VtValue& value);
+                          VtValue value);
 
     /**
      * @brief Fill in the point normals
      */
     void _PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                             const VtValue& value);
+                             VtValue value);
 
     /**
      * @brief Fill in the point accelerations if velocities
      */
     void _PopulateAccelerations(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                                const VtValue& value);
+                                VtValue value);
 
 
     /**

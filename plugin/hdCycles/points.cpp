@@ -19,6 +19,7 @@
 
 #include "points.h"
 
+#include "attributeSource.h"
 #include "config.h"
 #include "material.h"
 #include "renderParam.h"
@@ -209,7 +210,8 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
 }
 
 void
-HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool styleHasChanged, bool& sizeHasChanged)
+HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool styleHasChanged,
+                                bool& sizeHasChanged)
 {
     assert(m_cyclesPointCloud);
     sizeHasChanged = false;
@@ -224,17 +226,19 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     if (!pointsValue.IsHolding<VtVec3fArray>()) {
-        m_cyclesPointCloud->clear();
-        TF_WARN("Invalid point data! Can not convert points for: %s", id.GetText());
-        return;
+        if (!pointsValue.CanCast<VtVec3fArray>()) {
+            m_cyclesPointCloud->clear();
+            TF_WARN("Invalid point data! Can not convert points for: %s", id.GetText());
+            return;
+        }
     }
 
-    VtVec3fArray points = pointsValue.UncheckedGet<VtVec3fArray>();
+    VtVec3fArray points = pointsValue.Cast<VtVec3fArray>().UncheckedGet<VtVec3fArray>();
 
     if (points.size() != m_cyclesPointCloud->points.size() || styleHasChanged) {
         m_cyclesPointCloud->clear();
         m_cyclesPointCloud->resize(points.size());
-        sizeHasChanged                  = true;
+        sizeHasChanged = true;
 
         // We set the size of the radius buffers to a default value
         for (size_t i = 0; i < m_cyclesPointCloud->radius.size(); ++i) {
@@ -250,7 +254,7 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
 void
 HdCyclesPoints::_PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                                const VtValue& value_)
+                                VtValue value_)
 {
     assert(m_cyclesPointCloud);
     assert(!value_.IsEmpty());
@@ -266,11 +270,13 @@ HdCyclesPoints::_PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     if (!value_.IsHolding<VtFloatArray>()) {
-        TF_WARN("Invalid point data! Can not convert widths for: %s", id.GetText());
-        return;
+        if (!value_.CanCast<VtFloatArray>()) {
+            TF_WARN("Invalid point data! Can not convert widths for: %s", id.GetText());
+            return;
+        }
     }
 
-    VtFloatArray value = value_.UncheckedGet<VtFloatArray>();
+    auto value = value_.Cast<VtFloatArray>().UncheckedGet<VtFloatArray>();
 
     if (interpolation == HdInterpolationConstant) {
         assert(value.size() == 1);
@@ -287,7 +293,7 @@ HdCyclesPoints::_PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
 void
 HdCyclesPoints::_PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
-                                const VtValue& value_)
+                                VtValue value_)
 {
     assert(!value_.IsEmpty());
 
@@ -307,7 +313,14 @@ HdCyclesPoints::_PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& i
         reset_opacity = true;
     }
 
-    auto value = value_.UncheckedGet<VtVec3fArray>();
+    if (!value_.IsHolding<VtVec3fArray>()) {
+        if (!value_.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid point data! Can not convert colors for: %s", id.GetText());
+            return;
+        }
+    }
+
+    auto value = value_.Cast<VtVec3fArray>().UncheckedGet<VtVec3fArray>();
 
     ccl::float4* C = attr_C->data_float4();
     if (interpolation == HdInterpolationConstant) {
@@ -347,7 +360,7 @@ HdCyclesPoints::_PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& i
 */
 void
 HdCyclesPoints::_PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath& id,
-                                   const HdInterpolation& interpolation, const VtValue& value_)
+                                   const HdInterpolation& interpolation, VtValue value_)
 {
     assert(m_cyclesPointCloud);
     assert(!value_.IsEmpty());
@@ -359,11 +372,13 @@ HdCyclesPoints::_PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath
     }
 
     if (!value_.IsHolding<VtFloatArray>()) {
-        TF_WARN("Invalid point data! Can not convert opacities for: %s", id.GetText());
-        return;
+        if (!value_.CanCast<VtFloatArray>()) {
+            TF_WARN("Invalid point data! Can not convert opacities for: %s", id.GetText());
+            return;
+        }
     }
 
-    VtFloatArray value = value_.UncheckedGet<VtFloatArray>();
+    auto value = value_.Cast<VtFloatArray>().UncheckedGet<VtFloatArray>();
 
     ccl::AttributeSet* attributes = &m_cyclesPointCloud->attributes;
     ccl::ustring attrib_name("displayColor");
@@ -394,7 +409,7 @@ HdCyclesPoints::_PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath
 */
 void
 HdCyclesPoints::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id,
-                                 const HdInterpolation& interpolation, const VtValue& value_)
+                                 const HdInterpolation& interpolation, VtValue value_)
 {
     assert(m_cyclesPointCloud);
     assert(!value_.IsEmpty());
@@ -406,10 +421,12 @@ HdCyclesPoints::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& 
     }
 
     if (!value_.IsHolding<VtVec3fArray>()) {
-        TF_WARN("Invalid normal type for point cloud %s", id.GetText());
-        return;
+        if (!value_.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid normal type for point cloud %s", id.GetText());
+            return;
+        }
     }
-    auto value = value_.UncheckedGet<VtVec3fArray>();
+    auto value = value_.Cast<VtVec3fArray>().UncheckedGet<VtVec3fArray>();
 
     ccl::Attribute* N_attr = m_cyclesPointCloud->attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
     if (!N_attr) {
@@ -436,7 +453,7 @@ HdCyclesPoints::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& 
 
 void
 HdCyclesPoints::_PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPath& id,
-                                    const HdInterpolation& interpolation, const VtValue& value_)
+                                    const HdInterpolation& interpolation, VtValue value_)
 {
     assert(m_cyclesPointCloud);
 
@@ -453,10 +470,12 @@ HdCyclesPoints::_PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPat
     }
 
     if (!value_.IsHolding<VtVec3fArray>()) {
-        TF_WARN("Invalid normal type for point cloud %s", id.GetText());
-        return;
+        if (!value_.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid normal type for point cloud %s", id.GetText());
+            return;
+        }
     }
-    auto value = value_.UncheckedGet<VtVec3fArray>();
+    auto value = value_.Cast<VtVec3fArray>().UncheckedGet<VtVec3fArray>();
 
     // Skipping velocities if positions already exist
     // This is safe to check here as the points are a special primvar
@@ -495,7 +514,7 @@ HdCyclesPoints::_PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPat
 
 void
 HdCyclesPoints::_PopulateAccelerations(HdSceneDelegate* sceneDelegate, const SdfPath& id,
-                                       const HdInterpolation& interpolation, const VtValue& value_)
+                                       const HdInterpolation& interpolation, VtValue value_)
 {
     assert(m_cyclesPointCloud);
 
@@ -509,10 +528,12 @@ HdCyclesPoints::_PopulateAccelerations(HdSceneDelegate* sceneDelegate, const Sdf
     }
 
     if (!value_.IsHolding<VtVec3fArray>()) {
-        TF_WARN("Invalid normal type for point cloud %s", id.GetText());
-        return;
+        if (!value_.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid normal type for point cloud %s", id.GetText());
+            return;
+        }
     }
-    auto value = value_.UncheckedGet<VtVec3fArray>();
+    auto value = value_.Cast<VtVec3fArray>().UncheckedGet<VtVec3fArray>();
 
     // Skipping accelerations if positions already exist
     // This is safe to check here as the points are a special primvar
@@ -550,7 +571,8 @@ HdCyclesPoints::_PopulateAccelerations(HdSceneDelegate* sceneDelegate, const Sdf
 }
 
 void
-HdCyclesPoints::_PopulateGenerated(ccl::Scene* scene, const SdfPath& id) {
+HdCyclesPoints::_PopulateGenerated(ccl::Scene* scene, const SdfPath& id)
+{
     if (m_cyclesPointCloud->need_attribute(scene, ccl::ATTR_STD_GENERATED)) {
         ccl::float3 loc, size;
         HdCyclesMeshTextureSpace(m_cyclesPointCloud, loc, size);
@@ -594,7 +616,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    ccl::thread_scoped_lock lock{scene->mutex};
+    ccl::thread_scoped_lock lock { scene->mutex };
 
     // Rebuild the acceleration structure only if really necessary
     bool needsRebuildBVH = false;
@@ -763,8 +785,7 @@ HdCyclesPoints::_CheckIntegrity(HdCyclesRenderParam* param)
         ccl::ustring attr_color_name("displayColor");
         ccl::Attribute* attr_colors = m_cyclesPointCloud->attributes.find(attr_color_name);
         if (!attr_colors) {
-            attr_colors         = m_cyclesPointCloud->attributes.add(attr_color_name, ccl::TypeRGBA,
-                                                             ccl::ATTR_ELEMENT_VERTEX);
+            attr_colors = m_cyclesPointCloud->attributes.add(attr_color_name, ccl::TypeRGBA, ccl::ATTR_ELEMENT_VERTEX);
             ccl::float4* colors = attr_colors->data_float4();
 
             for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
