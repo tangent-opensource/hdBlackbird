@@ -383,13 +383,14 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 
             case ccl::SocketType::ENUM: {
                 if (params.second.IsHolding<int>()) {
+                    const ccl::NodeEnum& node_enums = *socket.enum_values;
                     auto index = params.second.Get<int>();
-                    if (index < socket.size()) {
-                        const std::string& str = socket.enum_values->operator[](index).string();
-                        cyclesNode->set(socket, str.c_str());
+                    if(node_enums.exists(index)) {
+                        const std::string& value = node_enums[index].string();
+                        cyclesNode->set(socket, value.c_str());
                     } else {
-                        TF_CODING_ERROR("Invalid enumerator for: %s", usd_node.identifier.GetString().c_str());
-                        return nullptr;
+                        // fallback to blender default's option
+                        cyclesNode->set(socket, "GGX");
                     }
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket, params.second.Get<std::string>().c_str());
