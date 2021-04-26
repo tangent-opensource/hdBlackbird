@@ -386,11 +386,15 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
                     const ccl::NodeEnum& node_enums = *socket.enum_values;
                     auto index = params.second.Get<int>();
                     if(node_enums.exists(index)) {
-                        const std::string& value = node_enums[index].string();
-                        cyclesNode->set(socket, value.c_str());
+                        const char* value = node_enums[index].string().c_str();
+                        cyclesNode->set(socket, value);
                     } else {
-                        // fallback to blender default's option
-                        cyclesNode->set(socket, "GGX");
+                        // fallback to Blender's defaults
+                        if(cycles_node_name == "cycles_principled_bsdf") {
+                            cyclesNode->set(socket, "GGX");
+                        } else {
+                            TF_CODING_ERROR("Invalid enum without fallback value");
+                        }
                     }
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket, params.second.Get<std::string>().c_str());
