@@ -83,8 +83,7 @@ template<typename T> struct HdCyclesEnvValue {
 
         if (hasOverride) {
             node->set(*a_previous, value);
-            std::cout << "[" << envName << "] has been set: " << value
-                      << '\n';
+            std::cout << "[" << envName << "] has been set: " << value << '\n';
         }
 
         return hasOverride;
@@ -99,7 +98,7 @@ template<typename T> struct HdCyclesEnvValue {
 class HdCyclesConfig {
 public:
     /// Return an instance of HdCyclesConfig.
-        static const HdCyclesConfig& GetInstance();
+    static const HdCyclesConfig& GetInstance();
 
     /* ====== Cycles Settings ====== */
 

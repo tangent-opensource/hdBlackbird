@@ -161,7 +161,7 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, cc
             if (std::find(fields.begin(), fields.end(), field.fieldName) == fields.end()) {
                 fields.push_back(field.fieldName);
 
-                ccl::ustring name = ccl::ustring(field.fieldName.GetString());
+                ccl::ustring name     = ccl::ustring(field.fieldName.GetString());
                 ccl::ustring filepath = ccl::ustring(path);
 
                 ccl::AttributeStandard std = ccl::ATTR_STD_NONE;
@@ -180,10 +180,10 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, cc
                     std = ccl::ATTR_STD_VOLUME_VELOCITY;
                 }
 
-                ccl::Attribute* attr = (std != ccl::ATTR_STD_NONE)
-                                           ? m_cyclesVolume->attributes.add(std)
-                                           : m_cyclesVolume->attributes.add(name, ccl::TypeDesc::TypeFloat,
-                                               ccl::ATTR_ELEMENT_VOXEL);
+                ccl::Attribute* attr     = (std != ccl::ATTR_STD_NONE)
+                                               ? m_cyclesVolume->attributes.add(std)
+                                               : m_cyclesVolume->attributes.add(name, ccl::TypeDesc::TypeFloat,
+                                                                            ccl::ATTR_ELEMENT_VOXEL);
                 ccl::ImageLoader* loader = new HdCyclesVolumeLoader(filepath.c_str(), name.c_str());
                 ccl::ImageParams params;
                 params.frame = 0.0f;
@@ -199,19 +199,19 @@ void
 HdCyclesVolume::_UpdateGrids()
 {
 #ifdef WITH_OPENVDB
-    if(m_cyclesVolume){
+    if (m_cyclesVolume) {
         for (ccl::Attribute& attr : m_cyclesVolume->attributes.attributes) {
             if (attr.element == ccl::ATTR_ELEMENT_VOXEL) {
-                ccl::ImageHandle &handle = attr.data_voxel();
-                auto* loader = static_cast<HdCyclesVolumeLoader*>(handle.vdb_loader());
+                ccl::ImageHandle& handle = attr.data_voxel();
+                auto* loader             = static_cast<HdCyclesVolumeLoader*>(handle.vdb_loader());
 
-                if(loader){
+                if (loader) {
                     loader->UpdateGrid();
                 }
             }
         }
     }
-#endif  
+#endif
 }
 
 /* If the voxel attributes change, we need to rebuild the bounding mesh. */
@@ -239,7 +239,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     ccl::Scene* scene = param->GetCyclesScene();
 
     HdCyclesPDPIMap pdpi;
-    bool update_volumes     = false;
+    bool update_volumes = false;
 
     ccl::vector<int> old_voxel_slots = get_voxel_image_slots(m_cyclesVolume);
 
@@ -259,8 +259,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, scene, sceneDelegate,
-                                                  id, m_useMotionBlur);
+        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, scene, sceneDelegate, id, m_useMotionBlur);
 
         update_volumes = true;
     }
@@ -272,7 +271,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
         if (m_cyclesVolume) {
             // Add default shader
-            const SdfPath& materialId = sceneDelegate->GetMaterialId(GetId());
+            const SdfPath& materialId        = sceneDelegate->GetMaterialId(GetId());
             const HdCyclesMaterial* material = static_cast<const HdCyclesMaterial*>(
                 sceneDelegate->GetRenderIndex().GetSprim(HdPrimTypeTokens->material, materialId));
 
@@ -283,7 +282,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 m_usedShaders.push_back_slow(scene->default_volume);
             }
             m_cyclesVolume->set_used_shaders(m_usedShaders);
-            update_volumes               = true;
+            update_volumes = true;
         }
     }
 
@@ -292,15 +291,15 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     for (auto& primvarDescsEntry : pdpi) {
         for (auto& pv : primvarDescsEntry.second) {
             m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                usdCyclesTokens->primvarsCyclesObjectMblur,
-                m_useMotionBlur);
-            
-            m_cyclesObject->set_velocity_scale(_HdCyclesGetVolumeParam<float>(
-                pv, dirtyBits, id, this, sceneDelegate,
-                usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
-                m_cyclesObject->get_velocity_scale()));
+                                                            usdCyclesTokens->primvarsCyclesObjectMblur,
+                                                            m_useMotionBlur);
 
-            update_volumes               = true;
+            m_cyclesObject->set_velocity_scale(
+                _HdCyclesGetVolumeParam<float>(pv, dirtyBits, id, this, sceneDelegate,
+                                               usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
+                                               m_cyclesObject->get_velocity_scale()));
+
+            update_volumes = true;
         }
     }
 
@@ -309,7 +308,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (update_volumes) {
         _UpdateGrids();
         m_cyclesVolume->set_use_motion_blur(m_useMotionBlur);
-        
+
         bool rebuild = (old_voxel_slots != get_voxel_image_slots(m_cyclesVolume));
 
         m_cyclesVolume->tag_update(scene, rebuild);

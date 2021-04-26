@@ -131,10 +131,10 @@ HdCyclesCreateDefaultShader()
 ccl::Shader*
 HdCyclesCreateObjectColorSurface()
 {
-    auto shader = new ccl::Shader();
+    auto shader   = new ccl::Shader();
     shader->graph = new ccl::ShaderGraph();
 
-    auto oi = new ccl::ObjectInfoNode{};
+    auto oi   = new ccl::ObjectInfoNode {};
     auto bsdf = new ccl::PrincipledBsdfNode();
 
     shader->graph->add(bsdf);
@@ -150,10 +150,10 @@ HdCyclesCreateObjectColorSurface()
 ccl::Shader*
 HdCyclesCreateAttribColorSurface()
 {
-    auto shader = new ccl::Shader();
+    auto shader   = new ccl::Shader();
     shader->graph = new ccl::ShaderGraph();
 
-    auto attrib = new ccl::AttributeNode{};
+    auto attrib = new ccl::AttributeNode {};
     attrib->set_attribute(ccl::ustring("displayColor"));
 
     auto bsdf = new ccl::PrincipledBsdfNode();
@@ -201,8 +201,8 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name)
 // The function now resamples the transforms at uniform intervals
 // rendering more correctly.
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
-HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate,
-                     const SdfPath& id, bool use_motion)
+HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate, const SdfPath& id,
+                     bool use_motion)
 {
     if (!object)
         return {};
@@ -279,8 +279,7 @@ HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* de
             // If there is an authored sample for this specific timestep
             // we copy it.
             if (iXfPrev == iXfNext) {
-                object->get_motion()[i] = mat4d_to_transform(
-                    xf.values.data()[iXfPrev]);
+                object->get_motion()[i] = mat4d_to_transform(xf.values.data()[iXfPrev]);
             }
             // Otherwise we interpolate the neighboring matrices
             else {
@@ -301,8 +300,7 @@ HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* de
                 const float timeDiff = xf.times.data()[iXfNext] - xf.times.data()[iXfPrev];
                 const float t        = (stepTime - xf.times.data()[iXfPrev]) / timeDiff;
 
-                transform_motion_array_interpolate(&object->get_motion()[i], dxf, 2,
-                                                   t);
+                transform_motion_array_interpolate(&object->get_motion()[i], dxf, 2, t);
             }
 
             if (::std::fabs(stepTime) < 1e-5f) {
@@ -537,7 +535,7 @@ HdCyclesGetComputedPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, Hd
         return false;
     }
 
-    auto changed = false;
+    auto changed    = false;
     auto valueStore = HdExtComputationUtils::GetComputedPrimvarValues(dirtyPrimvars, a_delegate);
     for (const auto& primvar : dirtyPrimvars) {
         const auto itComputed = valueStore.find(primvar.name);
@@ -576,7 +574,7 @@ HdCyclesGetPrimvars(HdSceneDelegate* a_delegate, const SdfPath& a_id, HdDirtyBit
 
 void
 HdCyclesPopulatePrimvarDescsPerInterpolation(HdSceneDelegate* a_sceneDelegate, SdfPath const& a_id,
-    HdCyclesPDPIMap* a_primvarDescsPerInterpolation)
+                                             HdCyclesPDPIMap* a_primvarDescsPerInterpolation)
 {
     if (!a_primvarDescsPerInterpolation->empty()) {
         return;
@@ -588,7 +586,7 @@ HdCyclesPopulatePrimvarDescsPerInterpolation(HdSceneDelegate* a_sceneDelegate, S
     };
     for (auto& interpolation : hd_interpolations) {
         a_primvarDescsPerInterpolation->emplace(interpolation,
-            a_sceneDelegate->GetPrimvarDescriptors(a_id, interpolation));
+                                                a_sceneDelegate->GetPrimvarDescriptors(a_id, interpolation));
     }
 }
 
@@ -718,9 +716,7 @@ struct MikkUserData {
         , tangent(tangent_in)
         , tangent_sign(tangent_sign_in)
     {
-        const ccl::AttributeSet& attributes = (mesh->get_num_subd_faces())
-                                                  ? mesh->subd_attributes
-                                                  : mesh->attributes;
+        const ccl::AttributeSet& attributes = (mesh->get_num_subd_faces()) ? mesh->subd_attributes : mesh->attributes;
 
         ccl::Attribute* attr_vN = attributes.find(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::Attribute* attr_cN = attributes.find(ccl::ATTR_STD_CORNER_NORMAL);
@@ -852,8 +848,7 @@ mikk_get_normal(const SMikkTSpaceContext* context, float N[3], const int face_nu
         if (userdata->corner_normal) {
             vN = userdata->corner_normal[face_num * 3 + vert_num];
         } else if (mesh->get_smooth()[face_num]) {
-            const int vertex_index = mikk_vertex_index(mesh, face_num,
-                                                       vert_num);
+            const int vertex_index = mikk_vertex_index(mesh, face_num, vert_num);
             vN                     = userdata->vertex_normal[vertex_index];
         } else {
             const ccl::Mesh::Triangle tri = mesh->get_triangle(face_num);
@@ -869,9 +864,9 @@ void
 mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[], const float sign, const int face_num,
                        const int vert_num)
 {
-    MikkUserData* userdata = static_cast<MikkUserData*>(context->m_pUserData);
-    const ccl::Mesh* mesh  = userdata->mesh;
-    const int corner_index = mikk_corner_index(mesh, face_num, vert_num);
+    MikkUserData* userdata          = static_cast<MikkUserData*>(context->m_pUserData);
+    const ccl::Mesh* mesh           = userdata->mesh;
+    const int corner_index          = mikk_corner_index(mesh, face_num, vert_num);
     userdata->tangent[corner_index] = ccl::make_float3(T[0], T[1], T[2]);
     if (userdata->tangent_sign != NULL) {
         userdata->tangent_sign[corner_index] = sign;
@@ -882,9 +877,7 @@ void
 mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, bool active_render)
 {
     /* Create tangent attributes. */
-    ccl::AttributeSet& attributes = (mesh->get_num_subd_faces())
-                                        ? mesh->subd_attributes
-                                        : mesh->attributes;
+    ccl::AttributeSet& attributes = (mesh->get_num_subd_faces()) ? mesh->subd_attributes : mesh->attributes;
     ccl::Attribute* attr;
     ccl::ustring name;
 

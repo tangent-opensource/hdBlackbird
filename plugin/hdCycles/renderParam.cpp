@@ -62,7 +62,7 @@ struct HdCyclesAov {
     bool filter;
 };
 
-std::array<HdCyclesAov, 26> DefaultAovs = {{
+std::array<HdCyclesAov, 26> DefaultAovs = { {
     { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4, true },
     { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32, false },
     { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, false },
@@ -96,18 +96,18 @@ std::array<HdCyclesAov, 26> DefaultAovs = {{
     { "P", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->P, HdFormatFloat32Vec3, false },
     { "Pref", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Pref, HdFormatFloat32Vec3, false },
     { "Ngn", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Ngn, HdFormatFloat32Vec3, false },
-}};
+} };
 
-std::array<HdCyclesAov, 2> CustomAovs = {{
+std::array<HdCyclesAov, 2> CustomAovs = { {
     { "AOVC", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->AOVC, HdFormatFloat32Vec3, true },
     { "AOVV", ccl::PASS_AOV_VALUE, HdCyclesAovTokens->AOVV, HdFormatFloat32, true },
-}};
+} };
 
-std::array<HdCyclesAov, 3> CryptomatteAovs = {{
+std::array<HdCyclesAov, 3> CryptomatteAovs = { {
     { "CryptoObject", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoObject, HdFormatFloat32Vec4, true },
     { "CryptoMaterial", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoMaterial, HdFormatFloat32Vec4, true },
     { "CryptoAsset", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoAsset, HdFormatFloat32Vec4, true },
-}};
+} };
 
 // Workaround for Houdini's default color buffer naming convention (not using HdAovTokens->color)
 const TfToken defaultHoudiniColor = TfToken("C.*");
@@ -115,7 +115,7 @@ const TfToken defaultHoudiniColor = TfToken("C.*");
 TfToken
 GetSourceName(const HdRenderPassAovBinding& aov)
 {
-    const auto &it = aov.aovSettings.find(UsdRenderTokens->sourceName);
+    const auto& it = aov.aovSettings.find(UsdRenderTokens->sourceName);
     if (it != aov.aovSettings.end()) {
         if (it->second.IsHolding<std::string>()) {
             TfToken token = TfToken(it->second.UncheckedGet<std::string>());
@@ -157,7 +157,7 @@ GetCyclesAov(const HdRenderPassAovBinding& aov, HdCyclesAov& cyclesAov)
     return false;
 }
 
-} // namespace
+}  // namespace
 
 HdCyclesRenderParam::HdCyclesRenderParam()
     : m_renderPercent(0)
@@ -311,7 +311,7 @@ void
 HdCyclesRenderParam::_UpdateDelegateFromConfig(bool a_forceInit)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    (void) config;
+    (void)config;
 }
 
 void
@@ -442,12 +442,12 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesSamples) {
         // If branched-path mode is set, make sure to set samples to use the
         // aa_samples instead from the integrator.
-        int samples = sessionParams->samples;
-        int aa_samples = 0;
+        int samples                    = sessionParams->samples;
+        int aa_samples                 = 0;
         ccl::Integrator::Method method = ccl::Integrator::PATH;
 
         if (m_cyclesScene) {
-            method = m_cyclesScene->integrator->get_method();
+            method     = m_cyclesScene->integrator->get_method();
             aa_samples = m_cyclesScene->integrator->get_aa_samples();
 
             // Don't apply aa_samples if it is 0
@@ -460,8 +460,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         if (samples_updated) {
             session_updated = true;
 
-            if (m_cyclesScene && aa_samples && 
-                method == ccl::Integrator::BRANCHED_PATH) {
+            if (m_cyclesScene && aa_samples && method == ccl::Integrator::BRANCHED_PATH) {
                 sessionParams->samples = aa_samples;
             }
         }
@@ -495,7 +494,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
 
     if (key == usdCyclesTokens->cyclesStart_resolution) {
         sessionParams->start_resolution = _HdCyclesGetVtValue<int>(value, sessionParams->start_resolution,
-                                       &session_updated);
+                                                                   &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesPixel_size) {
@@ -508,7 +507,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
 
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
         sessionParams->adaptive_sampling = _HdCyclesGetVtValue<bool>(value, sessionParams->adaptive_sampling,
-                                        &session_updated);
+                                                                     &session_updated);
     }
 
     if (key == usdCyclesTokens->cyclesUse_profiling) {
@@ -645,7 +644,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
 
     if (key == usdCyclesTokens->cyclesCurve_subdivisions) {
         sceneParams->hair_subdivisions = _HdCyclesGetVtValue<int>(value, sceneParams->hair_subdivisions,
-                                       &scene_updated);
+                                                                  &scene_updated);
     }
 
     // TODO: Unsure how we will handle this if the camera hasn't been created yet/at all...
@@ -668,7 +667,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
 
     if (key == usdCyclesTokens->cyclesNum_bvh_time_steps) {
         sceneParams->num_bvh_time_steps = _HdCyclesGetVtValue<int>(value, sceneParams->num_bvh_time_steps,
-                                       &scene_updated);
+                                                                   &scene_updated);
     }
 
     if (scene_updated) {
@@ -704,41 +703,31 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
 
     if (config.diffuse_samples.eval(integrator, integrator->get_diffuse_samples_socket(), a_forceInit)
         && m_useSquareSamples) {
-        integrator->set_diffuse_samples(integrator->get_diffuse_samples()
-                                      * integrator->get_diffuse_samples());
+        integrator->set_diffuse_samples(integrator->get_diffuse_samples() * integrator->get_diffuse_samples());
     }
     if (config.glossy_samples.eval(integrator, integrator->get_glossy_samples_socket(), a_forceInit)
         && m_useSquareSamples) {
-        integrator->set_glossy_samples(integrator->get_glossy_samples()
-                                     * integrator->get_glossy_samples());
+        integrator->set_glossy_samples(integrator->get_glossy_samples() * integrator->get_glossy_samples());
     }
-    if (config.transmission_samples.eval(integrator, integrator->get_transmission_samples_socket(),
-                                         a_forceInit)
+    if (config.transmission_samples.eval(integrator, integrator->get_transmission_samples_socket(), a_forceInit)
         && m_useSquareSamples) {
         integrator->set_transmission_samples(integrator->get_transmission_samples()
-                                           * integrator->get_transmission_samples());
+                                             * integrator->get_transmission_samples());
     }
-    if (config.ao_samples.eval(integrator, integrator->get_ao_samples_socket(), a_forceInit)
-        && m_useSquareSamples) {
-        integrator->set_ao_samples(integrator->get_ao_samples()
-                                 * integrator->get_ao_samples());
+    if (config.ao_samples.eval(integrator, integrator->get_ao_samples_socket(), a_forceInit) && m_useSquareSamples) {
+        integrator->set_ao_samples(integrator->get_ao_samples() * integrator->get_ao_samples());
     }
-    if (config.mesh_light_samples.eval(integrator, integrator->get_mesh_light_samples_socket(),
-                                       a_forceInit)
+    if (config.mesh_light_samples.eval(integrator, integrator->get_mesh_light_samples_socket(), a_forceInit)
         && m_useSquareSamples) {
-        integrator->set_mesh_light_samples(integrator->get_mesh_light_samples()
-                                         * integrator->get_mesh_light_samples());
+        integrator->set_mesh_light_samples(integrator->get_mesh_light_samples() * integrator->get_mesh_light_samples());
     }
-    if (config.subsurface_samples.eval(integrator, integrator->get_subsurface_samples_socket(),
-                                       a_forceInit)
+    if (config.subsurface_samples.eval(integrator, integrator->get_subsurface_samples_socket(), a_forceInit)
         && m_useSquareSamples) {
-        integrator->set_subsurface_samples(integrator->get_subsurface_samples()
-                                         * integrator->get_subsurface_samples());
+        integrator->set_subsurface_samples(integrator->get_subsurface_samples() * integrator->get_subsurface_samples());
     }
     if (config.volume_samples.eval(integrator, integrator->get_volume_samples_socket(), a_forceInit)
         && m_useSquareSamples) {
-        integrator->set_volume_samples(integrator->get_volume_samples()
-                                     * integrator->get_volume_samples());
+        integrator->set_volume_samples(integrator->get_volume_samples() * integrator->get_volume_samples());
     }
     /*if (config.adaptive_min_samples.eval(integrator->adaptive_min_samples)
         && m_useSquareSamples) {
@@ -777,20 +766,15 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     bool method_updated         = false;
 
     if (key == usdCyclesTokens->cyclesIntegratorSeed) {
-        integrator->set_seed(_HdCyclesGetVtValue<int>(value, integrator->get_seed(),
-                                                    &integrator_updated));
+        integrator->set_seed(_HdCyclesGetVtValue<int>(value, integrator->get_seed(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorMin_bounce) {
-        integrator->set_min_bounce(
-            _HdCyclesGetVtValue<int>(value, integrator->get_min_bounce(),
-                                       &integrator_updated));
+        integrator->set_min_bounce(_HdCyclesGetVtValue<int>(value, integrator->get_min_bounce(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorMax_bounce) {
-        integrator->set_max_bounce(
-            _HdCyclesGetVtValue<int>(value, integrator->get_max_bounce(),
-                                       &integrator_updated));
+        integrator->set_max_bounce(_HdCyclesGetVtValue<int>(value, integrator->get_max_bounce(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorMethod) {
@@ -803,8 +787,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
         if (method_updated) {
             integrator_updated = true;
-            if (integrator->get_aa_samples() && 
-                integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->get_aa_samples() && integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->get_aa_samples();
             }
         }
@@ -814,8 +797,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
         TfToken defaultPattern = usdCyclesTokens->sobol;
         if (integrator->get_sampling_pattern() == ccl::SAMPLING_PATTERN_CMJ) {
             defaultPattern = usdCyclesTokens->cmj;
-        }
-        else if(integrator->get_sampling_pattern() == ccl::SAMPLING_PATTERN_PMJ) {
+        } else if (integrator->get_sampling_pattern() == ccl::SAMPLING_PATTERN_PMJ) {
             defaultPattern = usdCyclesTokens->pmj;
         }
 
@@ -829,8 +811,8 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
         }
 
         // Adaptive sampling must use PMJ
-        if (m_cyclesSession->params.adaptive_sampling && 
-            integrator->get_sampling_pattern() != ccl::SAMPLING_PATTERN_PMJ) {
+        if (m_cyclesSession->params.adaptive_sampling
+            && integrator->get_sampling_pattern() != ccl::SAMPLING_PATTERN_PMJ) {
             integrator_updated = true;
             integrator->set_sampling_pattern(ccl::SAMPLING_PATTERN_PMJ);
         }
@@ -838,75 +820,63 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
     if (key == usdCyclesTokens->cyclesIntegratorMax_diffuse_bounce) {
         integrator->set_max_diffuse_bounce(
-            _HdCyclesGetVtValue<int>(value, integrator->get_max_diffuse_bounce(),
-                                       &integrator_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_max_diffuse_bounce(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorMax_glossy_bounce) {
         integrator->set_max_glossy_bounce(
-            _HdCyclesGetVtValue<int>(value, integrator->get_max_glossy_bounce(),
-                                       &integrator_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_max_glossy_bounce(), &integrator_updated));
     }
     if (key == usdCyclesTokens->cyclesIntegratorMax_transmission_bounce) {
-        integrator->set_max_transmission_bounce(_HdCyclesGetVtValue<int>(
-            value, integrator->get_max_transmission_bounce(), &integrator_updated));
+        integrator->set_max_transmission_bounce(
+            _HdCyclesGetVtValue<int>(value, integrator->get_max_transmission_bounce(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorMax_volume_bounce) {
         integrator->set_max_volume_bounce(
-            _HdCyclesGetVtValue<int>(value, integrator->get_max_volume_bounce(),
-                                       &integrator_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_max_volume_bounce(), &integrator_updated));
     }
     if (key == usdCyclesTokens->cyclesIntegratorTransparent_min_bounce) {
-        integrator->set_transparent_min_bounce(_HdCyclesGetVtValue<int>(
-            value, integrator->get_transparent_min_bounce(), &integrator_updated));
+        integrator->set_transparent_min_bounce(
+            _HdCyclesGetVtValue<int>(value, integrator->get_transparent_min_bounce(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorTransparent_max_bounce) {
-        integrator->set_transparent_max_bounce(_HdCyclesGetVtValue<int>(
-            value, integrator->get_transparent_max_bounce(), &integrator_updated));
+        integrator->set_transparent_max_bounce(
+            _HdCyclesGetVtValue<int>(value, integrator->get_transparent_max_bounce(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorAo_bounces) {
-        integrator->set_ao_bounces(
-            _HdCyclesGetVtValue<int>(value, integrator->get_ao_bounces(),
-                                       &integrator_updated));
+        integrator->set_ao_bounces(_HdCyclesGetVtValue<int>(value, integrator->get_ao_bounces(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorVolume_max_steps) {
         integrator->set_volume_max_steps(
-            _HdCyclesGetVtValue<int>(value, integrator->get_volume_max_steps(),
-                                       &integrator_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_volume_max_steps(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorVolume_step_size) {
         integrator->set_volume_step_rate(
-            _HdCyclesGetVtValue<float>(value, integrator->get_volume_step_rate(),
-                                         &integrator_updated));
+            _HdCyclesGetVtValue<float>(value, integrator->get_volume_step_rate(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorAdaptive_threshold) {
         integrator->set_adaptive_threshold(
-            _HdCyclesGetVtValue<float>(value, integrator->get_adaptive_threshold(),
-                                         &integrator_updated));
+            _HdCyclesGetVtValue<float>(value, integrator->get_adaptive_threshold(), &integrator_updated));
     }
 
     // Samples
 
     if (key == usdCyclesTokens->cyclesIntegratorAa_samples) {
         bool sample_updated = false;
-        integrator->set_aa_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_aa_samples(),
-                                       &sample_updated));
+        integrator->set_aa_samples(_HdCyclesGetVtValue<int>(value, integrator->get_aa_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_aa_samples(integrator->get_aa_samples()
-                                         * integrator->get_aa_samples());
+                integrator->set_aa_samples(integrator->get_aa_samples() * integrator->get_aa_samples());
             }
 
-            if (integrator->get_aa_samples() &&
-                integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->get_aa_samples() && integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->get_aa_samples();
             }
             integrator_updated = true;
@@ -916,15 +886,12 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     if (key == usdCyclesTokens->cyclesIntegratorAdaptive_min_samples) {
         bool sample_updated = false;
         integrator->set_adaptive_min_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_adaptive_min_samples(),
-                                       &sample_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_adaptive_min_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
                 integrator->set_adaptive_min_samples(
-                    std::min(integrator->get_adaptive_min_samples()
-                                   * integrator->get_adaptive_min_samples(),
-                               INT_MAX));
+                    std::min(integrator->get_adaptive_min_samples() * integrator->get_adaptive_min_samples(), INT_MAX));
             }
             integrator_updated = true;
         }
@@ -933,13 +900,11 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     if (key == usdCyclesTokens->cyclesIntegratorDiffuse_samples) {
         bool sample_updated = false;
         integrator->set_diffuse_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_diffuse_samples(),
-                                       &sample_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_diffuse_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_diffuse_samples(integrator->get_diffuse_samples()
-                                              * integrator->get_diffuse_samples());
+                integrator->set_diffuse_samples(integrator->get_diffuse_samples() * integrator->get_diffuse_samples());
             }
             integrator_updated = true;
         }
@@ -948,13 +913,11 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     if (key == usdCyclesTokens->cyclesIntegratorGlossy_samples) {
         bool sample_updated = false;
         integrator->set_glossy_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_glossy_samples(),
-                                       &sample_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_glossy_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_glossy_samples(integrator->get_glossy_samples()
-                                             * integrator->get_glossy_samples());
+                integrator->set_glossy_samples(integrator->get_glossy_samples() * integrator->get_glossy_samples());
             }
             integrator_updated = true;
         }
@@ -963,14 +926,12 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     if (key == usdCyclesTokens->cyclesIntegratorTransmission_samples) {
         bool sample_updated = false;
         integrator->set_transmission_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_transmission_samples(),
-                                       &sample_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_transmission_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_transmission_samples(
-                    integrator->get_transmission_samples()
-                      * integrator->get_transmission_samples());
+                integrator->set_transmission_samples(integrator->get_transmission_samples()
+                                                     * integrator->get_transmission_samples());
             }
             integrator_updated = true;
         }
@@ -978,14 +939,11 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
     if (key == usdCyclesTokens->cyclesIntegratorAo_samples) {
         bool sample_updated = false;
-        integrator->set_ao_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_ao_samples(),
-                                       &sample_updated));
+        integrator->set_ao_samples(_HdCyclesGetVtValue<int>(value, integrator->get_ao_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_ao_samples(integrator->get_ao_samples()
-                                           * integrator->get_ao_samples());
+                integrator->set_ao_samples(integrator->get_ao_samples() * integrator->get_ao_samples());
             }
             integrator_updated = true;
         }
@@ -994,14 +952,12 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     if (key == usdCyclesTokens->cyclesIntegratorMesh_light_samples) {
         bool sample_updated = false;
         integrator->set_mesh_light_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_mesh_light_samples(),
-                                       &sample_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_mesh_light_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_mesh_light_samples(
-                    integrator->get_mesh_light_samples()
-                      * integrator->get_mesh_light_samples());
+                integrator->set_mesh_light_samples(integrator->get_mesh_light_samples()
+                                                   * integrator->get_mesh_light_samples());
             }
             integrator_updated = true;
         }
@@ -1010,14 +966,12 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     if (key == usdCyclesTokens->cyclesIntegratorSubsurface_samples) {
         bool sample_updated = false;
         integrator->set_subsurface_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_subsurface_samples(),
-                                       &sample_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_subsurface_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_subsurface_samples(
-                    integrator->get_subsurface_samples()
-                      * integrator->get_subsurface_samples());
+                integrator->set_subsurface_samples(integrator->get_subsurface_samples()
+                                                   * integrator->get_subsurface_samples());
             }
             integrator_updated = true;
         }
@@ -1026,13 +980,11 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     if (key == usdCyclesTokens->cyclesIntegratorVolume_samples) {
         bool sample_updated = false;
         integrator->set_volume_samples(
-            _HdCyclesGetVtValue<int>(value, integrator->get_volume_samples(),
-                                       &sample_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_volume_samples(), &sample_updated));
 
         if (sample_updated) {
             if (m_useSquareSamples) {
-                integrator->set_volume_samples(integrator->get_volume_samples()
-                                             * integrator->get_volume_samples());
+                integrator->set_volume_samples(integrator->get_volume_samples() * integrator->get_volume_samples());
             }
             integrator_updated = true;
         }
@@ -1040,59 +992,53 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
     if (key == usdCyclesTokens->cyclesIntegratorStart_sample) {
         integrator->set_start_sample(
-            _HdCyclesGetVtValue<int>(value, integrator->get_start_sample(),
-                                       &integrator_updated));
+            _HdCyclesGetVtValue<int>(value, integrator->get_start_sample(), &integrator_updated));
     }
 
     // Caustics
 
     if (key == usdCyclesTokens->cyclesIntegratorCaustics_reflective) {
         integrator->set_caustics_reflective(
-            _HdCyclesGetVtValue<bool>(value, integrator->get_caustics_reflective(),
-                                        &integrator_updated));
+            _HdCyclesGetVtValue<bool>(value, integrator->get_caustics_reflective(), &integrator_updated));
     }
     if (key == usdCyclesTokens->cyclesIntegratorCaustics_refractive) {
         integrator->set_caustics_refractive(
-            _HdCyclesGetVtValue<bool>(value, integrator->get_caustics_refractive(),
-                                        &integrator_updated));
+            _HdCyclesGetVtValue<bool>(value, integrator->get_caustics_refractive(), &integrator_updated));
     }
 
     // Filter
 
     if (key == usdCyclesTokens->cyclesIntegratorFilter_glossy) {
         integrator->set_filter_glossy(
-            _HdCyclesGetVtValue<float>(value, integrator->get_filter_glossy(),
-                                       &integrator_updated));
+            _HdCyclesGetVtValue<float>(value, integrator->get_filter_glossy(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorSample_clamp_direct) {
         integrator->set_sample_clamp_direct(
-            _HdCyclesGetVtValue<float>(value, integrator->get_sample_clamp_direct(),
-                                       &integrator_updated));
+            _HdCyclesGetVtValue<float>(value, integrator->get_sample_clamp_direct(), &integrator_updated));
     }
     if (key == usdCyclesTokens->cyclesIntegratorSample_clamp_indirect) {
-        integrator->set_sample_clamp_indirect(_HdCyclesGetVtValue<float>(
-            value, integrator->get_sample_clamp_indirect(), &integrator_updated));
+        integrator->set_sample_clamp_indirect(
+            _HdCyclesGetVtValue<float>(value, integrator->get_sample_clamp_indirect(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorMotion_blur) {
         integrator->set_motion_blur(
-            _HdCyclesGetVtValue<bool>(value, integrator->get_motion_blur(),
-                                      &integrator_updated));
+            _HdCyclesGetVtValue<bool>(value, integrator->get_motion_blur(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorSample_all_lights_direct) {
-        integrator->set_sample_all_lights_direct(_HdCyclesGetVtValue<bool>(
-            value, integrator->get_sample_all_lights_direct(), &integrator_updated));
+        integrator->set_sample_all_lights_direct(
+            _HdCyclesGetVtValue<bool>(value, integrator->get_sample_all_lights_direct(), &integrator_updated));
     }
     if (key == usdCyclesTokens->cyclesIntegratorSample_all_lights_indirect) {
-        integrator->set_sample_all_lights_indirect(_HdCyclesGetVtValue<bool>(
-            value, integrator->get_sample_all_lights_indirect(), &integrator_updated));
+        integrator->set_sample_all_lights_indirect(
+            _HdCyclesGetVtValue<bool>(value, integrator->get_sample_all_lights_indirect(), &integrator_updated));
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorLight_sampling_threshold) {
-        integrator->set_light_sampling_threshold(_HdCyclesGetVtValue<float>(
-            value, integrator->get_light_sampling_threshold(), &integrator_updated));
+        integrator->set_light_sampling_threshold(
+            _HdCyclesGetVtValue<float>(value, integrator->get_light_sampling_threshold(), &integrator_updated));
     }
 
     if (integrator_updated) {
@@ -1143,14 +1089,12 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     bool film_updated = false;
 
     if (key == usdCyclesTokens->cyclesFilmExposure) {
-        film->set_exposure(_HdCyclesGetVtValue<float>(value, film->get_exposure(),
-                                                      &film_updated, false));
+        film->set_exposure(_HdCyclesGetVtValue<float>(value, film->get_exposure(), &film_updated, false));
     }
 
     if (key == usdCyclesTokens->cyclesFilmPass_alpha_threshold) {
         film->set_pass_alpha_threshold(
-            _HdCyclesGetVtValue<float>(value, film->get_pass_alpha_threshold(),
-                                       &film_updated, false));
+            _HdCyclesGetVtValue<float>(value, film->get_pass_alpha_threshold(), &film_updated, false));
     }
 
     // Filter
@@ -1167,35 +1111,28 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     }
 
     if (key == usdCyclesTokens->cyclesFilmFilter_width) {
-        film->set_filter_width(_HdCyclesGetVtValue<float>(value,
-                                                          film->get_filter_width(),
-                                                          &film_updated, false));
+        film->set_filter_width(_HdCyclesGetVtValue<float>(value, film->get_filter_width(), &film_updated, false));
     }
 
     // Mist
 
     if (key == usdCyclesTokens->cyclesFilmMist_start) {
-        film->set_mist_start(_HdCyclesGetVtValue<float>(value, film->get_mist_start(),
-                                                        &film_updated, false));
+        film->set_mist_start(_HdCyclesGetVtValue<float>(value, film->get_mist_start(), &film_updated, false));
     }
 
     if (key == usdCyclesTokens->cyclesFilmMist_depth) {
-        film->set_mist_depth(_HdCyclesGetVtValue<float>(value, film->get_mist_depth(),
-                                                        &film_updated, false));
+        film->set_mist_depth(_HdCyclesGetVtValue<float>(value, film->get_mist_depth(), &film_updated, false));
     }
 
     if (key == usdCyclesTokens->cyclesFilmMist_falloff) {
-        film->set_mist_falloff(_HdCyclesGetVtValue<float>(value,
-                                                         film->get_mist_falloff(),
-                                                         &film_updated, false));
+        film->set_mist_falloff(_HdCyclesGetVtValue<float>(value, film->get_mist_falloff(), &film_updated, false));
     }
 
     // Light
 
     if (key == usdCyclesTokens->cyclesFilmUse_light_visibility) {
         film->set_use_light_visibility(
-            _HdCyclesGetVtValue<bool>(value, film->get_use_light_visibility(),
-                                        &film_updated, false));
+            _HdCyclesGetVtValue<bool>(value, film->get_use_light_visibility(), &film_updated, false));
     }
 
     // Sampling
@@ -1203,13 +1140,11 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     // TODO: Check if cycles actually uses this, doesnt appear to...
     if (key == usdCyclesTokens->cyclesFilmUse_adaptive_sampling) {
         film->set_use_adaptive_sampling(
-            _HdCyclesGetVtValue<bool>(value, film->get_use_adaptive_sampling(),
-                                        &film_updated, false));
+            _HdCyclesGetVtValue<bool>(value, film->get_use_adaptive_sampling(), &film_updated, false));
     }
 
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
-        int cryptomatte_depth = _HdCyclesGetVtValue<int>(value, 4, 
-                                                         &film_updated, false);
+        int cryptomatte_depth = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
         film->set_cryptomatte_depth(ccl::divide_up(ccl::min(16, cryptomatte_depth), 2));
     }
 
@@ -1260,22 +1195,18 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const Vt
     bool background_updated     = false;
 
     if (key == usdCyclesTokens->cyclesBackgroundAo_factor) {
-        background->set_ao_factor(_HdCyclesGetVtValue<float>(value, background->get_ao_factor(),
-                                         &background_updated));
+        background->set_ao_factor(_HdCyclesGetVtValue<float>(value, background->get_ao_factor(), &background_updated));
     }
     if (key == usdCyclesTokens->cyclesBackgroundAo_distance) {
-        background->set_ao_distance(_HdCyclesGetVtValue<float>(value, background->get_ao_distance(),
-                                         &background_updated));
+        background->set_ao_distance(
+            _HdCyclesGetVtValue<float>(value, background->get_ao_distance(), &background_updated));
     }
 
     if (key == usdCyclesTokens->cyclesBackgroundUse_shader) {
-        background->set_use_shader(_HdCyclesGetVtValue<bool>(value, background->get_use_shader(),
-                                        &background_updated));
+        background->set_use_shader(_HdCyclesGetVtValue<bool>(value, background->get_use_shader(), &background_updated));
     }
     if (key == usdCyclesTokens->cyclesBackgroundUse_ao) {
-        background->set_use_ao(_HdCyclesGetVtValue<bool>(value,
-                                                       background->get_use_ao(),
-                                                       &background_updated));
+        background->set_use_ao(_HdCyclesGetVtValue<bool>(value, background->get_use_ao(), &background_updated));
     }
 
     // Visibility
@@ -1316,27 +1247,25 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const Vt
     // Glass
 
     if (key == usdCyclesTokens->cyclesBackgroundTransparent) {
-        background->set_transparent(_HdCyclesGetVtValue<bool>(value, background->get_transparent(),
-                                        &background_updated));
+        background->set_transparent(
+            _HdCyclesGetVtValue<bool>(value, background->get_transparent(), &background_updated));
     }
 
     if (key == usdCyclesTokens->cyclesBackgroundTransparent_glass) {
-        background->set_transparent_glass(_HdCyclesGetVtValue<bool>(value, background->get_transparent_glass(),
-                                        &background_updated));
+        background->set_transparent_glass(
+            _HdCyclesGetVtValue<bool>(value, background->get_transparent_glass(), &background_updated));
     }
 
-    if (key
-        == usdCyclesTokens->cyclesBackgroundTransparent_roughness_threshold) {
-        background->set_transparent_roughness_threshold(_HdCyclesGetVtValue<float>(
-            value, background->get_transparent_roughness_threshold(),
-            &background_updated));
+    if (key == usdCyclesTokens->cyclesBackgroundTransparent_roughness_threshold) {
+        background->set_transparent_roughness_threshold(
+            _HdCyclesGetVtValue<float>(value, background->get_transparent_roughness_threshold(), &background_updated));
     }
 
     // Volume
 
     if (key == usdCyclesTokens->cyclesBackgroundVolume_step_size) {
-        background->set_volume_step_size(_HdCyclesGetVtValue<float>(value, background->get_volume_step_size(),
-                                         &background_updated));
+        background->set_volume_step_size(
+            _HdCyclesGetVtValue<float>(value, background->get_volume_step_size(), &background_updated));
     }
 
     if (background_updated) {
@@ -1412,7 +1341,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
         return;
 
     // Adjust absolute sample number to the range.
-    int sample = rtile.sample;
+    int sample                   = rtile.sample;
     const int range_start_sample = m_cyclesSession->tile_manager.range_start_sample;
     if (range_start_sample != -1) {
         sample -= range_start_sample;
@@ -1452,7 +1381,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
                 || (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial)
                 || (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) || (cyclesAov.token == HdCyclesAovTokens->AOVC)
                 || (cyclesAov.token == HdCyclesAovTokens->AOVV)) {
-                    custom = true;
+                custom = true;
             }
 
             // Pixels we will use to get from cycles.
@@ -1473,7 +1402,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             }
 
             rb->BlitTile(cyclesAov.format, rtile.x, rtile.y, rtile.w, rtile.h, 0, rtile.w,
-                            reinterpret_cast<uint8_t*>(tileData.data()));
+                         reinterpret_cast<uint8_t*>(tileData.data()));
         }
     }
 }
@@ -1567,7 +1496,7 @@ HdCyclesRenderParam::Interrupt(bool a_forceUpdate)
 void
 HdCyclesRenderParam::CommitResources()
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
@@ -1681,7 +1610,7 @@ HdCyclesRenderParam::_CyclesExit()
 {
     m_cyclesSession->set_pause(true);
 
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     m_cyclesScene->shaders.clear();
     m_cyclesScene->geometry.clear();
@@ -1737,10 +1666,10 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     m_width  = w;
     m_height = h;
 
-    m_bufferParams.width          = m_width;
-    m_bufferParams.height         = m_height;
-    m_bufferParams.full_width     = m_width;
-    m_bufferParams.full_height    = m_height;
+    m_bufferParams.width       = m_width;
+    m_bufferParams.height      = m_height;
+    m_bufferParams.full_width  = m_width;
+    m_bufferParams.full_height = m_height;
     m_cyclesScene->camera->set_screen_size_and_resolution(m_width, m_height, 1);
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_device_update = true;
@@ -1759,7 +1688,7 @@ HdCyclesRenderParam::DirectReset()
 void
 HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add light to scene. Scene is null.");
@@ -1778,7 +1707,7 @@ HdCyclesRenderParam::AddLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add object to scene. Scene is null.");
@@ -1795,7 +1724,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -1812,7 +1741,7 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
 void
 HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -1829,7 +1758,7 @@ HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
 void
 HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -1846,7 +1775,7 @@ HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
 void
 HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
@@ -1861,7 +1790,7 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 void
 HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
         if (a_object == *it) {
@@ -1881,7 +1810,7 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
 void
 HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
         if (a_light == *it) {
@@ -1908,7 +1837,7 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
 void
 HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
@@ -1928,10 +1857,11 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 }
 
 void
-HdCyclesRenderParam::UpdateShadersTag(ccl::array<ccl::Node*>& shaders) {
-    lock_guard lock{m_cyclesScene->mutex};
-    for(auto& node : shaders) {
-        ccl::Shader *shader = static_cast<ccl::Shader *>(node);
+HdCyclesRenderParam::UpdateShadersTag(ccl::array<ccl::Node*>& shaders)
+{
+    lock_guard lock { m_cyclesScene->mutex };
+    for (auto& node : shaders) {
+        ccl::Shader* shader = static_cast<ccl::Shader*>(node);
         shader->tag_update(m_cyclesScene);
     }
 }
@@ -1939,7 +1869,7 @@ HdCyclesRenderParam::UpdateShadersTag(ccl::array<ccl::Node*>& shaders) {
 void
 HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
          it != m_cyclesScene->geometry.end();) {
@@ -1961,7 +1891,7 @@ HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
 void
 HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
 {
-    lock_guard lock{m_cyclesScene->mutex};
+    lock_guard lock { m_cyclesScene->mutex };
 
     for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
         if (a_shader == *it) {
@@ -1991,39 +1921,39 @@ HdCyclesRenderParam::GetRenderStats() const
 
     VtDictionary result = { { "hdcycles:version", VtValue(HD_CYCLES_VERSION) },
 
-        // - Cycles specific
+                            // - Cycles specific
 
-        // These error out currently, kept for future reference
-        /*{ "hdcycles:geometry:total_memory",
+                            // These error out currently, kept for future reference
+                            /*{ "hdcycles:geometry:total_memory",
           VtValue(ccl::string_human_readable_size(stats.mesh.geometry.total_size)
                       .c_str()) },*/
-        /*{ "hdcycles:textures:total_memory",
+                            /*{ "hdcycles:textures:total_memory",
           VtValue(
               ccl::string_human_readable_size(stats.image.textures.total_size)
                   .c_str()) },*/
-        { "hdcycles:scene:num_objects", VtValue(m_cyclesScene->objects.size()) },
-        { "hdcycles:scene:num_shaders", VtValue(m_cyclesScene->shaders.size()) },
+                            { "hdcycles:scene:num_objects", VtValue(m_cyclesScene->objects.size()) },
+                            { "hdcycles:scene:num_shaders", VtValue(m_cyclesScene->shaders.size()) },
 
-        // - Solaris, husk specific
+                            // - Solaris, husk specific
 
-        // Currently these don't update properly. It is unclear if we need to tag renderstats as
-        // dynamic. Maybe our VtValues need to live longer?
+                            // Currently these don't update properly. It is unclear if we need to tag renderstats as
+                            // dynamic. Maybe our VtValues need to live longer?
 
-        { "rendererName", VtValue("Cycles") },
-        { "rendererVersion", VtValue(HD_CYCLES_VERSION) },
-        { "percentDone", VtValue(m_renderPercent) },
-        { "fractionDone", VtValue(m_renderProgress) },
-        { "lightCounts", VtValue(m_cyclesScene->lights.size()) },
-        { "totalClockTime", VtValue(m_totalTime) },
-        { "cameraRays", VtValue(0) },
-        { "numCompletedSamples", VtValue(0) }
+                            { "rendererName", VtValue("Cycles") },
+                            { "rendererVersion", VtValue(HD_CYCLES_VERSION) },
+                            { "percentDone", VtValue(m_renderPercent) },
+                            { "fractionDone", VtValue(m_renderProgress) },
+                            { "lightCounts", VtValue(m_cyclesScene->lights.size()) },
+                            { "totalClockTime", VtValue(m_totalTime) },
+                            { "cameraRays", VtValue(0) },
+                            { "numCompletedSamples", VtValue(0) }
 
     };
 
     // We need to store the cryptomatte metadata here, based on if there's any Cryptomatte AOVs
 
-    bool cryptoAsset = false;
-    bool cryptoObject = false;
+    bool cryptoAsset    = false;
+    bool cryptoObject   = false;
     bool cryptoMaterial = false;
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
@@ -2043,34 +1973,34 @@ HdCyclesRenderParam::GetRenderStats() const
     }
 
     if (cryptoAsset) {
-        std::string cryptoName = HdCyclesAovTokens->CryptoAsset.GetText();
+        std::string cryptoName        = HdCyclesAovTokens->CryptoAsset.GetText();
         std::string identifier        = ccl::string_printf("%08x",
                                                     ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
-        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"] = VtValue(cryptoName);
-        result[prefix + "hash"] = VtValue("MurmurHash3_32");
+        std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"]       = VtValue(cryptoName);
+        result[prefix + "hash"]       = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
-        result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_assets(m_cyclesScene));
+        result[prefix + "manifest"]   = VtValue(m_cyclesScene->object_manager->get_cryptomatte_assets(m_cyclesScene));
     }
 
     if (cryptoObject) {
-        std::string cryptoName = HdCyclesAovTokens->CryptoObject.GetText();
+        std::string cryptoName        = HdCyclesAovTokens->CryptoObject.GetText();
         std::string identifier        = ccl::string_printf("%08x",
                                                     ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
-        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"] = VtValue(cryptoName);
-        result[prefix + "hash"] = VtValue("MurmurHash3_32");
+        std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"]       = VtValue(cryptoName);
+        result[prefix + "hash"]       = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
-        result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_objects(m_cyclesScene));
+        result[prefix + "manifest"]   = VtValue(m_cyclesScene->object_manager->get_cryptomatte_objects(m_cyclesScene));
     }
 
     if (cryptoMaterial) {
-        std::string cryptoName = HdCyclesAovTokens->CryptoMaterial.GetText();
+        std::string cryptoName        = HdCyclesAovTokens->CryptoMaterial.GetText();
         std::string identifier        = ccl::string_printf("%08x",
                                                     ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
-        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"] = VtValue(cryptoName);
-        result[prefix + "hash"] = VtValue("MurmurHash3_32");
+        std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"]       = VtValue(cryptoName);
+        result[prefix + "hash"]       = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
         result[prefix + "manifest"] = VtValue(m_cyclesScene->shader_manager->get_cryptomatte_materials(m_cyclesScene));
     }
@@ -2083,9 +2013,9 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
     m_aovs = a_aovs;
     m_bufferParams.passes.clear();
-    bool has_combined = false;
+    bool has_combined     = false;
     bool has_sample_count = false;
-    ccl::Film *film = m_cyclesScene->film;
+    ccl::Film* film       = m_cyclesScene->film;
 
     ccl::CryptomatteType cryptomatte_passes = ccl::CRYPT_NONE;
     if (film->get_cryptomatte_passes() & ccl::CRYPT_ACCURATE) {
@@ -2093,9 +2023,9 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     }
     film->set_cryptomatte_passes(cryptomatte_passes);
 
-    int cryptoObject = 0;
+    int cryptoObject   = 0;
     int cryptoMaterial = 0;
-    int cryptoAsset = 0;
+    int cryptoAsset    = 0;
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         TfToken sourceName = GetSourceName(aov);
@@ -2149,21 +2079,24 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     // Ordering matters
     if (cryptoObject) {
-        film->set_cryptomatte_passes(static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_OBJECT));
+        film->set_cryptomatte_passes(
+            static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_OBJECT));
         for (int i = 0; i < cryptoObject; ++i) {
-            ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, 
+            ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoObject.GetText(), i).c_str());
         }
     }
     if (cryptoMaterial) {
-        film->set_cryptomatte_passes(static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_MATERIAL));
+        film->set_cryptomatte_passes(
+            static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_MATERIAL));
         for (int i = 0; i < cryptoMaterial; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoMaterial.GetText(), i).c_str());
         }
     }
     if (cryptoAsset) {
-        film->set_cryptomatte_passes(static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_ASSET));
+        film->set_cryptomatte_passes(
+            static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_ASSET));
         for (int i = 0; i < cryptoAsset; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoAsset.GetText(), i).c_str());
@@ -2192,7 +2125,7 @@ HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
 {
     m_cyclesScene->film->set_display_pass(DefaultAovs[0].type);
     m_displayAovToken = DefaultAovs[0].token;
-    if(!m_aovs.empty()) {
+    if (!m_aovs.empty()) {
         TfToken sourceName = GetSourceName(a_aov);
         for (HdCyclesAov& cyclesAov : DefaultAovs) {
             if (sourceName == cyclesAov.token) {

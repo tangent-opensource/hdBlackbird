@@ -52,7 +52,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 // clang-format on
 
 HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& instancerId,
-    HdCyclesRenderDelegate* a_renderDelegate)
+                                         HdCyclesRenderDelegate* a_renderDelegate)
     : HdBasisCurves(id, instancerId)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
@@ -180,7 +180,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value, HdInterpolation int
 {
     ccl::ustring attribName = ccl::ustring(name.GetString());
 
-    int vecSize   = 0;
+    int vecSize      = 0;
     size_t numColors = 0;
 
     VtFloatArray colors1f;
@@ -235,7 +235,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value, HdInterpolation int
         } else {
             // @TODO: Unhandled support for deprecated curve mesh geo
             ccl::Attribute* attr_vcol = m_cyclesMesh->attributes.add(attribName, ccl::TypeDesc::TypeColor,
-                                               ccl::ATTR_ELEMENT_CORNER_BYTE);
+                                                                     ccl::ATTR_ELEMENT_CORNER_BYTE);
             (void)attr_vcol;
             assert(0);
         }
@@ -269,7 +269,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value, HdInterpolation int
         } else {
             // @TODO: Unhandled support for deprecated curve mesh geo
             ccl::Attribute* attr_vcol = m_cyclesMesh->attributes.add(attribName, ccl::TypeDesc::TypeColor,
-                                               ccl::ATTR_ELEMENT_CORNER_BYTE);
+                                                                     ccl::ATTR_ELEMENT_CORNER_BYTE);
 
             (void)attr_vcol;
             assert(0);
@@ -320,10 +320,10 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value, HdInterpolation interp
     auto fill_vertex_or_varying_uv_attrib = [&attribName](auto& attr_uvs, ccl::AttributeSet& attributes,
                                                           const VtIntArray& vertexCounts) {
         ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
-        ccl::float2* std_uv_data = attr_std_uv->data_float2();
+        ccl::float2* std_uv_data    = attr_std_uv->data_float2();
 
         ccl::Attribute* attr_st = attributes.add(attribName, ccl::TypeFloat2, ccl::ATTR_ELEMENT_CURVE_KEY);
-        ccl::float2* st_data = attr_st->data_float2();
+        ccl::float2* st_data    = attr_st->data_float2();
 
         for (size_t curve = 0, offset = 0; curve < vertexCounts.size(); ++curve) {
             // std_uv - per curve
@@ -374,19 +374,18 @@ HdCyclesBasisCurves::_PopulateGenerated()
     if (m_cyclesMesh) {
         HdCyclesMeshTextureSpace(m_cyclesMesh, loc, size);
         ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(ccl::ATTR_STD_GENERATED);
-        ccl::float3* generated = attr_generated->data_float3();
+        ccl::float3* generated         = attr_generated->data_float3();
 
         for (size_t i = 0; i < m_cyclesMesh->get_verts().size(); i++)
             generated[i] = m_cyclesMesh->get_verts()[i] * size - loc;
     } else {
         HdCyclesMeshTextureSpace(m_cyclesHair, loc, size);
         ccl::Attribute* attr_generated = m_cyclesHair->attributes.add(ccl::ATTR_STD_GENERATED);
-        ccl::float3* generated = attr_generated->data_float3();
+        ccl::float3* generated         = attr_generated->data_float3();
 
         for (size_t i = 0; i < m_cyclesHair->num_curves(); i++) {
-            ccl::float3 co
-                = m_cyclesHair->get_curve_keys()[m_cyclesHair->get_curve(i).first_key];
-            generated[i] = co * size - loc;
+            ccl::float3 co = m_cyclesHair->get_curve_keys()[m_cyclesHair->get_curve(i).first_key];
+            generated[i]   = co * size - loc;
         }
     }
 }
@@ -446,7 +445,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             m_widths              = VtFloatArray(1, 0.1f);
             m_widthsInterpolation = HdInterpolationConstant;
             TF_WARN("[%s] Curve do not have widths. Fallback value is 1.0f with a constant interpolation",
-                id.GetText());
+                    id.GetText());
         }
         generate_new_curve = true;
     }
@@ -483,45 +482,43 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             update_curve = true;
         }
 
-        m_cyclesObject->set_is_shadow_catcher(_HdCyclesGetCurveParam<bool>(
-            dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
-            m_cyclesObject->get_is_shadow_catcher()));
+        m_cyclesObject->set_is_shadow_catcher(
+            _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
+                                         usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
+                                         m_cyclesObject->get_is_shadow_catcher()));
 
-        m_cyclesObject->set_pass_id(_HdCyclesGetCurveParam<bool>(
-            dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectPass_id,
-            m_cyclesObject->get_pass_id()));
+        m_cyclesObject->set_pass_id(_HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
+                                                                 usdCyclesTokens->primvarsCyclesObjectPass_id,
+                                                                 m_cyclesObject->get_pass_id()));
 
-        m_cyclesObject->set_use_holdout(_HdCyclesGetCurveParam<bool>(
-            dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectUse_holdout,
-            m_cyclesObject->get_use_holdout()));
+        m_cyclesObject->set_use_holdout(_HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
+                                                                     usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+                                                                     m_cyclesObject->get_use_holdout()));
 
         // Visibility
 
         m_visibilityFlags = 0;
 
         m_visCamera = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, m_visCamera);
+                                                   usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, m_visCamera);
 
         m_visDiffuse = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
-            m_visDiffuse);
+                                                    usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
+                                                    m_visDiffuse);
 
         m_visGlossy = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, m_visGlossy);
+                                                   usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, m_visGlossy);
 
         m_visScatter = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
-            m_visScatter);
+                                                    usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
+                                                    m_visScatter);
 
         m_visShadow = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, m_visShadow);
+                                                   usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, m_visShadow);
 
         m_visTransmission = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-            usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
-            m_visTransmission);
+                                                         usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
+                                                         m_visTransmission);
 
         m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
         m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
@@ -550,7 +547,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             scene_lock.unlock();
             param->RemoveCurve(m_cyclesHair);
             scene_lock.lock();
-            
+
             m_cyclesGeometry->clear();
             delete m_cyclesGeometry;
         }
@@ -578,8 +575,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, scene, sceneDelegate,
-                                                  id, m_useMotionBlur);
+        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, scene, sceneDelegate, id, m_useMotionBlur);
 
         update_curve = true;
     }
@@ -608,7 +604,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
         if (m_cyclesGeometry) {
             // Add default shader
-            const SdfPath& materialId = sceneDelegate->GetMaterialId(GetId());
+            const SdfPath& materialId        = sceneDelegate->GetMaterialId(GetId());
             const HdCyclesMaterial* material = static_cast<const HdCyclesMaterial*>(
                 sceneDelegate->GetRenderIndex().GetSprim(HdPrimTypeTokens->material, materialId));
 
@@ -621,7 +617,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             }
 
             m_cyclesGeometry->set_used_shaders(m_usedShaders);
-            update_curve                   = true;
+            update_curve = true;
         }
     }
 
@@ -727,8 +723,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         num_curves++;
     }
 
-    if ((m_cyclesHair->get_curve_keys().size() != num_keys)
-        || (m_cyclesHair->num_curves() != num_curves)) {
+    if ((m_cyclesHair->get_curve_keys().size() != num_keys) || (m_cyclesHair->num_curves() != num_curves)) {
         TF_WARN("Allocation failed. Clearing data");
 
         m_cyclesHair->clear();
@@ -747,7 +742,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
     bool is_ortho = false;
     if (m_normals.size() <= 0) {
         if (a_camera != nullptr) {
-            isCameraOriented     = true;
+            isCameraOriented           = true;
             const ccl::Transform& ctfm = a_camera->get_matrix();
             if (a_camera->get_camera_type() == ccl::CAMERA_ORTHOGRAPHIC) {
                 RotCam = -ccl::make_float3(ctfm.x.z, ctfm.y.z, ctfm.z.z);

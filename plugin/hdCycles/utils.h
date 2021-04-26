@@ -112,8 +112,8 @@ _DumpGraph(ccl::ShaderGraph* shaderGraph, const char* name);
  * @return Cycles Transform
  */
 HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS>
-HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate,
-                     const SdfPath& id, bool use_motion);
+HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* delegate, const SdfPath& id,
+                     bool use_motion);
 
 ccl::Transform
 HdCyclesExtractTransform(HdSceneDelegate* delegate, const SdfPath& id);
@@ -387,7 +387,7 @@ typedef std::map<HdInterpolation, HdPrimvarDescriptorVector> HdCyclesPDPIMap;
 
 void
 HdCyclesPopulatePrimvarDescsPerInterpolation(HdSceneDelegate* a_sceneDelegate, SdfPath const& a_id,
-    HdCyclesPDPIMap* a_primvarDescsPerInterpolation);
+                                             HdCyclesPDPIMap* a_primvarDescsPerInterpolation);
 
 bool
 HdCyclesIsPrimvarExists(TfToken const& a_name, HdCyclesPDPIMap const& a_primvarDescsPerInterpolation,

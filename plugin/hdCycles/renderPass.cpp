@@ -67,7 +67,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 
     if (renderParam->GetAovBindings() != aovBindings) {
         renderParam->SetAovBindings(aovBindings);
-        if(!aovBindings.empty()) {
+        if (!aovBindings.empty()) {
             renderParam->SetDisplayAov(aovBindings[0]);
         }
     }
@@ -98,7 +98,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         shouldUpdate = true;
     }
 
-    if(!shouldUpdate)
+    if (!shouldUpdate)
         shouldUpdate = hdCam->IsDirty();
 
     if (shouldUpdate) {
@@ -117,12 +117,12 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         renderParam->DirectReset();
     }
 
-    const auto width     = static_cast<int>(vp[2]);
-    const auto height    = static_cast<int>(vp[3]);
+    const auto width  = static_cast<int>(vp[2]);
+    const auto height = static_cast<int>(vp[3]);
 
     if (width != m_width || height != m_height) {
-        m_width                 = width;
-        m_height                = height;
+        m_width  = width;
+        m_height = height;
 
         // TODO: Due to the startup flow of Cycles, this gets called after a tiled render
         // has already started. Sometimes causing the original tiled render to complete

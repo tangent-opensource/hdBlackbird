@@ -166,12 +166,10 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
             for (size_t i = 0; i < points.size(); i++) {
                 ccl::Object* pointObject = _CreatePointsObject(ccl::transform_translate(vec3f_to_float3(points[i])),
-                    m_cyclesMesh);
+                                                               m_cyclesMesh);
 
                 pointObject->set_random_id(i);
-                pointObject->name
-                    = ccl::ustring::format("%s@%08x", pointObject->name,
-                                           pointObject->get_random_id());
+                pointObject->name = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->get_random_id());
                 m_cyclesObjects.push_back(pointObject);
                 param->AddObject(pointObject);
             }
@@ -182,8 +180,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         ccl::Transform newTransform = HdCyclesExtractTransform(sceneDelegate, id);
 
         for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
-            m_cyclesObjects[i]->set_tfm(ccl::transform_inverse(m_transform)
-                                        * m_cyclesObjects[i]->get_tfm());
+            m_cyclesObjects[i]->set_tfm(ccl::transform_inverse(m_transform) * m_cyclesObjects[i]->get_tfm());
             m_cyclesObjects[i]->set_tfm(newTransform * m_cyclesObjects[i]->get_tfm());
         }
 
@@ -203,10 +200,8 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 const VtFloatArray& widths = xf.values[0].Get<VtFloatArray>();
                 for (size_t i = 0; i < widths.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
-                        float w                 = widths[i];
-                        m_cyclesObjects[i]->set_tfm(m_cyclesObjects[i]->get_tfm()
-                                                  * ccl::transform_scale(w, w,
-                                                                         w));
+                        float w = widths[i];
+                        m_cyclesObjects[i]->set_tfm(m_cyclesObjects[i]->get_tfm() * ccl::transform_scale(w, w, w));
                     }
                 }
             }
@@ -223,14 +218,13 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 const VtVec3fArray& normals = xf.values[0].Get<VtVec3fArray>();
                 for (size_t i = 0; i < normals.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
-                        ccl::float3 rotAxis     = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                        ccl::float3 rotAxis = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
                                                          ccl::make_float3(normals[i][0], normals[i][1], normals[i][2]));
-                        float d = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                        float d             = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
                                            ccl::make_float3(normals[i][0], normals[i][1], normals[i][2]));
-                        float angle = atan2f(ccl::len(rotAxis), d);
-                        m_cyclesObjects[i]->set_tfm(
-                            m_cyclesObjects[i]->get_tfm()
-                              * ccl::transform_rotate((angle), rotAxis));
+                        float angle         = atan2f(ccl::len(rotAxis), d);
+                        m_cyclesObjects[i]->set_tfm(m_cyclesObjects[i]->get_tfm()
+                                                    * ccl::transform_rotate((angle), rotAxis));
                     }
                 }
             } else {
@@ -247,7 +241,8 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             if (visible) {
                 m_cyclesObjects[i]->set_visibility(m_cyclesObjects[i]->get_visibility() | ccl::PATH_RAY_ALL_VISIBILITY);
             } else {
-                m_cyclesObjects[i]->set_visibility(m_cyclesObjects[i]->get_visibility() & ~ccl::PATH_RAY_ALL_VISIBILITY);
+                m_cyclesObjects[i]->set_visibility(m_cyclesObjects[i]->get_visibility()
+                                                   & ~ccl::PATH_RAY_ALL_VISIBILITY);
             }
         }
     }
@@ -328,9 +323,7 @@ HdCyclesPoints::_CreateSphereMesh()
         for (int j = 0; j <= sectorCount; ++j) {
             sectorAngle = j * sectorStep;
 
-            m_cyclesMesh->add_vertex_slow(
-                ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle),
-                                 z));
+            m_cyclesMesh->add_vertex_slow(ccl::make_float3(xy * cosf(sectorAngle), xy * sinf(sectorAngle), z));
             // TODO: Add normals and uvs
         }
     }

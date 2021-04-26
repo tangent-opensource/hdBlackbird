@@ -64,27 +64,27 @@ public:
      * @brief Start cycles render session
      * 
      */
-        void StartRender();
+    void StartRender();
 
     /**
      * @brief Stop the current render and close cycles instance
      * 
      * @return StopRender 
      */
-        void StopRender();
+    void StopRender();
 
     /**
      * @brief Completely restart a cycles render
      * Currently unused, likely broken
      *  
      */
-        void RestartRender();
+    void RestartRender();
 
     /**
      * @brief Restarts the current cycles render
      * 
      */
-        void Interrupt(bool a_forceUpdate = false);
+    void Interrupt(bool a_forceUpdate = false);
 
     /**
      * @brief Initialize cycles renderer
@@ -107,9 +107,9 @@ public:
     /**
      * @return Progress completed of render
      */
-        float GetProgress();
+    float GetProgress();
 
-        bool IsConverged();
+    bool IsConverged();
 
     /**
      * @brief Key access point to set a HdCycles render setting via key and value
@@ -437,7 +437,7 @@ public:
      * possible workaround is to just make Cycles render all AOVs at once in
      * display mode.
      */
-    void SetDisplayAov(HdRenderPassAovBinding const &a_aov);
+    void SetDisplayAov(HdRenderPassAovBinding const& a_aov);
 
     /**
      * @brief Get the default display AOV token
@@ -451,7 +451,7 @@ public:
      * 
      * @param a_aovs Set a HdRenderPassAovBindingVector from HdCyclesRenderPass
      */
-    void SetAovBindings(HdRenderPassAovBindingVector const &a_aovs);
+    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs);
 
     /**
      * @brief Get the AOV bindings

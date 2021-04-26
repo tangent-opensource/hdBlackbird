@@ -33,7 +33,7 @@
 #include <pxr/pxr.h>
 
 #ifdef WITH_OPENVDB
-#include <openvdb/openvdb.h>
+#    include <openvdb/openvdb.h>
 #endif
 
 namespace ccl {
@@ -155,7 +155,7 @@ private:
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    ccl::array<ccl::Node *> m_usedShaders;
+    ccl::array<ccl::Node*> m_usedShaders;
 
     //openvdb::VolumeGridVector* grids;
 };

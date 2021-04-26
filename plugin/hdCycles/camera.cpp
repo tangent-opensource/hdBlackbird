@@ -74,9 +74,9 @@ std::map<TfToken, ccl::MotionPosition> MOTION_POSITION_CONVERSION = {
 };
 
 std::map<TfToken, ccl::Camera::RollingShutterType> ROLLING_SHUTTER_TYPE_CONVERSION = {
-          { usdCyclesTokens->none, ccl::Camera::ROLLING_SHUTTER_NONE },
-          { usdCyclesTokens->top, ccl::Camera::ROLLING_SHUTTER_TOP },
-      };
+    { usdCyclesTokens->none, ccl::Camera::ROLLING_SHUTTER_NONE },
+    { usdCyclesTokens->top, ccl::Camera::ROLLING_SHUTTER_TOP },
+};
 
 std::map<TfToken, ccl::PanoramaType> PANORAMA_TYPE_CONVERSION = {
     { usdCyclesTokens->equirectangular, ccl::PANORAMA_EQUIRECTANGULAR },
@@ -105,10 +105,10 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_rend
     , m_shutterOpen(0.0f)
     , m_shutterClose(0.0f)
     , m_clippingRange(0.1f, 100000.0f)
-//  , m_projectionType
-//  , m_projMtx
-//  , m_fov
-//  , m_transform
+    //  , m_projectionType
+    //  , m_projMtx
+    //  , m_fov
+    //  , m_transform
     , m_shutterTime(1.0f)
     , m_rollingShutterTime(0.1f)
     , m_motionPosition(ccl::MOTION_POSITION_CENTER)
@@ -116,7 +116,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_rend
     , m_panoramaType(ccl::PANORAMA_EQUIRECTANGULAR)
     , m_stereoEye(ccl::Camera::STEREO_NONE)
     , m_offscreenDicingScale(0.0f)
-//  , m_shutterCurve
+    //  , m_shutterCurve
     , m_fisheyeFov(M_PI_F)
     , m_fisheyeLens(10.5f)
     , m_latMin(-M_PI_2_F)
@@ -132,7 +132,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_rend
     , m_useDof(false)
     , m_useMotionBlur(false)
     , m_fps(24.f)
-//  , m_transformSamples
+    //  , m_transformSamples
     , m_cyclesCamera(nullptr)
     , m_renderDelegate(a_renderDelegate)
     , m_needsUpdate(false)
@@ -143,9 +143,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_rend
     config.enable_dof.eval(m_useDof, true);
     config.enable_motion_blur.eval(m_useMotionBlur, true);
 
-    bool use_motion_blur = m_renderDelegate->GetCyclesRenderParam()
-                               ->GetCyclesScene()
-                               ->integrator->get_motion_blur();
+    bool use_motion_blur = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->integrator->get_motion_blur();
     if (use_motion_blur) {
         m_useMotionBlur = true;
     }
@@ -172,7 +170,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                                  GfRange1f(0.1f, 100000.0f));
 
         // TODO: has_clippingRange
-        (void) has_clippingRange;
+        (void)has_clippingRange;
     }
 
     if (*dirtyBits & HdCamera::DirtyParams) {
@@ -201,7 +199,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         bool has_projection = EvalCameraParam(&m_projectionType, UsdGeomTokens->projection, sceneDelegate, id);
         // TODO: has_projection
-        (void) has_projection;
+        (void)has_projection;
 
         // Aperture
 
@@ -235,7 +233,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         bool has_focusDistance = EvalCameraParam(&m_focusDistance, HdCameraTokens->focusDistance, sceneDelegate, id);
         // TODO: has_focusDistance
-        (void) has_focusDistance;
+        (void)has_focusDistance;
 
         if (std::isnan(m_focalLength)) {
             has_focalLength = false;
@@ -271,7 +269,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // Motion Position
         TfToken motionPosition = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
                                                                   usdCyclesTokens->cyclesCameraMotion_position,
-            usdCyclesTokens->center);
+                                                                  usdCyclesTokens->center);
 
         if (m_motionPosition != MOTION_POSITION_CONVERSION[motionPosition]) {
             m_motionPosition = MOTION_POSITION_CONVERSION[motionPosition];
@@ -279,8 +277,8 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         // rolling shutter type
         TfToken rollingShutterType = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraRolling_shutter_type,
-            usdCyclesTokens->none);
+                                                                      usdCyclesTokens->cyclesCameraRolling_shutter_type,
+                                                                      usdCyclesTokens->none);
 
         if (m_rollingShutterType != ROLLING_SHUTTER_TYPE_CONVERSION[rollingShutterType]) {
             m_rollingShutterType = ROLLING_SHUTTER_TYPE_CONVERSION[rollingShutterType];
@@ -289,7 +287,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // panorama type
         TfToken panoramaType = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
                                                                 usdCyclesTokens->cyclesCameraPanorama_type,
-            usdCyclesTokens->equirectangular);
+                                                                usdCyclesTokens->equirectangular);
 
         if (m_panoramaType != PANORAMA_TYPE_CONVERSION[panoramaType]) {
             m_panoramaType = PANORAMA_TYPE_CONVERSION[panoramaType];
@@ -297,7 +295,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         // stereo eye
         TfToken stereoEye = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id, usdCyclesTokens->cyclesCameraStereo_eye,
-            usdCyclesTokens->none);
+                                                             usdCyclesTokens->none);
 
         if (m_stereoEye != STEREO_EYE_CONVERSION[stereoEye]) {
             m_stereoEye = STEREO_EYE_CONVERSION[stereoEye];
@@ -319,70 +317,70 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         m_shutterTime = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraShutter_time,
-            m_shutterTime);
+                                                       m_shutterTime);
 
         m_rollingShutterTime = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraRolling_shutter_duration,
-            m_rollingShutterTime);
+                                                              usdCyclesTokens->cyclesCameraRolling_shutter_duration,
+                                                              m_rollingShutterTime);
 
         m_blades = _HdCyclesGetCameraParam<int>(sceneDelegate, id, usdCyclesTokens->cyclesCameraBlades, m_blades);
 
         m_bladesRotation = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
                                                           usdCyclesTokens->cyclesCameraBlades_rotation,
-            m_bladesRotation);
+                                                          m_bladesRotation);
 
         m_offscreenDicingScale = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraOffscreen_dicing_scale,
-            m_offscreenDicingScale);
+                                                                usdCyclesTokens->cyclesCameraOffscreen_dicing_scale,
+                                                                m_offscreenDicingScale);
 
         // Fisheye
 
         m_fisheyeFov = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraFisheye_fov,
-            m_fisheyeFov);
+                                                      m_fisheyeFov);
 
         m_fisheyeLens = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraFisheye_lens,
-            m_fisheyeLens);
+                                                       m_fisheyeLens);
 
         // Panorama
 
         m_latMin = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLatitude_min,
-            m_latMin);
+                                                  m_latMin);
 
         m_latMax = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLatitude_max,
-            m_latMax);
+                                                  m_latMax);
 
         m_longMin = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLongitude_min,
-            m_longMin);
+                                                   m_longMin);
 
         m_longMax = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLongitude_max,
-            m_longMax);
+                                                   m_longMax);
 
         // Stereo
 
         m_useSphericalStereo = _HdCyclesGetCameraParam<bool>(sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraUse_spherical_stereo,
-            m_useSphericalStereo);
+                                                             usdCyclesTokens->cyclesCameraUse_spherical_stereo,
+                                                             m_useSphericalStereo);
 
         m_interocularDistance = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraInterocular_distance,
-            m_interocularDistance);
+                                                               usdCyclesTokens->cyclesCameraInterocular_distance,
+                                                               m_interocularDistance);
 
         m_convergenceDistance = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraConvergence_distance,
-            m_convergenceDistance);
+                                                               usdCyclesTokens->cyclesCameraConvergence_distance,
+                                                               m_convergenceDistance);
 
         // Pole merge
 
         m_usePoleMerge = _HdCyclesGetCameraParam<bool>(sceneDelegate, id, usdCyclesTokens->cyclesCameraUse_pole_merge,
-            m_usePoleMerge);
+                                                       m_usePoleMerge);
 
         m_poleMergeAngleFrom = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-            usdCyclesTokens->cyclesCameraPole_merge_angle_from,
-            m_poleMergeAngleFrom);
+                                                              usdCyclesTokens->cyclesCameraPole_merge_angle_from,
+                                                              m_poleMergeAngleFrom);
 
         m_poleMergeAngleTo = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
                                                             usdCyclesTokens->cyclesCameraPole_merge_angle_to,
-            m_poleMergeAngleTo);
+                                                            m_poleMergeAngleTo);
 #endif
     }
 
@@ -478,12 +476,10 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
         for (size_t i = 0; i < m_transformSamples.count; i++) {
             if (m_transformSamples.times.data()[i] == 0.0f) {
-                a_camera->set_matrix(mat4d_to_transform(ConvertCameraTransform(
-                    m_transformSamples.values.data()[i])));
+                a_camera->set_matrix(mat4d_to_transform(ConvertCameraTransform(m_transformSamples.values.data()[i])));
             }
 
-            motion[i] = mat4d_to_transform(
-                ConvertCameraTransform(m_transformSamples.values.data()[i]));
+            motion[i] = mat4d_to_transform(ConvertCameraTransform(m_transformSamples.values.data()[i]));
         }
         a_camera->set_motion(motion);
     }
@@ -610,9 +606,9 @@ HdCyclesCamera::SetTransform(const GfMatrix4d a_projectionMatrix)
         double left   = -(1 + a_projectionMatrix[3][0]) / a_projectionMatrix[0][0];
         double right  = (1 - a_projectionMatrix[3][0]) / a_projectionMatrix[0][0];
         double bottom = -(1 - a_projectionMatrix[3][1]) / a_projectionMatrix[1][1];
-        double top = (1 + a_projectionMatrix[3][1]) / a_projectionMatrix[1][1];
-        double w   = (right - left) / 2;
-        double h   = (top - bottom) / 2;
+        double top    = (1 + a_projectionMatrix[3][1]) / a_projectionMatrix[1][1];
+        double w      = (right - left) / 2;
+        double h      = (top - bottom) / 2;
         GfMatrix4d scaleMatrix;
         scaleMatrix.SetScale(GfVec3d(w, h, 1));
         viewToWorldCorrectionMatrix = scaleMatrix;
