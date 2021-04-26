@@ -390,7 +390,7 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
                         cyclesNode->set(socket, value);
                     } else {
                         // fallback to Blender's defaults
-                        if(cycles_node_name == "cycles_principled_bsdf") {
+                        if(cycles_node_name == "principled_bsdf") {
                             cyclesNode->set(socket, "GGX");
                         } else {
                             TF_CODING_ERROR("Invalid enum without fallback value");
