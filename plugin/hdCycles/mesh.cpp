@@ -524,11 +524,11 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     auto GetPrimvarInterpolation = [sceneDelegate, &id](HdInterpolation& interpolation) -> bool {
         for (size_t i =0; i < HdInterpolationCount; ++i) {
             HdPrimvarDescriptorVector d = sceneDelegate->GetPrimvarDescriptors(id, static_cast<HdInterpolation>(i));
-            auto predicate              = [](const HdPrimvarDescriptor& d) -> bool {
-                return d.name == HdTokens->normals && d.role == HdPrimvarRoleTokens->normal;
+            auto predicate              = [](const HdPrimvarDescriptor& desc) -> bool {
+                return desc.name == HdTokens->normals && desc.role == HdPrimvarRoleTokens->normal;
             };
             if (std::find_if(d.begin(), d.end(), predicate) != d.end()) {
-                interpolation = (HdInterpolation)i;
+                interpolation = static_cast<HdInterpolation>(i);
                 return true;
             }
         }
@@ -735,7 +735,7 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
         VtValue refined_points_value = m_refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
                                                                values[i]);
         if (!refined_points_value.IsHolding<VtVec3fArray>()) {
-            TF_WARN("Cannot fill in motion step %d for: %s\n", (int)i, id.GetText());
+            TF_WARN("Cannot fill in motion step %d for: %s\n", static_cast<int>(i), id.GetText());
             continue;
         }
 

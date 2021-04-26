@@ -453,11 +453,10 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
     a_camera->set_rolling_shutter_duration(m_rollingShutterTime);
 
-    a_camera->set_rolling_shutter_type((ccl::Camera::RollingShutterType)m_rollingShutterType);
-    a_camera->set_panorama_type((ccl::PanoramaType)m_panoramaType);
-    a_camera->set_motion_position((ccl::MotionPosition)m_motionPosition);
-    a_camera->set_stereo_eye((ccl::Camera::StereoEye)m_stereoEye);
-
+    a_camera->set_rolling_shutter_type(static_cast<ccl::Camera::RollingShutterType>(m_rollingShutterType));
+    a_camera->set_panorama_type(static_cast<ccl::PanoramaType>(m_panoramaType));
+    a_camera->set_motion_position(static_cast<ccl::MotionPosition>(m_motionPosition));
+    a_camera->set_stereo_eye(static_cast<ccl::Camera::StereoEye>(m_stereoEye));
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->set_camera_type(ccl::CameraType::CAMERA_ORTHOGRAPHIC);

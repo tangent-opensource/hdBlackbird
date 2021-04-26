@@ -284,13 +284,13 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value, HdInterpolation interp
 
     // convert uniform uv attrib
 
-    auto fill_uniform_uv_attrib = [&attribName](auto& uvs, ccl::AttributeSet& attributes) {
+    auto fill_uniform_uv_attrib = [&attribName](auto& attr_uvs, ccl::AttributeSet& attributes) {
         ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
         ccl::float2* std_uv_data    = attr_std_uv->data_float2();
 
-        for (size_t curve = 0; curve < uvs.size(); curve++) {
-            std_uv_data[curve][0] = uvs[curve][0];
-            std_uv_data[curve][1] = uvs[curve][1];
+        for (size_t curve = 0; curve < attr_uvs.size(); curve++) {
+            std_uv_data[curve][0] = attr_uvs[curve][0];
+            std_uv_data[curve][1] = attr_uvs[curve][1];
         }
     };
 
@@ -317,24 +317,25 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value, HdInterpolation interp
 
     // convert vertex/varying uv attrib
 
-    auto fill_vertex_or_varying_uv_attrib = [&attribName](auto& uvs, ccl::AttributeSet& attributes, const VtIntArray& curveVertexCounts){
+    auto fill_vertex_or_varying_uv_attrib = [&attribName](auto& attr_uvs, ccl::AttributeSet& attributes,
+                                                          const VtIntArray& vertexCounts) {
         ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
         ccl::float2* std_uv_data = attr_std_uv->data_float2();
 
         ccl::Attribute* attr_st = attributes.add(attribName, ccl::TypeFloat2, ccl::ATTR_ELEMENT_CURVE_KEY);
         ccl::float2* st_data = attr_st->data_float2();
 
-        for (size_t curve = 0, offset = 0; curve < curveVertexCounts.size(); ++curve) {
+        for (size_t curve = 0, offset = 0; curve < vertexCounts.size(); ++curve) {
             // std_uv - per curve
-            std_uv_data[curve][0] = uvs[offset][0];
-            std_uv_data[curve][1] = uvs[offset][1];
+            std_uv_data[curve][0] = attr_uvs[offset][0];
+            std_uv_data[curve][1] = attr_uvs[offset][1];
 
             // st - per vertex
-            for (size_t vertex = 0; vertex < curveVertexCounts[curve]; ++vertex) {
-                st_data[offset + vertex][0] = uvs[offset + vertex][0];
-                st_data[offset + vertex][1] = uvs[offset + vertex][1];
+            for (size_t vertex = 0; vertex < vertexCounts[curve]; ++vertex) {
+                st_data[offset + vertex][0] = attr_uvs[offset + vertex][0];
+                st_data[offset + vertex][1] = attr_uvs[offset + vertex][1];
             }
-            offset += static_cast<size_t>(curveVertexCounts[curve]);
+            offset += static_cast<size_t>(vertexCounts[curve]);
         }
     };
 
@@ -682,7 +683,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
         for (int j = 0; j < curveVertexCounts[i]; j++) {
             size_t idx = j + currentPointCount;
 
-            const float time = (float)j / (float)(curveVertexCounts[i] - 1);
+            const float time = static_cast<float>(j) / static_cast<float>(curveVertexCounts[i] - 1);
 
             if (idx > m_points.size()) {
                 TF_WARN("Attempted to access invalid point. Continuing");
@@ -835,9 +836,9 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
             // Widths
 
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
-            float radius = 0.1f;
+            radius = 0.1f;
 
-            int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+            width_idx = std::min(idx, static_cast<int>(m_widths.size() - 1));
 
             if (m_widthsInterpolation == HdInterpolationUniform)
                 width_idx = std::min(i, m_widths.size() - 1);
@@ -858,8 +859,8 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
                 else
                     xbasis = ccl::normalize(ccl::cross(ickey_loc, v1));
             }
-            ccl::float3 ickey_loc_shfl = ickey_loc - radius * xbasis;
-            ccl::float3 ickey_loc_shfr = ickey_loc + radius * xbasis;
+            ickey_loc_shfl = ickey_loc - radius * xbasis;
+            ickey_loc_shfr = ickey_loc + radius * xbasis;
             m_cyclesMesh->add_vertex(ickey_loc_shfl);
             m_cyclesMesh->add_vertex(ickey_loc_shfr);
             m_cyclesMesh->add_triangle(vertexindex - 2, vertexindex, vertexindex - 1, 0, true);
@@ -966,7 +967,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             // Hydra/USD treats widths as diameters so we halve before sending to cycles
             float radius = 0.1f;
 
-            int width_idx = std::min(idx, (int)(m_widths.size() - 1));
+            int width_idx = std::min(idx, static_cast<int>(m_widths.size() - 1));
 
             if (m_widthsInterpolation == HdInterpolationUniform)
                 width_idx = std::min(i, m_widths.size() - 1);
@@ -976,7 +977,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             if (m_widths.size() > 0)
                 radius = m_widths[width_idx] / 2.0f;
 
-            float angle = M_2PI_F / (float)m_curveResolution;
+            float angle = M_2PI_F / static_cast<float>(m_curveResolution);
 
             xbasis = ccl::cross(v1, v2);
 
@@ -990,10 +991,11 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             ybasis = ccl::normalize(ccl::cross(xbasis, v2));
 
             // Add vertices
+            float segment_angle = 0.0f;
             for (int k = 0; k < m_curveResolution; k++) {
                 ccl::float3 vertex_location = usd_location
-                                              + radius * (cosf(angle * k) * xbasis + sinf(angle * k) * ybasis);
-
+                                              + radius * (cosf(segment_angle) * xbasis + sinf(segment_angle) * ybasis);
+                segment_angle += angle;
                 m_cyclesMesh->add_vertex(vertex_location);
             }
 

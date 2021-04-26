@@ -483,14 +483,14 @@ ccl::float4
 vec4i_to_float4(const GfVec4i& a_vec)
 {
     return ccl::make_float4(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]), static_cast<float>(a_vec[2]),
-                            (float)a_vec[3]);
+                            static_cast<float>(a_vec[3]));
 }
 
 ccl::float4
 vec4d_to_float4(const GfVec4d& a_vec)
 {
     return ccl::make_float4(static_cast<float>(a_vec[0]), static_cast<float>(a_vec[1]), static_cast<float>(a_vec[2]),
-                            (float)a_vec[3]);
+                            static_cast<float>(a_vec[3]));
 }
 
 /* ========= Primvars ========= */
@@ -952,7 +952,7 @@ _HdCyclesGetVtValue<bool>(VtValue a_value, bool a_default, bool* a_hasChanged, b
         } else if (a_value.IsHolding<int>()) {
             if (!a_checkWithDefault && a_hasChanged)
                 *a_hasChanged = true;
-            val = (bool)a_value.UncheckedGet<int>();
+            val = static_cast<bool>(a_value.UncheckedGet<int>());
         } else if (a_value.IsHolding<float>()) {
             if (!a_checkWithDefault && a_hasChanged)
                 val = (a_value.UncheckedGet<float>() == 1.0f);

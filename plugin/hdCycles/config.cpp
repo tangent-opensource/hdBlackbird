@@ -49,7 +49,7 @@ template<> HdCyclesEnvValue<double>::HdCyclesEnvValue(const char* a_envName, dou
 template<> HdCyclesEnvValue<float>::HdCyclesEnvValue(const char* a_envName, float a_default)
 {
     envName     = std::string(a_envName);
-    value       = (float)TfGetenvDouble(envName, (double)a_default);
+    value       = static_cast<float>(TfGetenvDouble(envName, static_cast<double>(a_default)));
     hasOverride = TfGetenv(envName) != "";
 }
 

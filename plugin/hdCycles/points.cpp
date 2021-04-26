@@ -286,7 +286,7 @@ HdCyclesPoints::_CreateDiscMesh()
     m_cyclesMesh->reserve_mesh(numVerts, numFaces);
 
     for (int i = 0; i < m_pointResolution; i++) {
-        float d = ((float)i / (float)m_pointResolution) * 2.0f * M_PI;
+        float d = (static_cast<float>(i) / static_cast<float>(m_pointResolution)) * 2.0f * M_PI_F;
         float x = sin(d) * 0.5f;
         float y = cos(d) * 0.5f;
         m_cyclesMesh->add_vertex(ccl::make_float3(x, y, 0.0f));
@@ -316,12 +316,12 @@ HdCyclesPoints::_CreateSphereMesh()
 
     float z, xy;
 
-    float sectorStep = 2 * M_PI / sectorCount;
-    float stackStep  = M_PI / stackCount;
+    float sectorStep = 2.0f * M_PI_F / sectorCount;
+    float stackStep  = M_PI_F / stackCount;
     float sectorAngle, stackAngle;
 
     for (int i = 0; i <= stackCount; ++i) {
-        stackAngle = M_PI / 2 - i * stackStep;
+        stackAngle = M_PI_F / 2.0f - i * stackStep;
         xy         = radius * cosf(stackAngle);
         z          = radius * sinf(stackAngle);
 

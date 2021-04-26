@@ -109,13 +109,21 @@ std::array<HdCyclesAov, 3> CryptomatteAovs = {{
     { "CryptoAsset", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoAsset, HdFormatFloat32Vec4, true },
 }};
 
+// Workaround for Houdini's default color buffer naming convention (not using HdAovTokens->color)
+const TfToken defaultHoudiniColor = TfToken("C.*");
+
 TfToken
 GetSourceName(const HdRenderPassAovBinding& aov)
 {
     const auto &it = aov.aovSettings.find(UsdRenderTokens->sourceName);
     if (it != aov.aovSettings.end()) {
         if (it->second.IsHolding<std::string>()) {
-            return TfToken(it->second.UncheckedGet<std::string>());
+            TfToken token = TfToken(it->second.UncheckedGet<std::string>());
+            if (token == defaultHoudiniColor) {
+                return HdAovTokens->color;
+            } else {
+                return token;
+            }
         }
     }
 
@@ -215,7 +223,7 @@ HdCyclesRenderParam::_SessionUpdateCallback()
 
     m_renderProgress = m_cyclesSession->progress.get_progress();
 
-    int newPercent = (int)(floor(m_renderProgress * 100));
+    int newPercent = static_cast<int>(floor(m_renderProgress * 100.0f));
     if (newPercent != m_renderPercent) {
         m_renderPercent = newPercent;
 
@@ -435,13 +443,16 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         // If branched-path mode is set, make sure to set samples to use the
         // aa_samples instead from the integrator.
         int samples = sessionParams->samples;
+        int aa_samples = 0;
         ccl::Integrator::Method method = ccl::Integrator::PATH;
 
         if (m_cyclesScene) {
             method = m_cyclesScene->integrator->get_method();
+            aa_samples = m_cyclesScene->integrator->get_aa_samples();
 
-            if (method == ccl::Integrator::BRANCHED_PATH) {
-                samples = m_cyclesScene->integrator->get_aa_samples();
+            // Don't apply aa_samples if it is 0
+            if (aa_samples && method == ccl::Integrator::BRANCHED_PATH) {
+                samples = aa_samples;
             }
         }
 
@@ -449,8 +460,9 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         if (samples_updated) {
             session_updated = true;
 
-            if (m_cyclesScene && method == ccl::Integrator::BRANCHED_PATH) {
-                sessionParams->samples = m_cyclesScene->integrator->get_aa_samples();
+            if (m_cyclesScene && aa_samples && 
+                method == ccl::Integrator::BRANCHED_PATH) {
+                sessionParams->samples = aa_samples;
             }
         }
     }
@@ -791,7 +803,8 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
         if (method_updated) {
             integrator_updated = true;
-            if (integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->get_aa_samples() && 
+                integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->get_aa_samples();
             }
         }
@@ -891,8 +904,10 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
                 integrator->set_aa_samples(integrator->get_aa_samples()
                                          * integrator->get_aa_samples());
             }
-            if (integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
-                m_cyclesSession->params.samples =integrator->get_aa_samples();
+
+            if (integrator->get_aa_samples() &&
+                integrator->get_method() == ccl::Integrator::BRANCHED_PATH) {
+                m_cyclesSession->params.samples = integrator->get_aa_samples();
             }
             integrator_updated = true;
         }
@@ -1387,8 +1402,6 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
     if (!m_useTiledRendering)
         return;
 
-    ccl::thread_scoped_lock session_lock(m_cyclesScene->mutex);
-
     const int w = rtile.w;
     const int h = rtile.h;
 
@@ -1636,7 +1649,8 @@ HdCyclesRenderParam::SetDeviceType(const std::string& a_deviceType)
 bool
 HdCyclesRenderParam::_SetDevice(const ccl::DeviceType& a_deviceType, ccl::SessionParams& params)
 {
-    std::vector<ccl::DeviceInfo> devices = ccl::Device::available_devices((ccl::DeviceTypeMask)(1 << a_deviceType));
+    std::vector<ccl::DeviceInfo> devices = ccl::Device::available_devices(
+        static_cast<ccl::DeviceTypeMask>(1 << a_deviceType));
 
     bool device_available = false;
 
@@ -2075,7 +2089,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     ccl::CryptomatteType cryptomatte_passes = ccl::CRYPT_NONE;
     if (film->get_cryptomatte_passes() & ccl::CRYPT_ACCURATE) {
-        cryptomatte_passes = (ccl::CryptomatteType)(cryptomatte_passes | ccl::CRYPT_ACCURATE);
+        cryptomatte_passes = static_cast<ccl::CryptomatteType>(cryptomatte_passes | ccl::CRYPT_ACCURATE);
     }
     film->set_cryptomatte_passes(cryptomatte_passes);
 
@@ -2135,21 +2149,21 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     // Ordering matters
     if (cryptoObject) {
-        film->set_cryptomatte_passes((ccl::CryptomatteType)(film->get_cryptomatte_passes() | ccl::CRYPT_OBJECT));
+        film->set_cryptomatte_passes(static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_OBJECT));
         for (int i = 0; i < cryptoObject; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes, 
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoObject.GetText(), i).c_str());
         }
     }
     if (cryptoMaterial) {
-        film->set_cryptomatte_passes((ccl::CryptomatteType)(film->get_cryptomatte_passes() | ccl::CRYPT_MATERIAL));
+        film->set_cryptomatte_passes(static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_MATERIAL));
         for (int i = 0; i < cryptoMaterial; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoMaterial.GetText(), i).c_str());
         }
     }
     if (cryptoAsset) {
-        film->set_cryptomatte_passes((ccl::CryptomatteType)(film->get_cryptomatte_passes() | ccl::CRYPT_ASSET));
+        film->set_cryptomatte_passes(static_cast<ccl::CryptomatteType>(film->get_cryptomatte_passes() | ccl::CRYPT_ASSET));
         for (int i = 0; i < cryptoAsset; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
                            ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoAsset.GetText(), i).c_str());
