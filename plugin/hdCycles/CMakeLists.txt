@@ -67,6 +67,8 @@ add_library(hdCycles SHARED
         objectSource.h
         attributeSource.cpp
         attributeSource.h
+        renderPassState.cpp
+        renderPassState.h
         )
 
 target_include_directories(hdCycles
