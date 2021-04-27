@@ -125,6 +125,8 @@ public:
      */
     bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
+    void BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int display_w, int display_h);
+
 protected:
     /**
      * @brief Start a cycles render

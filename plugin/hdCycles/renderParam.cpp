@@ -126,6 +126,7 @@ GetSourceName(const HdRenderPassAovBinding& aov)
         }
     }
 
+    return aov.aovName;
     return TfToken();
 }
 
@@ -2095,6 +2096,33 @@ HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
         }
         m_cyclesScene->film->tag_update(m_cyclesScene);
         Interrupt();
+    }
+}
+
+/*
+    Here only because the info about aov mapping is local to this file.
+
+    w, h could be fetched from the aov itself
+*/
+void
+HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int display_w, int display_h) {
+    HdCyclesAov cyclesAov;
+    if (!GetCyclesAov(aov, cyclesAov)) {
+        return;
+    }
+
+    // This temporary float buffer can be worked around
+    const int numComponents = (int)HdGetComponentCount(cyclesAov.format);
+    ccl::vector<float> data(display_w * display_h * numComponents);
+
+    auto buffers = m_cyclesSession->buffers;
+
+    const float exposure = m_cyclesScene->film->exposure;
+    const bool read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, 1, numComponents, data.data());
+
+    if (read) {
+        auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
+        rb->Blit(cyclesAov.format, w, h, 0, w, (const uint8_t*)data.data());
     }
 }
 
