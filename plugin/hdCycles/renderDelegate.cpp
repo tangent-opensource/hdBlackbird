@@ -33,6 +33,7 @@
 #include "renderBuffer.h"
 #include "renderParam.h"
 #include "renderPass.h"
+#include "renderPassState.h"
 #include "utils.h"
 
 #include <render/background.h>
@@ -408,6 +409,12 @@ HdCyclesRenderDelegate::Resume()
 {
     m_renderParam->ResumeRender();
     return true;
+}
+
+HdRenderPassStateSharedPtr
+HdCyclesRenderDelegate::CreateRenderPassState() const
+{
+    return std::make_shared<HdCyclesRenderPassState>(this);
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

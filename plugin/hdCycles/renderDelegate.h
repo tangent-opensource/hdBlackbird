@@ -179,9 +179,11 @@ public:
 
     virtual HdResourceRegistrySharedPtr GetResourceRegistry() const override;
 
-    // Prims
-    virtual HdRenderPassSharedPtr CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection) override;
+    // Render Pass and State
+    HdRenderPassSharedPtr CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection) override;
+    HdRenderPassStateSharedPtr CreateRenderPassState() const override;
 
+    // Prims
     HdInstancer* CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& instancerId) override;
     void DestroyInstancer(HdInstancer* instancer) override;
 
