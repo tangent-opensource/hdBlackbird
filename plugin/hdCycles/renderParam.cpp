@@ -424,8 +424,9 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     }
 
     if (key == usdCyclesTokens->cyclesProgressive_update_timeout) {
-        sessionParams->progressive_update_timeout
-            = _HdCyclesGetVtValue<float>(value, sessionParams->progressive_update_timeout, &session_updated);
+        sessionParams->progressive_update_timeout = static_cast<double>(
+            _HdCyclesGetVtValue<float>(value, static_cast<float>(sessionParams->progressive_update_timeout),
+                                       &session_updated));
     }
 
     if (key == usdCyclesTokens->cyclesExperimental) {
@@ -1105,8 +1106,9 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     }
 
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
-        int cryptomatte_depth   = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
-        film->cryptomatte_depth = ccl::divide_up(ccl::min(16, cryptomatte_depth), 2);
+        auto cryptomatte_depth  = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
+        film->cryptomatte_depth = static_cast<int>(
+            ccl::divide_up(static_cast<size_t>(ccl::min(16, cryptomatte_depth)), 2));
     }
 
     if (film_updated) {
