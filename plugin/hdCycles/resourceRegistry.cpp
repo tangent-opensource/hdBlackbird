@@ -29,9 +29,16 @@ PXR_NAMESPACE_USING_DIRECTIVE
 void
 HdCyclesResourceRegistry::_Commit()
 {
-    ccl::thread_scoped_lock scene_lock { m_scene->mutex };
+    // This function is under heavy wip. In ideal situation committing all resources to cycles should happen in one
+    // place only.
 
-    // 1) bind objects to the scene
+    ccl::thread_scoped_lock scene_lock { m_scene->mutex };
+    // TODO: acquire display lock
+
+    // State used to control session/scene update reset
+    std::atomic_bool requires_reset { false };
+
+    // * bind objects to the scene
     for (auto& object_source : m_object_sources) {
         if (!object_source.second.value->IsValid()) {
             continue;
@@ -39,12 +46,21 @@ HdCyclesResourceRegistry::_Commit()
         object_source.second.value->Resolve();
     }
 
-    // 2) commit all pending resources
+    // * commit all pending object resources
     using ValueType = HdInstanceRegistry<HdCyclesObjectSourceSharedPtr>::const_iterator::value_type;
-    WorkParallelForEach(m_object_sources.begin(), m_object_sources.end(), [](const ValueType& object_source) {
-        // resolve per object
-        object_source.second.value->ResolvePendingSources();
-    });
+    WorkParallelForEach(m_object_sources.begin(), m_object_sources.end(),
+                        [&requires_reset](const ValueType& object_source) {
+                            // resolve per object
+                            size_t num_resolved_sources = object_source.second.value->ResolvePendingSources();
+                            if (num_resolved_sources > 0) {
+                                requires_reset = true;
+                            }
+                        });
+
+    // * notify session that new resources have been committed and reset is required
+    if (requires_reset) {
+        // TODO: After we are done removing scene and session mutations from *::Sync. We can request update and reset
+    }
 }
 
 void
