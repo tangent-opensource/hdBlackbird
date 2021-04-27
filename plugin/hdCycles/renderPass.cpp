@@ -81,42 +81,43 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 
     // XXX: Need to cast away constness to process updated camera params since
     // the Hydra camera doesn't update the Cycles camera directly.
-    HdCyclesCamera* hdCam = const_cast<HdCyclesCamera*>(
-        dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
-
-    ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
+    auto hdCam = const_cast<HdCyclesCamera*>(dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
 
     bool shouldUpdate = false;
 
-    if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
-        m_projMtx = projMtx;
-        m_viewMtx = viewMtx;
+    if(hdCam) {
+        ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
 
-        const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
-        hdCam->SetFOV(fov_rad);
+        if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
+            m_projMtx = projMtx;
+            m_viewMtx = viewMtx;
 
-        shouldUpdate = true;
-    }
+            const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
+            hdCam->SetFOV(fov_rad);
 
-    if (!shouldUpdate)
-        shouldUpdate = hdCam->IsDirty();
+            shouldUpdate = true;
+        }
 
-    if (shouldUpdate) {
-        hdCam->ApplyCameraSettings(active_camera);
+        if (!shouldUpdate)
+            shouldUpdate = hdCam->IsDirty();
 
-        // Needed for now, as houdini looks through a generated camera
-        // and doesn't copy the projection type (as of 18.0.532)
-        bool is_ortho = round(m_projMtx[3][3]) == 1.0;
+        if (shouldUpdate) {
+            hdCam->ApplyCameraSettings(active_camera);
 
-        if (is_ortho) {
-            active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
-        } else
-            active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+            // Needed for now, as houdini looks through a generated camera
+            // and doesn't copy the projection type (as of 18.0.532)
+            bool is_ortho = round(m_projMtx[3][3]) == 1.0;
 
-        active_camera->tag_update();
+            if (is_ortho) {
+                active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+            } else
+                active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
 
-        // DirectReset here instead of Interrupt for faster IPR camera orbits
-        renderParam->DirectReset();
+            active_camera->tag_update();
+
+            // DirectReset here instead of Interrupt for faster IPR camera orbits
+            renderParam->DirectReset();
+        }
     }
 
     const auto width  = static_cast<int>(vp[2]);
