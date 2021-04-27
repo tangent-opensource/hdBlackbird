@@ -19,11 +19,11 @@
 
 #include "basisCurves.h"
 
+#include "attributeSource.h"
 #include "config.h"
 #include "material.h"
 #include "renderParam.h"
 #include "utils.h"
-#include "attributeSource.h"
 
 #include <render/curves.h>
 #include <render/hair.h>
@@ -402,7 +402,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
     HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
-    if(object_instance.IsFirstInstance()) {
+    if (object_instance.IsFirstInstance()) {
         object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
         m_object_source = object_instance.GetValue();
     }
@@ -418,10 +418,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     // Defaults
     m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
-    m_useMotionBlur = false;
-    m_cyclesObject->is_shadow_catcher = false;
-    m_cyclesObject->pass_id = 0;
-    m_cyclesObject->use_holdout = false;
+    m_useMotionBlur                                                                           = false;
+    m_cyclesObject->is_shadow_catcher                                                         = false;
+    m_cyclesObject->pass_id                                                                   = 0;
+    m_cyclesObject->use_holdout                                                               = false;
 
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
@@ -471,9 +471,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
 
-        m_useMotionBlur = (bool)_HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-                                                             usdCyclesTokens->primvarsCyclesObjectMblur,
-                                                             m_useMotionBlur);
+        m_useMotionBlur = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
+                                                       usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
 
         TfToken curveShape = usdCyclesTokens->ribbon;
 
@@ -596,22 +595,23 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     VtValue value = GetPrimvar(sceneDelegate, pv.name);
 
-                    if(pv.name == HdTokens->points) {
+                    if (pv.name == HdTokens->points) {
                         continue;
                     }
 
-                    if(pv.name == HdTokens->widths) {
+                    if (pv.name == HdTokens->widths) {
                         continue;
                     }
 
                     // uvs
                     if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVS(pv.name, value, primvarDescsEntry.first);
-                        continue;;
+                        continue;
+                        ;
                     }
 
                     // colors
-                    if(pv.role == HdPrimvarRoleTokens->color) {
+                    if (pv.role == HdPrimvarRoleTokens->color) {
                         _AddColors(pv.name, value, primvarDescsEntry.first);
                         continue;
                     }
