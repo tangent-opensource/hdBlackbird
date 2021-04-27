@@ -49,7 +49,7 @@ public:
 
     // TODO: Resolve binds object to the scene
     bool Resolve() override;
-    void ResolvePendingSources();
+    size_t ResolvePendingSources();
 
     const TfToken& GetName() const override;
     void GetBufferSpecs(HdBufferSpecVector* specs) const override {}
