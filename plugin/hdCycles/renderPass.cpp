@@ -72,20 +72,17 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         }
     }
 
-    const auto vp = renderPassState->GetViewport();
-
-    GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
-    GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
-
     m_isConverged = renderParam->IsConverged();
-
-    // XXX: Need to cast away constness to process updated camera params since
-    // the Hydra camera doesn't update the Cycles camera directly.
-    auto hdCam = const_cast<HdCyclesCamera*>(dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
 
     bool shouldUpdate = false;
 
+    // TODO: Revisit this code and move it to HdCyclesRenderPassState
+    auto hdCam = const_cast<HdCyclesCamera*>(dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
     if(hdCam) {
+
+        GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
+        GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
+
         ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
 
         if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
@@ -98,8 +95,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
             shouldUpdate = true;
         }
 
-        if (!shouldUpdate)
+        if (!shouldUpdate) {
             shouldUpdate = hdCam->IsDirty();
+        }
 
         if (shouldUpdate) {
             hdCam->ApplyCameraSettings(active_camera);
@@ -120,8 +118,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         }
     }
 
-    const auto width  = static_cast<int>(vp[2]);
-    const auto height = static_cast<int>(vp[3]);
+    const GfVec4f& viewport = renderPassState->GetViewport();
+    const auto width  = static_cast<int>(viewport[2]);
+    const auto height = static_cast<int>(viewport[3]);
 
     if (width != m_width || height != m_height) {
         m_width  = width;
