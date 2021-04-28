@@ -128,7 +128,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Number of threads to render with"
     )
 
-    uniform float2 cycles:tile_size = (64, 64) (
+    uniform int2 cycles:tile_size = (64, 64) (
         customData = {
             string apiName = "tile_size"
         }
