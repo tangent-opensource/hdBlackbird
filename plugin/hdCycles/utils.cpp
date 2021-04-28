@@ -236,9 +236,9 @@ HdCyclesSetTransform(ccl::Object* object, HdSceneDelegate* delegate, const SdfPa
         }
 
         // Rounding to odd number of samples to have one in the center
-        const size_t sampleOffset     = (sampleCount % 2) ? 0 : 1;
-        const size_t numMotionSteps   = sampleCount + static_cast<size_t>(sampleOffset);
-        const float motionStepSize = (xf.times.back() - xf.times.front()) / static_cast<float>((numMotionSteps - 1));
+        const size_t sampleOffset   = (sampleCount % 2) ? 0 : 1;
+        const size_t numMotionSteps = sampleCount + static_cast<size_t>(sampleOffset);
+        const float motionStepSize  = (xf.times.back() - xf.times.front()) / static_cast<float>((numMotionSteps - 1));
         object->motion.resize(numMotionSteps, ccl::transform_empty());
 
         // For each step, we use the available data from the neighbors
@@ -392,10 +392,22 @@ int2_to_vec2i(const ccl::int2& a_int)
     return GfVec2i(a_int.x, a_int.y);
 }
 
+GfVec2f
+int2_to_vec2f(const ccl::int2& a_int)
+{
+    return GfVec2f(static_cast<float>(a_int.x), static_cast<float>(a_int.y));
+}
+
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec)
 {
     return ccl::make_float2(a_vec[0], a_vec[1]);
+}
+
+ccl::int2
+vec2f_to_int2(const GfVec2f& a_vec)
+{
+    return ccl::make_int2(static_cast<int>(a_vec[0]), static_cast<int>(a_vec[1]));
 }
 
 ccl::float2

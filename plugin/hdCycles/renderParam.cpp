@@ -463,8 +463,19 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     // Tiles
 
     if (key == usdCyclesTokens->cyclesTile_size) {
-        sessionParams->tile_size = vec2i_to_int2(
-            _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size), &session_updated));
+        if (value.IsHolding<GfVec2i>()) {
+            sessionParams->tile_size = vec2i_to_int2(
+                _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size), &session_updated));
+        } else if (value.IsHolding<GfVec2f>()) {
+            // Adding this check for safety since the original implementation was using GfVec2i which
+            // might have been valid at some point but does not match the current schema.
+            sessionParams->tile_size = vec2f_to_int2(
+                _HdCyclesGetVtValue<GfVec2f>(value, int2_to_vec2f(sessionParams->tile_size), &session_updated));
+            TF_WARN(
+                "Tile size was specified as float, but the schema uses int. The value will be converted but you should update the schema version.");
+        } else {
+            TF_WARN("Tile size has unsupported type %s, expected GfVec2f", value.GetTypeName().c_str());
+        }
     }
 
     TfToken tileOrder;
