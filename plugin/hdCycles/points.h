@@ -193,6 +193,7 @@ private:
 
     unsigned int m_visibilityFlags;
 
+    HdCyclesObjectSourceSharedPtr m_objectSource;
     HdCyclesRenderDelegate* m_renderDelegate;
 
     bool m_useMotionBlur;

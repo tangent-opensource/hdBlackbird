@@ -24,6 +24,7 @@
 #include "material.h"
 #include "renderParam.h"
 #include "utils.h"
+#include "attributeSource.h"
 
 #include <render/mesh.h>
 #include <render/object.h>
@@ -609,13 +610,19 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                      TfToken const& reprSelector)
 {
     auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
+    const SdfPath& id = GetId();
+
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    if(object_instance.IsFirstInstance()) {
+        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
+        m_objectSource = object_instance.GetValue();
+    }
 
     m_point_display_color_shader = param->default_vcol_display_color_surface;
     assert(m_point_display_color_shader);
 
     ccl::Scene* scene = param->GetCyclesScene();
-    const SdfPath& id = GetId();
-
     ccl::thread_scoped_lock lock { scene->mutex };
 
     // Rebuild the acceleration structure only if really necessary
@@ -653,6 +660,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         if (xf.count > 0) {
             const int& resolutions = xf.values[0].Get<int>();
             m_pointResolution      = std::max(resolutions, 10);
+            TF_WARN("Point resolution for geometry %s is currently unused, please create an issue for this!", id.GetText());
         }
     }
 
@@ -731,9 +739,15 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             } else if (description.name == HdTokens->accelerations) {
                 _PopulateAccelerations(sceneDelegate, id, interpolation, value);
             } else {
-                HdCyclesPointCloudAttributeSource source {
-                    description.name, HdPrimvarRoleTokens->none, { value }, m_cyclesPointCloud, interpolation
-                };
+                // Register any custom primvar to be set as geometry
+                // attribute when resources are commited
+                auto primvar_source = std::make_shared<HdCyclesPointCloudAttributeSource>(description.name, description.role, value,
+                                                                                            m_cyclesPointCloud,
+                                                                                            interpolation);
+
+                if (m_objectSource) {
+                    m_objectSource->AddSource(std::move(primvar_source));
+                }
             }
         }
     }
