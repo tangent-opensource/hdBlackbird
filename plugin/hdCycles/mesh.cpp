@@ -19,7 +19,6 @@
 
 #include "mesh.h"
 
-#include "attributeSource.h"
 #include "config.h"
 #include "debug_codes.h"
 #include "instancer.h"
@@ -678,6 +677,10 @@ HdCyclesMesh::_CreateCyclesMesh()
     ccl::Mesh* mesh = new ccl::Mesh();
     mesh->clear();
 
+    if (m_useMotionBlur && m_useDeformMotionBlur) {
+        mesh->use_motion_blur = true;
+    }
+
     mesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
     return mesh;
 }
@@ -693,6 +696,52 @@ HdCyclesMesh::_CreateCyclesObject()
     object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
 
     return object;
+}
+
+void
+HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
+{
+    // todo: this needs to be check to see if it is time-varying
+    // todo: this should be shared with the points for the center motion step
+    std::vector<float> times(HD_CYCLES_MOTION_STEPS);
+    std::vector<VtValue> values(HD_CYCLES_MOTION_STEPS);
+    const size_t numSamples = sceneDelegate->SamplePrimvar(id, HdTokens->points, HD_CYCLES_MOTION_STEPS, times.data(),
+                                                           values.data());
+
+    if (numSamples <= 1) {
+        return;
+    }
+
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+
+    m_cyclesMesh->use_motion_blur = true;
+    m_cyclesMesh->motion_steps    = static_cast<unsigned int>(numSamples + ((numSamples % 2) ? 0 : 1));
+
+    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+
+    if (attr_mP)
+        attributes->remove(attr_mP);
+
+    attr_mP         = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    ccl::float3* mP = attr_mP->data_float3();
+
+    for (size_t i = 0; i < numSamples; ++i) {
+        if (times[i] == 0.0f)  // todo: more flexible check?
+            continue;
+
+        VtValue refined_points_value = m_refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
+                                                                   values[i]);
+        if (!refined_points_value.IsHolding<VtVec3fArray>()) {
+            TF_WARN("Cannot fill in motion step %d for: %s\n", static_cast<int>(i), id.GetText());
+            continue;
+        }
+
+        VtVec3fArray refined_points = refined_points_value.UncheckedGet<VtVec3fArray>();
+
+        for (size_t j = 0; j < m_refiner->GetNumRefinedVertices(); ++j, ++mP) {
+            *mP = vec3f_to_float3(refined_points[j]);
+        }
+    }
 }
 
 void
@@ -910,152 +959,6 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 }
 
 void
-HdCyclesMesh::_PopulateComputedVertices(const SdfPath& id, VtValue points_value)
-{
-    if (!points_value.IsHolding<VtVec3fArray>()) {
-        if (!points_value.CanCast<VtVec3fArray>()) {
-            TF_WARN("Invalid points data! Can not convert points for: %s", id.GetText());
-            return;
-        }
-
-        points_value = points_value.Cast<VtVec3fArray>();
-    }
-
-    VtVec3fArray points;
-    VtValue refined_points_value = m_refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
-                                                               points_value);
-
-    for (size_t i = 0; i < points.size(); ++i) {
-        const GfVec3f& point   = points[i];
-        m_cyclesMesh->verts[i] = ccl::make_float3(point[0], point[1], point[2]);
-    }
-}
-
-
-void
-HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
-{
-    auto fill_motion_data = [refiner = m_refiner, &id](VtValue points_value, ccl::float3* vertices) {
-        if (!points_value.IsHolding<VtVec3fArray>()) {
-            if (!points_value.CanCast<VtVec3fArray>()) {
-                TF_WARN("Invalid points data! Can not convert points for: %s", id.GetText());
-                return;
-            }
-
-            points_value = points_value.Cast<VtVec3fArray>();
-        }
-
-        VtVec3fArray points;
-        VtValue refined_points_value = refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
-                                                                 points_value);
-
-        if (refined_points_value.IsHolding<VtVec3fArray>()) {
-            points = refined_points_value.Get<VtVec3fArray>();
-        } else {
-            TF_WARN("Unsupported point type for: %s", id.GetText());
-            return;
-        }
-
-        std::cout << points << std::endl;
-
-        for (size_t i = 0; i < points.size(); ++i) {
-            const GfVec3f& point = points[i];
-            vertices[i]          = ccl::make_float3(point[0], point[1], point[2]);
-        }
-    };
-
-    using size_type = decltype(HdCyclesValueTimeSampleArray::values)::size_type;
-
-    HdCyclesValueTimeSampleArray motion_samples;
-    sceneDelegate->SamplePrimvar(id, HdTokens->points, &motion_samples);
-    motion_samples.Resize(motion_samples.count);  // SamplePrimvar returns incorrect size
-
-    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
-
-    // count == 1 - constant
-    // count == even - varying, resample to odd
-
-    GetPrimvar(sceneDelegate, HdTokens->points); // invalidate points cache
-
-    if (motion_samples.count == 0) {
-        TF_WARN("Even number of motion blur samples used for %s mesh, resampling! This might be slow!", id.GetText());
-        return;
-    }
-
-    // constant no mb
-    if (motion_samples.count == 1) {
-        m_cyclesMesh->use_motion_blur = false;
-        m_cyclesMesh->motion_steps    = 0;
-
-        VtValue points_value = motion_samples.values[1];
-        fill_motion_data(points_value, m_cyclesMesh->verts.data());
-        return;
-    }
-
-    // Cycles requires odd number of samples, we need to resample them to odd samples
-    if (motion_samples.count % 2 == 0) {
-        TF_WARN("Even number of motion blur samples used for %s mesh, resampling! This might be slow!", id.GetText());
-
-        const auto shutter_open  = motion_samples.times[0];
-        const auto shutter_close = motion_samples.times[static_cast<size_type>(motion_samples.count - 1)];
-        const auto new_count     = static_cast<const size_type>(motion_samples.count + 1);
-
-        // Cast might be required?
-        HdCyclesVec3fArrayTimeSampleArray vec_motion_samples;
-        vec_motion_samples.Resize(motion_samples.count);
-        vec_motion_samples.times = motion_samples.times;
-        for (size_type i {}; i < motion_samples.count; ++i) {
-            vec_motion_samples.values[i] = motion_samples.values[i].UncheckedGet<VtVec3fArray>();
-        }
-
-        HdCyclesValueTimeSampleArray resampled;
-        resampled.Resize(new_count);
-
-        //
-        const auto new_step = (shutter_close - shutter_open) / static_cast<float>(new_count - 1);
-        float u             = shutter_open;
-        for (size_type i {}; i < new_count; ++i) {
-            resampled.times[i]  = u;
-            resampled.values[i] = vec_motion_samples.Resample(u);
-            u += new_step;
-        }
-        motion_samples = resampled;
-    }
-
-    // varying
-    if (motion_samples.count > 2) {
-        m_cyclesMesh->use_motion_blur = true;
-        m_cyclesMesh->motion_steps    = static_cast<unsigned int>(motion_samples.count);
-
-        ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-
-        if (attr_mP)
-            attributes->remove(attr_mP);
-
-        attr_mP                   = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-        ccl::float3* mP           = attr_mP->data_float3();
-        const size_t num_vertices = m_refiner->GetNumRefinedVertices();
-
-        const auto mid_sample = static_cast<size_type>(motion_samples.count / 2);
-        for (size_type i = 0; i < motion_samples.count; ++i) {
-            if (i == mid_sample) {
-                continue;
-            }
-
-            VtValue points_value = motion_samples.values[i];
-            fill_motion_data(points_value, mP);
-            mP += num_vertices;
-        }
-
-        // mid point
-        VtValue points_value = motion_samples.values[mid_sample];
-        fill_motion_data(points_value, m_cyclesMesh->verts.data());
-
-        return;
-    }
-}
-
-void
 HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits)
 {
     VtValue points_value;
@@ -1083,10 +986,44 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
         break;
     }
 
-    if (points_computed) {
-        _PopulateComputedVertices(id, points_value);
+    //
+    // Vertices from PrimVar
+    //
+    if (!points_computed) {
+        points_value = GetPrimvar(sceneDelegate, HdTokens->points);
+    }
+
+    if (!points_value.IsHolding<VtVec3fArray>()) {
+        if (!points_value.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid points data! Can not convert points for: %s", id.GetText());
+            return;
+        }
+
+        points_value = points_value.Cast<VtVec3fArray>();
+    }
+
+    if (!points_value.IsHolding<VtVec3fArray>()) {
+        if (!points_value.CanCast<VtVec3fArray>()) {
+            TF_WARN("Invalid point data! Can not convert points for: %s", id.GetText());
+            return;
+        }
+
+        points_value = points_value.Cast<VtVec3fArray>();
+    }
+
+    VtVec3fArray points;
+    VtValue refined_points_value = m_refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
+                                                               points_value);
+    if (refined_points_value.IsHolding<VtVec3fArray>()) {
+        points = refined_points_value.Get<VtVec3fArray>();
     } else {
-        _PopulateMotion(sceneDelegate, id);
+        TF_WARN("Unsupported point type for: %s", id.GetText());
+        return;
+    }
+
+    for (size_t i = 0; i < points.size(); ++i) {
+        const GfVec3f& point   = points[i];
+        m_cyclesMesh->verts[i] = ccl::make_float3(point[0], point[1], point[2]);
     }
 
     //
@@ -1352,6 +1289,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // TODO: Revisit logic about keeping limit_us and limit_vs alive
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         _PopulateVertices(sceneDelegate, id, dirtyBits);
+    }
+
+    if (m_useMotionBlur && m_useDeformMotionBlur) {
+        _PopulateMotion(sceneDelegate, id);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyNormals) {
