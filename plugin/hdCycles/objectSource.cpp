@@ -27,7 +27,7 @@
 PXR_NAMESPACE_USING_DIRECTIVE
 
 HdCyclesObjectSource::HdCyclesObjectSource(ccl::Object* object, const SdfPath& id)
-    : m_object { new ccl::Object() }
+    : m_object { object }
     , m_id { id }
 {
     m_object->name = ccl::ustring { m_id.GetToken().GetText(), m_id.GetToken().size() };
