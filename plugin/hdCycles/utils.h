@@ -211,12 +211,22 @@ vec2i_to_int2(const GfVec2i& a_vec);
 
 /**
  * @brief Convert int2 to GfVec2i representation
- * 
- * @param a_int 
+ *
+ * @param a_int
  * @return GfVec2i 
  */
 GfVec2i
 int2_to_vec2i(const ccl::int2& a_int);
+
+/**
+ * @brief Convert int2 to GfVec2f representation
+ * 
+ * @param a_int 
+ * @return GfVec2f
+ */
+GfVec2f
+int2_to_vec2f(const ccl::int2& a_int);
+
 
 /**
  * @brief Convert GfVec2f to Cycles float2 representation
@@ -226,6 +236,17 @@ int2_to_vec2i(const ccl::int2& a_int);
  */
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec);
+
+
+/**
+ * @brief Convert GfVec2f to Cycles int2 representation
+ *
+ * @param a_vec
+ * @return Cycles int2
+ */
+ccl::int2
+vec2f_to_int2(const GfVec2f& a_vec);
+
 
 /**
  * @brief Convert GfVec2i to Cycles float2 representation

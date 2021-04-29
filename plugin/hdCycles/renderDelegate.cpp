@@ -33,6 +33,7 @@
 #include "renderBuffer.h"
 #include "renderParam.h"
 #include "renderPass.h"
+#include "renderPassState.h"
 #include "utils.h"
 
 #include <render/background.h>
@@ -59,6 +60,10 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesIntegratorTokens, HDCYCLES_INTEGRATOR_TOKENS);
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesAovTokens, HDCYCLES_AOV_TOKENS);
+
+PXR_NAMESPACE_CLOSE_SCOPE
+
+PXR_NAMESPACE_USING_DIRECTIVE
 
 // clang-format off
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_RPRIM_TYPES = {
@@ -410,4 +415,56 @@ HdCyclesRenderDelegate::Resume()
     return true;
 }
 
-PXR_NAMESPACE_CLOSE_SCOPE
+HdRenderPassStateSharedPtr
+HdCyclesRenderDelegate::CreateRenderPassState() const
+{
+    return std::make_shared<HdCyclesRenderPassState>(this);
+}
+
+HdCyclesDiagnosticDelegate::HdCyclesDiagnosticDelegate(std::ostream& os)
+    : _os { os }
+{
+}
+
+void
+HdCyclesDiagnosticDelegate::IssueError(const TfError& err)
+{
+    IssueDiagnosticBase(err);
+}
+
+HdCyclesDiagnosticDelegate::~HdCyclesDiagnosticDelegate() {}
+
+void
+HdCyclesDiagnosticDelegate::IssueFatalError(const TfCallContext& context, const std::string& msg)
+{
+    std::string message = TfStringPrintf("[FATAL ERROR] %s -- in %s at line %zu of %s", msg.c_str(),
+                                         context.GetFunction(), context.GetLine(), context.GetFile());
+    IssueMessage(message);
+}
+
+void
+HdCyclesDiagnosticDelegate::IssueDiagnosticBase(const TfDiagnosticBase& d)
+{
+    std::string msg = TfStringPrintf("%s -- %s in %s at line %zu of %s", d.GetCommentary().c_str(),
+                                     TfDiagnosticMgr::GetCodeName(d.GetDiagnosticCode()).c_str(),
+                                     d.GetContext().GetFunction(), d.GetContext().GetLine(), d.GetContext().GetFile());
+    IssueMessage(msg);
+}
+
+HdCyclesRenderDelegate::HdCyclesDiagnosticDelegateHolder::HdCyclesDiagnosticDelegateHolder()
+{
+    // add extra output file etc, if required
+    std::string error_output = TfGetenv("HD_CYCLES_DIAGNOSTIC_OUTPUT", "stdout");
+    if (error_output == "stdout") {
+        _delegate = std::make_unique<HdCyclesDiagnosticDelegate>(std::cout);
+        TfDiagnosticMgr::GetInstance().AddDelegate(_delegate.get());
+        return;
+    }
+}
+
+HdCyclesRenderDelegate::HdCyclesDiagnosticDelegateHolder::~HdCyclesDiagnosticDelegateHolder()
+{
+    if (_delegate) {
+        TfDiagnosticMgr::GetInstance().RemoveDelegate(_delegate.get());
+    }
+}

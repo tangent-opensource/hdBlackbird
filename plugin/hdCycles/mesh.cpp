@@ -72,19 +72,19 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
 HdCyclesMesh::~HdCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
     if (m_cyclesInstances.size() > 0) {
         for (auto instance : m_cyclesInstances) {
             if (instance) {
-                m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
                 delete instance;
             }
         }
@@ -1077,12 +1077,12 @@ void
 HdCyclesMesh::_InitializeNewCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
@@ -1108,8 +1108,8 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
     m_cyclesObject->name     = GetId().GetString();
     m_cyclesObject->geometry = m_cyclesMesh;
 
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
 }
 
 void
@@ -1175,7 +1175,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    std::lock_guard<std::mutex>(scene->mutex);
+    ccl::thread_scoped_lock lock{scene->mutex};
 
     // -------------------------------------
     // -- Resolve Drawstyles
@@ -1187,6 +1187,16 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         { HdInterpolationUniform, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
 
     };
+
+    // Set defaults, so that in a "do nothing" scenario it'll revert to defaults, or if you view
+    // a different node context without any settings set.
+    m_visCamera = m_visDiffuse = m_visGlossy =  m_visScatter = m_visShadow = m_visTransmission = true;
+    m_useMotionBlur = false;
+    m_useDeformMotionBlur = false;
+    m_motionSteps = 3;
+    m_cyclesObject->is_shadow_catcher = false;
+    m_cyclesObject->pass_id = 0;
+    m_cyclesObject->use_holdout = false;
 
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
@@ -1323,7 +1333,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
                     if (instance) {
-                        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
                         delete instance;
                     }
                 }
@@ -1374,7 +1384,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
                     m_cyclesInstances.push_back(instanceObj);
 
-                    m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
+                    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(instanceObj);
                 }
 
                 // Hide prototype

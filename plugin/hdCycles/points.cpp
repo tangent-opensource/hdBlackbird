@@ -56,21 +56,21 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
     }
 
     m_cyclesMesh = new ccl::Mesh();
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);
 }
 
 HdCyclesPoints::~HdCyclesPoints()
 {
     // Remove points
     for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObjects[i]);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObjects[i]);
     }
 
     m_cyclesObjects.clear();
 
     // Remove mesh
 
-    m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
 
     delete m_cyclesMesh;
 }
@@ -153,7 +153,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             const VtVec3fArray& points = pointsValue.Get<VtVec3fArray>();
 
             for (size_t i = 0; i < m_cyclesObjects.size(); i++) {
-                param->RemoveObject(m_cyclesObjects[i]);
+                param->RemoveObjectSafe(m_cyclesObjects[i]);
             }
 
             m_cyclesObjects.clear();
@@ -165,7 +165,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 pointObject->random_id = static_cast<unsigned int>(i);
                 pointObject->name      = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->random_id);
                 m_cyclesObjects.push_back(pointObject);
-                param->AddObject(pointObject);
+                param->AddObjectSafe(pointObject);
             }
         }
     }

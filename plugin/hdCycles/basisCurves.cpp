@@ -19,11 +19,11 @@
 
 #include "basisCurves.h"
 
+#include "attributeSource.h"
 #include "config.h"
 #include "material.h"
 #include "renderParam.h"
 #include "utils.h"
-#include "attributeSource.h"
 
 #include <render/curves.h>
 #include <render/hair.h>
@@ -77,15 +77,15 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& insta
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
 {
     if (m_cyclesHair) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveCurve(m_cyclesHair);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesHair);
         delete m_cyclesHair;
     }
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 }
@@ -402,7 +402,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
     HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
-    if(object_instance.IsFirstInstance()) {
+    if (object_instance.IsFirstInstance()) {
         object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
         m_object_source = object_instance.GetValue();
     }
@@ -415,6 +415,13 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     HdCyclesPDPIMap pdpi;
     bool generate_new_curve = false;
     bool update_curve       = false;
+
+    // Defaults
+    m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
+    m_useMotionBlur                                                                           = false;
+    m_cyclesObject->is_shadow_catcher                                                         = false;
+    m_cyclesObject->pass_id                                                                   = 0;
+    m_cyclesObject->use_holdout                                                               = false;
 
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
@@ -464,9 +471,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
 
-        m_useMotionBlur = (bool)_HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
-                                                             usdCyclesTokens->primvarsCyclesObjectMblur,
-                                                             m_useMotionBlur);
+        m_useMotionBlur = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
+                                                       usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
 
         TfToken curveShape = usdCyclesTokens->ribbon;
 
@@ -553,9 +559,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     if (generate_new_curve) {
         if (m_cyclesGeometry) {
-            scene_lock.unlock();
-            param->RemoveCurve(m_cyclesHair);
-            scene_lock.lock();
+            param->RemoveGeometry(m_cyclesHair);
 
             m_cyclesGeometry->clear();
             delete m_cyclesGeometry;
@@ -564,19 +568,13 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
         _PopulateCurveMesh(param);
 
         if (m_cyclesGeometry) {
-            scene_lock.unlock();
             m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
-            scene_lock.lock();
-
             m_cyclesObject->geometry = m_cyclesGeometry;
-
             m_cyclesGeometry->compute_bounds();
 
             _PopulateGenerated();
 
-            scene_lock.unlock();
-            param->AddCurve(m_cyclesGeometry);
-            scene_lock.lock();
+            param->AddGeometry(m_cyclesGeometry);
         }
 
         if (m_useMotionBlur)
@@ -597,22 +595,23 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                 if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                     VtValue value = GetPrimvar(sceneDelegate, pv.name);
 
-                    if(pv.name == HdTokens->points) {
+                    if (pv.name == HdTokens->points) {
                         continue;
                     }
 
-                    if(pv.name == HdTokens->widths) {
+                    if (pv.name == HdTokens->widths) {
                         continue;
                     }
 
                     // uvs
                     if (pv.role == HdPrimvarRoleTokens->textureCoordinate) {
                         _AddUVS(pv.name, value, primvarDescsEntry.first);
-                        continue;;
+                        continue;
+                        ;
                     }
 
                     // colors
-                    if(pv.role == HdPrimvarRoleTokens->color) {
+                    if (pv.role == HdPrimvarRoleTokens->color) {
                         _AddColors(pv.name, value, primvarDescsEntry.first);
                         continue;
                     }

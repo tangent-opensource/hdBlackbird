@@ -165,8 +165,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useTiledRendering(false)
     , m_objectsUpdated(false)
     , m_geometryUpdated(false)
-    , m_curveUpdated(false)
-    , m_meshUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
     , m_shouldUpdate(false)
@@ -427,8 +425,9 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     }
 
     if (key == usdCyclesTokens->cyclesProgressive_update_timeout) {
-        sessionParams->progressive_update_timeout
-            = _HdCyclesGetVtValue<float>(value, sessionParams->progressive_update_timeout, &session_updated);
+        sessionParams->progressive_update_timeout = static_cast<double>(
+            _HdCyclesGetVtValue<float>(value, static_cast<float>(sessionParams->progressive_update_timeout),
+                                       &session_updated));
     }
 
     if (key == usdCyclesTokens->cyclesExperimental) {
@@ -465,8 +464,19 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     // Tiles
 
     if (key == usdCyclesTokens->cyclesTile_size) {
-        sessionParams->tile_size = vec2i_to_int2(
-            _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size), &session_updated));
+        if (value.IsHolding<GfVec2i>()) {
+            sessionParams->tile_size = vec2i_to_int2(
+                _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size), &session_updated));
+        } else if (value.IsHolding<GfVec2f>()) {
+            // Adding this check for safety since the original implementation was using GfVec2i which
+            // might have been valid at some point but does not match the current schema.
+            sessionParams->tile_size = vec2f_to_int2(
+                _HdCyclesGetVtValue<GfVec2f>(value, int2_to_vec2f(sessionParams->tile_size), &session_updated));
+            TF_WARN(
+                "Tile size was specified as float, but the schema uses int. The value will be converted but you should update the schema version.");
+        } else {
+            TF_WARN("Tile size has unsupported type %s, expected GfVec2f", value.GetTypeName().c_str());
+        }
     }
 
     TfToken tileOrder;
@@ -1108,8 +1118,9 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     }
 
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
-        int cryptomatte_depth   = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
-        film->cryptomatte_depth = ccl::divide_up(ccl::min(16, cryptomatte_depth), 2);
+        auto cryptomatte_depth  = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
+        film->cryptomatte_depth = static_cast<int>(
+            ccl::divide_up(static_cast<size_t>(ccl::min(16, cryptomatte_depth)), 2));
     }
 
     if (film_updated) {
@@ -1355,9 +1366,11 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
 
             bool read = false;
             if (!custom) {
-                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents), &tileData[0]);
+                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
             } else {
-                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents), &tileData[0]);
+                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
             }
 
             if (!read) {
@@ -1460,7 +1473,7 @@ HdCyclesRenderParam::Interrupt(bool a_forceUpdate)
 void
 HdCyclesRenderParam::CommitResources()
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
@@ -1574,7 +1587,7 @@ HdCyclesRenderParam::_CyclesExit()
 {
     m_cyclesSession->set_pause(true);
 
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     m_cyclesScene->shaders.clear();
     m_cyclesScene->geometry.clear();
@@ -1594,14 +1607,9 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
     m_cyclesSession->progress.reset();
 
-    if (m_curveUpdated || m_meshUpdated || m_geometryUpdated || m_shadersUpdated) {
+    if (m_geometryUpdated || m_shadersUpdated) {
         m_cyclesScene->geometry_manager->tag_update(m_cyclesScene);
         m_geometryUpdated = false;
-        m_meshUpdated     = false;
-    }
-
-    if (m_curveUpdated) {
-        m_curveUpdated = false;
     }
 
     if (m_objectsUpdated || m_shadersUpdated) {
@@ -1654,97 +1662,16 @@ HdCyclesRenderParam::DirectReset()
 }
 
 void
-HdCyclesRenderParam::AddLight(ccl::Light* a_light)
+HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add light to scene. Scene is null.");
-        return;
-    }
-
-    m_lightsUpdated = true;
-
-    m_cyclesScene->lights.push_back(a_light);
-
-    if (a_light->type == ccl::LIGHT_BACKGROUND) {
-        m_numDomeLights += 1;
+    for (auto& shader : shaders) {
+        shader->tag_update(m_cyclesScene);
     }
 }
 
 void
-HdCyclesRenderParam::AddObject(ccl::Object* a_object)
+HdCyclesRenderParam::AddShader(ccl::Shader* shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add object to scene. Scene is null.");
-        return;
-    }
-
-    m_objectsUpdated = true;
-
-    m_cyclesScene->objects.push_back(a_object);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_geometryUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_geometry);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_meshUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_mesh);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_curveUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_curve);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1752,40 +1679,85 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 
     m_shadersUpdated = true;
 
-    m_cyclesScene->shaders.push_back(a_shader);
+    m_cyclesScene->shaders.push_back(shader);
+}
+
+
+void
+HdCyclesRenderParam::AddLight(ccl::Light* light)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add light to scene. Scene is null.");
+        return;
+    }
+
+    m_lightsUpdated = true;
+
+    m_cyclesScene->lights.push_back(light);
+
+    if (light->type == ccl::LIGHT_BACKGROUND) {
+        m_numDomeLights += 1;
+    }
 }
 
 void
-HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
+HdCyclesRenderParam::AddObject(ccl::Object* object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add object to scene. Scene is null.");
+        return;
+    }
 
-    for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
-        if (a_object == *it) {
-            it = m_cyclesScene->objects.erase(it);
+    m_objectsUpdated = true;
 
-            m_objectsUpdated = true;
+    m_cyclesScene->objects.push_back(object);
+
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::AddGeometry(ccl::Geometry* geometry)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add geometry to scene. Scene is null.");
+        return;
+    }
+
+    m_geometryUpdated = true;
+
+    m_cyclesScene->geometry.push_back(geometry);
+
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemoveShader(ccl::Shader* shader)
+{
+    for (auto it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
+        if (shader == *it) {
+            it = m_cyclesScene->shaders.erase(it);
+
+            m_shadersUpdated = true;
+
             break;
         } else {
             ++it;
         }
     }
 
-    if (m_objectsUpdated)
+    if (m_shadersUpdated)
         Interrupt();
 }
 
 void
-HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
+HdCyclesRenderParam::RemoveLight(ccl::Light* light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
-        if (a_light == *it) {
+    for (auto it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
+        if (light == *it) {
             it = m_cyclesScene->lights.erase(it);
 
             // TODO: This doesnt respect multiple dome lights
-            if (a_light->type == ccl::LIGHT_BACKGROUND) {
+            if (light->type == ccl::LIGHT_BACKGROUND) {
                 m_numDomeLights = std::max(0, m_numDomeLights - 1);
             }
 
@@ -1802,17 +1774,33 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         Interrupt();
 }
 
-void
-HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
 
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_mesh == *it) {
+void
+HdCyclesRenderParam::RemoveObject(ccl::Object* object)
+{
+    for (auto it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
+        if (object == *it) {
+            it = m_cyclesScene->objects.erase(it);
+
+            m_objectsUpdated = true;
+            break;
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_objectsUpdated)
+        Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
+{
+    for (auto it = m_cyclesScene->geometry.begin(); it != m_cyclesScene->geometry.end();) {
+        if (geometry == *it) {
             it = m_cyclesScene->geometry.erase(it);
 
-            m_meshUpdated = true;
+            m_geometryUpdated = true;
 
             break;
         } else {
@@ -1825,55 +1813,59 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 }
 
 void
-HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
+HdCyclesRenderParam::AddShaderSafe(ccl::Shader* shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-    for (auto& shader : shaders) {
-        shader->tag_update(m_cyclesScene);
-    }
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddShader(shader);
 }
 
 void
-HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
+HdCyclesRenderParam::AddLightSafe(ccl::Light* light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_hair == *it) {
-            it = m_cyclesScene->geometry.erase(it);
-
-            m_curveUpdated = true;
-
-            break;
-        } else {
-            ++it;
-        }
-    }
-
-    if (m_geometryUpdated)
-        Interrupt();
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddLight(light);
 }
 
 void
-HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
+HdCyclesRenderParam::AddObjectSafe(ccl::Object* object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddObject(object);
+}
 
-    for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
-        if (a_shader == *it) {
-            it = m_cyclesScene->shaders.erase(it);
+void
+HdCyclesRenderParam::AddGeometrySafe(ccl::Geometry* geometry)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddGeometry(geometry);
+}
 
-            m_shadersUpdated = true;
+void
+HdCyclesRenderParam::RemoveShaderSafe(ccl::Shader* shader)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveShader(shader);
+}
 
-            break;
-        } else {
-            ++it;
-        }
-    }
+void
+HdCyclesRenderParam::RemoveLightSafe(ccl::Light* light)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveLight(light);
+}
 
-    if (m_shadersUpdated)
-        Interrupt();
+void
+HdCyclesRenderParam::RemoveObjectSafe(ccl::Object* object)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveObject(object);
+}
+
+void
+HdCyclesRenderParam::RemoveGeometrySafe(ccl::Geometry* geometry)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveGeometry(geometry);
 }
 
 VtDictionary
