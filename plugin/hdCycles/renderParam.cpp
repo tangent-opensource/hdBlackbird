@@ -1269,6 +1269,13 @@ HdCyclesRenderParam::_CreateSession()
 
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
+    m_cyclesSession->on_display_copy = [this](int samples) {
+        for (auto aov : m_aovs) {
+            //BlitFromCyclesPass(aov, m_cyclesSession->display->draw_width, m_cyclesSession->display->draw_height, 
+            //m_cyclesSession->display->params.width, m_cyclesSession->display->params.height, samples);
+        }
+    };
+
     m_cyclesSession->write_render_tile_cb  = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
     m_cyclesSession->update_render_tile_cb = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1, ccl::_2);
 
@@ -2105,7 +2112,7 @@ HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
     w, h could be fetched from the aov itself
 */
 void
-HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int display_w, int display_h) {
+HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int display_w, int display_h, int samples) {
     HdCyclesAov cyclesAov;
     if (!GetCyclesAov(aov, cyclesAov)) {
         return;
@@ -2118,7 +2125,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     auto buffers = m_cyclesSession->buffers;
 
     const float exposure = m_cyclesScene->film->exposure;
-    const bool read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, 1, numComponents, data.data());
+    const bool read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, samples + 1, numComponents, data.data());
 
     if (read) {
         auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);

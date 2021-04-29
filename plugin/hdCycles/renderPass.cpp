@@ -182,15 +182,13 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
             auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
             rb->SetConverged(m_isConverged);
 
-            renderParam->BlitFromCyclesPass(aov, w, h, display->params.width, display->params.height);
-
             // Needed as a stopgap, because Houdini dellocates renderBuffers
             // when changing render settings. This causes the current blit to
             // fail (Probably can be fixed with proper render thread management)
             if (!rb->WasUpdated()) {
-                //if (aov.aovName == renderParam->GetDisplayAovToken()) {
-                  //  rb->Blit(colorFormat, w, h, 0, w, hpixels);
-                //}
+                if (aov.aovName == renderParam->GetDisplayAovToken()) {
+                    //rb->Blit(colorFormat, w, h, 0, w, hpixels);
+                }
             } else {
                 rb->SetWasUpdated(false);
             }
