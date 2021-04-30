@@ -30,23 +30,23 @@ namespace {
 /// Hashable helper class for motion sample overlap elimination
 ///
 struct HdCyclesIndexedTimeSample {
-    using size_type  = ccl::uint;
-    using value_type = float;
+    using index_type = ccl::uint;
+    using time_type  = float;
 
-    static constexpr value_type epsilon   = static_cast<value_type>(1e-5);
-    static constexpr size_type resolution = static_cast<size_type>(static_cast<value_type>(1.0) / epsilon);
+    static constexpr time_type epsilon   = static_cast<time_type>(1e-5);
+    static constexpr index_type resolution = static_cast<index_type>(static_cast<time_type>(1.0) / epsilon);
 
-    HdCyclesIndexedTimeSample(size_type _index, value_type _time)
+    HdCyclesIndexedTimeSample(index_type _index, time_type _time)
         : index { _index }
         , time { _time }
     {
-        assert(time >= static_cast<value_type>(-1.0) && time <= static_cast<value_type>(1.0));
+        assert(time >= static_cast<time_type>(-1.0) && time <= static_cast<time_type>(1.0));
     }
 
-    std::size_t Hash() const { return static_cast<size_t>(time * resolution); }
+    std::size_t Hash() const { return static_cast<size_t>(resolution + time * resolution); }
 
-    size_type index;
-    value_type time;
+    index_type index;
+    time_type time;
 };
 
 bool
@@ -87,7 +87,8 @@ HdCyclesTimeSamplesRemoveOverlaps(const HdTimeSampleArray<TYPE, CAPACITY>& sampl
     // 2x number of buckets to cover negative and positive time samples
     std::unordered_set<HdCyclesIndexedTimeSample> unique { 2 * HdCyclesIndexedTimeSample::resolution };
     for (unsigned int i = 0; i < samples.count; ++i) {
-        unique.insert(HdCyclesIndexedTimeSample { static_cast<ccl::uint>(i), samples.times[i] });
+        using index_type = HdCyclesIndexedTimeSample::index_type;
+        unique.insert(HdCyclesIndexedTimeSample { static_cast<index_type>(i), samples.times[i] });
     }
 
     TfSmallVector<HdCyclesIndexedTimeSample, CAPACITY> sorted { unique.begin(), unique.end() };
