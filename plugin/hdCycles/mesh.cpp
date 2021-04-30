@@ -81,12 +81,11 @@ HdCyclesMesh::~HdCyclesMesh()
         delete m_cyclesObject;
     }
 
-    if (m_cyclesInstances.size() > 0) {
-        for (auto instance : m_cyclesInstances) {
-            if (instance) {
-                m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
-                delete instance;
-            }
+
+    for (auto instance : m_cyclesInstances) {
+        if (instance) {
+            m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
+            delete instance;
         }
     }
 }
@@ -1175,7 +1174,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    ccl::thread_scoped_lock lock{scene->mutex};
+    ccl::thread_scoped_lock lock { scene->mutex };
 
     // -------------------------------------
     // -- Resolve Drawstyles
@@ -1190,13 +1189,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     // Set defaults, so that in a "do nothing" scenario it'll revert to defaults, or if you view
     // a different node context without any settings set.
-    m_visCamera = m_visDiffuse = m_visGlossy =  m_visScatter = m_visShadow = m_visTransmission = true;
-    m_useMotionBlur = false;
-    m_useDeformMotionBlur = false;
-    m_motionSteps = 3;
-    m_cyclesObject->is_shadow_catcher = false;
-    m_cyclesObject->pass_id = 0;
-    m_cyclesObject->use_holdout = false;
+    m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
+    m_useMotionBlur                                                                           = false;
+    m_useDeformMotionBlur                                                                     = false;
+    m_motionSteps                                                                             = 3;
+    m_cyclesObject->is_shadow_catcher                                                         = false;
+    m_cyclesObject->pass_id                                                                   = 0;
+    m_cyclesObject->use_holdout                                                               = false;
 
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
@@ -1323,22 +1322,24 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     // -------------------------------------
     // -- Handle point instances
+    // -------------------------------------
     if (*dirtyBits & HdChangeTracker::DirtyInstancer) {
-        if (auto instancer = static_cast<HdCyclesInstancer*>(
-                sceneDelegate->GetRenderIndex().GetInstancer(GetInstancerId()))) {
-            auto instanceTransforms = instancer->SampleInstanceTransforms(id);
-            auto newNumInstances    = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
+        const SdfPath& instancer_id = GetInstancerId();
+        auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
+        if (instancer){
 
             // Clear all instances...
-            if (m_cyclesInstances.size() > 0) {
-                for (auto instance : m_cyclesInstances) {
-                    if (instance) {
-                        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
-                        delete instance;
-                    }
+            for (auto instance : m_cyclesInstances) {
+                if (instance) {
+                    m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                    delete instance;
                 }
-                m_cyclesInstances.clear();
             }
+            m_cyclesInstances.clear();
+
+            // create new instances
+            auto instanceTransforms = instancer->SampleInstanceTransforms(id);
+            auto newNumInstances    = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
 
             if (newNumInstances != 0) {
                 using size_type = typename decltype(m_transformSamples.values)::size_type;
@@ -1384,7 +1385,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
                     m_cyclesInstances.push_back(instanceObj);
 
-                    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(instanceObj);
+                    m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
                 }
 
                 // Hide prototype
