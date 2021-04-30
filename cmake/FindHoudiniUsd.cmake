@@ -24,6 +24,12 @@ endif()
 find_package(Houdini REQUIRED PATHS ${HOUDINI_ROOT}/toolkit/cmake)
 target_link_libraries(UsdInterface INTERFACE Houdini)
 
+if(_houdini_platform_osx AND _houdini_use_framework)
+    set(HOUDINI_LIB_SEARCH_PATHS ${HOUDINI_ROOT}/Frameworks/Houdini.framework/Versions/Current/Libraries)
+else()
+    set(HOUDINI_LIB_SEARCH_PATHS ${HOUDNI_ROOT}/dsolib ${HOUDINI_ROOT}/custom/houdini/dsolib)
+endif()
+
 # Find hboost
 target_compile_definitions(UsdInterface
     INTERFACE
@@ -36,8 +42,7 @@ find_library(_houdini_hboost_python
     hboost_python27-mt-x64
     hboost_python-mt-x64
     PATHS
-    ${HOUDINI_ROOT}/dsolib
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/
+    ${HOUDINI_LIB_SEARCH_PATHS}
     REQUIRED
     )
 
@@ -45,8 +50,7 @@ find_library(_houdini_hboost_filesystem
     NAMES
     hboost_filesystem-mt-x64
     PATHS
-    ${HOUDINI_ROOT}/dsolib
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/
+    ${HOUDINI_LIB_SEARCH_PATHS}
     REQUIRED
     )
 
@@ -71,8 +75,7 @@ find_library(_houdini_oiio_lib
     NAMES
     OpenImageIO_sidefx
     PATHS
-    ${HOUDINI_ROOT}/dsolib
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/
+    ${HOUDINI_LIB_SEARCH_PATHS}
     REQUIRED
     )
 target_link_libraries(UsdInterface INTERFACE ${_houdini_oiio_lib})
@@ -85,8 +88,7 @@ foreach(_pxr_lib ${_houdini_pxr_libs})
         NAMES
         ${_pxr_lib}
         PATHS
-        ${HOUDINI_ROOT}/dsolib
-        ${HOUDINI_ROOT}/custom/houdini/dsolib/
+        ${HOUDINI_LIB_SEARCH_PATHS}
         REQUIRED
     )
 
