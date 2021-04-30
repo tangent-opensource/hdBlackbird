@@ -29,15 +29,15 @@ TEST_SUITE("Testing HdCyclesTransformSource")
 {
     // TODO: HdCyclesObjectSource should own object in the future
     //       Include those tests directly into library
-    auto _object        = std::make_unique<ccl::Object>();
-    auto _object_source = std::make_shared<HdCyclesObjectSource>(_object.get(), SdfPath {});
+    auto _object_ptr = std::make_unique<ccl::Object>();
+    auto _object     = _object_ptr.get();
 
     HdCyclesMatrix4dTimeSampleArray samples;
     GfMatrix4d _fallback;
 
     TEST_CASE("Empty samples no motion blur - fallback matrix")
     {
-        HdCyclesTransformSource src { _object_source, samples, _fallback };
+        HdCyclesTransformSource src { _object, samples, _fallback };
         CHECK(src.IsValid() == true);
         CHECK(src.Resolve() == true);
         CHECK(src.GetObject()->motion.size() == 0);
@@ -47,7 +47,7 @@ TEST_SUITE("Testing HdCyclesTransformSource")
     {
         samples.Resize(1);
 
-        HdCyclesTransformSource src { _object_source, samples, _fallback };
+        HdCyclesTransformSource src { _object, samples, _fallback };
         CHECK(src.IsValid() == true);
         CHECK(src.Resolve() == true);
         CHECK(src.GetObject()->motion.size() == 0);
@@ -57,7 +57,7 @@ TEST_SUITE("Testing HdCyclesTransformSource")
     {
         samples.Resize(10);
 
-        HdCyclesTransformSource src { _object_source, samples, _fallback };
+        HdCyclesTransformSource src { _object, samples, _fallback };
         CHECK(src.IsValid() == true);
         CHECK(src.Resolve() == true);
         CHECK(src.GetObject()->motion.size() == 0);
@@ -70,7 +70,7 @@ TEST_SUITE("Testing HdCyclesTransformSource")
         samples.times[1] = -0.0;
         samples.times[2] = 1.0;
 
-        HdCyclesTransformSource src { _object_source, samples, _fallback };
+        HdCyclesTransformSource src { _object, samples, _fallback };
         CHECK(src.IsValid() == true);
         CHECK(src.Resolve() == true);
         CHECK(src.GetObject()->motion.size() == 3);
