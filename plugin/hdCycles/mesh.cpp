@@ -81,12 +81,11 @@ HdCyclesMesh::~HdCyclesMesh()
         delete m_cyclesObject;
     }
 
-    if (m_cyclesInstances.size() > 0) {
-        for (auto instance : m_cyclesInstances) {
-            if (instance) {
-                m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
-                delete instance;
-            }
+
+    for (auto instance : m_cyclesInstances) {
+        if (instance) {
+            m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
+            delete instance;
         }
     }
 }
@@ -1325,21 +1324,22 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // -- Handle point instances
     // -------------------------------------
     if (*dirtyBits & HdChangeTracker::DirtyInstancer) {
-        if (auto instancer = static_cast<HdCyclesInstancer*>(
-                sceneDelegate->GetRenderIndex().GetInstancer(GetInstancerId()))) {
-            auto instanceTransforms = instancer->SampleInstanceTransforms(id);
-            auto newNumInstances    = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
+        const SdfPath& instancer_id = GetInstancerId();
+        auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
+        if (instancer){
 
             // Clear all instances...
-            if (m_cyclesInstances.size() > 0) {
-                for (auto instance : m_cyclesInstances) {
-                    if (instance) {
-                        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
-                        delete instance;
-                    }
+            for (auto instance : m_cyclesInstances) {
+                if (instance) {
+                    m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                    delete instance;
                 }
-                m_cyclesInstances.clear();
             }
+            m_cyclesInstances.clear();
+
+            // create new instances
+            auto instanceTransforms = instancer->SampleInstanceTransforms(id);
+            auto newNumInstances    = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
 
             if (newNumInstances != 0) {
                 using size_type = typename decltype(m_transformSamples.values)::size_type;
