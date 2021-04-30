@@ -130,10 +130,9 @@ HdCyclesAreTimeSamplesUniformlyDistributed(const HdTimeSampleArray<TYPE, CAPACIT
 
 }  // namespace
 
-HdCyclesTransformSource::HdCyclesTransformSource(HdCyclesObjectSourceSharedPtr object_source,
-                                                 const HdCyclesMatrix4dTimeSampleArray& samples,
+HdCyclesTransformSource::HdCyclesTransformSource(ccl::Object* object, const HdCyclesMatrix4dTimeSampleArray& samples,
                                                  const GfMatrix4d& fallback)
-    : m_object_source { std::move(object_source) }
+    : m_object { object }
     , m_samples { samples }
     , m_fallback { fallback }
 {
@@ -142,12 +141,7 @@ HdCyclesTransformSource::HdCyclesTransformSource(HdCyclesObjectSourceSharedPtr o
 bool
 HdCyclesTransformSource::_CheckValid() const
 {
-    if (!m_object_source) {
-        return false;
-    }
-
-    const ccl::Object* obj = m_object_source->GetObject();
-    if (!obj) {
+    if (!m_object) {
         return false;
     }
 
@@ -231,7 +225,7 @@ HdCyclesTransformSource::Resolve()
         return false;
     }
 
-    ccl::Object* object = m_object_source->GetObject();
+    ccl::Object* object = m_object;
 
     // Hd outputs duplicated time samples, remove all duplicates and keep time samples in ascending order
     m_samples = HdCyclesTimeSamplesRemoveOverlaps(m_samples);

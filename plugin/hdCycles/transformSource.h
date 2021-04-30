@@ -57,7 +57,7 @@ using HdCyclesTransformSmallVector = TfSmallVector<ccl::Transform, HD_CYCLES_MAX
 ///
 class HdCyclesTransformSource : public HdBufferSource {
 public:
-    HdCyclesTransformSource(HdCyclesObjectSourceSharedPtr object_source, const HdCyclesMatrix4dTimeSampleArray& samples,
+    HdCyclesTransformSource(ccl::Object* object, const HdCyclesMatrix4dTimeSampleArray& samples,
                             const GfMatrix4d& fallback);
 
     bool Resolve() override;
@@ -67,7 +67,7 @@ public:
     HdTupleType GetTupleType() const override { return {}; }
     size_t GetNumElements() const override { return 0; }
 
-    const ccl::Object* GetObject() const { return m_object_source->GetObject(); }
+    const ccl::Object* GetObject() const { return m_object; }
 
     static HdCyclesTransformTimeSampleArray ResampleUniform(const HdCyclesMatrix4dTimeSampleArray& samples,
                                                             unsigned int new_num_samples);
@@ -75,7 +75,7 @@ public:
 private:
     bool _CheckValid() const override;
 
-    HdCyclesObjectSourceSharedPtr m_object_source;
+    ccl::Object* m_object;
     HdCyclesMatrix4dTimeSampleArray m_samples;
     GfMatrix4d m_fallback;
 };
