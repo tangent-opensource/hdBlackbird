@@ -367,9 +367,6 @@ private:
      * with changing the render settings. */
     std::mutex m_aovs_mutex;
 
-    /* Intermediate buffer between cycles and the RenderBuffer */
-    std::vector<float> m_aovs_buf;
-
     TfToken m_displayAovToken;
 
 public:

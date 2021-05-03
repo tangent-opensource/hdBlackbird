@@ -1993,16 +1993,8 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     int cryptoMaterial = 0;
     int cryptoAsset    = 0;
 
-    unsigned int max_width = 0;
-    unsigned int max_height = 0;
-
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
-        std::cout << "aov " << aov.aovName << std::endl;
-        std::cout << "rendebuffer binding " << rb->GetId() << std::endl;
-
-        max_width = ::std::max(max_width, rb->GetWidth());
-        max_height = ::std::max(max_height, rb->GetHeight());
 
         TfToken sourceName = GetSourceName(aov);
 
@@ -2085,10 +2077,6 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     if (!has_combined) {
         ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str(), DefaultAovs[0].filter);
-    }
-
-    if (max_width > 0 && max_height > 0) {
-        m_aovs_buf.resize(max_width * max_height * 4); // Maximum number of components
     }
 
     film->display_pass = m_bufferParams.passes[0].type;
