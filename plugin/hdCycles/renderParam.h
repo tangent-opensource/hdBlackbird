@@ -125,7 +125,7 @@ public:
      */
     bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
-    void BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int display_w, int display_h, int samples);
+    void BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples);
 
 protected:
     /**
@@ -362,6 +362,14 @@ private:
     ccl::Scene* m_cyclesScene;
 
     HdRenderPassAovBindingVector m_aovs;
+
+    /* Synchronizes blitting, which is a callback from the Cycles session
+     * with changing the render settings. */
+    std::mutex m_aovs_mutex;
+
+    /* Intermediate buffer between cycles and the RenderBuffer */
+    std::vector<float> m_aovs_buf;
+
     TfToken m_displayAovToken;
 
 public:

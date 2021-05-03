@@ -25,6 +25,7 @@
 #include "utils.h"
 
 #include <memory>
+#include <algorithm>
 
 #include <device/device.h>
 #include <render/background.h>
@@ -1281,9 +1282,9 @@ HdCyclesRenderParam::_CreateSession()
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
     m_cyclesSession->on_display_copy = [this](int samples) {
+        std::unique_lock<std::mutex> lock(m_aovs_mutex);
         for (auto aov : m_aovs) {
-            //BlitFromCyclesPass(aov, m_cyclesSession->display->draw_width, m_cyclesSession->display->draw_height, 
-            //m_cyclesSession->display->params.width, m_cyclesSession->display->params.height, samples);
+            BlitFromCyclesPass(aov, m_cyclesSession->display->draw_width, m_cyclesSession->display->draw_height, samples);
         }
     };
 
@@ -1973,6 +1974,9 @@ HdCyclesRenderParam::GetRenderStats() const
 void
 HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
+    std::unique_lock<std::mutex> lock(m_aovs_mutex);
+
+    std::cout << "Setting " << a_aovs.size() << " aov bindings" << std::endl;
     m_aovs = a_aovs;
     m_bufferParams.passes.clear();
     bool has_combined     = false;
@@ -1989,7 +1993,17 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     int cryptoMaterial = 0;
     int cryptoAsset    = 0;
 
+    unsigned int max_width = 0;
+    unsigned int max_height = 0;
+
     for (const HdRenderPassAovBinding& aov : m_aovs) {
+        auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
+        std::cout << "aov " << aov.aovName << std::endl;
+        std::cout << "rendebuffer binding " << rb->GetId() << std::endl;
+
+        max_width = ::std::max(max_width, rb->GetWidth());
+        max_height = ::std::max(max_height, rb->GetHeight());
+
         TfToken sourceName = GetSourceName(aov);
 
         for (HdCyclesAov& cyclesAov : DefaultAovs) {
@@ -2072,6 +2086,11 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     if (!has_combined) {
         ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str(), DefaultAovs[0].filter);
     }
+
+    if (max_width > 0 && max_height > 0) {
+        m_aovs_buf.resize(max_width * max_height * 4); // Maximum number of components
+    }
+
     film->display_pass = m_bufferParams.passes[0].type;
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
 
@@ -2104,25 +2123,42 @@ HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
     w, h could be fetched from the aov itself
 */
 void
-HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int display_w, int display_h, int samples) {
+HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples) {
+    if (samples < 0) {
+        return;
+    }
+
     HdCyclesAov cyclesAov;
     if (!GetCyclesAov(aov, cyclesAov)) {
         return;
     }
 
-    // This temporary float buffer can be worked around
-    const int numComponents = (int)HdGetComponentCount(cyclesAov.format);
-    ccl::vector<float> data(display_w * display_h * numComponents);
-
-    auto buffers = m_cyclesSession->buffers;
-
-    const float exposure = m_cyclesScene->film->exposure;
-    const bool read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, samples + 1, numComponents, data.data());
-
-    if (read) {
-        auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
-        rb->Blit(cyclesAov.format, w, h, 0, w, (const uint8_t*)data.data());
+    auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
+    if (!rb) {
+        return;
     }
+
+    void* data = rb->Map();
+    auto n_comps_cycles = HdGetComponentCount(cyclesAov.format);
+    auto n_comps_hd = HdGetComponentCount(rb->GetFormat());
+
+    //std::cout << "cycles components " << n_comps_cycles << " hd " << n_comps_hd << std::endl;
+    if (n_comps_cycles == n_comps_hd) {
+        ccl::RenderBuffers::ComponentType pixels_type = ccl::RenderBuffers::ComponentType::None;
+        switch(HdGetComponentFormat(rb->GetFormat())) {
+            case HdFormatFloat16: pixels_type = ccl::RenderBuffers::ComponentType::Float16; break;
+            case HdFormatFloat32: pixels_type = ccl::RenderBuffers::ComponentType::Float32; break;
+            default: assert(false); break;
+        }
+
+        const float exposure = m_cyclesScene->film->exposure;
+        auto buffers = m_cyclesSession->buffers;
+        //if (buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, m_aovs_buf.data())) {
+        if (buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, (uint8_t*)data, pixels_type, w, h)) {
+            //rb->Blit(cyclesAov.format, w, h, 0, w, (const uint8_t*)m_aovs_buf.data());
+        }
+    }
+    rb->Unmap();
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

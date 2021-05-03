@@ -25,6 +25,8 @@
 #include <pxr/imaging/hd/renderBuffer.h>
 #include <pxr/pxr.h>
 
+#include <mutex>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 class HdCyclesRenderDelegate;
@@ -156,6 +158,10 @@ private:
     std::vector<uint8_t> m_buffer;
     std::atomic<int> m_mappers;
     std::atomic<bool> m_converged;
+
+    // Synchronizes buffer resize with the Cycles session callback
+    // to update the content from the renderpasses
+    std::mutex m_mutex;
 
     HdCyclesRenderDelegate* m_renderDelegate;
 

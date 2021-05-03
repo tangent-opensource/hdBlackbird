@@ -307,6 +307,7 @@ HdBprim*
 HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
 {
     if (typeId == HdPrimTypeTokens->renderBuffer) {
+        std::cout << "Creating cycles render buffer " << std::endl;
         return new HdCyclesRenderBuffer(this, SdfPath());
     }
     if (typeId == _tokens->openvdbAsset) {

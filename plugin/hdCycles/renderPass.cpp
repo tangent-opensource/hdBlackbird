@@ -139,7 +139,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 
         renderParam->Interrupt();
     }
-
+#if 0
     // Tiled renders early out because we do the blitting on render tile callback
     if (renderParam->IsTiledRender())
         return;
@@ -194,6 +194,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
             }
         }
     }
+#endif
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

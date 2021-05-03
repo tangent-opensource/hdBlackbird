@@ -81,6 +81,7 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegat
     , m_renderDelegate(renderDelegate)
     , m_wasUpdated(false)
 {
+    std::cout << "Rendebuffer Id " << GetId() << std::endl;
 }
 
 HdCyclesRenderBuffer::~HdCyclesRenderBuffer() {}
@@ -89,6 +90,10 @@ bool
 HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool multiSampled)
 {
     _Deallocate();
+
+    std::unique_lock<std::mutex> lock { m_mutex };
+
+    std::cout << "Allocating render buffer " << GetId() << std::endl;
 
     if (dimensions[2] != 1) {
         TF_WARN("Render buffer allocated with dims <%d, %d, %d> and format %s; depth must be 1!", dimensions[0],
@@ -138,6 +143,10 @@ HdCyclesRenderBuffer::IsMultiSampled() const
 void*
 HdCyclesRenderBuffer::Map()
 {
+    if (m_buffer.empty()) {
+        return nullptr;
+    }
+
     m_mappers++;
     return m_buffer.data();
 }
@@ -145,7 +154,9 @@ HdCyclesRenderBuffer::Map()
 void
 HdCyclesRenderBuffer::Unmap()
 {
-    m_mappers--;
+    if (!m_buffer.empty()) {
+        m_mappers--;
+    }
 }
 
 bool
@@ -288,6 +299,8 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
 void
 HdCyclesRenderBuffer::_Deallocate()
 {
+    std::unique_lock<std::mutex> lock{ m_mutex };
+
     m_wasUpdated = true;
     m_width      = 0;
     m_height     = 0;
