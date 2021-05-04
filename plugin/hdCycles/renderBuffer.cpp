@@ -107,8 +107,6 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
 
     m_mutex.unlock();
 
-    Clear();
-
     return true;
 }
 
