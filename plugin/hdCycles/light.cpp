@@ -137,18 +137,10 @@ HdCyclesLight::_SetTransform(const ccl::Transform& a_transform)
 
     m_cyclesLight->tfm = a_transform;
 
-    if (m_cyclesLight->type == ccl::LIGHT_BACKGROUND) {
-        ccl::TextureCoordinateNode* backgroundTransform = static_cast<ccl::TextureCoordinateNode*>(
-            _FindShaderNode(m_cyclesLight->shader->graph, ccl::TextureCoordinateNode::node_type));
-        if (backgroundTransform)
-            backgroundTransform->ob_tfm = a_transform;
-    } else {
-        // Set the area light transforms
-        m_cyclesLight->axisu = ccl::transform_get_column(&a_transform, 0);
-        m_cyclesLight->axisv = ccl::transform_get_column(&a_transform, 1);
-        m_cyclesLight->co = ccl::transform_get_column(&a_transform, 3);
-        m_cyclesLight->dir = -ccl::transform_get_column(&a_transform, 2);
-    }
+    m_cyclesLight->axisu = ccl::transform_get_column(&a_transform, 0);
+    m_cyclesLight->axisv = ccl::transform_get_column(&a_transform, 1);
+    m_cyclesLight->co = ccl::transform_get_column(&a_transform, 3);
+    m_cyclesLight->dir = -ccl::transform_get_column(&a_transform, 2);
 }
 
 ccl::ShaderGraph*
@@ -208,7 +200,10 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
     m_cyclesLight->samples = 1;
     m_cyclesLight->max_bounces = 1024;
 
-    if (*dirtyBits & HdLight::DirtyParams) {
+    // Always rebuild dome lights on transform change, the transform texture co-ordinate gets
+    // optimised/folded out and we can't get it back to tweak...
+    if (*dirtyBits & HdLight::DirtyParams
+        || (*dirtyBits & HdLight::DirtyTransform && m_cyclesLight->type == ccl::LIGHT_BACKGROUND)) {
         light_updated = true;
         ccl::ShaderGraph* oldGraph = m_cyclesLight->shader->graph;
 
@@ -515,10 +510,15 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
                 ccl::EnvironmentTextureNode* backgroundTexture = nullptr;
                 if (graph) {
-                    // Add environment texture nodes
+                    // Add environment texture nodes. We set transform here for dome lights.
                     ccl::TextureCoordinateNode* backgroundTransform = new ccl::TextureCoordinateNode();
                     backgroundTransform->use_transform = true;
-                    backgroundTransform->ob_tfm = m_cyclesLight->tfm;
+                    ccl::Transform transform = HdCyclesExtractTransform(sceneDelegate, id);
+                    // Reset translation
+                    transform.x[3] = 0.0f;
+                    transform.y[3] = 0.0f;
+                    transform.z[3] = 0.0f;
+                    backgroundTransform->ob_tfm = transform;
                     graph->add(backgroundTransform);
 
                     backgroundTexture = new ccl::EnvironmentTextureNode();
@@ -597,7 +597,9 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         m_cyclesLight->is_enabled = sceneDelegate->GetVisible(id);
     }
 
-    if (*dirtyBits & HdLight::DirtyTransform) {
+    // Dome light transform is set always on shader re-creation above
+    // (the internal transform gets optimised away, so a shader rebuild is required)
+    if (*dirtyBits & HdLight::DirtyTransform && m_cyclesLight->type != ccl::LIGHT_BACKGROUND) {
         light_updated = true;
         _SetTransform(HdCyclesExtractTransform(sceneDelegate, id));
     }
