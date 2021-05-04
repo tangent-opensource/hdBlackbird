@@ -56,7 +56,7 @@ HdCyclesResourceRegistry::_Commit()
     auto session = m_renderDelegate->GetCyclesRenderParam()->GetCyclesSession();
     auto scene   = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene();
 
-    //
+    // Pause rendering for committing
     HdCyclesSessionAutoPause session_auto_pause { session };
 
     // State used to control session/scene update reset
@@ -156,7 +156,10 @@ HdCyclesResourceRegistry::_GarbageCollectObjectAndGeometry()
     auto scene = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene();
 
     // Design note:
-    // Unique instances of shared pointer are considered
+    // Unique instances of shared pointer are considered not used in the scene and should be detached from the scene
+    // before removal. Instead of removing objects from the scene during RPrim destructor or Finalize calls,
+    // we group them into unordered set of pointers, then we sweep through all objects once and remove those that are
+    // unique.
 
     std::unordered_set<const ccl::Object*> unique_objects;
     std::unordered_set<const ccl::Geometry*> unique_geometries;
@@ -215,7 +218,9 @@ HdCyclesResourceRegistry::_GarbageCollect()
     ccl::thread_scoped_lock scene_lock { scene->mutex };
 
     // Design note:
-    // One might think that following OOP pattern
+    // One might think that following OOP pattern would be the best choice of action, and deletion of the objects should
+    // happen in HdCyclesObjectSource. It turns out it's better to collect all unique objects and remove them in one
+    // iteration.
 
     //
     // * Unbind unique instances of Geometry and Object from the Scene
