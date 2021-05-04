@@ -2149,11 +2149,6 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
         return;
     }
 
-    if (rb->WasUpdated()) {
-        rb->SetWasUpdated(false);
-        return;
-    }
-
     void* data          = rb->Map();
     if (data) {
         auto n_comps_cycles = HdGetComponentCount(cyclesAov.format);

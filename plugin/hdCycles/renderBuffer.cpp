@@ -80,7 +80,6 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegat
     , m_mappers(0)
     , m_converged(false)
     , m_renderDelegate(renderDelegate)
-    , m_wasUpdated(false)
 {
 }
 
@@ -263,12 +262,11 @@ HdCyclesRenderBuffer::_Deallocate()
 {
     m_mutex.lock();
 
-    m_wasUpdated = true;
     m_width      = 0;
     m_height     = 0;
     m_format     = HdFormatInvalid;
 
-    std::vector<float> buffer_empty {};
+    std::vector<uint8_t> buffer_empty {};
     m_buffer.swap(buffer_empty);
     m_mappers.store(0);
     m_converged.store(false);

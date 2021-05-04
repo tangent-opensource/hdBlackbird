@@ -164,15 +164,6 @@ private:
     std::mutex m_mutex;
 
     HdCyclesRenderDelegate* m_renderDelegate;
-
-    // Needed as a stopgap, because Houdini dellocates renderBuffers
-    // when changing render settings. This causes the current blit to
-    // fail (Probably can be fixed with proper render thread management)
-    bool m_wasUpdated;
-
-public:
-    const bool& WasUpdated() { return m_wasUpdated; }
-    void SetWasUpdated(const bool& val) { m_wasUpdated = val; }
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
