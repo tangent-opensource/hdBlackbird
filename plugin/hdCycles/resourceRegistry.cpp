@@ -18,61 +18,224 @@
 //  limitations under the License.
 
 #include "resourceRegistry.h"
+#include "renderDelegate.h"
+#include "renderParam.h"
 
 #include <pxr/base/work/loops.h>
 #include <pxr/usd/sdf/path.h>
 
+#include <render/geometry.h>
+#include <render/object.h>
 #include <render/scene.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
+namespace {
+struct HdCyclesSessionAutoPause {
+    explicit HdCyclesSessionAutoPause(ccl::Session* s)
+        : session(s)
+    {
+        session->set_pause(true);
+    }
+
+    ~HdCyclesSessionAutoPause() { session->set_pause(false); }
+
+    ccl::Session* session;
+};
+}  // namespace
+
 void
 HdCyclesResourceRegistry::_Commit()
 {
+    //
+    // *** WARNING ***
+    //
     // This function is under heavy wip. In ideal situation committing all resources to cycles should happen in one
     // place only.
 
-    ccl::thread_scoped_lock scene_lock { m_scene->mutex };
-    // TODO: acquire display lock
+    auto session = m_renderDelegate->GetCyclesRenderParam()->GetCyclesSession();
+    auto scene   = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene();
+
+    //
+    HdCyclesSessionAutoPause session_auto_pause { session };
 
     // State used to control session/scene update reset
-    std::atomic_bool requires_reset { false };
+    std::atomic_size_t num_new_objects { 0 };
+    std::atomic_size_t num_new_geometries { 0 };
+    std::atomic_size_t num_new_sources { 0 };
 
-    // * bind objects to the scene
-    for (auto& object_source : m_object_sources) {
-        if (!object_source.second.value->IsValid()) {
+    // scene must be locked before any modifications
+    ccl::thread_scoped_lock scene_lock { scene->mutex };
+
+    //
+    // * bind lights
+    //
+
+    //
+    // * bind shaders
+    //
+
+    //
+    // * bind objects and geometries to the scene
+    //
+    for (auto& object_source : m_objects) {  // TODO: preallocate objects
+        HdCyclesObjectSource* source_ptr = object_source.second.value.get();
+
+        if (!source_ptr->IsValid()) {
             continue;
         }
-        object_source.second.value->Resolve();
+
+        if (source_ptr->IsResolved()) {
+            continue;
+        }
+
+        // resolve and bind
+        source_ptr->Resolve();
+
+        ccl::Object* object = source_ptr->GetObject();
+        if (!object) {
+            continue;
+        }
+        scene->objects.push_back(object);
+        object->tag_update(scene);
+        ++num_new_objects;
+
+        ccl::Geometry* geometry = object->geometry;
+        if (!geometry) {
+            continue;
+        }
+        scene->geometry.push_back(geometry);
+        geometry->tag_update(scene, true);  // new object bvh has to be rebuild
+        ++num_new_geometries;
     }
 
-    // * commit all pending object resources
+    //
+    // * commit all pending object sources
+    //
     using ValueType = HdInstanceRegistry<HdCyclesObjectSourceSharedPtr>::const_iterator::value_type;
-    WorkParallelForEach(m_object_sources.begin(), m_object_sources.end(),
-                        [&requires_reset](const ValueType& object_source) {
-                            // resolve per object
-                            size_t num_resolved_sources = object_source.second.value->ResolvePendingSources();
-                            if (num_resolved_sources > 0) {
-                                requires_reset = true;
-                            }
-                        });
+    WorkParallelForEach(m_objects.begin(), m_objects.end(), [&num_new_sources, scene](const ValueType& object_source) {
+        // resolve per object
+        size_t num_resolved_sources = object_source.second.value->ResolvePendingSources();
+        if (num_resolved_sources > 0) {
+            ++num_new_sources;
+            object_source.second.value->GetObject()->tag_update(scene);
+        }
+    });
 
-    // * notify session that new resources have been committed and reset is required
+    //
+    // * notify cycles about the changes
+    //
+    std::atomic_bool requires_reset { false };
+
+    if (num_new_objects > 0) {
+        scene->object_manager->tag_update(scene);
+        requires_reset = true;
+    }
+
+    if (num_new_geometries > 0) {
+        scene->geometry_manager->tag_update(scene);
+        requires_reset = true;
+    }
+
+    if (num_new_sources > 0) {
+        requires_reset = true;
+    }
+
+    //
+    // * restart if necessary
+    //
     if (requires_reset) {
-        // TODO: After we are done removing scene and session mutations from *::Sync. We can request update and reset
+        m_renderDelegate->GetCyclesRenderParam()->CyclesReset(true);
+    }
+}
+
+
+void
+HdCyclesResourceRegistry::_GarbageCollectObjectAndGeometry()
+{
+    auto scene = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene();
+
+    // Design note:
+    // Unique instances of shared pointer are considered
+
+    std::unordered_set<const ccl::Object*> unique_objects;
+    std::unordered_set<const ccl::Geometry*> unique_geometries;
+
+    //
+    // * collect unique objects and geometries
+    //
+    for (const auto& object_instance : m_objects) {
+        if (!object_instance.second.value.unique()) {
+            continue;
+        }
+
+        const ccl::Object* object = object_instance.second.value->GetObject();
+        if (!object) {
+            continue;
+        }
+
+        // Mark for unbinding
+        unique_objects.insert(object);
+        const ccl::Geometry* geometry = object->geometry;
+        if (geometry) {
+            unique_geometries.insert(geometry);
+        }
+    }
+
+    //
+    // * unbind objects and geometries
+    //
+    if (unique_objects.empty()) {
+        return;
+    }
+
+    // remove geometries
+    for (auto it = scene->geometry.begin(); it != scene->geometry.end();) {
+        if (unique_geometries.find(*it) != unique_geometries.end()) {
+            it = scene->geometry.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // remove objects
+    for (auto it = scene->objects.begin(); it != scene->objects.end();) {
+        if (unique_objects.find(*it) != unique_objects.end()) {
+            it = scene->objects.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 
 void
 HdCyclesResourceRegistry::_GarbageCollect()
 {
-    ccl::thread_scoped_lock scene_lock { m_scene->mutex };
+    auto scene = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene();
+    ccl::thread_scoped_lock scene_lock { scene->mutex };
 
-    m_object_sources.GarbageCollect();
+    // Design note:
+    // One might think that following OOP pattern
+
+    //
+    // * Unbind unique instances of Geometry and Object from the Scene
+    //
+    {
+        _GarbageCollectObjectAndGeometry();
+    }
+
+    //
+    // * delete unique objects
+    //
+    {
+        m_objects.GarbageCollect();
+    }
 }
 
 HdInstance<HdCyclesObjectSourceSharedPtr>
 HdCyclesResourceRegistry::GetObjectInstance(const SdfPath& id)
 {
-    return m_object_sources.GetInstance(id.GetHash());
+    return m_objects.GetInstance(id.GetHash());
 }
+
+HdCyclesResourceRegistry::~HdCyclesResourceRegistry() { _GarbageCollect(); }

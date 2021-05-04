@@ -22,24 +22,25 @@
 
 #include "objectSource.h"
 
-#include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/instanceRegistry.h>
 #include <pxr/imaging/hd/resourceRegistry.h>
 
 #include <tbb/concurrent_vector.h>
 
-namespace ccl {
-class Scene;
-}
-
 PXR_NAMESPACE_OPEN_SCOPE
+
+class HdCyclesRenderDelegate;
 
 class HdCyclesResourceRegistry final : public HdResourceRegistry {
 public:
+    explicit HdCyclesResourceRegistry(HdCyclesRenderDelegate* renderDelegate)
+        : m_renderDelegate { renderDelegate }
+    {
+    }
 
-    HdCyclesResourceRegistry() = default;
+    ~HdCyclesResourceRegistry();
 
-    void UpdateScene(ccl::Scene* scene) { m_scene = scene; }
+    void Update(HdCyclesRenderDelegate* renderDelegate) { m_renderDelegate = renderDelegate; }
 
     HdInstance<HdCyclesObjectSourceSharedPtr> GetObjectInstance(const SdfPath& id);
 
@@ -47,8 +48,10 @@ private:
     void _Commit() override;
     void _GarbageCollect() override;
 
-    ccl::Scene* m_scene{};
-    HdInstanceRegistry<HdCyclesObjectSourceSharedPtr> m_object_sources;
+    void _GarbageCollectObjectAndGeometry();
+
+    HdCyclesRenderDelegate* m_renderDelegate;
+    HdInstanceRegistry<HdCyclesObjectSourceSharedPtr> m_objects;
 };
 
 using HdCyclesResourceRegistrySharedPtr = std::shared_ptr<HdCyclesResourceRegistry>;
