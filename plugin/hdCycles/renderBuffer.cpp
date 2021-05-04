@@ -20,6 +20,7 @@
 #include "renderBuffer.h"
 #include "renderDelegate.h"
 #include "renderPass.h"
+#include "renderParam.h"
 
 #include <pxr/base/gf/vec2i.h>
 #include <pxr/base/gf/vec3i.h>
@@ -81,7 +82,6 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegat
     , m_renderDelegate(renderDelegate)
     , m_wasUpdated(false)
 {
-    std::cout << "Rendebuffer Id " << GetId() << std::endl;
 }
 
 HdCyclesRenderBuffer::~HdCyclesRenderBuffer() {}
@@ -91,21 +91,23 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
 {
     _Deallocate();
 
-    std::unique_lock<std::mutex> lock { m_mutex };
-
-    std::cout << "Allocating render buffer " << GetId() << std::endl;
-
     if (dimensions[2] != 1) {
         TF_WARN("Render buffer allocated with dims <%d, %d, %d> and format %s; depth must be 1!", dimensions[0],
                 dimensions[1], dimensions[2], TfEnum::GetName(format).c_str());
         return false;
     }
 
+    m_mutex.lock();
+
     m_width     = static_cast<unsigned int>(dimensions[0]);
     m_height    = static_cast<unsigned int>(dimensions[1]);
     m_format    = format;
     m_pixelSize = static_cast<unsigned int>(HdDataSizeOfFormat(format));
     m_buffer.resize(m_width * m_height * m_pixelSize, 0);
+
+    m_mutex.unlock();
+
+    Clear();
 
     return true;
 }
@@ -142,11 +144,12 @@ HdCyclesRenderBuffer::IsMultiSampled() const
 
 void*
 HdCyclesRenderBuffer::Map()
-{
+{    
     if (m_buffer.empty()) {
         return nullptr;
     }
 
+    m_mutex.lock(); 
     m_mappers++;
     return m_buffer.data();
 }
@@ -156,6 +159,7 @@ HdCyclesRenderBuffer::Unmap()
 {
     if (!m_buffer.empty()) {
         m_mappers--;
+        m_mutex.unlock();
     }
 }
 
@@ -236,8 +240,16 @@ HdCyclesRenderBuffer::Clear()
     if (m_format == HdFormatInvalid)
         return;
 
+    m_mutex.lock();
     size_t pixelSize = HdDataSizeOfFormat(m_format);
     memset(&m_buffer[0], 0, m_buffer.size() * pixelSize);
+    m_mutex.unlock();
+}
+
+void
+HdCyclesRenderBuffer::Finalize(HdRenderParam *renderParam) {
+    auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
+    param->tagSettingsDirty();
 }
 
 void
@@ -299,7 +311,7 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
 void
 HdCyclesRenderBuffer::_Deallocate()
 {
-    std::unique_lock<std::mutex> lock{ m_mutex };
+    m_mutex.lock();
 
     m_wasUpdated = true;
     m_width      = 0;
@@ -308,6 +320,8 @@ HdCyclesRenderBuffer::_Deallocate()
     m_buffer.resize(0);
     m_mappers.store(0);
     m_converged.store(false);
+
+    m_mutex.unlock();
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

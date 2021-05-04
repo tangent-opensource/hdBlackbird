@@ -127,6 +127,8 @@ public:
 
     void Clear();
 
+    void Finalize(HdRenderParam *renderParam) override;
+
     /**
      * @brief Helper to blit the render buffer data
      * 

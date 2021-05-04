@@ -367,9 +367,13 @@ private:
      * with changing the render settings. */
     std::mutex m_aovs_mutex;
 
+    bool m_settingsHaveChanged = false;
+
     TfToken m_displayAovToken;
 
 public:
+    void tagSettingsDirty();
+
     /**
      * @brief Set the default display AOV
      * 

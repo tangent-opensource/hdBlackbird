@@ -320,6 +320,7 @@ HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
 void
 HdCyclesRenderDelegate::DestroyBprim(HdBprim* bPrim)
 {
+    std::cout << "Deleting Bprim " << bPrim->GetId() << std::endl;
     if (bPrim)
         delete bPrim;
 }

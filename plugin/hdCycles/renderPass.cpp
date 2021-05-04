@@ -139,62 +139,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 
         renderParam->Interrupt();
     }
-#if 0
-    // Tiled renders early out because we do the blitting on render tile callback
-    if (renderParam->IsTiledRender())
-        return;
-
-    if (!renderParam->GetCyclesSession())
-        return;
-
-    if (!renderParam->GetCyclesScene())
-        return;
-
-    ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
-
-    if (!display)
-        return;
-
-    ccl::thread_scoped_lock display_lock = renderParam->GetCyclesSession()->acquire_display_lock();
-
-    HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;
-
-    unsigned char* hpixels = (display->half_float) ? static_cast<unsigned char*>(display->rgba_half.host_pointer)
-                                                   : static_cast<unsigned char*>(display->rgba_byte.host_pointer);
-
-    if (!hpixels)
-        return;
-
-    int w = display->draw_width;
-    int h = display->draw_height;
-
-    if (w == 0 || h == 0)
-        return;
-
-    // Blit
-    if (!aovBindings.empty()) {
-        // Blit from the framebuffer to currently selected aovs...
-        for (auto& aov : aovBindings) {
-            if (!TF_VERIFY(aov.renderBuffer != nullptr)) {
-                continue;
-            }
-
-            auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
-            rb->SetConverged(m_isConverged);
-
-            // Needed as a stopgap, because Houdini dellocates renderBuffers
-            // when changing render settings. This causes the current blit to
-            // fail (Probably can be fixed with proper render thread management)
-            if (!rb->WasUpdated()) {
-                if (aov.aovName == renderParam->GetDisplayAovToken()) {
-                    //rb->Blit(colorFormat, w, h, 0, w, hpixels);
-                }
-            } else {
-                rb->SetWasUpdated(false);
-            }
-        }
-    }
-#endif
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
