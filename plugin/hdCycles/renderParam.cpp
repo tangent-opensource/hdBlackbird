@@ -2102,11 +2102,13 @@ void
 HdCyclesRenderParam::tagSettingsDirty() {
     Interrupt();
 
+    // Aovs access is synchronized with the Cycles display lock
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
     m_settingsHaveChanged = true;
 
-    // I really don't like this, but let's get a stable version first.
+    // This guarantess that aov bindings point to a valid render buffer
     m_aovs.clear();
+
 }
 
 void
@@ -2128,11 +2130,6 @@ HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
     }
 }
 
-/*
-    Here only because the info about aov mapping is local to this file.
-
-    w, h could be fetched from the aov itself
-*/
 void
 HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples) {
     if (samples < 0) {
@@ -2144,12 +2141,16 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
         return;
     }
 
+    // The RenderParam logic should guarantee that aov bindings always point to valid renderbuffer
     auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
     if (!rb) {
         return;
     }
 
-    void* data          = rb->Map();
+    // This acquires the whole object, not just the pixel buffer
+    // It needs to wrap any getters
+    void* data = rb->Map();
+
     if (data) {
         auto n_comps_cycles = HdGetComponentCount(cyclesAov.format);
         auto n_comps_hd     = HdGetComponentCount(rb->GetFormat());
@@ -2169,7 +2170,6 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             const int stride     = HdDataSizeOfFormat(rb->GetFormat());
             const float exposure = m_cyclesScene->film->exposure;
             auto buffers         = m_cyclesSession->buffers;
-            //if (buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, m_aovs_buf.data())) {
             buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, (uint8_t*)data,
                                       pixels_type, w, h, stride);
         } else {
@@ -2178,8 +2178,9 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
         }
         rb->Unmap();
     } else {
-        TF_WARN("Failed to map renderbuffer %s for writing on Cycles display callback");
+        TF_WARN("Failed to map renderbuffer %s for writing on Cycles display callback", aov.aovName.GetText());
     }
 }
+
 
 PXR_NAMESPACE_CLOSE_SCOPE
