@@ -58,7 +58,7 @@ using HdCyclesTransformSmallVector = TfSmallVector<ccl::Transform, HD_CYCLES_MAX
 class HdCyclesTransformSource : public HdBufferSource {
 public:
     HdCyclesTransformSource(ccl::Object* object, const HdCyclesMatrix4dTimeSampleArray& samples,
-                            const GfMatrix4d& fallback);
+                            const GfMatrix4d& fallback, unsigned int new_num_samples = 0);
 
     bool Resolve() override;
     const TfToken& GetName() const override { return HdTokens->transform; }
@@ -78,6 +78,7 @@ private:
     ccl::Object* m_object;
     HdCyclesMatrix4dTimeSampleArray m_samples;
     GfMatrix4d m_fallback;
+    unsigned int m_new_num_samples;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

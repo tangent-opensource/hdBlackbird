@@ -33,7 +33,7 @@ struct HdCyclesIndexedTimeSample {
     using index_type = ccl::uint;
     using time_type  = float;
 
-    static constexpr time_type epsilon   = static_cast<time_type>(1e-5);
+    static constexpr time_type epsilon     = static_cast<time_type>(1e-5);
     static constexpr index_type resolution = static_cast<index_type>(static_cast<time_type>(1.0) / epsilon);
 
     HdCyclesIndexedTimeSample(index_type _index, time_type _time)
@@ -132,10 +132,11 @@ HdCyclesAreTimeSamplesUniformlyDistributed(const HdTimeSampleArray<TYPE, CAPACIT
 }  // namespace
 
 HdCyclesTransformSource::HdCyclesTransformSource(ccl::Object* object, const HdCyclesMatrix4dTimeSampleArray& samples,
-                                                 const GfMatrix4d& fallback)
+                                                 const GfMatrix4d& fallback, unsigned int new_num_samples)
     : m_object { object }
     , m_samples { samples }
     , m_fallback { fallback }
+    , m_new_num_samples { new_num_samples }
 {
 }
 
@@ -253,7 +254,7 @@ HdCyclesTransformSource::Resolve()
 
     // Frame centered motion blur only, with fallback to default value
     const float shutter_open  = m_samples.times[0];
-    const float shutter_close = m_samples.times[m_samples.count - 1];
+    const float shutter_close = m_samples.times[static_cast<unsigned int>(m_samples.count) - 1];
     if (std::abs(std::abs(shutter_close) - std::abs(shutter_open)) > HdCyclesIndexedTimeSample::epsilon) {
         object->motion.resize(0);
         object->tfm = mat4d_to_transform(m_fallback);
@@ -267,20 +268,23 @@ HdCyclesTransformSource::Resolve()
     // * resample if number of samples is even
     // * resample if samples are not distributed evenly
     // * otherwise copy as they are
+    //
+    auto num_req_samples = m_new_num_samples > 0 ? m_new_num_samples : static_cast<unsigned int>(m_samples.count);
+
     HdCyclesTransformTimeSampleArray motion_transforms;
-    const bool odd_num_samples = m_samples.count % 2 == 1;
+    const bool odd_num_samples = num_req_samples % 2 == 1;
     if (odd_num_samples) {
         if (HdCyclesAreTimeSamplesUniformlyDistributed(m_samples)) {
-            motion_transforms.Resize(m_samples.count);
-            for (unsigned int i = 0; i < m_samples.count; ++i) {
+            motion_transforms.Resize(num_req_samples);
+            for (unsigned int i = 0; i < num_req_samples; ++i) {
                 motion_transforms.values[i] = mat4d_to_transform(m_samples.values[i]);
             }
         } else {
-            motion_transforms = ResampleUniform(m_samples, m_samples.count);
+            motion_transforms = ResampleUniform(m_samples, num_req_samples);
         }
     } else {
         // Even number of samples required conversion to odd
-        motion_transforms = ResampleUniform(m_samples, m_samples.count + 1);
+        motion_transforms = ResampleUniform(m_samples, num_req_samples + 1);
     }
 
     // Commit samples

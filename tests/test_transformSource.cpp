@@ -127,4 +127,62 @@ TEST_SUITE("Testing HdCyclesTransformSource")
         CHECK(result.times[1] == doctest::Approx { -0.00 });
         CHECK(result.times[2] == doctest::Approx { +0.25 });
     }
+
+    TEST_CASE("Test request more samples than input data")
+    {
+        samples.Resize(3);
+        samples.times[0] = -1.0;
+        samples.times[1] = -0.0;
+        samples.times[2] = 1.0;
+
+        HdCyclesTransformSource src { _object, samples, _fallback, 11 };
+        CHECK(src.IsValid() == true);
+        CHECK(src.Resolve() == true);
+        CHECK(src.GetObject()->motion.size() == 11);
+    }
+
+    TEST_CASE("Test request less samples than input data")
+    {
+        samples.Resize(5);
+        samples.times[0] = -0.250;
+        samples.times[1] = -0.125;
+        samples.times[2] = -0.000;
+        samples.times[3] = +0.125;
+        samples.times[4] = +0.250;
+
+        HdCyclesTransformSource src { _object, samples, _fallback, 3 };
+        CHECK(src.IsValid() == true);
+        CHECK(src.Resolve() == true);
+        CHECK(src.GetObject()->motion.size() == 3);
+    }
+
+    TEST_CASE("Test request one sample")
+    {
+        samples.Resize(5);
+        samples.times[0] = -0.250;
+        samples.times[1] = -0.125;
+        samples.times[2] = -0.000;
+        samples.times[3] = +0.125;
+        samples.times[4] = +0.250;
+
+        HdCyclesTransformSource src { _object, samples, _fallback, 1 };
+        CHECK(src.IsValid() == true);
+        CHECK(src.Resolve() == true);
+        CHECK(src.GetObject()->motion.size() == 1);
+    }
+
+    TEST_CASE("Test request two get three samples")
+    {
+        samples.Resize(5);
+        samples.times[0] = -0.250;
+        samples.times[1] = -0.125;
+        samples.times[2] = -0.000;
+        samples.times[3] = +0.125;
+        samples.times[4] = +0.250;
+
+        HdCyclesTransformSource src { _object, samples, _fallback, 2 };
+        CHECK(src.IsValid() == true);
+        CHECK(src.Resolve() == true);
+        CHECK(src.GetObject()->motion.size() == 3);
+    }
 }
