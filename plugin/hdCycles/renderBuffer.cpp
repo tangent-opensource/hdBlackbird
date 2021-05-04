@@ -185,54 +185,6 @@ HdCyclesRenderBuffer::SetConverged(bool cv)
 }
 
 void
-HdCyclesRenderBuffer::Blit(HdFormat format, int width, int height, int offset, int stride, uint8_t const* data)
-{
-    if (m_format == format) {
-        if (static_cast<unsigned int>(width) == m_width && static_cast<unsigned int>(height) == m_height) {
-            // Blit line by line.
-            for (unsigned int j = 0; j < m_height; ++j) {
-                memcpy(&m_buffer[(j * m_width) * m_pixelSize], &data[(j * stride + offset) * m_pixelSize],
-                       m_width * m_pixelSize);
-            }
-        } else {
-            // Blit pixel by pixel, with nearest point sampling.
-            float scalei = static_cast<float>(width) / float(m_width);
-            float scalej = static_cast<float>(height) / float(m_height);
-            for (unsigned int j = 0; j < m_height; ++j) {
-                for (unsigned int i = 0; i < m_width; ++i) {
-                    auto ii = static_cast<unsigned int>(scalei * static_cast<float>(i));
-                    auto jj = static_cast<unsigned int>(scalej * static_cast<float>(j));
-                    memcpy(&m_buffer[(j * m_width + i) * m_pixelSize], &data[(jj * stride + offset + ii) * m_pixelSize],
-                           m_pixelSize);
-                }
-            }
-        }
-    } else {
-        // Convert pixel by pixel, with nearest point sampling.
-        // If src and dst are both int-based, don't round trip to float.
-        size_t pixelSize  = HdDataSizeOfFormat(format);
-        bool convertAsInt = (HdGetComponentFormat(format) == HdFormatInt32)
-                            && (HdGetComponentFormat(m_format) == HdFormatInt32);
-
-        float scalei = static_cast<float>(width) / float(m_width);
-        float scalej = static_cast<float>(height) / float(m_height);
-        for (unsigned int j = 0; j < m_height; ++j) {
-            for (unsigned int i = 0; i < m_width; ++i) {
-                auto ii = static_cast<unsigned int>(scalei * static_cast<float>(i));
-                auto jj = static_cast<unsigned int>(scalej * static_cast<float>(j));
-                if (convertAsInt) {
-                    _ConvertPixel<int32_t>(m_format, &m_buffer[(j * m_width + i) * m_pixelSize], format,
-                                           &data[(jj * stride + offset + ii) * pixelSize]);
-                } else {
-                    _ConvertPixel<float>(m_format, &m_buffer[(j * m_width + i) * m_pixelSize], format,
-                                         &data[(jj * stride + offset + ii) * pixelSize]);
-                }
-            }
-        }
-    }
-}
-
-void
 HdCyclesRenderBuffer::Clear()
 {
     if (m_format == HdFormatInvalid)
