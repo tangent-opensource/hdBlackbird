@@ -242,12 +242,10 @@ private:
     HdCyclesRenderPass* m_renderPass;
     HdRenderSettingDescriptorList m_settingDescriptors;
 
-    static std::mutex m_resource_registry_mutex;
-    static std::atomic_int m_resource_registry_counter;
-    static HdCyclesResourceRegistrySharedPtr m_resourceRegistry;
-
     std::unique_ptr<HdCyclesRenderParam> m_renderParam;
     bool m_hasStarted;
+
+    HdCyclesResourceRegistrySharedPtr m_resourceRegistry;
 
     ///
     /// Auto add/remove cycles diagnostic delegate
