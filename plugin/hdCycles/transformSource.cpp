@@ -164,7 +164,7 @@ HdCyclesTransformSource::ResampleUniform(const HdCyclesMatrix4dTimeSampleArray& 
     // sample - point in time, segment - width between two samples
     // 3 samples = 2 segments => num_segments = num_samples - 1
     const float shutter_time            = samples.times[num_samples - 1] - samples.times[0];
-    const unsigned int new_num_segments = new_num_samples - 1;
+    const unsigned int new_num_segments = new_num_samples > 1 ? new_num_samples - 1 : 1;
     const float new_segment_width       = shutter_time / static_cast<float>(new_num_segments);
 
     //
