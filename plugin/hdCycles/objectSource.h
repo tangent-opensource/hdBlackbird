@@ -39,7 +39,7 @@ class SdfPath;
 ///
 class HdCyclesObjectSource : public HdBufferSource {
 public:
-    explicit HdCyclesObjectSource(ccl::Object* object, const SdfPath& id);
+    explicit HdCyclesObjectSource(ccl::Object* object, const SdfPath& id, bool isReference = true);
     ~HdCyclesObjectSource() override;
 
     void AddSource(HdBufferSourceSharedPtr source);
@@ -62,6 +62,7 @@ protected:
 
     ccl::Object* m_object;
     SdfPath m_id;
+    bool m_isReference;
 
     TfHashMap<TfToken, HdBufferSourceSharedPtr, TfHash> m_pending_sources;
 };
