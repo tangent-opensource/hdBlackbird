@@ -267,7 +267,9 @@ HdCyclesRenderBuffer::_Deallocate()
     m_width      = 0;
     m_height     = 0;
     m_format     = HdFormatInvalid;
-    m_buffer.resize(0);
+
+    std::vector<float> buffer_empty {};
+    m_buffer.swap(buffer_empty);
     m_mappers.store(0);
     m_converged.store(false);
 
