@@ -383,7 +383,19 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 
             case ccl::SocketType::ENUM: {
                 if (params.second.IsHolding<int>()) {
-                    cyclesNode->set(socket, (*socket.enum_values)[params.second.Get<int>()].string().c_str());
+                    const ccl::NodeEnum& node_enums = *socket.enum_values;
+                    auto index = params.second.Get<int>();
+                    if(node_enums.exists(index)) {
+                        const char* value = node_enums[index].string().c_str();
+                        cyclesNode->set(socket, value);
+                    } else {
+                        // fallback to Blender's defaults
+                        if(cycles_node_name == "principled_bsdf") {
+                            cyclesNode->set(socket, "GGX");
+                        } else {
+                            TF_CODING_ERROR("Invalid enum without fallback value");
+                        }
+                    }
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket, params.second.Get<std::string>().c_str());
                 } else if (params.second.IsHolding<TfToken>()) {
@@ -663,7 +675,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
     const SdfPath& id = GetId();
 
-    ccl::thread_scoped_lock lock{param->GetCyclesScene()->mutex};
+    ccl::thread_scoped_lock lock { param->GetCyclesScene()->mutex };
     bool material_updated = false;
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
@@ -708,7 +720,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
     }
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
-
         TfToken displacementMethod = _HdCyclesGetParam<TfToken>(sceneDelegate, id,
                                                                 usdCyclesTokens->cyclesMaterialDisplacement_method,
                                                                 usdCyclesTokens->displacement_bump);

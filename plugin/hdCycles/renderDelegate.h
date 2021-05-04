@@ -23,6 +23,7 @@
 #include "api.h"
 #include "resourceRegistry.h"
 
+#include <pxr/base/tf/diagnosticMgr.h>
 #include <pxr/base/tf/staticTokens.h>
 #include <pxr/imaging/hd/renderDelegate.h>
 #include <pxr/pxr.h>
@@ -140,6 +141,26 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens,
 
 // clang-format on
 
+///
+/// Issues errors messages to specified ostream
+///
+class HdCyclesDiagnosticDelegate : public TfDiagnosticMgr::Delegate {
+public:
+    explicit HdCyclesDiagnosticDelegate(std::ostream& os);
+    ~HdCyclesDiagnosticDelegate() override;
+
+    void IssueError(const TfError& err) override;
+    void IssueFatalError(const TfCallContext& context, const std::string& msg) override;
+    void IssueStatus(const TfStatus& status) override {}
+    void IssueWarning(const TfWarning& warning) override {}
+
+private:
+    void IssueDiagnosticBase(const TfDiagnosticBase& d);
+    void IssueMessage(const std::string& message) { _os << message << '\n'; }
+
+    std::ostream& _os;
+};
+
 /**
  * @brief Represents the core interactions between Cycles and Hydra.
  * Responsible for creating and deleting scene primitives, and
@@ -179,9 +200,11 @@ public:
 
     virtual HdResourceRegistrySharedPtr GetResourceRegistry() const override;
 
-    // Prims
-    virtual HdRenderPassSharedPtr CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection) override;
+    // Render Pass and State
+    HdRenderPassSharedPtr CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection) override;
+    HdRenderPassStateSharedPtr CreateRenderPassState() const override;
 
+    // Prims
     HdInstancer* CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& instancerId) override;
     void DestroyInstancer(HdInstancer* instancer) override;
 
@@ -205,19 +228,17 @@ public:
 
     virtual VtDictionary GetRenderStats() const override;
 
-protected:
+private:
     static const TfTokenVector SUPPORTED_RPRIM_TYPES;
     static const TfTokenVector SUPPORTED_SPRIM_TYPES;
     static const TfTokenVector SUPPORTED_BPRIM_TYPES;
 
-private:
     // This class does not support copying.
     HdCyclesRenderDelegate(const HdCyclesRenderDelegate&) = delete;
     HdCyclesRenderDelegate& operator=(const HdCyclesRenderDelegate&) = delete;
 
     void _Initialize(HdRenderSettingsMap const& settingsMap);
 
-protected:  // data
     HdCyclesRenderPass* m_renderPass;
     HdRenderSettingDescriptorList m_settingDescriptors;
 
@@ -227,6 +248,20 @@ protected:  // data
 
     std::unique_ptr<HdCyclesRenderParam> m_renderParam;
     bool m_hasStarted;
+
+    ///
+    /// Auto add/remove cycles diagnostic delegate
+    ///
+    class HdCyclesDiagnosticDelegateHolder {
+    public:
+        HdCyclesDiagnosticDelegateHolder();
+        ~HdCyclesDiagnosticDelegateHolder();
+
+    private:
+        std::unique_ptr<HdCyclesDiagnosticDelegate> _delegate;
+    };
+
+    HdCyclesDiagnosticDelegateHolder _diagnostic_holder;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

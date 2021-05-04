@@ -43,7 +43,6 @@ HdCyclesLight::HdCyclesLight(SdfPath const& id, TfToken const& lightType, HdCycl
     , m_cyclesLight(nullptr)
     , m_shaderGraphBits(ShaderGraphBits::Default)
     , m_renderDelegate(a_renderDelegate)
-    , m_finalIntensity(1.0f)
 {
     // Added to prevent fallback lights
     // TODO: Is this the best solution...
@@ -178,10 +177,12 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
 }
 
 ccl::ShaderNode*
-HdCyclesLight::_FindShaderNode(const ccl::ShaderGraph* graph, const ccl::NodeType* type)
+HdCyclesLight::_FindShaderNode(const ccl::ShaderGraph* graph, 
+                               const ccl::NodeType* type, 
+                               const ccl::ustring name)
 {
     for (ccl::ShaderNode* node : graph->nodes) {
-        if (node->type == type) {
+        if ((node->type == type) && (node->name == name)) {
             return node;
         }
     }
@@ -198,6 +199,16 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
     ccl::Scene* scene = param->GetCyclesScene();
 
     bool light_updated = false;
+
+    // Defaults
+    m_cyclesLight->use_diffuse = true;
+    m_cyclesLight->use_glossy = true;
+    m_cyclesLight->use_transmission = true;
+    m_cyclesLight->use_scatter = true;
+    m_cyclesLight->use_mis = true;
+    m_cyclesLight->is_portal = false;
+    m_cyclesLight->samples = 1;
+    m_cyclesLight->max_bounces = 1024;
 
     if (*dirtyBits & HdLight::DirtyParams) {
         light_updated              = true;
@@ -252,25 +263,26 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         }
 
         // Normalize
-        VtValue normalize = sceneDelegate->GetLightParamValue(id, HdLightTokens->normalize);
-        if (normalize.IsHolding<bool>()) {
-            m_normalize = normalize.UncheckedGet<bool>();
+        float size = 1.0f;
+        bool normalize = false;
+        VtValue normalizeVal = sceneDelegate->GetLightParamValue(id, HdLightTokens->normalize);
+        if (normalizeVal.IsHolding<bool>()) {
+            normalize = normalizeVal.UncheckedGet<bool>();
         }
 
-
         // Exposure
-        VtValue exposureValue = sceneDelegate->GetLightParamValue(id, HdLightTokens->exposure);
-
         float exposure = 1.0f;
+        float exposureOffset = 0.0f;
+        VtValue exposureValue = sceneDelegate->GetLightParamValue(id, HdLightTokens->exposure);
         if (exposureValue.IsHolding<float>()) {
-            exposure = powf(2.0f, exposureValue.UncheckedGet<float>());
+            exposure = exposureValue.UncheckedGet<float>();
         }
 
         // Intensity
-        VtValue intensity = sceneDelegate->GetLightParamValue(id, HdLightTokens->intensity);
-        if (intensity.IsHolding<float>()) {
-            m_finalIntensity = intensity.UncheckedGet<float>() * exposure;
-            m_cyclesLight->strength *= m_finalIntensity;
+        float intensity = 1.0;
+        VtValue intensityValue = sceneDelegate->GetLightParamValue(id, HdLightTokens->intensity);
+        if (intensityValue.IsHolding<float>()) {
+            intensity = intensityValue.UncheckedGet<float>();
         }
 
         // Light cast shadow
@@ -355,6 +367,12 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             if (height.IsHolding<float>())
                 m_cyclesLight->sizev = height.UncheckedGet<float>();
 
+            if (!normalize) {
+                size = m_cyclesLight->sizeu * m_cyclesLight->sizev;
+            }
+
+            exposureOffset = 2.0f;
+
             if (shaderGraphBits & ShaderGraphBits::Texture) {
                 SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
                 std::string filepath = ap.GetResolvedPath();
@@ -413,6 +431,12 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
                 m_cyclesLight->sizeu = radius.UncheckedGet<float>() * 2.0f;
                 m_cyclesLight->sizev = radius.UncheckedGet<float>() * 2.0f;
             }
+
+            exposureOffset = 2.0f;
+
+            if (!normalize) {
+                size = (m_cyclesLight->sizeu * 0.5f) * (m_cyclesLight->sizev * 0.5f) * M_PI_F;
+            }
         }
 
         if (m_hdLightType == HdPrimTypeTokens->cylinderLight) {
@@ -424,6 +448,12 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             VtValue radius = sceneDelegate->GetLightParamValue(id, HdLightTokens->radius);
             if (radius.IsHolding<float>())
                 m_cyclesLight->size = radius.UncheckedGet<float>();
+
+            exposureOffset = 1.0f;
+
+            if (!normalize) {
+                size = m_cyclesLight->size * m_cyclesLight->size * 4.0f * M_PI_F;
+            }
 
             //Spot shaping
             VtValue shapingConeAngle = sceneDelegate->GetLightParamValue(id, HdLightTokens->shapingConeAngle);
@@ -437,20 +467,51 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
                 m_cyclesLight->spot_smooth = shapingConeSoftness.UncheckedGet<float>();
                 m_cyclesLight->type        = ccl::LIGHT_SPOT;
             }
+
+            if (m_cyclesLight->type == ccl::LIGHT_SPOT) {
+                exposureOffset += 1.0f;
+            }
         }
 
         if (m_hdLightType == HdPrimTypeTokens->distantLight) {
             // TODO: Test this
             VtValue angle = sceneDelegate->GetLightParamValue(id, HdLightTokens->angle);
-            if (angle.IsHolding<float>())
-                m_cyclesLight->angle = angle.UncheckedGet<float>();
+            if (angle.IsHolding<float>()) {
+                m_cyclesLight->angle = angle.UncheckedGet<float>() * (M_PI_F / 180.0f);
+            }
+
+            if (!normalize) {
+                size = m_cyclesLight->angle * m_cyclesLight->angle;
+            }
         }
 
         if (m_hdLightType == HdPrimTypeTokens->domeLight) {
-            ccl::BackgroundNode* backroundNode = static_cast<ccl::BackgroundNode*>(outNode);
-            backroundNode->color               = m_cyclesLight->strength;
 
-            backroundNode->strength = m_finalIntensity;
+            ccl::BackgroundNode* backgroundNode = static_cast<ccl::BackgroundNode*>(outNode);
+            ccl::VectorMathNode* strengthNode = nullptr;
+            if (shaderGraphBits & ShaderGraphBits::Texture ||
+                shaderGraphBits & ShaderGraphBits::Temperature) {
+                if (graph) {
+                    strengthNode = new ccl::VectorMathNode();
+                    strengthNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                    strengthNode->name = ccl::ustring("strength");
+                    strengthNode->vector1 = ccl::make_float3(1.0f, 1.0f, 1.0f);
+                    graph->add(strengthNode);
+                    if (blackbodyNode) {
+                        graph->disconnect(backgroundNode->input("Color"));
+                        graph->connect(blackbodyNode->output("Color"), strengthNode->input("Vector1"));
+                    }
+                    graph->connect(strengthNode->output("Vector"), backgroundNode->input("Color"));
+                } else {
+                    strengthNode = static_cast<ccl::VectorMathNode*>(
+                        _FindShaderNode(oldGraph, ccl::VectorMathNode::node_type, ccl::ustring("strength")));
+                }
+                assert(strengthNode != nullptr);
+                strengthNode->vector2 = m_cyclesLight->strength * intensity * powf(2.0f, exposure);
+            }
+            backgroundNode->color = m_cyclesLight->strength * intensity * powf(2.0f, exposure);
+            backgroundNode->strength = 1.0f;
+            m_cyclesLight->strength = ccl::make_float3(1.0f, 1.0f, 1.0f);
 
             if (shaderGraphBits & ShaderGraphBits::Texture) {
                 SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
@@ -479,17 +540,17 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
                     if ((shaderGraphBits & ShaderGraphBits::Temperature) && blackbodyNode) {
                         ccl::VectorMathNode* vecMathNode = new ccl::VectorMathNode();
-                        vecMathNode->type                = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                        vecMathNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
                         graph->add(vecMathNode);
 
                         graph->connect(backgroundTexture->output("Color"), vecMathNode->input("Vector1"));
 
                         graph->connect(blackbodyNode->output("Color"), vecMathNode->input("Vector2"));
 
-                        graph->disconnect(outNode->input("Color"));
-                        graph->connect(vecMathNode->output("Vector"), outNode->input("Color"));
+                        graph->disconnect(strengthNode->input("Vector1"));
+                        graph->connect(vecMathNode->output("Vector"), strengthNode->input("Vector1"));
                     } else {
-                        graph->connect(backgroundTexture->output("Color"), outNode->input("Color"));
+                        graph->connect(backgroundTexture->output("Color"), strengthNode->input("Vector1"));
                     }
                 } else {
                     backgroundTexture = static_cast<ccl::EnvironmentTextureNode*>(
@@ -498,6 +559,8 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
                 assert(backgroundTexture != nullptr);
                 backgroundTexture->filename = filepath;
             }
+        } else {
+            m_cyclesLight->strength *= intensity * powf(2.0f, exposure + exposureOffset) * size;
         }
 
         if (graph) {

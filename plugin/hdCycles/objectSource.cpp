@@ -65,17 +65,21 @@ HdCyclesObjectSource::GetName() const
     return m_id.GetToken();
 }
 
-void
+size_t
 HdCyclesObjectSource::ResolvePendingSources()
 {
+    size_t num_resolved_sources = 0;
+
     // resolve pending sources
     for (auto& source : m_pending_sources) {
         if (!source.second->IsValid()) {
             continue;
         }
         source.second->Resolve();
+        ++num_resolved_sources;
     }
 
     // cleanup sources right after the resolve
     m_pending_sources.clear();
+    return num_resolved_sources;
 }

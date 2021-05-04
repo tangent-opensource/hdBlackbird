@@ -1188,6 +1188,16 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     };
 
+    // Set defaults, so that in a "do nothing" scenario it'll revert to defaults, or if you view
+    // a different node context without any settings set.
+    m_visCamera = m_visDiffuse = m_visGlossy =  m_visScatter = m_visShadow = m_visTransmission = true;
+    m_useMotionBlur = false;
+    m_useDeformMotionBlur = false;
+    m_motionSteps = 3;
+    m_cyclesObject->is_shadow_catcher = false;
+    m_cyclesObject->pass_id = 0;
+    m_cyclesObject->use_holdout = false;
+
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
             // Mesh Specific
