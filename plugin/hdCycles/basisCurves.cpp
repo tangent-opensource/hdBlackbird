@@ -23,6 +23,7 @@
 #include "config.h"
 #include "material.h"
 #include "renderParam.h"
+#include "transformSource.h"
 #include "utils.h"
 
 #include <render/curves.h>
@@ -404,8 +405,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
     if (object_instance.IsFirstInstance()) {
         object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
-        m_object_source = object_instance.GetValue();
     }
+    m_object_source = object_instance.GetValue();
 
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
@@ -582,7 +583,26 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
+        auto fallback = sceneDelegate->GetTransform(id);
+        HdCyclesMatrix4dTimeSampleArray xf {};
+
+        std::shared_ptr<HdCyclesTransformSource> transform_source;
+        if (!m_useMotionBlur) {
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
+        } else {
+            sceneDelegate->SampleTransform(id, &xf);
+
+            VtValue ts_value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+            if (!ts_value.IsEmpty()) {
+                auto num_new_samples = ts_value.Get<int>();
+                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
+                                                                             num_new_samples);
+            } else {
+                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
+                                                                             3);
+            }
+        }
+        m_object_source->AddSource(std::move(transform_source));
 
         update_curve = true;
     }
