@@ -88,6 +88,8 @@ HdCyclesRenderBuffer::~HdCyclesRenderBuffer() {}
 bool
 HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool multiSampled)
 {
+    TF_UNUSED(multiSampled);
+
     _Deallocate();
 
     if (dimensions[2] != 1) {
