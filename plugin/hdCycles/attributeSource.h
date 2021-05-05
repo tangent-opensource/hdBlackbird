@@ -35,7 +35,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 ///
 /// Cycles Attribute to be resolved
 ///
-class HdCyclesAttributeSource : public HdBufferSource {
+class HdBbAttributeSource : public HdBufferSource {
 public:
     // immutable data accessors
     const TfToken& GetName() const override { return m_name; }
@@ -81,8 +81,8 @@ protected:
 
     // unfortunately AttributeSet has to be passed to support Geometry::attributes and Mesh::subd_attributes
 
-    HdCyclesAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::AttributeSet* attributes,
-                            ccl::AttributeElement element, const ccl::TypeDesc& type_desc);
+    HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::AttributeSet* attributes,
+                        ccl::AttributeElement element, const ccl::TypeDesc& type_desc);
 
     bool _CheckValid() const override;
 
@@ -93,28 +93,28 @@ protected:
 ///
 /// Cycles Standard Attribute
 ///
-class HdCyclesAttributeStandardSource : public HdCyclesAttributeSource {
+class HdBbAttributeStandardSource : public HdBbAttributeSource {
 public:
-    HdCyclesAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs, ccl::AttributeStandard std);
+    HdBbAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs, ccl::AttributeStandard std);
 };
 
 
 ///
 /// Cycles Hair
 ///
-class HdCyclesHairAttributeSource : public HdCyclesAttributeSource {
+class HdBbHairAttributeSource : public HdBbAttributeSource {
 public:
-    HdCyclesHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
-                                const HdInterpolation& interpolation);
+    HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+                            const HdInterpolation& interpolation);
 };
 
 ///
 /// Cycles Mesh
 ///
-class HdCyclesMeshAttributeSource : public HdCyclesAttributeSource {
+class HdBbMeshAttributeSource : public HdBbAttributeSource {
 public:
-    HdCyclesMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
-                                const HdInterpolation& interpolation);
+    HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
+                            const HdInterpolation& interpolation);
 };
 
 ///

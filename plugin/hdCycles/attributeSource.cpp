@@ -36,7 +36,7 @@
 PXR_NAMESPACE_USING_DIRECTIVE
 
 ccl::TypeDesc
-HdCyclesAttributeSource::GetTypeDesc(const HdType& type)
+HdBbAttributeSource::GetTypeDesc(const HdType& type)
 {
     // Mapping from known HdType -> TypeDesc supported by Cycles.
     // Allowed types come from ccl::Attribute constructor.
@@ -82,7 +82,7 @@ HdCyclesAttributeSource::GetTypeDesc(const HdType& type)
 }
 
 ccl::TypeDesc
-HdCyclesAttributeSource::GetTypeDesc(const TfToken& role)
+HdBbAttributeSource::GetTypeDesc(const TfToken& role)
 {
     if (role == HdPrimvarRoleTokens->normal)
         return ccl::TypeNormal;
@@ -98,7 +98,7 @@ HdCyclesAttributeSource::GetTypeDesc(const TfToken& role)
 }
 
 const TfToken&
-HdCyclesAttributeSource::GetRole(const ccl::TypeDesc& type_desc)
+HdBbAttributeSource::GetRole(const ccl::TypeDesc& type_desc)
 {
     if (type_desc == ccl::TypeNormal)
         return HdPrimvarRoleTokens->normal;
@@ -112,7 +112,7 @@ HdCyclesAttributeSource::GetRole(const ccl::TypeDesc& type_desc)
 }
 
 HdType
-HdCyclesAttributeSource::GetType(const ccl::TypeDesc& type_desc)
+HdBbAttributeSource::GetType(const ccl::TypeDesc& type_desc)
 {
     // mapping from Cycles supported TypeDesc -> HdType
     // we don't need to cover all types
@@ -145,7 +145,7 @@ HdCyclesAttributeSource::GetType(const ccl::TypeDesc& type_desc)
 }
 
 ccl::TypeDesc
-HdCyclesAttributeSource::GetTypeDesc(const HdType& type, const TfToken& role)
+HdBbAttributeSource::GetTypeDesc(const HdType& type, const TfToken& role)
 {
     // if role exists then role takes the precedence
     ccl::TypeDesc type_desc = ccl::TypeUnknown;
@@ -162,7 +162,7 @@ HdCyclesAttributeSource::GetTypeDesc(const HdType& type, const TfToken& role)
 }
 
 bool
-HdCyclesAttributeSource::IsHoldingFloat(const VtValue& value)
+HdBbAttributeSource::IsHoldingFloat(const VtValue& value)
 {
     HdTupleType value_tuple_type = HdGetValueTupleType(value);
     HdType component_type = HdGetComponentType(value_tuple_type.type);
@@ -170,7 +170,7 @@ HdCyclesAttributeSource::IsHoldingFloat(const VtValue& value)
 }
 
 bool
-HdCyclesAttributeSource::CanCastToFloat(const VtValue& value)
+HdBbAttributeSource::CanCastToFloat(const VtValue& value)
 {
     // unsupported Matrix3 and Matrix4
     return value.CanCast<float>() || value.CanCast<GfVec2f>() || value.CanCast<GfVec3f>() || value.CanCast<GfVec4f>()
@@ -179,7 +179,7 @@ HdCyclesAttributeSource::CanCastToFloat(const VtValue& value)
 }
 
 bool
-HdCyclesAttributeSource::_CheckValid() const
+HdBbAttributeSource::_CheckValid() const
 {
     // Details about how to map between source and destination buffers must be known before Resolve.
     // Following checks ensure that no unknown or invalid buffers will be resolved.
@@ -254,7 +254,7 @@ HdCyclesAttributeSource::_CheckValid() const
 }
 
 VtValue
-HdCyclesAttributeSource::UncheckedCastToFloat(const VtValue& input_value)
+HdBbAttributeSource::UncheckedCastToFloat(const VtValue& input_value)
 {
     VtValue value = input_value;
 
@@ -286,7 +286,7 @@ HdCyclesAttributeSource::UncheckedCastToFloat(const VtValue& input_value)
 }
 
 bool
-HdCyclesAttributeSource::ResolveAsValue()
+HdBbAttributeSource::ResolveAsValue()
 {
     // cast to float
     if (!IsHoldingFloat(m_value)) {
@@ -319,7 +319,7 @@ HdCyclesAttributeSource::ResolveAsValue()
 }
 
 bool
-HdCyclesAttributeSource::ResolveAsArray()
+HdBbAttributeSource::ResolveAsArray()
 {
     // cast to float
     if (!IsHoldingFloat(m_value)) {
@@ -360,7 +360,7 @@ HdCyclesAttributeSource::ResolveAsArray()
 }
 
 bool
-HdCyclesAttributeSource::Resolve()
+HdBbAttributeSource::Resolve()
 {
     if (!_TryLock()) {
         return false;
@@ -380,20 +380,20 @@ HdCyclesAttributeSource::Resolve()
 }
 
 void
-HdCyclesAttributeSource::GetBufferSpecs(HdBufferSpecVector* specs) const
+HdBbAttributeSource::GetBufferSpecs(HdBufferSpecVector* specs) const
 {
     if (specs)
         specs->emplace_back(GetRole(m_type_desc), GetTupleType());
 }
 
 const void*
-HdCyclesAttributeSource::GetData() const
+HdBbAttributeSource::GetData() const
 {
     return m_attribute ? static_cast<const void*>(m_attribute->data()) : nullptr;
 }
 
 size_t
-HdCyclesAttributeSource::GetNumElements() const
+HdBbAttributeSource::GetNumElements() const
 {
     if (GetGeometry()) {
         return GetGeometry()->element_size(GetAttributeElement(), m_attributes->prim);
@@ -402,9 +402,9 @@ HdCyclesAttributeSource::GetNumElements() const
     return 0;
 }
 
-HdCyclesAttributeSource::HdCyclesAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
-                                                 ccl::AttributeSet* attributes, ccl::AttributeElement element,
-                                                 const ccl::TypeDesc& type_desc)
+HdBbAttributeSource::HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
+                                         ccl::AttributeSet* attributes, ccl::AttributeElement element,
+                                         const ccl::TypeDesc& type_desc)
     : m_name { std::move(name) }
     , m_value { value }
     , m_attributes { attributes }
@@ -415,13 +415,13 @@ HdCyclesAttributeSource::HdCyclesAttributeSource(TfToken name, const TfToken& ro
 }
 
 HdTupleType
-HdCyclesAttributeSource::GetTupleType() const
+HdBbAttributeSource::GetTupleType() const
 {
     return GetTupleType(GetSourceTypeDesc());
 }
 
 HdTupleType
-HdCyclesAttributeSource::GetTupleType(const ccl::TypeDesc& type_desc)
+HdBbAttributeSource::GetTupleType(const ccl::TypeDesc& type_desc)
 {
     HdType type = GetType(type_desc);
     return { type, HdGetComponentCount(type) };
@@ -474,27 +474,25 @@ interpolation_to_pointcloud_element(const HdInterpolation& interpolation)
 
 }  // namespace
 
-HdCyclesAttributeStandardSource::HdCyclesAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs,
-                                                                 ccl::AttributeStandard std)
-    : HdCyclesAttributeSource(TfToken { ccl::Attribute::standard_name(std) },
-                              GetRole(attribs->geometry->standard_type(std)), value, attribs,
-                              attribs->geometry->standard_element(std), attribs->geometry->standard_type(std))
+HdBbAttributeStandardSource::HdBbAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs,
+                                                         ccl::AttributeStandard std)
+    : HdBbAttributeSource(TfToken { ccl::Attribute::standard_name(std) },
+                          GetRole(attribs->geometry->standard_type(std)), value, attribs,
+                          attribs->geometry->standard_element(std), attribs->geometry->standard_type(std))
 {
 }
 
-HdCyclesMeshAttributeSource::HdCyclesMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
-                                                         ccl::Mesh* mesh, const HdInterpolation& interpolation)
-    : HdCyclesAttributeSource(std::move(name), role, value, &mesh->attributes,
-                              interpolation_to_mesh_element(interpolation),
-                              GetTypeDesc(HdGetValueTupleType(value).type, role))
+HdBbMeshAttributeSource::HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
+                                                 ccl::Mesh* mesh, const HdInterpolation& interpolation)
+    : HdBbAttributeSource(std::move(name), role, value, &mesh->attributes, interpolation_to_mesh_element(interpolation),
+                          GetTypeDesc(HdGetValueTupleType(value).type, role))
 {
 }
 
-HdCyclesHairAttributeSource::HdCyclesHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
+HdBbHairAttributeSource::HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
                                                          ccl::Hair* hair, const HdInterpolation& interpolation)
-    : HdCyclesAttributeSource(std::move(name), role, value, &hair->attributes,
-                              interpolation_to_hair_element(interpolation),
-                              GetTypeDesc(HdGetValueTupleType(value).type, role))
+    : HdBbAttributeSource(std::move(name), role, value, &hair->attributes, interpolation_to_hair_element(interpolation),
+                          GetTypeDesc(HdGetValueTupleType(value).type, role))
 {
 }
 

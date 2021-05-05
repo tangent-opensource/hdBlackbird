@@ -638,7 +638,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
                     // any other primvar for hair to be committed
                     if (m_cyclesHair) {
-                        auto primvar_source = std::make_shared<HdCyclesHairAttributeSource>(pv.name, pv.role, value,
+                        auto primvar_source = std::make_shared<HdBbHairAttributeSource>(pv.name, pv.role, value,
                                                                                             m_cyclesHair,
                                                                                             pv.interpolation);
                         object_instance.GetValue()->AddSource(std::move(primvar_source));
