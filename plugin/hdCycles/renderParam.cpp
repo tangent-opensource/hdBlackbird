@@ -691,10 +691,12 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
 
     ccl::Integrator* integrator = m_cyclesScene->integrator;
 
-    if (config.integrator_method.value == "PATH") {
-        integrator->method = ccl::Integrator::PATH;
-    } else {
-        integrator->method = ccl::Integrator::BRANCHED_PATH;
+    if (a_forceInit) {
+        if (config.integrator_method.value == "PATH") {
+            integrator->method = ccl::Integrator::PATH;
+        } else {
+            integrator->method = ccl::Integrator::BRANCHED_PATH;
+        }
     }
 
     // Samples
@@ -1020,6 +1022,9 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
     if (integrator_updated) {
         integrator->tag_update(m_cyclesScene);
+        if (method_updated) {
+            DirectReset();
+        }
         return true;
     }
 
