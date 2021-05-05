@@ -118,10 +118,7 @@ HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
     m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>(this);
 }
 
-HdCyclesRenderDelegate::~HdCyclesRenderDelegate()
-{
-    m_renderParam->StopRender();
-}
+HdCyclesRenderDelegate::~HdCyclesRenderDelegate() { m_renderParam->StopRender(); }
 
 TfTokenVector const&
 HdCyclesRenderDelegate::GetSupportedRprimTypes() const
@@ -188,7 +185,7 @@ HdRenderPassSharedPtr
 HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection)
 {
     HdRenderPassSharedPtr xx = HdRenderPassSharedPtr(new HdCyclesRenderPass(this, index, collection));
-    m_renderPass             = static_cast<HdCyclesRenderPass*>(xx.get());
+    m_renderPass = static_cast<HdCyclesRenderPass*>(xx.get());
     return xx;
 }
 
@@ -209,7 +206,7 @@ HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
     m_resourceRegistry->Commit();
     m_renderParam->CommitResources();
 
-    if(tracker->IsGarbageCollectionNeeded()) {
+    if (tracker->IsGarbageCollectionNeeded()) {
         m_resourceRegistry->GarbageCollect();
         tracker->ClearGarbageCollectionNeeded();
     }
@@ -340,7 +337,7 @@ HdCyclesRenderDelegate::GetCyclesRenderParam() const
 HdAovDescriptor
 HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
 {
-    bool use_tiles  = GetCyclesRenderParam()->IsTiledRender();
+    bool use_tiles = GetCyclesRenderParam()->IsTiledRender();
     bool use_linear = GetCyclesRenderParam()->GetCyclesSession()->params.display_buffer_linear;
 
     HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;

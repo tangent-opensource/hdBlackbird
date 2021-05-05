@@ -39,16 +39,16 @@ PXR_NAMESPACE_OPEN_SCOPE
 /// Max motion samples dictated by Cycles(Embree)
 ///
 static constexpr ccl::uint HD_CYCLES_MAX_TRANSFORM_STEPS = ccl::Object::MAX_MOTION_STEPS;
-static constexpr ccl::uint HD_CYCLES_MAX_GEOMETRY_STEPS  = ccl::Geometry::MAX_MOTION_STEPS;
+static constexpr ccl::uint HD_CYCLES_MAX_GEOMETRY_STEPS = ccl::Geometry::MAX_MOTION_STEPS;
 
 ///
 /// Common aliases used in motion sampling
 ///
-using HdCyclesValueTimeSampleArray         = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_GEOMETRY_STEPS>;
-using HdCyclesVec3fArrayTimeSampleArray    = HdTimeSampleArray<VtVec3fArray, HD_CYCLES_MAX_GEOMETRY_STEPS>;
-using HdCyclesMatrix4dTimeSampleArray      = HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MAX_TRANSFORM_STEPS>;
+using HdCyclesValueTimeSampleArray = HdTimeSampleArray<VtValue, HD_CYCLES_MAX_GEOMETRY_STEPS>;
+using HdCyclesVec3fArrayTimeSampleArray = HdTimeSampleArray<VtVec3fArray, HD_CYCLES_MAX_GEOMETRY_STEPS>;
+using HdCyclesMatrix4dTimeSampleArray = HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MAX_TRANSFORM_STEPS>;
 using HdCyclesMatrix4dArrayTimeSampleArray = HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MAX_TRANSFORM_STEPS>;
-using HdCyclesTransformTimeSampleArray     = HdTimeSampleArray<ccl::Transform, HD_CYCLES_MAX_TRANSFORM_STEPS>;
+using HdCyclesTransformTimeSampleArray = HdTimeSampleArray<ccl::Transform, HD_CYCLES_MAX_TRANSFORM_STEPS>;
 
 using HdCyclesTransformSmallVector = TfSmallVector<ccl::Transform, HD_CYCLES_MAX_TRANSFORM_STEPS>;
 

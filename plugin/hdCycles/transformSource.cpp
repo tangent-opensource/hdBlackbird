@@ -31,9 +31,9 @@ namespace {
 ///
 struct HdCyclesIndexedTimeSample {
     using index_type = ccl::uint;
-    using time_type  = float;
+    using time_type = float;
 
-    static constexpr time_type epsilon     = static_cast<time_type>(1e-5);
+    static constexpr time_type epsilon = static_cast<time_type>(1e-5);
     static constexpr index_type resolution = static_cast<index_type>(static_cast<time_type>(1.0) / epsilon);
 
     HdCyclesIndexedTimeSample(index_type _index, time_type _time)
@@ -99,7 +99,7 @@ HdCyclesTimeSamplesRemoveOverlaps(const HdTimeSampleArray<TYPE, CAPACITY>& sampl
 
     using size_type = typename decltype(HdTimeSampleArray<TYPE, CAPACITY>::times)::size_type;
     for (size_type i = 0; i < sorted.size(); ++i) {
-        result.times[i]  = sorted[i].time;
+        result.times[i] = sorted[i].time;
         result.values[i] = samples.values[sorted[i].index];
     }
 
@@ -114,7 +114,7 @@ HdCyclesAreTimeSamplesUniformlyDistributed(const HdTimeSampleArray<TYPE, CAPACIT
         return true;
     }
 
-    using size_type  = typename decltype(HdTimeSampleArray<TYPE, CAPACITY>::times)::size_type;
+    using size_type = typename decltype(HdTimeSampleArray<TYPE, CAPACITY>::times)::size_type;
     using value_type = typename decltype(HdTimeSampleArray<TYPE, CAPACITY>::times)::value_type;
 
     // reference segment - samples must be sorted in ascending order
@@ -163,9 +163,9 @@ HdCyclesTransformSource::ResampleUniform(const HdCyclesMatrix4dTimeSampleArray& 
 
     // sample - point in time, segment - width between two samples
     // 3 samples = 2 segments => num_segments = num_samples - 1
-    const float shutter_time            = samples.times[num_samples - 1] - samples.times[0];
+    const float shutter_time = samples.times[num_samples - 1] - samples.times[0];
     const unsigned int new_num_segments = new_num_samples > 1 ? new_num_samples - 1 : 1;
-    const float new_segment_width       = shutter_time / static_cast<float>(new_num_segments);
+    const float new_segment_width = shutter_time / static_cast<float>(new_num_segments);
 
     //
     unsigned int sample = 1;
@@ -211,7 +211,7 @@ HdCyclesTransformSource::ResampleUniform(const HdCyclesMatrix4dTimeSampleArray& 
 
         // Weighting by distance to sample
         const float timeDiff = samples.times[iXfNext] - samples.times[iXfPrev];
-        const float t        = (resampled.times[i] - samples.times[iXfPrev]) / timeDiff;
+        const float t = (resampled.times[i] - samples.times[iXfPrev]) / timeDiff;
         assert(t >= 0.0f && t <= 1.0f);
 
         transform_motion_array_interpolate(&resampled.values[i], dxf, 2, t);
@@ -253,7 +253,7 @@ HdCyclesTransformSource::Resolve()
     }
 
     // Frame centered motion blur only, with fallback to default value
-    const float shutter_open  = m_samples.times[0];
+    const float shutter_open = m_samples.times[0];
     const float shutter_close = m_samples.times[static_cast<unsigned int>(m_samples.count) - 1];
     if (std::abs(std::abs(shutter_close) - std::abs(shutter_open)) > HdCyclesIndexedTimeSample::epsilon) {
         object->motion.resize(0);

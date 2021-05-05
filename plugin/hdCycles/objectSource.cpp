@@ -22,8 +22,8 @@
 #include <pxr/imaging/hd/tokens.h>
 
 #include <graph/node.h>
-#include <render/object.h>
 #include <render/geometry.h>
+#include <render/object.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
