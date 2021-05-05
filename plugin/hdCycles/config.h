@@ -48,7 +48,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 template<typename T> struct HdCyclesEnvValue {
     HdCyclesEnvValue() = default;
 
-    HdCyclesEnvValue(const char* a_envName, T a_default) {}
+    HdCyclesEnvValue(const char* a_envName, T a_default)
+        : value { a_default }
+        , envName { a_envName }
+    {
+    }
 
     T value;
     bool hasOverride;
