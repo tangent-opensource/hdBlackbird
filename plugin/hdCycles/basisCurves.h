@@ -23,8 +23,8 @@
 #include "api.h"
 
 #include "hdcycles.h"
-#include "renderDelegate.h"
 #include "objectSource.h"
+#include "renderDelegate.h"
 #include "utils.h"
 
 #include <util/util_transform.h>

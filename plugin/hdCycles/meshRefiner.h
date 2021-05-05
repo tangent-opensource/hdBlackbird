@@ -54,16 +54,16 @@ public:
     virtual ~HdCyclesMeshRefiner();
 
     /// @{ TODO: Those methods belong to HdCyclesMeshTopology
-    virtual size_t GetNumRefinedVertices() const                = 0;
+    virtual size_t GetNumRefinedVertices() const = 0;
     virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
     size_t GetNumRefinedTriangles() const;
     /// @}
 
     /// @{ \brief Refine/approximate primvar data.
-    virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const    = 0;
-    virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const     = 0;
-    virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const     = 0;
-    virtual VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const      = 0;
+    virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
+    virtual VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     /// @}
 
@@ -72,7 +72,7 @@ public:
     virtual void EvaluateLimit(const VtFloat3Array& refined_vertices, VtFloat3Array& limit_ps, VtFloat3Array& limit_du,
                                VtFloat3Array& limit_dv) const = 0;
 
-    HdCyclesMeshRefiner(const HdCyclesMeshRefiner&)     = delete;
+    HdCyclesMeshRefiner(const HdCyclesMeshRefiner&) = delete;
     HdCyclesMeshRefiner(HdCyclesMeshRefiner&&) noexcept = delete;
 
     HdCyclesMeshRefiner& operator=(const HdCyclesMeshRefiner&) = delete;

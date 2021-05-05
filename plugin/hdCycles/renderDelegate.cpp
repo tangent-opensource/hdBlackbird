@@ -120,18 +120,15 @@ HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
         return;
 
     // -- Initialize Render Delegate components
-    std::lock_guard<std::mutex> guard{m_resource_registry_mutex};
-    if(m_resource_registry_counter.fetch_add(1) == 0) {
+    std::lock_guard<std::mutex> guard { m_resource_registry_mutex };
+    if (m_resource_registry_counter.fetch_add(1) == 0) {
         m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>();
     }
 
     m_resourceRegistry->UpdateScene(m_renderParam->GetCyclesScene());
 }
 
-HdCyclesRenderDelegate::~HdCyclesRenderDelegate()
-{
-    m_renderParam->StopRender();
-}
+HdCyclesRenderDelegate::~HdCyclesRenderDelegate() { m_renderParam->StopRender(); }
 
 TfTokenVector const&
 HdCyclesRenderDelegate::GetSupportedRprimTypes() const
@@ -198,7 +195,7 @@ HdRenderPassSharedPtr
 HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection)
 {
     HdRenderPassSharedPtr xx = HdRenderPassSharedPtr(new HdCyclesRenderPass(this, index, collection));
-    m_renderPass             = static_cast<HdCyclesRenderPass*>(xx.get());
+    m_renderPass = static_cast<HdCyclesRenderPass*>(xx.get());
     return xx;
 }
 
@@ -217,7 +214,7 @@ HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
 
     // commit resource to the scene
     m_resourceRegistry->Commit();
-    if(tracker->IsGarbageCollectionNeeded()) {
+    if (tracker->IsGarbageCollectionNeeded()) {
         m_resourceRegistry->GarbageCollect();
         tracker->ClearGarbageCollectionNeeded();
     }
@@ -350,7 +347,7 @@ HdCyclesRenderDelegate::GetCyclesRenderParam() const
 HdAovDescriptor
 HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
 {
-    bool use_tiles  = GetCyclesRenderParam()->IsTiledRender();
+    bool use_tiles = GetCyclesRenderParam()->IsTiledRender();
     bool use_linear = GetCyclesRenderParam()->GetCyclesSession()->params.display_buffer_linear;
 
     HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;

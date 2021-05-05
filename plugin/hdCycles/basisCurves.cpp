@@ -179,7 +179,7 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value, HdInterpolation int
 {
     ccl::ustring attribName = ccl::ustring(name.GetString());
 
-    int vecSize      = 0;
+    int vecSize = 0;
     size_t numColors = 0;
 
     VtFloatArray colors1f;
@@ -188,20 +188,20 @@ HdCyclesBasisCurves::_AddColors(TfToken name, VtValue value, HdInterpolation int
     VtVec4fArray colors4f;
 
     if (value.IsHolding<VtArray<GfVec3f>>()) {
-        colors3f  = value.UncheckedGet<VtArray<GfVec3f>>();
-        vecSize   = 3;
+        colors3f = value.UncheckedGet<VtArray<GfVec3f>>();
+        vecSize = 3;
         numColors = colors3f.size();
     } else if (value.IsHolding<VtArray<GfVec4f>>()) {
-        colors4f  = value.UncheckedGet<VtArray<GfVec4f>>();
-        vecSize   = 4;
+        colors4f = value.UncheckedGet<VtArray<GfVec4f>>();
+        vecSize = 4;
         numColors = colors4f.size();
     } else if (value.IsHolding<VtArray<GfVec2f>>()) {
-        colors2f  = value.UncheckedGet<VtArray<GfVec2f>>();
-        vecSize   = 2;
+        colors2f = value.UncheckedGet<VtArray<GfVec2f>>();
+        vecSize = 2;
         numColors = colors2f.size();
     } else if (value.IsHolding<VtArray<float>>()) {
-        colors1f  = value.UncheckedGet<VtArray<float>>();
-        vecSize   = 1;
+        colors1f = value.UncheckedGet<VtArray<float>>();
+        vecSize = 1;
         numColors = colors1f.size();
     }
 
@@ -285,7 +285,7 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value, HdInterpolation interp
 
     auto fill_uniform_uv_attrib = [&attribName](auto& attr_uvs, ccl::AttributeSet& attributes) {
         ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
-        ccl::float2* std_uv_data    = attr_std_uv->data_float2();
+        ccl::float2* std_uv_data = attr_std_uv->data_float2();
 
         for (size_t curve = 0; curve < attr_uvs.size(); curve++) {
             std_uv_data[curve][0] = attr_uvs[curve][0];
@@ -321,10 +321,10 @@ HdCyclesBasisCurves::_AddUVS(TfToken name, VtValue value, HdInterpolation interp
     auto fill_vertex_or_varying_uv_attrib = [&attribName](auto& attr_uvs, ccl::AttributeSet& attributes,
                                                           const VtIntArray& vertexCounts) {
         ccl::Attribute* attr_std_uv = attributes.add(ccl::ATTR_STD_UV, attribName);
-        ccl::float2* std_uv_data    = attr_std_uv->data_float2();
+        ccl::float2* std_uv_data = attr_std_uv->data_float2();
 
         ccl::Attribute* attr_st = attributes.add(attribName, ccl::TypeFloat2, ccl::ATTR_ELEMENT_CURVE_KEY);
-        ccl::float2* st_data    = attr_st->data_float2();
+        ccl::float2* st_data = attr_st->data_float2();
 
         for (size_t curve = 0, offset = 0; curve < vertexCounts.size(); ++curve) {
             // std_uv - per curve
@@ -377,18 +377,18 @@ HdCyclesBasisCurves::_PopulateGenerated()
     if (m_cyclesMesh) {
         HdCyclesMeshTextureSpace(m_cyclesMesh, loc, size);
         ccl::Attribute* attr_generated = m_cyclesMesh->attributes.add(ccl::ATTR_STD_GENERATED);
-        ccl::float3* generated         = attr_generated->data_float3();
+        ccl::float3* generated = attr_generated->data_float3();
 
         for (size_t i = 0; i < m_cyclesMesh->verts.size(); i++)
             generated[i] = m_cyclesMesh->verts[i] * size - loc;
     } else {
         HdCyclesMeshTextureSpace(m_cyclesHair, loc, size);
         ccl::Attribute* attr_generated = m_cyclesHair->attributes.add(ccl::ATTR_STD_GENERATED);
-        ccl::float3* generated         = attr_generated->data_float3();
+        ccl::float3* generated = attr_generated->data_float3();
 
         for (size_t i = 0; i < m_cyclesHair->num_curves(); i++) {
             ccl::float3 co = m_cyclesHair->curve_keys[m_cyclesHair->get_curve(i).first_key];
-            generated[i]   = co * size - loc;
+            generated[i] = co * size - loc;
         }
     }
 }
@@ -414,19 +414,19 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     HdCyclesPDPIMap pdpi;
     bool generate_new_curve = false;
-    bool update_curve       = false;
+    bool update_curve = false;
 
     // Defaults
     m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
-    m_useMotionBlur                                                                           = false;
-    m_cyclesObject->is_shadow_catcher                                                         = false;
-    m_cyclesObject->pass_id                                                                   = 0;
-    m_cyclesObject->use_holdout                                                               = false;
+    m_useMotionBlur = false;
+    m_cyclesObject->is_shadow_catcher = false;
+    m_cyclesObject->pass_id = 0;
+    m_cyclesObject->use_holdout = false;
 
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
         if (HdCyclesIsPrimvarExists(HdTokens->points, pdpi)) {
-            m_points           = sceneDelegate->Get(id, HdTokens->points).Get<VtVec3fArray>();
+            m_points = sceneDelegate->Get(id, HdTokens->points).Get<VtVec3fArray>();
             generate_new_curve = true;
 
             sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
@@ -438,7 +438,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     if (*dirtyBits & HdChangeTracker::DirtyNormals) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
         if (HdCyclesIsPrimvarExists(HdTokens->normals, pdpi)) {
-            m_normals          = sceneDelegate->Get(id, HdTokens->normals).Get<VtVec3fArray>();
+            m_normals = sceneDelegate->Get(id, HdTokens->normals).Get<VtVec3fArray>();
             generate_new_curve = true;
         } else {
             m_normals = VtVec3fArray();
@@ -447,7 +447,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     if (*dirtyBits & HdChangeTracker::DirtyTopology) {
         m_topology = sceneDelegate->GetBasisCurvesTopology(id);
-        m_indices  = VtIntArray();
+        m_indices = VtIntArray();
         if (m_topology.HasIndices()) {
             m_indices = m_topology.GetCurveIndices();
         }
@@ -460,7 +460,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             // Even when no widths are authored, Hydra gives us a VtFloatArray with a constant width of 1
             m_widths = sceneDelegate->Get(id, HdTokens->widths).Get<VtFloatArray>();
         } else {
-            m_widths              = VtFloatArray(1, 0.1f);
+            m_widths = VtFloatArray(1, 0.1f);
             m_widthsInterpolation = HdInterpolationConstant;
             TF_WARN("[%s] Curve do not have widths. Fallback value is 1.0f with a constant interpolation",
                     id.GetText());
@@ -553,7 +553,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-        update_curve        = true;
+        update_curve = true;
         _sharedData.visible = sceneDelegate->GetVisible(id);
     }
 
@@ -635,7 +635,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
         if (m_cyclesGeometry) {
             // Add default shader
-            const SdfPath& materialId        = sceneDelegate->GetMaterialId(GetId());
+            const SdfPath& materialId = sceneDelegate->GetMaterialId(GetId());
             const HdCyclesMaterial* material = static_cast<const HdCyclesMaterial*>(
                 sceneDelegate->GetRenderIndex().GetSprim(HdPrimTypeTokens->material, materialId));
 
@@ -648,7 +648,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             }
 
             m_cyclesGeometry->used_shaders = m_usedShaders;
-            update_curve                   = true;
+            update_curve = true;
         }
     }
 
@@ -670,24 +670,24 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 void
 HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 {
-    m_cyclesHair     = new ccl::Hair();
+    m_cyclesHair = new ccl::Hair();
     m_cyclesGeometry = m_cyclesHair;
 
     // Get USD Curve Metadata
     VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
-    TfToken curveType            = m_topology.GetCurveType();
-    TfToken curveBasis           = m_topology.GetCurveBasis();
-    TfToken curveWrap            = m_topology.GetCurveWrap();
+    TfToken curveType = m_topology.GetCurveType();
+    TfToken curveBasis = m_topology.GetCurveBasis();
+    TfToken curveWrap = m_topology.GetCurveWrap();
 
     size_t num_curves = curveVertexCounts.size();
-    size_t num_keys   = 0;
+    size_t num_keys = 0;
 
     for (size_t i = 0; i < num_curves; i++) {
         num_keys += static_cast<size_t>(curveVertexCounts[i]);
     }
 
     ccl::Attribute* attr_intercept = nullptr;
-    ccl::Attribute* attr_random    = nullptr;
+    ccl::Attribute* attr_random = nullptr;
 
     attr_intercept = m_cyclesHair->attributes.add(ccl::ATTR_STD_CURVE_INTERCEPT);
 
@@ -698,7 +698,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
     m_cyclesHair->reserve_curves(static_cast<int>(num_curves), static_cast<int>(num_keys));
 
     num_curves = 0;
-    num_keys   = 0;
+    num_keys = 0;
 
     int currentPointCount = 0;
 
@@ -764,7 +764,7 @@ HdCyclesBasisCurves::_CreateCurves(ccl::Scene* a_scene)
 void
 HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 {
-    m_cyclesMesh     = new ccl::Mesh();
+    m_cyclesMesh = new ccl::Mesh();
     m_cyclesGeometry = m_cyclesMesh;
 
     bool isCameraOriented = false;
@@ -773,14 +773,14 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
     bool is_ortho = false;
     if (m_normals.size() <= 0) {
         if (a_camera != nullptr) {
-            isCameraOriented     = true;
+            isCameraOriented = true;
             ccl::Transform& ctfm = a_camera->matrix;
             if (a_camera->type == ccl::CAMERA_ORTHOGRAPHIC) {
                 RotCam = -ccl::make_float3(ctfm.x.z, ctfm.y.z, ctfm.z.z);
             } else {
-                ccl::Transform tfm  = m_cyclesObject->tfm;
+                ccl::Transform tfm = m_cyclesObject->tfm;
                 ccl::Transform itfm = ccl::transform_quick_inverse(tfm);
-                RotCam              = ccl::transform_point(&itfm, ccl::make_float3(ctfm.x.w, ctfm.y.w, ctfm.z.w));
+                RotCam = ccl::transform_point(&itfm, ccl::make_float3(ctfm.x.w, ctfm.y.w, ctfm.z.w));
             }
             is_ortho = a_camera->type == ccl::CAMERA_ORTHOGRAPHIC;
         }
@@ -788,12 +788,12 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 
     // Get USD Curve Metadata
     VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
-    TfToken curveType            = m_topology.GetCurveType();
-    TfToken curveBasis           = m_topology.GetCurveBasis();
-    TfToken curveWrap            = m_topology.GetCurveWrap();
+    TfToken curveType = m_topology.GetCurveType();
+    TfToken curveBasis = m_topology.GetCurveBasis();
+    TfToken curveWrap = m_topology.GetCurveWrap();
 
     int num_vertices = 0;
-    int num_tris     = 0;
+    int num_tris = 0;
     for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         num_vertices += curveVertexCounts[i] * 2;
         num_tris += ((curveVertexCounts[i] - 1) * 2);
@@ -847,7 +847,7 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
             int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
-            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx = j + (static_cast<int>(i) * curveVertexCounts[i]);
 
             ickey_loc = vec3f_to_float3(m_points[idx]);
 
@@ -901,17 +901,17 @@ HdCyclesBasisCurves::_CreateRibbons(ccl::Camera* a_camera)
 void
 HdCyclesBasisCurves::_CreateTubeMesh()
 {
-    m_cyclesMesh     = new ccl::Mesh();
+    m_cyclesMesh = new ccl::Mesh();
     m_cyclesGeometry = m_cyclesMesh;
 
     // Get USD Curve Metadata
     VtIntArray curveVertexCounts = m_topology.GetCurveVertexCounts();
-    TfToken curveType            = m_topology.GetCurveType();
-    TfToken curveBasis           = m_topology.GetCurveBasis();
-    TfToken curveWrap            = m_topology.GetCurveWrap();
+    TfToken curveType = m_topology.GetCurveType();
+    TfToken curveBasis = m_topology.GetCurveBasis();
+    TfToken curveWrap = m_topology.GetCurveWrap();
 
     int num_vertices = 0;
-    int num_tris     = 0;
+    int num_tris = 0;
     for (size_t i = 0; i < curveVertexCounts.size(); i++) {
         num_vertices += curveVertexCounts[i] * m_curveResolution;
         num_tris += ((curveVertexCounts[i] - 1) * 2 * m_curveResolution);
@@ -936,7 +936,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
             int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
-            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx = j + (static_cast<int>(i) * curveVertexCounts[i]);
 
             ccl::float3 xbasis = firstxbasis;
             ccl::float3 v1;
@@ -966,7 +966,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
         // For every section
         for (int j = 0; j < curveVertexCounts[i]; j++) {
             int first_idx = (static_cast<int>(i) * curveVertexCounts[i]);
-            int idx       = j + (static_cast<int>(i) * curveVertexCounts[i]);
+            int idx = j + (static_cast<int>(i) * curveVertexCounts[i]);
             ccl::float3 xbasis;
             ccl::float3 ybasis;
             ccl::float3 v1;
@@ -1008,7 +1008,7 @@ HdCyclesBasisCurves::_CreateTubeMesh()
             xbasis = ccl::cross(v1, v2);
 
             if (ccl::len_squared(xbasis) >= 0.05f * ccl::len_squared(v1) * ccl::len_squared(v2)) {
-                xbasis      = ccl::normalize(xbasis);
+                xbasis = ccl::normalize(xbasis);
                 firstxbasis = xbasis;
             } else {
                 xbasis = firstxbasis;

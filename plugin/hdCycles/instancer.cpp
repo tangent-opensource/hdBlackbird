@@ -45,7 +45,7 @@ HdCyclesInstancer::Sync()
     HF_MALLOC_TAG_FUNCTION();
 
     const SdfPath& instancerId = GetId();
-    auto& changeTracker        = GetDelegate()->GetRenderIndex().GetChangeTracker();
+    auto& changeTracker = GetDelegate()->GetRenderIndex().GetChangeTracker();
 
     // Use the double-checked locking pattern to check if this instancer's
     // primvars are dirty.
@@ -100,7 +100,7 @@ HdCyclesInstancer::ComputeTransforms(SdfPath const& prototypeId)
     Sync();
 
     GfMatrix4d instancerTransform = GetDelegate()->GetInstancerTransform(GetId());
-    VtIntArray instanceIndices    = GetDelegate()->GetInstanceIndices(GetId(), prototypeId);
+    VtIntArray instanceIndices = GetDelegate()->GetInstanceIndices(GetId(), prototypeId);
 
     VtMatrix4dArray transforms;
     transforms.reserve(instanceIndices.size());
@@ -190,7 +190,7 @@ ApplyTransform(float alpha, VtValue const& allTransformsValue0, VtValue const& a
     for (size_t i = 0; i < instanceIndices.size(); ++i) {
         auto transform = HdResampleNeighbors(alpha, allTransforms0[instanceIndices[i]],
                                              allTransforms1[instanceIndices[i]]);
-        transforms[i]  = Op {}(transform)*transforms[i];
+        transforms[i] = Op {}(transform)*transforms[i];
     }
 }
 
@@ -217,7 +217,8 @@ ApplyTransform(HdTimeSampleArray<VtValue, HD_CYCLES_MOTION_STEPS> const& samples
         return ApplyTransform<Op, T>(samples.values[0], instanceIndices, transforms);
     } else if (i == samples.count) {
         // time is after the last sample.
-        return ApplyTransform<Op, T>(samples.values[static_cast<size_type>(samples.count) - 1], instanceIndices, transforms);
+        return ApplyTransform<Op, T>(samples.values[static_cast<size_type>(samples.count) - 1], instanceIndices,
+                                     transforms);
     } else if (samples.times[i] == samples.times[i - 1]) {
         // Neighboring samples have identical parameter.
         // Arbitrarily choose a sample.
@@ -259,7 +260,7 @@ struct TransformOp {
 HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS>
 HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
 {
-    HdSceneDelegate* delegate  = GetDelegate();
+    HdSceneDelegate* delegate = GetDelegate();
     const SdfPath& instancerId = GetId();
 
     VtIntArray instanceIndices = delegate->GetInstanceIndices(instancerId, prototypeId);
@@ -312,7 +313,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
         }
 
         auto& transforms = sa.values[i];
-        transforms       = VtMatrix4dArray(instanceIndices.size(), xf);
+        transforms = VtMatrix4dArray(instanceIndices.size(), xf);
 
         if (translates.count > 0 && translates.values[0].IsArrayValued()) {
             auto& type = translates.values[0].GetElementTypeid();
@@ -384,7 +385,7 @@ HdCyclesInstancer::SampleInstanceTransforms(SdfPath const& prototypeId)
         const float t = sa.times[i];
         // Resample transforms at the same time.
         VtMatrix4dArray curParentXf = parentXf.Resample(t);
-        VtMatrix4dArray curChildXf  = childXf.Resample(t);
+        VtMatrix4dArray curChildXf = childXf.Resample(t);
         // Multiply out each combination.
         VtMatrix4dArray& result = sa.values[i];
         result.resize(curParentXf.size() * curChildXf.size());

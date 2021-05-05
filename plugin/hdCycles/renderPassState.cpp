@@ -32,7 +32,7 @@ void
 HdCyclesRenderPassState::Prepare(const HdResourceRegistrySharedPtr& resourceRegistry)
 {
     HdCyclesResourceRegistry* registry = dynamic_cast<HdCyclesResourceRegistry*>(resourceRegistry.get());
-    if(!registry) {
+    if (!registry) {
         return;
     }
 

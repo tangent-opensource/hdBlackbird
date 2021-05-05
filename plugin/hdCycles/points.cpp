@@ -103,7 +103,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     ccl::Scene* scene = param->GetCyclesScene();
 
-    bool needs_update  = false;
+    bool needs_update = false;
     bool needs_newMesh = true;
 
     // Read Cycles Primvars
@@ -115,7 +115,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_style, &xf);
         if (xf.count > 0) {
             const TfToken& styles = xf.values[0].Get<TfToken>();
-            m_pointStyle          = POINT_DISCS;
+            m_pointStyle = POINT_DISCS;
             if (styles == usdCyclesTokens->sphere) {
                 m_pointStyle = POINT_SPHERES;
             }
@@ -129,7 +129,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
         if (xf.count > 0) {
             const int& resolutions = xf.values[0].Get<int>();
-            m_pointResolution      = std::max(resolutions, 10);
+            m_pointResolution = std::max(resolutions, 10);
         }
     }
 
@@ -163,7 +163,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                                                m_cyclesMesh);
 
                 pointObject->random_id = static_cast<unsigned int>(i);
-                pointObject->name      = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->random_id);
+                pointObject->name = ccl::ustring::format("%s@%08x", pointObject->name, pointObject->random_id);
                 m_cyclesObjects.push_back(pointObject);
                 param->AddObjectSafe(pointObject);
             }
@@ -194,7 +194,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 const VtFloatArray& widths = xf.values[0].Get<VtFloatArray>();
                 for (size_t i = 0; i < widths.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
-                        float w                 = widths[i];
+                        float w = widths[i];
                         m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm * ccl::transform_scale(w, w, w);
                     }
                 }
@@ -212,11 +212,11 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 const VtVec3fArray& normals = xf.values[0].Get<VtVec3fArray>();
                 for (size_t i = 0; i < normals.size(); i++) {
                     if (i < m_cyclesObjects.size()) {
-                        ccl::float3 rotAxis     = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                        ccl::float3 rotAxis = ccl::cross(ccl::make_float3(0.0f, 0.0f, 1.0f),
                                                          ccl::make_float3(normals[i][0], normals[i][1], normals[i][2]));
-                        float d                 = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
+                        float d = ccl::dot(ccl::make_float3(0.0f, 0.0f, 1.0f),
                                            ccl::make_float3(normals[i][0], normals[i][1], normals[i][2]));
-                        float angle             = atan2f(ccl::len(rotAxis), d);
+                        float angle = atan2f(ccl::len(rotAxis), d);
                         m_cyclesObjects[i]->tfm = m_cyclesObjects[i]->tfm * ccl::transform_rotate((angle), rotAxis);
                     }
                 }
@@ -264,7 +264,7 @@ void
 HdCyclesPoints::_CreateDiscMesh()
 {
     m_cyclesMesh->clear();
-    m_cyclesMesh->name             = ccl::ustring("generated_disc");
+    m_cyclesMesh->name = ccl::ustring("generated_disc");
     m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
 
     int numVerts = m_pointResolution;
@@ -297,22 +297,22 @@ HdCyclesPoints::_CreateSphereMesh()
     float radius = 0.5f;
 
     int sectorCount = m_pointResolution;
-    int stackCount  = m_pointResolution;
+    int stackCount = m_pointResolution;
 
     m_cyclesMesh->clear();
-    m_cyclesMesh->name             = ccl::ustring("generated_sphere");
+    m_cyclesMesh->name = ccl::ustring("generated_sphere");
     m_cyclesMesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
 
     float z, xy;
 
     float sectorStep = 2.0f * M_PI_F / static_cast<float>(sectorCount);
-    float stackStep  = M_PI_F / static_cast<float>(stackCount);
+    float stackStep = M_PI_F / static_cast<float>(stackCount);
     float sectorAngle, stackAngle;
 
     for (int i = 0; i <= stackCount; ++i) {
         stackAngle = M_PI_F / 2.0f - static_cast<float>(i) * stackStep;
-        xy         = radius * cosf(stackAngle);
-        z          = radius * sinf(stackAngle);
+        xy = radius * cosf(stackAngle);
+        z = radius * sinf(stackAngle);
 
         for (int j = 0; j <= sectorCount; ++j) {
             sectorAngle = static_cast<float>(j) * sectorStep;
@@ -346,8 +346,8 @@ HdCyclesPoints::_CreatePointsObject(const ccl::Transform& transform, ccl::Mesh* 
 {
     /* create object*/
     ccl::Object* object = new ccl::Object();
-    object->geometry    = mesh;
-    object->tfm         = transform;
+    object->geometry = mesh;
+    object->tfm = transform;
     object->motion.clear();
 
     return object;

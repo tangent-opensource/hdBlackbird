@@ -78,8 +78,7 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 
     // TODO: Revisit this code and move it to HdCyclesRenderPassState
     auto hdCam = const_cast<HdCyclesCamera*>(dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
-    if(hdCam) {
-
+    if (hdCam) {
         GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
         GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
 
@@ -119,11 +118,11 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
     }
 
     const GfVec4f& viewport = renderPassState->GetViewport();
-    const auto width  = static_cast<int>(viewport[2]);
+    const auto width = static_cast<int>(viewport[2]);
     const auto height = static_cast<int>(viewport[3]);
 
     if (width != m_width || height != m_height) {
-        m_width  = width;
+        m_width = width;
         m_height = height;
 
         // TODO: Due to the startup flow of Cycles, this gets called after a tiled render
