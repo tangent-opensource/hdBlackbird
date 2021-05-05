@@ -269,22 +269,27 @@ HdCyclesTransformSource::Resolve()
     // * resample if samples are not distributed evenly
     // * otherwise copy as they are
     //
-    auto num_req_samples = m_new_num_samples > 0 ? m_new_num_samples : static_cast<unsigned int>(m_samples.count);
+    auto num_inp_samples = static_cast<unsigned int>(m_samples.count);
+    auto num_req_samples = m_new_num_samples > 0 ? m_new_num_samples : num_inp_samples;
 
+    // Check if requested samples are odd samples
+    num_req_samples = num_req_samples % 2 == 1 ? num_req_samples : num_req_samples + 1;
+
+    // Check if resampling is required
+    bool requires_resampling = false;
+    if (num_inp_samples != num_req_samples || !HdCyclesAreTimeSamplesUniformlyDistributed(m_samples)) {
+        requires_resampling = true;
+    }
+
+    // Resampling
     HdCyclesTransformTimeSampleArray motion_transforms;
-    const bool odd_num_samples = num_req_samples % 2 == 1;
-    if (odd_num_samples) {
-        if (HdCyclesAreTimeSamplesUniformlyDistributed(m_samples)) {
-            motion_transforms.Resize(num_req_samples);
-            for (unsigned int i = 0; i < num_req_samples; ++i) {
-                motion_transforms.values[i] = mat4d_to_transform(m_samples.values[i]);
-            }
-        } else {
-            motion_transforms = ResampleUniform(m_samples, num_req_samples);
-        }
+    if (requires_resampling) {
+        motion_transforms = ResampleUniform(m_samples, num_req_samples);
     } else {
-        // Even number of samples required conversion to odd
-        motion_transforms = ResampleUniform(m_samples, num_req_samples + 1);
+        motion_transforms.Resize(num_req_samples);
+        for (unsigned int i = 0; i < num_req_samples; ++i) {
+            motion_transforms.values[i] = mat4d_to_transform(m_samples.values[i]);
+        }
     }
 
     // Commit samples
