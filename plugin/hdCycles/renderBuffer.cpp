@@ -33,8 +33,8 @@ _ConvertPixel(HdFormat dstFormat, uint8_t* dst, HdFormat srcFormat, uint8_t cons
 {
     HdFormat srcComponentFormat = HdGetComponentFormat(srcFormat);
     HdFormat dstComponentFormat = HdGetComponentFormat(dstFormat);
-    size_t srcComponentCount    = HdGetComponentCount(srcFormat);
-    size_t dstComponentCount    = HdGetComponentCount(dstFormat);
+    size_t srcComponentCount = HdGetComponentCount(srcFormat);
+    size_t dstComponentCount = HdGetComponentCount(dstFormat);
 
     for (size_t c = 0; c < dstComponentCount; ++c) {
         T readValue = 0;
@@ -96,9 +96,9 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
         return false;
     }
 
-    m_width     = static_cast<unsigned int>(dimensions[0]);
-    m_height    = static_cast<unsigned int>(dimensions[1]);
-    m_format    = format;
+    m_width = static_cast<unsigned int>(dimensions[0]);
+    m_height = static_cast<unsigned int>(dimensions[1]);
+    m_format = format;
     m_pixelSize = static_cast<unsigned int>(HdDataSizeOfFormat(format));
     m_buffer.resize(m_width * m_height * m_pixelSize, 0);
 
@@ -197,7 +197,7 @@ HdCyclesRenderBuffer::Blit(HdFormat format, int width, int height, int offset, i
     } else {
         // Convert pixel by pixel, with nearest point sampling.
         // If src and dst are both int-based, don't round trip to float.
-        size_t pixelSize  = HdDataSizeOfFormat(format);
+        size_t pixelSize = HdDataSizeOfFormat(format);
         bool convertAsInt = (HdGetComponentFormat(format) == HdFormatInt32)
                             && (HdGetComponentFormat(m_format) == HdFormatInt32);
 
@@ -289,9 +289,9 @@ void
 HdCyclesRenderBuffer::_Deallocate()
 {
     m_wasUpdated = true;
-    m_width      = 0;
-    m_height     = 0;
-    m_format     = HdFormatInvalid;
+    m_width = 0;
+    m_height = 0;
+    m_format = HdFormatInvalid;
     m_buffer.resize(0);
     m_mappers.store(0);
     m_converged.store(false);

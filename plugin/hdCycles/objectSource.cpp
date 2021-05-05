@@ -55,7 +55,7 @@ HdCyclesObjectSource::Resolve()
 void
 HdCyclesObjectSource::AddSource(HdBufferSourceSharedPtr source)
 {
-    const TfToken& name     = source->GetName();
+    const TfToken& name = source->GetName();
     m_pending_sources[name] = std::move(source);
 }
 

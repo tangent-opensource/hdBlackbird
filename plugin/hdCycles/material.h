@@ -96,10 +96,10 @@ public:
      * 
      */
     void Reload()
-    #if PXR_MAJOR_VERSION > 19
-    override
-    #endif
-    ;
+#if PXR_MAJOR_VERSION > 19
+        override
+#endif
+        ;
 
     /**
      * @return Return true if this material is valid

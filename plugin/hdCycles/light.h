@@ -106,11 +106,11 @@ private:
     // Tracking for Cycles light shader graphs, saves on potentially
     // expensive new/delete re-creation of graphs for interactive sessions.
     enum ShaderGraphBits : uint8_t {
-        Default     = 0,
+        Default = 0,
         Temperature = 1 << 0,
-        IES         = 1 << 1,
-        Texture     = 1 << 2,
-        All         = (Temperature | IES | Texture)
+        IES = 1 << 1,
+        Texture = 1 << 2,
+        All = (Temperature | IES | Texture)
     };
 
     /**
@@ -144,8 +144,7 @@ private:
      * @param type The type of ShaderNode to search for
      * @return The first ShaderNode found based on type in graph
      */
-    ccl::ShaderNode* _FindShaderNode(const ccl::ShaderGraph* graph, 
-                                     const ccl::NodeType* type, 
+    ccl::ShaderNode* _FindShaderNode(const ccl::ShaderGraph* graph, const ccl::NodeType* type,
                                      const ccl::ustring name = ccl::ustring());
 
     const TfToken m_hdLightType;

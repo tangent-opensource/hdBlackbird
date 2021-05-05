@@ -127,7 +127,7 @@ ApplyPrimvarAOVs(ccl::ShaderGraph* graph)
             auto* attr = new ccl::AttributeNode();
             graph->add(attr);
             attr->attribute = ccl::ustring("Pref");
-            auto* aov       = new ccl::OutputAOVNode();
+            auto* aov = new ccl::OutputAOVNode();
             graph->add(aov);
             aov->name = ccl::ustring("Pref");
             graph->connect(attr->output("Vector"), aov->input("Color"));
@@ -155,9 +155,9 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_
     , m_shaderGraph(nullptr)
     , m_renderDelegate(a_renderDelegate)
 {
-    m_shader        = new ccl::Shader();
-    m_shader->name  = id.GetString();
-    m_shaderGraph   = new ccl::ShaderGraph();
+    m_shader = new ccl::Shader();
+    m_shader->name = id.GetString();
+    m_shaderGraph = new ccl::ShaderGraph();
     m_shader->graph = m_shaderGraph;
 
     if (m_renderDelegate)
@@ -179,7 +179,7 @@ ccl::ShaderNode*
 matConvertUSDPrimvarReader(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_graph)
 {
     ccl::UVMapNode* uvmap = new ccl::UVMapNode();
-    uvmap->attribute      = ccl::ustring("st");
+    uvmap->attribute = ccl::ustring("st");
 
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
         if (params.first == _tokens->varname) {
@@ -238,7 +238,7 @@ ccl::ShaderNode*
 matConvertUSDPreviewSurface(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_graph)
 {
     ccl::PrincipledBsdfNode* principled = new ccl::PrincipledBsdfNode();
-    principled->base_color              = ccl::make_float3(1.0f, 1.0f, 1.0f);
+    principled->base_color = ccl::make_float3(1.0f, 1.0f, 1.0f);
 
     // Convert params
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
@@ -385,12 +385,12 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
                 if (params.second.IsHolding<int>()) {
                     const ccl::NodeEnum& node_enums = *socket.enum_values;
                     auto index = params.second.Get<int>();
-                    if(node_enums.exists(index)) {
+                    if (node_enums.exists(index)) {
                         const char* value = node_enums[index].string().c_str();
                         cyclesNode->set(socket, value);
                     } else {
                         // fallback to Blender's defaults
-                        if(cycles_node_name == "principled_bsdf") {
+                        if (cycles_node_name == "principled_bsdf") {
                             cyclesNode->set(socket, "GGX");
                         } else {
                             TF_CODING_ERROR("Invalid enum without fallback value");
@@ -572,10 +572,10 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 
         // Link material nodes
         for (const HdMaterialRelationship& matRel : net.second.relationships) {
-            ccl::ShaderNode* tonode   = conversionMap[matRel.outputId].second;
+            ccl::ShaderNode* tonode = conversionMap[matRel.outputId].second;
             ccl::ShaderNode* fromnode = conversionMap[matRel.inputId].second;
 
-            HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
+            HdMaterialNode* hd_tonode = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
 
             // Skip invalid connections. I don't know where they come from, but they exist.
@@ -587,13 +587,13 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
                 continue;
             }
 
-            std::string to_identifier   = hd_tonode->identifier.GetString();
+            std::string to_identifier = hd_tonode->identifier.GetString();
             std::string from_identifier = hd_fromnode->identifier.GetString();
 
             ccl::ShaderOutput* output = NULL;
-            ccl::ShaderInput* input   = NULL;
+            ccl::ShaderInput* input = NULL;
 
-            bool to_has_valid_prefix   = IsValidCyclesIdentifier(to_identifier);
+            bool to_has_valid_prefix = IsValidCyclesIdentifier(to_identifier);
             bool from_has_valid_prefix = IsValidCyclesIdentifier(from_identifier);
 
             // Converts Preview surface connections
@@ -670,7 +670,7 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 void
 HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits)
 {
-    auto cyclesRenderParam     = static_cast<HdCyclesRenderParam*>(renderParam);
+    auto cyclesRenderParam = static_cast<HdCyclesRenderParam*>(renderParam);
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     const SdfPath& id = GetId();
@@ -688,9 +688,9 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
             auto& networkMap = vtMat.UncheckedGet<HdMaterialNetworkMap>();
 
-            HdMaterialNetwork const* surface      = nullptr;
+            HdMaterialNetwork const* surface = nullptr;
             HdMaterialNetwork const* displacement = nullptr;
-            HdMaterialNetwork const* volume       = nullptr;
+            HdMaterialNetwork const* volume = nullptr;
 
             if (GetMaterialNetwork(HdCyclesMaterialTerminalTokens->surface, sceneDelegate, networkMap,
                                    *cyclesRenderParam, &surface, m_shaderGraph)) {
