@@ -1287,7 +1287,6 @@ HdCyclesRenderParam::_CreateSession()
             return;
         }
 
-        //std::unique_lock<std::mutex> lock(m_aovs_mutex);
         for (auto aov : m_aovs) {
             BlitFromCyclesPass(aov, m_cyclesSession->display->draw_width, m_cyclesSession->display->draw_height, samples);
         }
@@ -1979,8 +1978,6 @@ HdCyclesRenderParam::GetRenderStats() const
 void
 HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
-    //std::unique_lock<std::mutex> lock(m_aovs_mutex);
-
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
 
     m_settingsHaveChanged = true;
