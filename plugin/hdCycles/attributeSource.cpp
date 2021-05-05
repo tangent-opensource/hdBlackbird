@@ -402,13 +402,14 @@ HdCyclesAttributeSource::GetNumElements() const
     return 0;
 }
 
-HdCyclesAttributeSource::HdCyclesAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
-                                                 ccl::AttributeSet* attributes, ccl::AttributeElement element)
-    : m_name { name }
+HdCyclesAttributeSource::HdCyclesAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
+                                                 ccl::AttributeSet* attributes, ccl::AttributeElement element,
+                                                 const ccl::TypeDesc& type_desc)
+    : m_name { std::move(name) }
     , m_value { value }
     , m_attributes { attributes }
     , m_element { element }
-    , m_type_desc { GetTypeDesc(HdGetValueTupleType(value).type, role) }
+    , m_type_desc { type_desc }
     , m_attribute { nullptr }
 {
 }
@@ -473,15 +474,27 @@ interpolation_to_pointcloud_element(const HdInterpolation& interpolation)
 
 }  // namespace
 
-HdCyclesMeshAttributeSource::HdCyclesMeshAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
-                                                         ccl::Mesh* mesh, const HdInterpolation& interpolation)
-    : HdCyclesAttributeSource(name, role, value, &mesh->attributes, interpolation_to_mesh_element(interpolation))
+HdCyclesAttributeStandardSource::HdCyclesAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs,
+                                                                 ccl::AttributeStandard std)
+    : HdCyclesAttributeSource(TfToken { ccl::Attribute::standard_name(std) },
+                              GetRole(attribs->geometry->standard_type(std)), value, attribs,
+                              attribs->geometry->standard_element(std), attribs->geometry->standard_type(std))
 {
 }
 
-HdCyclesHairAttributeSource::HdCyclesHairAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
+HdCyclesMeshAttributeSource::HdCyclesMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
+                                                         ccl::Mesh* mesh, const HdInterpolation& interpolation)
+    : HdCyclesAttributeSource(std::move(name), role, value, &mesh->attributes,
+                              interpolation_to_mesh_element(interpolation),
+                              GetTypeDesc(HdGetValueTupleType(value).type, role))
+{
+}
+
+HdCyclesHairAttributeSource::HdCyclesHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
                                                          ccl::Hair* hair, const HdInterpolation& interpolation)
-    : HdCyclesAttributeSource(name, role, value, &hair->attributes, interpolation_to_hair_element(interpolation))
+    : HdCyclesAttributeSource(std::move(name), role, value, &hair->attributes,
+                              interpolation_to_hair_element(interpolation),
+                              GetTypeDesc(HdGetValueTupleType(value).type, role))
 {
 }
 

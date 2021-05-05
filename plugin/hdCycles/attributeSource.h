@@ -70,7 +70,7 @@ public:
     static bool CanCastToFloat(const VtValue& value);
     static VtValue UncheckedCastToFloat(const VtValue& value);
 
-private:
+protected:
     TfToken m_name;   // attribute name
     VtValue m_value;  // source data to be committed
 
@@ -79,11 +79,10 @@ private:
     ccl::TypeDesc m_type_desc;        // type desc
     ccl::Attribute* m_attribute;      // attribute to be created
 
-protected:
     // unfortunately AttributeSet has to be passed to support Geometry::attributes and Mesh::subd_attributes
 
-    HdCyclesAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
-                            ccl::AttributeSet* attributes, ccl::AttributeElement element);
+    HdCyclesAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::AttributeSet* attributes,
+                            ccl::AttributeElement element, const ccl::TypeDesc& type_desc);
 
     bool _CheckValid() const override;
 
@@ -92,11 +91,20 @@ protected:
 };
 
 ///
+/// Cycles Standard Attribute
+///
+class HdCyclesAttributeStandardSource : public HdCyclesAttributeSource {
+public:
+    HdCyclesAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs, ccl::AttributeStandard std);
+};
+
+
+///
 /// Cycles Hair
 ///
 class HdCyclesHairAttributeSource : public HdCyclesAttributeSource {
 public:
-    HdCyclesHairAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+    HdCyclesHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
                                 const HdInterpolation& interpolation);
 };
 
@@ -105,7 +113,7 @@ public:
 ///
 class HdCyclesMeshAttributeSource : public HdCyclesAttributeSource {
 public:
-    HdCyclesMeshAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
+    HdCyclesMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
                                 const HdInterpolation& interpolation);
 };
 
