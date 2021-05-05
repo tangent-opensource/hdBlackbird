@@ -1211,7 +1211,15 @@ class "CyclesObjectSettingsAPI" (
         doc = "Object level override of if object should be subject to motion blur"
     )
 
-    # Discuss: Is this steps or samples?
+    uniform int primvars:cycles:object:transform:samples = 3 (
+        customData = {
+            string apiName = "object_transform_samples"
+        }
+        displayGroup = "Object"
+        displayName = "Motion Blur Transform Samples"
+        doc = ""
+    )
+
     uniform int primvars:cycles:object:mblur:steps = 3 (
         customData = {
             string apiName = "object_mblur_steps"
