@@ -46,14 +46,10 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
     , m_transform(ccl::transform_identity())
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
+    config.motion_blur.eval(m_useMotionBlur, true);
 
     config.default_point_style.eval(m_pointStyle, true);
     config.default_point_resolution.eval(m_pointResolution, true);
-
-    if (m_useMotionBlur) {
-        config.motion_steps.eval(m_motionSteps, true);
-    }
 
     m_cyclesMesh = new ccl::Mesh();
     m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);

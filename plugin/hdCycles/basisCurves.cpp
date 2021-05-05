@@ -69,7 +69,7 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& insta
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
+    config.motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
 }

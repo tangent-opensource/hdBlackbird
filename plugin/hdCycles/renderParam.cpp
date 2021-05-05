@@ -728,7 +728,7 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
                        INT_MAX);
     }*/
 
-    config.enable_motion_blur.eval(integrator->motion_blur, a_forceInit);
+    integrator->motion_blur = config.motion_blur.value;
 
     integrator->tag_update(m_cyclesScene);
 }

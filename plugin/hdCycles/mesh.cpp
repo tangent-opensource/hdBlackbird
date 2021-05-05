@@ -64,7 +64,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     _InitializeNewCyclesMesh();
 }
@@ -1085,16 +1084,15 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
         delete m_cyclesObject;
     }
 
-    m_cyclesObject        = _CreateCyclesObject();
-    m_cyclesMesh          = _CreateCyclesMesh();
-    m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
+    m_cyclesObject = _CreateCyclesObject();
+    m_cyclesMesh   = _CreateCyclesMesh();
 
     if (m_useMotionBlur) {
         // Motion steps are currently a static const compile time
         // variable... This is likely an issue...
         // TODO: Get this from usdCycles schema
         //m_motionSteps = config.motion_steps;
-        m_motionSteps = m_numTransformSamples;
+        m_motionSteps = HD_CYCLES_MOTION_STEPS;
 
         // Hardcoded for now until schema PR
         m_useDeformMotionBlur = true;
