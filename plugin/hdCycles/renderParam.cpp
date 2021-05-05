@@ -26,6 +26,7 @@
 
 #include <memory>
 #include <algorithm>
+#include <unordered_set>
 
 #include <device/device.h>
 #include <render/background.h>
@@ -2004,6 +2005,8 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
 
+        std::cout << "Binding " << aov.aovName << std::endl;
+
         TfToken sourceName = GetSourceName(aov);
 
         for (HdCyclesAov& cyclesAov : DefaultAovs) {
@@ -2092,7 +2095,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     film->tag_update(m_cyclesScene);
     Interrupt();
-    std::cout << "Finished setting aov bindings" << std::endl;
+    std::cout << "Finished setting aov bindings, total passes " << m_bufferParams.passes.size() << std::endl;
 }
 
 void
@@ -2149,6 +2152,8 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     void* data = rb->Map();
 
     if (data) {
+        //std::cout << "Blitting " << aov.aovName << " samples " << samples << std::endl;
+
         auto n_comps_cycles = HdGetComponentCount(cyclesAov.format);
         auto n_comps_hd     = HdGetComponentCount(rb->GetFormat());
 
@@ -2161,6 +2166,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             case HdFormatFloat32: pixels_type = ccl::RenderBuffers::ComponentType::Float32; break;
             case HdFormatFloat32Vec3: pixels_type = ccl::RenderBuffers::ComponentType::Float32x3; break;
             case HdFormatFloat32Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float32x4; break;
+            case HdFormatInt32: pixels_type = ccl::RenderBuffers::ComponentType::Int32; break;
             default: assert(false); break;
             }
 
@@ -2169,6 +2175,18 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             auto buffers         = m_cyclesSession->buffers;
             buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, (uint8_t*)data,
                                       pixels_type, w, h, stride);
+
+            if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
+                if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
+                    /* We bump the PrimId() before sending it to hydra, decrementing it here */
+                    int32_t* pixels = (int32_t*)data;
+                    for (size_t i = 0; i < rb->GetWidth() * rb->GetHeight(); ++i) {
+                        pixels[i] -= 1;
+                    }
+                } else {
+                    TF_WARN("Object ID pass %s has unrecognized type", aov.aovName.GetText());
+                }
+            }
         } else {
             TF_WARN("Don't know how to narrow aov %s from %d components (cycles) to %d components (HdRenderBuffer)",
                     aov.aovName.GetText(), n_comps_cycles, n_comps_hd);
