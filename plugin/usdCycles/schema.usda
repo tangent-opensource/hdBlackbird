@@ -1629,13 +1629,13 @@ class "CyclesPointsSettingsAPI" (
     string displayName = "Points"
 
     uniform token cycles:object:point_style = "disc" (
-        allowedTokens = ["disc", "sphere"]
+        allowedTokens = ["disc", "disc_oriented", "sphere"]
         customData = {
             string apiName = "object_point_style"
         }
         displayGroup = "Point"
         displayName = "Point Style"
-        doc = "How should these points be rendered. Discs or Spheres."
+        doc = "How should these points be rendered. Discs (ray oriented), normal oriented discs or spheres."
     )
 
     uniform int cycles:object:point_resolution = 3 (

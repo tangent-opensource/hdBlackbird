@@ -25,13 +25,14 @@ add_library(MikktSpace::MikktSpace ALIAS MikktSpace)
 
 add_library(hdCycles SHARED
         api.h
-        debug_codes.h
         basisCurves.cpp
         basisCurves.h
         camera.cpp
         camera.h
         config.cpp
         config.h
+        debug_codes.cpp
+        debug_codes.h
         hdcycles.h
         instancer.cpp
         instancer.h

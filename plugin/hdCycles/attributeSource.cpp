@@ -31,6 +31,7 @@
 
 #include <render/hair.h>
 #include <render/mesh.h>
+#include <render/pointcloud.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
@@ -455,6 +456,21 @@ interpolation_to_hair_element(const HdInterpolation& interpolation)
     }
 }
 
+ccl::AttributeElement
+interpolation_to_pointcloud_element(const HdInterpolation& interpolation)
+{
+    switch (interpolation) {
+    case HdInterpolationConstant: return ccl::AttributeElement::ATTR_ELEMENT_OBJECT;
+    case HdInterpolationUniform: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
+    case HdInterpolationVarying: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
+    case HdInterpolationVertex: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
+    case HdInterpolationFaceVarying: return ccl::AttributeElement::ATTR_ELEMENT_NONE;  // not supported
+    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_NONE;     // not supported
+    default: return ccl::AttributeElement::ATTR_ELEMENT_NONE;
+    }
+}
+
+
 }  // namespace
 
 HdCyclesMeshAttributeSource::HdCyclesMeshAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
@@ -466,6 +482,12 @@ HdCyclesMeshAttributeSource::HdCyclesMeshAttributeSource(const TfToken& name, co
 HdCyclesHairAttributeSource::HdCyclesHairAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
                                                          ccl::Hair* hair, const HdInterpolation& interpolation)
     : HdCyclesAttributeSource(name, role, value, &hair->attributes, interpolation_to_hair_element(interpolation))
+{
+}
+
+HdCyclesPointCloudAttributeSource::HdCyclesPointCloudAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
+                                                         ccl::PointCloud* pc, const HdInterpolation& interpolation)
+    : HdCyclesAttributeSource(name, role, value, &pc->attributes, interpolation_to_pointcloud_element(interpolation))
 {
 }
 

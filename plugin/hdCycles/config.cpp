@@ -19,9 +19,13 @@
 
 #include "config.h"
 
+#include "points.h"
+
 #include <pxr/base/tf/envSetting.h>
 #include <pxr/base/tf/getenv.h>
 #include <pxr/base/tf/instantiateSingleton.h>
+
+#include <render/pointcloud.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -125,7 +129,7 @@ HdCyclesConfig::HdCyclesConfig()
     start_resolution = HdCyclesEnvValue<int>("HD_CYCLES_START_RESOLUTION", 8);
     shutter_motion_position = HdCyclesEnvValue<int>("HD_CYCLES_SHUTTER_MOTION_POSITION", 1);
 
-    default_point_style = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE", 0);
+    default_point_style      = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE", ccl::POINT_CLOUD_POINT_SPHERE);
     default_point_resolution = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
 
 

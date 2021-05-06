@@ -37,6 +37,7 @@
 #include <render/mesh.h>
 #include <render/nodes.h>
 #include <render/object.h>
+#include <render/pointcloud.h>
 #include <render/scene.h>
 #include <render/session.h>
 #include <render/stats.h>
@@ -691,10 +692,12 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
 
     ccl::Integrator* integrator = m_cyclesScene->integrator;
 
-    if (config.integrator_method.value == "PATH") {
-        integrator->method = ccl::Integrator::PATH;
-    } else {
-        integrator->method = ccl::Integrator::BRANCHED_PATH;
+    if (a_forceInit) {
+        if (config.integrator_method.value == "PATH") {
+            integrator->method = ccl::Integrator::PATH;
+        } else {
+            integrator->method = ccl::Integrator::BRANCHED_PATH;
+        }
     }
 
     // Samples
@@ -1020,6 +1023,9 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
     if (integrator_updated) {
         integrator->tag_update(m_cyclesScene);
+        if (method_updated) {
+            DirectReset();
+        }
         return true;
     }
 
@@ -1411,6 +1417,10 @@ HdCyclesRenderParam::_CreateScene()
     default_object_display_color_surface = HdCyclesCreateObjectColorSurface();
     default_object_display_color_surface->tag_update(m_cyclesScene);
     m_cyclesScene->shaders.push_back(default_object_display_color_surface);
+
+    default_vcol_display_color_surface = HdCyclesCreateDefaultShader();
+    default_vcol_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_vcol_display_color_surface);
 
     SetBackgroundShader(nullptr);
 
