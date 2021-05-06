@@ -53,10 +53,6 @@ class HdCyclesMeshRefiner {
 public:
     virtual ~HdCyclesMeshRefiner();
 
-    /// @{ TODO: Those methods belong to HdCyclesMeshTopology
-    virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
-    /// @}
-
     /// @{ \brief Refine/approximate primvar data.
     virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;

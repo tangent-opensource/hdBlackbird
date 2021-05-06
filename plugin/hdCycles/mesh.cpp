@@ -129,8 +129,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
         }
 
         auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
-        const VtVec3iArray& refined_indices = refiner->GetRefinedVertexIndices();
-        for (size_t face = 0, offset = 0; face < refined_indices.size(); ++face) {
+        for (size_t face = 0, offset = 0; face < refiner->GetTriangulatedTopology().GetNumFaces(); ++face) {
             for (size_t i = 0; i < 3; ++i, ++offset) {
                 attrib_data[offset][0] = refined_uvs[0][0];
                 attrib_data[offset][1] = refined_uvs[0][1];
@@ -146,8 +145,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
         }
 
         auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
-        const VtVec3iArray& refined_indices = refiner->GetRefinedVertexIndices();
-        for (size_t face = 0, offset = 0; face < refined_indices.size(); ++face) {
+        for (size_t face = 0, offset = 0; face < refiner->GetTriangulatedTopology().GetNumFaces(); ++face) {
             for (size_t i = 0; i < 3; ++i, ++offset) {
                 attrib_data[offset][0] = refined_uvs[face][0];
                 attrib_data[offset][1] = refined_uvs[face][1];
@@ -160,13 +158,11 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
 
     auto add_vertex_or_varying_attrib = [&](const VtValue& refined_value) {
         auto refined_uvs = refined_value.UncheckedGet<VtVec2fArray>();
-        const VtVec3iArray& refined_indices = refiner->GetRefinedVertexIndices();
-        for (size_t face = 0, offset = 0; face < refined_indices.size(); ++face) {
-            for (size_t i = 0; i < 3; ++i, ++offset) {
-                const int& vertex_index = refined_indices[face][i];
-                attrib_data[offset][0] = refined_uvs[vertex_index][0];
-                attrib_data[offset][1] = refined_uvs[vertex_index][1];
-            }
+        const VtIntArray& refined_indices = refiner->GetTriangulatedTopology().GetFaceVertexIndices();
+        for (size_t offset = 0; offset < refined_indices.size(); ++offset) {
+            const int& vertex_index = refined_indices[offset];
+            attrib_data[offset][0] = refined_uvs[vertex_index][0];
+            attrib_data[offset][1] = refined_uvs[vertex_index][1];
         }
     };
 
@@ -193,8 +189,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     }
 
     if (interpolation == HdInterpolationFaceVarying) {
-        VtValue refined_value = refiner->RefineFaceVaryingData(name, HdPrimvarRoleTokens->textureCoordinate,
-                                                                 uvs_value);
+        VtValue refined_value = refiner->RefineFaceVaryingData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
         if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumFaces() * 3) {
             TF_WARN("Invalid number of refined vertices");
             return;
@@ -571,7 +566,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineConstantData(HdTokens->normals, HdPrimvarRoleTokens->normal,
-                                                              normals_value);
+                                                            normals_value);
         if (refined_value.GetArraySize() != 1) {
             TF_WARN("Invalid uniform normals for: %s", id.GetText());
             return;
@@ -615,7 +610,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineUniformData(HdTokens->normals, HdPrimvarRoleTokens->normal,
-                                                             normals_value);
+                                                           normals_value);
         if (refined_value.GetArraySize() != num_triangles) {
             TF_WARN("Invalid uniform normals for: %s", id.GetText());
             return;
@@ -661,7 +656,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineFaceVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal,
-                                                                 normals_value);
+                                                               normals_value);
         if (refined_value.GetArraySize() != num_triangles * 3) {
             TF_WARN("Invalid facevarying normals for: %s", id.GetText());
             return;
@@ -736,7 +731,7 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
             continue;
 
         VtValue refined_points_value = refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
-                                                                   values[i]);
+                                                                 values[i]);
         if (!refined_points_value.IsHolding<VtVec3fArray>()) {
             TF_WARN("Cannot fill in motion step %d for: %s\n", static_cast<int>(i), id.GetText());
             continue;
@@ -772,14 +767,12 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     m_cyclesMesh->resize_mesh(refiner->GetTriangulatedTopology().GetNumPoints(),
                               refiner->GetTriangulatedTopology().GetNumFaces());
 
-    const VtVec3iArray& refined_indices = refiner->GetRefinedVertexIndices();
+    const VtIntArray& refined_indices = refiner->GetTriangulatedTopology().GetFaceVertexIndices();
     for (size_t i = 0; i < refined_indices.size(); ++i) {
-        const GfVec3i& triangle_indices = refined_indices[i];
+        m_cyclesMesh->triangles[i] = refined_indices[i];
+    }
 
-        m_cyclesMesh->triangles[i * 3 + 0] = triangle_indices[0];
-        m_cyclesMesh->triangles[i * 3 + 1] = triangle_indices[1];
-        m_cyclesMesh->triangles[i * 3 + 2] = triangle_indices[2];
-
+    for (size_t i {}; i < refiner->GetTriangulatedTopology().GetNumFaces(); ++i) {
         m_cyclesMesh->smooth[i] = true;  // TODO: move to Populate normals?
     }
 }
@@ -888,7 +881,7 @@ HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const Sd
     // refine material ids and assign them to refined geometry
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
     VtValue refined_value = refiner->RefineUniformData(HdTokens->materialParams, HdPrimvarRoleTokens->none,
-                                                         VtValue { face_materials });
+                                                       VtValue { face_materials });
 
     if (refined_value.GetArraySize() != m_cyclesMesh->shader.size()) {
         TF_WARN("Failed to assign refined materials for: %s", id.GetText());
@@ -1021,7 +1014,7 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
     VtVec3fArray points;
     VtValue refined_points_value = refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
-                                                               points_value);
+                                                             points_value);
     if (refined_points_value.IsHolding<VtVec3fArray>()) {
         points = refined_points_value.Get<VtVec3fArray>();
     } else {

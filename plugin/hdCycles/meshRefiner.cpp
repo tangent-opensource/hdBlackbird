@@ -76,8 +76,6 @@ public:
         m_triangulated_topology = build_triangulated_topology(m_triangle_indices);
     }
 
-    const VtVec3iArray& GetRefinedVertexIndices() const override { return m_triangle_indices; }
-
     VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
         return data;
@@ -586,8 +584,6 @@ public:
     {
         m_limit->EvaluateLimit(refined_vertices, limit_ps, limit_du, limit_dv);
     }
-
-    const VtVec3iArray& GetRefinedVertexIndices() const override { return m_triangle_indices; }
 
     VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const override
     {
