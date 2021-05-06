@@ -22,6 +22,7 @@
 
 #include <pxr/base/vt/array.h>
 #include <pxr/imaging/hd/enums.h>
+#include <pxr/imaging/hd/meshTopology.h>
 
 #include <memory>
 
@@ -35,6 +36,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 using VtFloat3Array = VtArray<ccl::float3>;
 
+class HdDisplayStyle;
 class HdMeshTopology;
 class VtValue;
 class TfToken;
@@ -80,6 +82,20 @@ public:
 
 protected:
     HdCyclesMeshRefiner();
+};
+
+///
+/// Hd Blackbird topology
+///
+class HdBbMeshTopology : public HdMeshTopology {
+public:
+
+    HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level);
+
+    const HdCyclesMeshRefiner* GetRefiner() const { return m_refiner.get(); }
+
+private:
+    std::unique_ptr<HdCyclesMeshRefiner> m_refiner;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

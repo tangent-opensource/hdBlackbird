@@ -681,3 +681,13 @@ HdCyclesMeshRefiner::GetNumRefinedTriangles() const
 {
     return GetRefinedVertexIndices().size();
 }
+
+HdBbMeshTopology::HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level)
+    : HdMeshTopology{src, refine_level}
+{
+    if (GetScheme() == PxOsdOpenSubdivTokens->catmullClark && GetRefineLevel() > 0) {
+        m_refiner = std::make_unique<HdCyclesSubdRefiner>(*this, id);
+    } else {
+        m_refiner = std::make_unique<HdCyclesTriangleRefiner>(*this, id);
+    }
+}

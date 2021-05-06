@@ -756,8 +756,8 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
-    m_topology = HdMeshTopology(topology, display_style.refineLevel);
-    m_refiner = HdCyclesMeshRefiner::Create(m_topology, id);
+    m_topology = std::make_shared<HdBbMeshTopology>(id, topology, 2); // display_style.refineLevel
+    m_refiner = m_topology->GetRefiner();
 
     // Mesh is independently updated in two stages, faces(topology) and vertices(data).
     // Because process of updating vertices can fail for unknown reason,
@@ -836,18 +836,18 @@ void
 HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     // optimization to avoid unnecessary allocations
-    if (m_topology.GetGeomSubsets().empty()) {
+    if (m_topology->GetGeomSubsets().empty()) {
         return;
     }
 
     HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
 
     // collect unrefined material ids for each face
-    VtIntArray face_materials(m_topology.GetNumFaces(), 0);
+    VtIntArray face_materials(m_topology->GetNumFaces(), 0);
 
     auto& used_shaders = m_cyclesMesh->used_shaders;
     TfHashMap<SdfPath, int, SdfPath::Hash> material_map;
-    for (auto& subset : m_topology.GetGeomSubsets()) {
+    for (auto& subset : m_topology->GetGeomSubsets()) {
         int subset_material_id = 0;
 
         if (!subset.materialId.IsEmpty()) {
