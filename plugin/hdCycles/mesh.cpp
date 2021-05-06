@@ -24,6 +24,7 @@
 #include "debug_codes.h"
 #include "instancer.h"
 #include "material.h"
+#include "meshSource.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
 #include "transformSource.h"
@@ -48,92 +49,6 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 #pragma GCC diagnostic pop
 #endif
 // clang-format on
-
-
-namespace {
-
-ccl::AttributeElement
-interpolation_to_mesh_element(const HdInterpolation& interpolation)
-{
-    switch (interpolation) {
-    case HdInterpolationConstant: return ccl::AttributeElement::ATTR_ELEMENT_OBJECT;
-    case HdInterpolationUniform: return ccl::AttributeElement::ATTR_ELEMENT_FACE;
-    case HdInterpolationVarying: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
-    case HdInterpolationVertex: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
-    case HdInterpolationFaceVarying: return ccl::AttributeElement::ATTR_ELEMENT_CORNER;
-    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_NONE;  // not supported
-    default: return ccl::AttributeElement::ATTR_ELEMENT_NONE;
-    }
-}
-
-}  // namespace
-
-///
-/// Blackbird Mesh attribute Source
-///
-class HdBbMeshAttributeSource : public HdBbAttributeSource {
-public:
-    HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
-                            const HdInterpolation& interpolation)
-        : HdBbAttributeSource(std::move(name), role, value, &mesh->attributes,
-                              interpolation_to_mesh_element(interpolation),
-                              GetTypeDesc(HdGetValueTupleType(value).type, role))
-        , m_interpolation { interpolation }
-    {
-    }
-
-    // Underlying VtValue has different size than ccl::Geometry, we have to accommodate for that.
-
-    bool Resolve() override
-    {
-        if (!_TryLock()) {
-            return false;
-        }
-
-        // refine attribute
-        const ccl::TypeDesc& source_type_desc = GetSourceTypeDesc();
-        const VtValue source_value = m_value;
-        m_value = m_topology->GetRefiner()->Refine(GetName(), GetRole(source_type_desc), source_value,
-                                                   GetInterpolation());
-
-        // late size check, since it is only known after refining
-        if (!_CheckBuffersSize()) {
-            _SetResolveError();
-            return true;
-        }
-
-        bool resolved = HdBbAttributeSource::ResolveUnlocked();
-
-        // marked as finished
-        _SetResolved();
-        return resolved;
-    }
-
-    const HdInterpolation& GetInterpolation() const { return m_interpolation; }
-
-private:
-    bool _CheckValid() const override
-    {
-        // size might be different because attribute could be refined
-
-        if (!_CheckBuffersValid()) {
-            return false;
-        }
-
-        // early exit on correct types
-        if(_CheckBuffersType()) {
-            return true;
-        }
-
-        TF_CODING_ERROR(
-            "Attribute:%s is not going to be committed. Attribute has unknown type or can not be converted to known type!",
-            m_name.data());
-        return false;  // unsupported type
-    }
-
-    HdInterpolation m_interpolation;
-    std::shared_ptr<HdBbMeshTopology> m_topology;
-};
 
 HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
     : HdMesh(id, instancerId)
@@ -470,98 +385,9 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
     }
 
     // Primvar color attributes
-
-    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
-    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
-
-    if (interpolation == HdInterpolationUniform) {
-        VtValue refined_value = refiner->RefineUniformData(name, role, data);
-        if (refined_value.GetArraySize() != m_cyclesMesh->num_triangles()) {
-            TF_WARN("Empty colors can not be assigned to an faces!");
-            return;
-        }
-
-        ccl::ustring attrib_name { name.GetString().c_str(), name.GetString().size() };
-        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_FACE);
-        ccl::float3* cycles_colors = color_attrib->data_float3();
-
-        auto refined_colors = refined_value.UncheckedGet<VtVec3fArray>();
-        for (size_t i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
-            cycles_colors[i][0] = refined_colors[i][0];
-            cycles_colors[i][1] = refined_colors[i][1];
-            cycles_colors[i][2] = refined_colors[i][2];
-        }
-
-        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
-        return;
-    }
-
-    auto add_vertex_or_varying_attrib = [&](const VtValue& refined_value) {
-        if (!refined_value.GetArraySize()) {
-            TF_WARN("Empty colors can not be assigned to an vertices!");
-            return;
-        }
-
-        ccl::ustring attrib_name { name.GetString().c_str(), name.GetString().size() };
-        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_VERTEX);
-        ccl::float3* cycles_colors = color_attrib->data_float3();
-
-        auto refined_colors = refined_value.UncheckedGet<VtVec3fArray>();
-        for (size_t i = 0; i < m_cyclesMesh->verts.size(); ++i) {
-            cycles_colors[i][0] = refined_colors[i][0];
-            cycles_colors[i][1] = refined_colors[i][1];
-            cycles_colors[i][2] = refined_colors[i][2];
-        }
-
-        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
-    };
-
-    // varying/vertex is assigned to vertices
-    if (interpolation == HdInterpolationVertex) {
-        VtValue refined_value = refiner->RefineVertexData(name, role, data);
-        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumPoints()) {
-            TF_WARN("Invalid number of refined vertices");
-            return;
-        }
-
-        add_vertex_or_varying_attrib(refined_value);
-        return;
-    }
-
-    if (interpolation == HdInterpolationVarying) {
-        VtValue refined_value = refiner->RefineVaryingData(name, role, data);
-        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumPoints()) {
-            TF_WARN("Invalid number of refined vertices");
-            return;
-        }
-
-        add_vertex_or_varying_attrib(refined_value);
-        return;
-    }
-
-    if (interpolation == HdInterpolationFaceVarying) {
-        VtValue refined_value = refiner->RefineFaceVaryingData(name, role, data);
-        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumFaces() * 3) {
-            TF_WARN("Invalid number of refined vertices");
-            return;
-        }
-
-        ccl::ustring attrib_name { name.GetString().c_str(), name.GetString().size() };
-        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_CORNER);
-        ccl::float3* attrib_data = color_attrib->data_float3();
-
-        auto refined_color = refined_value.UncheckedGet<VtVec3fArray>();
-        for (size_t i = 0; i < refined_color.size(); ++i) {
-            attrib_data[i][0] = refined_color[i][0];
-            attrib_data[i][1] = refined_color[i][1];
-            attrib_data[i][2] = refined_color[i][2];
-        }
-
-        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
-        return;
-    }
-
-    TF_WARN("Unsupported displayColor interpolation for primitive: %s", id.GetText());
+    auto color_source = std::make_shared<HdBbMeshAttributeSource>(name, role, data, m_cyclesMesh, interpolation,
+                                                                  m_topology);
+    m_object_source->AddSource(color_source);
 }
 
 void
@@ -844,7 +670,7 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
-    m_topology = std::make_shared<HdBbMeshTopology>(id, topology, 2);  // display_style.refineLevel
+    m_topology = std::make_shared<HdBbMeshTopology>(id, topology, 0);  // display_style.refineLevel
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     // Mesh is independently updated in two stages, faces(topology) and vertices(data).
@@ -1037,6 +863,14 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
             if (description.name == HdTokens->accelerations) {
                 _AddAccelerations(id, value, interpolation);
                 continue;
+            }
+
+            // any other primvar for hair to be committed
+            if (m_cyclesMesh) {
+                auto primvar_source = std::make_shared<HdBbMeshAttributeSource>(description.name, description.role,
+                                                                                value, m_cyclesMesh,
+                                                                                description.interpolation, m_topology);
+                m_object_source->AddSource(std::move(primvar_source));
             }
 
             // TODO: Add arbitrary primvar support when AOVs are working

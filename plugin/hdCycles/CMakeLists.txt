@@ -72,6 +72,8 @@ add_library(hdCycles SHARED
         renderPassState.h
         transformSource.cpp
         transformSource.h
+        meshSource.cpp
+        meshSource.h
         )
 
 target_include_directories(hdCycles
