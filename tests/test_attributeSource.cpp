@@ -20,6 +20,8 @@
 #include <doctest/doctest.h>
 
 #include <hdCycles/attributeSource.h>
+#include <hdCycles/basisCurves.h>
+
 #include <render/hair.h>
 
 #include <pxr/base/gf/matrix2d.h>
@@ -91,7 +93,7 @@ TEST_SUITE("Testing HdCyclesAttributeSource")
 
     template<typename T, typename... Ts> void is_holding_float(bool expected, const T& d, const Ts&... ds)
     {
-        auto IsHoldingFloat = HdCyclesHairAttributeSource::IsHoldingFloat;
+        auto IsHoldingFloat = HdBbHairAttributeSource::IsHoldingFloat;
         CHECK(IsHoldingFloat(V { d }) == expected);
 
         is_holding_float(expected, ds...);
@@ -122,8 +124,8 @@ TEST_SUITE("Testing HdCyclesAttributeSource")
 
     TEST_CASE("HdType to TypeDesc conversion")
     {
-        using Fn         = ccl::TypeDesc (*)(const HdType& type);
-        auto GetTypeDesc = static_cast<Fn>(HdCyclesHairAttributeSource::GetTypeDesc);
+        using Fn = ccl::TypeDesc (*)(const HdType& type);
+        auto GetTypeDesc = static_cast<Fn>(HdBbHairAttributeSource::GetTypeDesc);
 
         CHECK(GetTypeDesc(HdTypeInt32) == ccl::TypeFloat);
         CHECK(GetTypeDesc(HdTypeInt32Vec2) == ccl::TypeFloat2);
@@ -157,8 +159,8 @@ TEST_SUITE("Testing HdCyclesAttributeSource")
 
     TEST_CASE("Checking TfToken role to TypeDesc conversion")
     {
-        using Fn         = ccl::TypeDesc (*)(const TfToken& type);
-        auto GetTypeDesc = static_cast<Fn>(HdCyclesHairAttributeSource::GetTypeDesc);
+        using Fn = ccl::TypeDesc (*)(const TfToken& type);
+        auto GetTypeDesc = static_cast<Fn>(HdBbHairAttributeSource::GetTypeDesc);
 
         CHECK(GetTypeDesc(HdPrimvarRoleTokens->normal) == ccl::TypeNormal);
         CHECK(GetTypeDesc(HdPrimvarRoleTokens->point) == ccl::TypePoint);
@@ -173,8 +175,8 @@ TEST_SUITE("Testing HdCyclesAttributeSource")
 
     TEST_CASE("Checking destination stride size")
     {
-        using Fn               = HdTupleType (*)(const ccl::TypeDesc& type_desc);
-        auto GetTupleType      = static_cast<Fn>(HdCyclesHairAttributeSource::GetTupleType);
+        using Fn = HdTupleType (*)(const ccl::TypeDesc& type_desc);
+        auto GetTupleType = static_cast<Fn>(HdBbHairAttributeSource::GetTupleType);
         auto GetTupleTypeCount = [&GetTupleType](const ccl::TypeDesc& type_desc) -> size_t {
             return GetTupleType(type_desc).count;
         };
@@ -197,7 +199,7 @@ TEST_SUITE("Testing HdCyclesAttributeSource")
 
     TEST_CASE("UncheckedCastToFloat")
     {
-        auto UncheckedCastToFloat = HdCyclesHairAttributeSource::UncheckedCastToFloat;
+        auto UncheckedCastToFloat = HdBbHairAttributeSource::UncheckedCastToFloat;
 
         SUBCASE("Single")
         {
@@ -234,7 +236,7 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
 {
     using V = VtValue;
 
-    auto hair_ptr   = std::make_unique<ccl::Hair>();
+    auto hair_ptr = std::make_unique<ccl::Hair>();
     ccl::Hair* hair = hair_ptr.get();
 
     TEST_CASE("Testing interpolation type")
@@ -243,43 +245,43 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
 
         SUBCASE("Constant interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
-                                                 HdInterpolationConstant };
+            HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                             HdInterpolationConstant };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_OBJECT);
         }
 
         SUBCASE("Uniform interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
-                                                 HdInterpolationUniform };
+            HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                             HdInterpolationUniform };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_CURVE);
         }
 
         SUBCASE("Varying interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
-                                                 HdInterpolationVarying };
+            HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                             HdInterpolationVarying };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_CURVE_KEY);
         }
 
         SUBCASE("Vertex interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
-                                                 HdInterpolationVertex };
+            HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                             HdInterpolationVertex };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_CURVE_KEY);
         }
 
         SUBCASE("Face varying interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
-                                                 HdInterpolationFaceVarying };
+            HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                             HdInterpolationFaceVarying };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_NONE);
         }
 
         SUBCASE("Instance interpolation")
         {
-            HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
-                                                 HdInterpolationInstance };
+            HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, VtValue {}, hair,
+                                             HdInterpolationInstance };
             CHECK(source.GetAttributeElement() == ccl::ATTR_ELEMENT_NONE);
         }
     }
@@ -295,8 +297,8 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
     {
         TfErrorMark error_mark;
         V value_wrapper { d };
-        HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, value_wrapper, hair,
-                                             interpolation };
+        HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, value_wrapper, hair,
+                                         interpolation };
 
         auto is_valid = source.IsValid();
         CAPTURE(error_mark);
@@ -410,7 +412,7 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
     TEST_CASE("Testing value validation for varying element")
     {
         const size_t num_curves = 30;
-        const size_t num_keys   = num_curves * 6;
+        const size_t num_keys = num_curves * 6;
         hair->resize_curves(num_curves, num_keys);
 
         is_valid_for_interpolation(HdInterpolationVarying, num_keys);
@@ -419,7 +421,7 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
     TEST_CASE("Testing value validation for vertex element")
     {
         const size_t num_curves = 30;
-        const size_t num_keys   = num_curves * 6;
+        const size_t num_keys = num_curves * 6;
         hair->resize_curves(num_curves, num_keys);
 
         is_valid_for_interpolation(HdInterpolationVertex, num_keys);
@@ -428,7 +430,7 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
     TEST_CASE("Testing value validation for uniform element")
     {
         const size_t num_curves = 30;
-        const size_t num_keys   = num_curves * 6;
+        const size_t num_keys = num_curves * 6;
         hair->resize_curves(num_curves, num_keys);
 
         is_valid_for_interpolation(HdInterpolationUniform, num_curves);
@@ -452,7 +454,7 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
             T v {};
             for (size_t d = 0; d < num_dim; ++d) {
                 float number = distribution(generator);
-                v[d]         = number;
+                v[d] = number;
             }
             random_array.push_back(std::move(v));
         }
@@ -468,7 +470,7 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
         std::uniform_int_distribution<int> keys_distribution(2, 42);
 
         const int num_curves = curve_distribution(generator);
-        const int num_keys   = num_curves * keys_distribution(generator);
+        const int num_keys = num_curves * keys_distribution(generator);
         hair->resize_curves(num_curves, num_keys);
 
         INFO("Testing curve vertex data %s:%s", num_curves, num_keys);
@@ -478,8 +480,8 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
 
         TfErrorMark error_mark;
         V value_wrapper { random_vector };
-        HdCyclesHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, value_wrapper, hair,
-                                             HdInterpolationVertex };
+        HdBbHairAttributeSource source { HdTokens->points, HdPrimvarRoleTokens->none, value_wrapper, hair,
+                                         HdInterpolationVertex };
 
         // double check
         CAPTURE(error_mark);
@@ -495,7 +497,7 @@ TEST_SUITE("Testing HdCyclesCurveAttributeSource")
         auto data = attribute->data_float3();
         for (size_t i {}; i < num_keys; ++i) {
             const ccl::float3& a = data[i];
-            const GfVec3d& b     = random_vector[i];
+            const GfVec3d& b = random_vector[i];
 
             CHECK(a[0] == doctest::Approx { b[0] });
             CHECK(a[1] == doctest::Approx { b[1] });
