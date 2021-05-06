@@ -85,7 +85,16 @@ protected:
     ccl::TypeDesc m_type_desc;        // type desc
     ccl::Attribute* m_attribute;      // attribute to be created
 
+    // broken down checks
+    bool _CheckBuffersValid() const;
+    bool _CheckBuffersSize() const;
+    bool _CheckBuffersType() const;
+
+    //
     bool _CheckValid() const override;
+
+    //
+    bool ResolveUnlocked();
 
     virtual bool ResolveAsValue();
     virtual bool ResolveAsArray();
@@ -103,7 +112,7 @@ public:
 ///
 /// Cycles PointCloud
 ///
-class HdCyclesPointCloudAttributeSource : public HdCyclesAttributeSource {
+class HdCyclesPointCloudAttributeSource : public HdBbAttributeSource {
 public:
     HdCyclesPointCloudAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::PointCloud* pc,
                                 const HdInterpolation& interpolation);

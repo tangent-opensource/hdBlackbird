@@ -179,12 +179,8 @@ HdBbAttributeSource::CanCastToFloat(const VtValue& value)
 }
 
 bool
-HdBbAttributeSource::_CheckValid() const
+HdBbAttributeSource::_CheckBuffersValid() const
 {
-    // Details about how to map between source and destination buffers must be known before Resolve.
-    // Following checks ensure that no unknown or invalid buffers will be resolved.
-    // Appropriate notification will be issued about incompatible buffers.
-
     const VtValue& value = m_value;
 
     if (!m_attributes) {
@@ -219,6 +215,15 @@ HdBbAttributeSource::_CheckValid() const
         return false;
     }
 
+    return true;
+}
+
+bool
+HdBbAttributeSource::_CheckBuffersSize() const
+{
+    const VtValue& value = m_value;
+    const ccl::AttributeElement& element = GetAttributeElement();
+
     // ELEMENT_OBJECT accepts only a value(array size == 0) or array(array size == 1)
     // For any other ELEMENT type array data is required
     auto get_source_size = [&element, &value]() -> size_t {
@@ -237,6 +242,14 @@ HdBbAttributeSource::_CheckValid() const
         return false;
     }
 
+    return true;
+}
+
+bool
+HdBbAttributeSource::_CheckBuffersType() const
+{
+    const VtValue& value = m_value;
+
     // check if value holds expected array type
     if (IsHoldingFloat(value)) {
         return true;
@@ -244,6 +257,29 @@ HdBbAttributeSource::_CheckValid() const
 
     // check if vt value can be converted
     if (CanCastToFloat(value)) {
+        return true;
+    }
+
+    return false;
+}
+
+bool
+HdBbAttributeSource::_CheckValid() const
+{
+    // Details about how to map between source and destination buffers must be known before Resolve.
+    // Following checks ensure that no unknown or invalid buffers will be resolved.
+    // Appropriate notification will be issued about incompatible buffers.
+
+    if (!_CheckBuffersValid()) {
+        return false;
+    }
+
+    if (!_CheckBuffersSize()) {
+        return false;
+    }
+
+    // early exit on correct types
+    if(_CheckBuffersType()) {
         return true;
     }
 
@@ -360,6 +396,17 @@ HdBbAttributeSource::ResolveAsArray()
 }
 
 bool
+HdBbAttributeSource::ResolveUnlocked()
+{
+    // resolving might fail, because of conversion
+    if (m_value.GetArraySize()) {
+        return ResolveAsArray();
+    }
+
+    return ResolveAsValue();
+}
+
+bool
 HdBbAttributeSource::Resolve()
 {
     if (!_TryLock()) {
@@ -367,12 +414,7 @@ HdBbAttributeSource::Resolve()
     }
 
     // resolving might fail, because of conversion
-    bool resolved = false;
-    if (m_value.GetArraySize()) {
-        resolved = ResolveAsArray();
-    } else {
-        resolved = ResolveAsValue();
-    }
+    bool resolved = ResolveUnlocked();
 
     // marked as finished
     _SetResolved();
@@ -418,20 +460,6 @@ HdBbAttributeSource::GetTupleType(const ccl::TypeDesc& type_desc)
 namespace {
 
 ccl::AttributeElement
-interpolation_to_mesh_element(const HdInterpolation& interpolation)
-{
-    switch (interpolation) {
-    case HdInterpolationConstant: return ccl::AttributeElement::ATTR_ELEMENT_OBJECT;
-    case HdInterpolationUniform: return ccl::AttributeElement::ATTR_ELEMENT_FACE;
-    case HdInterpolationVarying: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
-    case HdInterpolationVertex: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
-    case HdInterpolationFaceVarying: return ccl::AttributeElement::ATTR_ELEMENT_CORNER;
-    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_NONE;  // not supported
-    default: return ccl::AttributeElement::ATTR_ELEMENT_NONE;
-    }
-}
-
-ccl::AttributeElement
 interpolation_to_pointcloud_element(const HdInterpolation& interpolation)
 {
     switch (interpolation) {
@@ -463,13 +491,6 @@ HdBbAttributeSource::HdBbAttributeSource(const VtValue& value, ccl::AttributeSet
     : HdBbAttributeSource(TfToken { ccl::Attribute::standard_name(std) },
                           GetRole(attribs->geometry->standard_type(std)), value, attribs,
                           attribs->geometry->standard_element(std), attribs->geometry->standard_type(std))
-{
-}
-
-HdBbMeshAttributeSource::HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
-                                                 ccl::Mesh* mesh, const HdInterpolation& interpolation)
-    : HdBbAttributeSource(std::move(name), role, value, &mesh->attributes, interpolation_to_mesh_element(interpolation),
-                          GetTypeDesc(HdGetValueTupleType(value).type, role))
 {
 }
 

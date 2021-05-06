@@ -19,6 +19,7 @@
 
 #include "mesh.h"
 
+#include "attributeSource.h"
 #include "config.h"
 #include "debug_codes.h"
 #include "instancer.h"
@@ -47,6 +48,92 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 #pragma GCC diagnostic pop
 #endif
 // clang-format on
+
+
+namespace {
+
+ccl::AttributeElement
+interpolation_to_mesh_element(const HdInterpolation& interpolation)
+{
+    switch (interpolation) {
+    case HdInterpolationConstant: return ccl::AttributeElement::ATTR_ELEMENT_OBJECT;
+    case HdInterpolationUniform: return ccl::AttributeElement::ATTR_ELEMENT_FACE;
+    case HdInterpolationVarying: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
+    case HdInterpolationVertex: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
+    case HdInterpolationFaceVarying: return ccl::AttributeElement::ATTR_ELEMENT_CORNER;
+    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_NONE;  // not supported
+    default: return ccl::AttributeElement::ATTR_ELEMENT_NONE;
+    }
+}
+
+}  // namespace
+
+///
+/// Blackbird Mesh attribute Source
+///
+class HdBbMeshAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
+                            const HdInterpolation& interpolation)
+        : HdBbAttributeSource(std::move(name), role, value, &mesh->attributes,
+                              interpolation_to_mesh_element(interpolation),
+                              GetTypeDesc(HdGetValueTupleType(value).type, role))
+        , m_interpolation { interpolation }
+    {
+    }
+
+    // Underlying VtValue has different size than ccl::Geometry, we have to accommodate for that.
+
+    bool Resolve() override
+    {
+        if (!_TryLock()) {
+            return false;
+        }
+
+        // refine attribute
+        const ccl::TypeDesc& source_type_desc = GetSourceTypeDesc();
+        const VtValue source_value = m_value;
+        m_value = m_topology->GetRefiner()->Refine(GetName(), GetRole(source_type_desc), source_value,
+                                                   GetInterpolation());
+
+        // late size check, since it is only known after refining
+        if (!_CheckBuffersSize()) {
+            _SetResolveError();
+            return true;
+        }
+
+        bool resolved = HdBbAttributeSource::ResolveUnlocked();
+
+        // marked as finished
+        _SetResolved();
+        return resolved;
+    }
+
+    const HdInterpolation& GetInterpolation() const { return m_interpolation; }
+
+private:
+    bool _CheckValid() const override
+    {
+        // size might be different because attribute could be refined
+
+        if (!_CheckBuffersValid()) {
+            return false;
+        }
+
+        // early exit on correct types
+        if(_CheckBuffersType()) {
+            return true;
+        }
+
+        TF_CODING_ERROR(
+            "Attribute:%s is not going to be committed. Attribute has unknown type or can not be converted to known type!",
+            m_name.data());
+        return false;  // unsupported type
+    }
+
+    HdInterpolation m_interpolation;
+    std::shared_ptr<HdBbMeshTopology> m_topology;
+};
 
 HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
     : HdMesh(id, instancerId)
