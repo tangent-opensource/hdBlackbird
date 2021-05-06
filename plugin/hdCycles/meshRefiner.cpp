@@ -46,16 +46,34 @@ using namespace OpenSubdiv;
 
 namespace {
 
+HdMeshTopology
+build_triangulated_topology(const VtVec3iArray& triangle_indices)
+{
+    VtIntArray face_vertex_count(triangle_indices.size(), 3);
+
+    VtIntArray face_vertex_indices {};
+    face_vertex_indices.reserve(triangle_indices.size() * 3);
+    for (auto& triangle : triangle_indices) {
+        face_vertex_indices.push_back(triangle[0]);
+        face_vertex_indices.push_back(triangle[1]);
+        face_vertex_indices.push_back(triangle[2]);
+    }
+
+    return { PxOsdOpenSubdivTokens->none, PxOsdOpenSubdivTokens->rightHanded, face_vertex_count, face_vertex_indices };
+}
+
 ///
 /// \brief Simple Triangle Refiner
 ///
 class HdCyclesTriangleRefiner final : public HdCyclesMeshRefiner {
 public:
-    HdCyclesTriangleRefiner(const HdBbMeshTopology& topology)
+    explicit HdCyclesTriangleRefiner(const HdBbMeshTopology& topology)
         : m_topology { &topology }
     {
+        // create triangulated topology
         HdMeshUtil mesh_util { &topology, m_topology->GetId() };
         mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_primitive_param);
+        m_triangulated_topology = build_triangulated_topology(m_triangle_indices);
     }
 
     size_t GetNumRefinedVertices() const override { return m_topology->GetNumPoints(); }
@@ -466,7 +484,7 @@ private:
 ///
 class HdCyclesSubdRefiner final : public HdCyclesMeshRefiner {
 public:
-    HdCyclesSubdRefiner(const HdBbMeshTopology& topology)
+    explicit HdCyclesSubdRefiner(const HdBbMeshTopology& topology)
         : m_topology { &topology }
     {
         HD_TRACE_FUNCTION();
@@ -553,12 +571,15 @@ public:
 
             m_osd_topology = HdMeshTopology { PxOsdOpenSubdivTokens->none, PxOsdOpenSubdivTokens->rightHanded,
                                               patch_vertex_count, patch_vertex_indices };
+        }
 
+        // create triangulated topology
+        {
             HdMeshUtil mesh_util { &m_osd_topology, m_topology->GetId() };
             mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_prim_param);
+            m_triangulated_topology = build_triangulated_topology(m_triangle_indices);
         }
     }
-
 
     bool IsSubdivided() const override { return true; }
 

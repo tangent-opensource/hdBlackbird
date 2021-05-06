@@ -67,6 +67,8 @@ public:
     virtual VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     /// @}
 
+    const HdMeshTopology& GetTriangulatedTopology() const { return m_triangulated_topology; }
+
     virtual bool IsSubdivided() const = 0;
 
     virtual void EvaluateLimit(const VtFloat3Array& refined_vertices, VtFloat3Array& limit_ps, VtFloat3Array& limit_du,
@@ -80,6 +82,8 @@ public:
 
 protected:
     HdCyclesMeshRefiner();
+
+    HdMeshTopology m_triangulated_topology;
 };
 
 ///
