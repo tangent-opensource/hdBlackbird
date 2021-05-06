@@ -195,7 +195,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     if (interpolation == HdInterpolationFaceVarying) {
         VtValue refined_value = refiner->RefineFaceVaryingData(name, HdPrimvarRoleTokens->textureCoordinate,
                                                                  uvs_value);
-        if (refined_value.GetArraySize() != refiner->GetNumRefinedTriangles() * 3) {
+        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumFaces() * 3) {
             TF_WARN("Invalid number of refined vertices");
             return;
         }
@@ -437,7 +437,7 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
     // varying/vertex is assigned to vertices
     if (interpolation == HdInterpolationVertex) {
         VtValue refined_value = refiner->RefineVertexData(name, role, data);
-        if (refined_value.GetArraySize() != refiner->GetNumRefinedVertices()) {
+        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumPoints()) {
             TF_WARN("Invalid number of refined vertices");
             return;
         }
@@ -448,7 +448,7 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
 
     if (interpolation == HdInterpolationVarying) {
         VtValue refined_value = refiner->RefineVaryingData(name, role, data);
-        if (refined_value.GetArraySize() != refiner->GetNumRefinedVertices()) {
+        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumPoints()) {
             TF_WARN("Invalid number of refined vertices");
             return;
         }
@@ -459,7 +459,7 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
 
     if (interpolation == HdInterpolationFaceVarying) {
         VtValue refined_value = refiner->RefineFaceVaryingData(name, role, data);
-        if (refined_value.GetArraySize() != refiner->GetNumRefinedTriangles() * 3) {
+        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumFaces() * 3) {
             TF_WARN("Invalid number of refined vertices");
             return;
         }
@@ -567,7 +567,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* normal_data = normal_attr->data_float3();
 
-        const size_t num_triangles = refiner->GetNumRefinedTriangles();
+        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineConstantData(HdTokens->normals, HdPrimvarRoleTokens->normal,
@@ -611,7 +611,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data = normal_attr->data_float3();
 
-        const size_t num_triangles = refiner->GetNumRefinedTriangles();
+        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineUniformData(HdTokens->normals, HdPrimvarRoleTokens->normal,
@@ -634,7 +634,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* normal_data = normal_attr->data_float3();
 
-        const size_t num_vertices = refiner->GetNumRefinedVertices();
+        auto num_vertices = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumPoints());
         memset(normal_data, 0, num_vertices * sizeof(ccl::float3));
 
         VtValue refined_value;
@@ -657,7 +657,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data = normal_attr->data_float3();
 
-        const size_t num_triangles = refiner->GetNumRefinedTriangles();
+        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineFaceVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal,
@@ -744,7 +744,7 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 
         VtVec3fArray refined_points = refined_points_value.UncheckedGet<VtVec3fArray>();
 
-        for (size_t j = 0; j < refiner->GetNumRefinedVertices(); ++j, ++mP) {
+        for (size_t j = 0; j < refiner->GetTriangulatedTopology().GetNumPoints(); ++j, ++mP) {
             *mP = vec3f_to_float3(refined_points[j]);
         }
     }
@@ -769,8 +769,8 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     // Because process of updating vertices can fail for unknown reason,
     // we can end up with an empty vertex array. Indices must point to a valid vertex array(resize).
     m_cyclesMesh->clear();
-    m_cyclesMesh->resize_mesh(static_cast<int>(refiner->GetNumRefinedVertices()),
-                              static_cast<int>(refiner->GetNumRefinedTriangles()));
+    m_cyclesMesh->resize_mesh(refiner->GetTriangulatedTopology().GetNumPoints(),
+                              refiner->GetTriangulatedTopology().GetNumFaces());
 
     const VtVec3iArray& refined_indices = refiner->GetRefinedVertexIndices();
     for (size_t i = 0; i < refined_indices.size(); ++i) {

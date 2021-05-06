@@ -76,8 +76,6 @@ public:
         m_triangulated_topology = build_triangulated_topology(m_triangle_indices);
     }
 
-    size_t GetNumRefinedVertices() const override { return m_topology->GetNumPoints(); }
-
     const VtVec3iArray& GetRefinedVertexIndices() const override { return m_triangle_indices; }
 
     VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const override
@@ -589,8 +587,6 @@ public:
         m_limit->EvaluateLimit(refined_vertices, limit_ps, limit_du, limit_dv);
     }
 
-    size_t GetNumRefinedVertices() const override { return m_vertex->Size(); }
-
     const VtVec3iArray& GetRefinedVertexIndices() const override { return m_triangle_indices; }
 
     VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const override
@@ -682,12 +678,6 @@ private:
 HdCyclesMeshRefiner::HdCyclesMeshRefiner() = default;
 
 HdCyclesMeshRefiner::~HdCyclesMeshRefiner() = default;
-
-size_t
-HdCyclesMeshRefiner::GetNumRefinedTriangles() const
-{
-    return GetRefinedVertexIndices().size();
-}
 
 HdBbMeshTopology::HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level)
     : HdMeshTopology { src, refine_level }

@@ -54,9 +54,7 @@ public:
     virtual ~HdCyclesMeshRefiner();
 
     /// @{ TODO: Those methods belong to HdCyclesMeshTopology
-    virtual size_t GetNumRefinedVertices() const = 0;
     virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
-    size_t GetNumRefinedTriangles() const;
     /// @}
 
     /// @{ \brief Refine/approximate primvar data.
