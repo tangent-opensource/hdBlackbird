@@ -53,6 +53,9 @@ class HdCyclesMeshRefiner {
 public:
     virtual ~HdCyclesMeshRefiner();
 
+    VtValue Refine(const TfToken& name, const TfToken& role, const VtValue& value,
+                   const HdInterpolation& interpolation) const;
+
     /// @{ \brief Refine/approximate primvar data.
     virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineUniformData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
@@ -94,6 +97,20 @@ private:
     const SdfPath m_id;
     std::unique_ptr<HdCyclesMeshRefiner> m_refiner;
 };
+
+inline VtValue
+HdCyclesMeshRefiner::Refine(const TfToken& name, const TfToken& role, const VtValue& value,
+                            const HdInterpolation& interpolation) const
+{
+    switch (interpolation) {
+    case HdInterpolationConstant: return RefineConstantData(name, role, value);
+    case HdInterpolationUniform: return RefineUniformData(name, role, value);
+    case HdInterpolationVarying: return RefineVaryingData(name, role, value);
+    case HdInterpolationVertex: return RefineVertexData(name, role, value);
+    case HdInterpolationFaceVarying: return RefineFaceVaryingData(name, role, value);
+    default: assert(0); return value;
+    }
+}
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
