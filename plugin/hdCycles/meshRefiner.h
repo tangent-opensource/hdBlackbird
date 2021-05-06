@@ -89,9 +89,11 @@ class HdBbMeshTopology : public HdMeshTopology {
 public:
     HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level);
 
+    const SdfPath& GetId() const { return m_id; }
     const HdCyclesMeshRefiner* GetRefiner() const { return m_refiner.get(); }
 
 private:
+    const SdfPath m_id;
     std::unique_ptr<HdCyclesMeshRefiner> m_refiner;
 };
 

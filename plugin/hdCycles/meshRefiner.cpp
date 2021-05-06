@@ -51,11 +51,10 @@ namespace {
 ///
 class HdCyclesTriangleRefiner final : public HdCyclesMeshRefiner {
 public:
-    HdCyclesTriangleRefiner(const HdMeshTopology& topology, const SdfPath& id)
+    HdCyclesTriangleRefiner(const HdBbMeshTopology& topology)
         : m_topology { &topology }
-        , m_id { id }
     {
-        HdMeshUtil mesh_util { &topology, m_id };
+        HdMeshUtil mesh_util { &topology, m_topology->GetId() };
         mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_primitive_param);
     }
 
@@ -79,7 +78,7 @@ public:
     {
         if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaces())) {
             TF_WARN("Unsupported input data size for uniform refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
@@ -122,7 +121,7 @@ public:
     {
         if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for varying refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
@@ -133,7 +132,7 @@ public:
     {
         if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for vertex refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
@@ -144,12 +143,12 @@ public:
     {
         if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaceVaryings())) {
             TF_WARN("Unsupported input data size for face varying refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
         // only float and double can be interpolated
-        HdMeshUtil mesh_util { m_topology, m_id };
+        HdMeshUtil mesh_util { m_topology, m_topology->GetId() };
         VtValue triangulated;
         if (!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(data),
                                                              static_cast<int>(data.GetArraySize()),
@@ -162,8 +161,7 @@ public:
     }
 
 private:
-    const HdMeshTopology* m_topology;
-    const SdfPath& m_id;
+    const HdBbMeshTopology* m_topology;
     VtVec3iArray m_triangle_indices;
     VtIntArray m_primitive_param;
 };
@@ -468,9 +466,8 @@ private:
 ///
 class HdCyclesSubdRefiner final : public HdCyclesMeshRefiner {
 public:
-    HdCyclesSubdRefiner(const HdMeshTopology& topology, const SdfPath& id)
+    HdCyclesSubdRefiner(const HdBbMeshTopology& topology)
         : m_topology { &topology }
-        , m_id { id }
     {
         HD_TRACE_FUNCTION();
 
@@ -557,7 +554,7 @@ public:
             m_osd_topology = HdMeshTopology { PxOsdOpenSubdivTokens->none, PxOsdOpenSubdivTokens->rightHanded,
                                               patch_vertex_count, patch_vertex_indices };
 
-            HdMeshUtil mesh_util { &m_osd_topology, m_id };
+            HdMeshUtil mesh_util { &m_osd_topology, m_topology->GetId() };
             mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_prim_param);
         }
     }
@@ -584,7 +581,7 @@ public:
     {
         if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaces())) {
             TF_WARN("Unsupported input data size for uniform refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
@@ -595,7 +592,7 @@ public:
     {
         if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for vertex refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
@@ -606,7 +603,7 @@ public:
     {
         if (data.GetArraySize() != static_cast<size_t>(m_topology->GetNumPoints())) {
             TF_WARN("Unsupported input data size for varying refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
@@ -617,7 +614,7 @@ public:
     {
         if (source.GetArraySize() != static_cast<size_t>(m_topology->GetNumFaceVaryings())) {
             TF_WARN("Unsupported input source size for face varying refinement for primvar %s at %s", name.GetText(),
-                    m_id.GetPrimPath().GetString().c_str());
+                    m_topology->GetId().GetPrimPath().GetString().c_str());
             return {};
         }
 
@@ -625,7 +622,7 @@ public:
         auto refined_value = m_fvar->RefineArray(source);
 
         // triangulate refinement for Cycles
-        HdMeshUtil mesh_util { &m_osd_topology, m_id };
+        HdMeshUtil mesh_util { &m_osd_topology, m_topology->GetId() };
         VtValue triangulated;
         if (!mesh_util.ComputeTriangulatedFaceVaryingPrimvar(HdGetValueData(refined_value),
                                                              static_cast<int>(refined_value.GetArraySize()),
@@ -638,8 +635,7 @@ public:
     }
 
 private:
-    const HdMeshTopology* m_topology;
-    const SdfPath& m_id;
+    const HdBbMeshTopology* m_topology;
 
     HdMeshTopology m_osd_topology;
 
@@ -674,10 +670,11 @@ HdCyclesMeshRefiner::GetNumRefinedTriangles() const
 
 HdBbMeshTopology::HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level)
     : HdMeshTopology { src, refine_level }
+    , m_id { id }
 {
     if (GetScheme() == PxOsdOpenSubdivTokens->catmullClark && GetRefineLevel() > 0) {
-        m_refiner = std::make_unique<HdCyclesSubdRefiner>(*this, id);
+        m_refiner = std::make_unique<HdCyclesSubdRefiner>(*this);
     } else {
-        m_refiner = std::make_unique<HdCyclesTriangleRefiner>(*this, id);
+        m_refiner = std::make_unique<HdCyclesTriangleRefiner>(*this);
     }
 }
