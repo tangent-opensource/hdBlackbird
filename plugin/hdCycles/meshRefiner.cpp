@@ -662,16 +662,6 @@ private:
 
 }  // namespace
 
-std::shared_ptr<HdCyclesMeshRefiner>
-HdCyclesMeshRefiner::Create(const HdMeshTopology& topology, const SdfPath& id)
-{
-    if (topology.GetScheme() == PxOsdOpenSubdivTokens->catmullClark && topology.GetRefineLevel() > 0) {
-        return std::make_shared<HdCyclesSubdRefiner>(topology, id);
-    }
-
-    return std::make_shared<HdCyclesTriangleRefiner>(topology, id);
-}
-
 HdCyclesMeshRefiner::HdCyclesMeshRefiner() = default;
 
 HdCyclesMeshRefiner::~HdCyclesMeshRefiner() = default;
@@ -683,7 +673,7 @@ HdCyclesMeshRefiner::GetNumRefinedTriangles() const
 }
 
 HdBbMeshTopology::HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level)
-    : HdMeshTopology{src, refine_level}
+    : HdMeshTopology { src, refine_level }
 {
     if (GetScheme() == PxOsdOpenSubdivTokens->catmullClark && GetRefineLevel() > 0) {
         m_refiner = std::make_unique<HdCyclesSubdRefiner>(*this, id);

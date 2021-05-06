@@ -51,8 +51,6 @@ class SdfPath;
 ///
 class HdCyclesMeshRefiner {
 public:
-    static std::shared_ptr<HdCyclesMeshRefiner> Create(const HdMeshTopology& topology, const SdfPath& id);
-
     virtual ~HdCyclesMeshRefiner();
 
     /// @{ TODO: Those methods belong to HdCyclesMeshTopology
@@ -89,7 +87,6 @@ protected:
 ///
 class HdBbMeshTopology : public HdMeshTopology {
 public:
-
     HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level);
 
     const HdCyclesMeshRefiner* GetRefiner() const { return m_refiner.get(); }

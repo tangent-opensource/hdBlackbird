@@ -37,7 +37,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 ///
 class HdBbAttributeSource : public HdBufferSource {
 public:
-
     // unfortunately AttributeSet has to be passed to support Geometry::attributes and Mesh::subd_attributes
     HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::AttributeSet* attributes,
                         ccl::AttributeElement element, const ccl::TypeDesc& type_desc);

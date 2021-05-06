@@ -22,10 +22,10 @@
 
 #include "api.h"
 
+#include "attributeSource.h"
 #include "hdcycles.h"
 #include "objectSource.h"
 #include "renderDelegate.h"
-#include "attributeSource.h"
 #include "utils.h"
 
 #include <util/util_transform.h>
