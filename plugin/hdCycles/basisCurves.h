@@ -25,6 +25,7 @@
 #include "hdcycles.h"
 #include "objectSource.h"
 #include "renderDelegate.h"
+#include "attributeSource.h"
 #include "utils.h"
 
 #include <util/util_transform.h>
@@ -217,6 +218,12 @@ private:
 
     HdCyclesObjectSourceSharedPtr m_object_source;
     HdCyclesRenderDelegate* m_renderDelegate;
+};
+
+class HdBbHairAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+                            const HdInterpolation& interpolation);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
