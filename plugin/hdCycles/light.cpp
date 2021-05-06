@@ -77,7 +77,7 @@ void
 HdCyclesLight::_CreateCyclesLight(SdfPath const& id, HdCyclesRenderParam* renderParam)
 {
     ccl::Scene* scene = renderParam->GetCyclesScene();
-    m_cyclesLight     = new ccl::Light();
+    m_cyclesLight = new ccl::Light();
 
     m_cyclesLight->name = ccl::ustring(id.GetName().c_str());
 
@@ -91,7 +91,7 @@ HdCyclesLight::_CreateCyclesLight(SdfPath const& id, HdCyclesRenderParam* render
         renderParam->SetBackgroundShader(shader);
     } else {
         if (m_hdLightType == HdPrimTypeTokens->diskLight) {
-            m_cyclesLight->type  = ccl::LIGHT_AREA;
+            m_cyclesLight->type = ccl::LIGHT_AREA;
             m_cyclesLight->round = true;
 
             m_cyclesLight->size = 1.0f;
@@ -100,7 +100,7 @@ HdCyclesLight::_CreateCyclesLight(SdfPath const& id, HdCyclesRenderParam* render
         } else if (m_hdLightType == HdPrimTypeTokens->distantLight) {
             m_cyclesLight->type = ccl::LIGHT_DISTANT;
         } else if (m_hdLightType == HdPrimTypeTokens->rectLight) {
-            m_cyclesLight->type  = ccl::LIGHT_AREA;
+            m_cyclesLight->type = ccl::LIGHT_AREA;
             m_cyclesLight->round = false;
 
             m_cyclesLight->size = 1.0f;
@@ -114,14 +114,14 @@ HdCyclesLight::_CreateCyclesLight(SdfPath const& id, HdCyclesRenderParam* render
     renderParam->AddShaderSafe(shader);
 
     // Set defaults
-    m_cyclesLight->use_diffuse      = true;
-    m_cyclesLight->use_glossy       = true;
+    m_cyclesLight->use_diffuse = true;
+    m_cyclesLight->use_glossy = true;
     m_cyclesLight->use_transmission = true;
-    m_cyclesLight->use_scatter      = true;
-    m_cyclesLight->cast_shadow      = true;
-    m_cyclesLight->use_mis          = true;
-    m_cyclesLight->is_portal        = false;
-    m_cyclesLight->max_bounces      = 1024;
+    m_cyclesLight->use_scatter = true;
+    m_cyclesLight->cast_shadow = true;
+    m_cyclesLight->use_mis = true;
+    m_cyclesLight->is_portal = false;
+    m_cyclesLight->max_bounces = 1024;
 
     m_cyclesLight->random_id = ccl::hash_uint2(ccl::hash_string(m_cyclesLight->name.c_str()), 0);
 
@@ -137,18 +137,10 @@ HdCyclesLight::_SetTransform(const ccl::Transform& a_transform)
 
     m_cyclesLight->tfm = a_transform;
 
-    if (m_cyclesLight->type == ccl::LIGHT_BACKGROUND) {
-        ccl::TextureCoordinateNode* backgroundTransform = static_cast<ccl::TextureCoordinateNode*>(
-            _FindShaderNode(m_cyclesLight->shader->graph, ccl::TextureCoordinateNode::node_type));
-        if (backgroundTransform)
-            backgroundTransform->ob_tfm = a_transform;
-    } else {
-        // Set the area light transforms
-        m_cyclesLight->axisu = ccl::transform_get_column(&a_transform, 0);
-        m_cyclesLight->axisv = ccl::transform_get_column(&a_transform, 1);
-        m_cyclesLight->co    = ccl::transform_get_column(&a_transform, 3);
-        m_cyclesLight->dir   = -ccl::transform_get_column(&a_transform, 2);
-    }
+    m_cyclesLight->axisu = ccl::transform_get_column(&a_transform, 0);
+    m_cyclesLight->axisv = ccl::transform_get_column(&a_transform, 1);
+    m_cyclesLight->co = ccl::transform_get_column(&a_transform, 3);
+    m_cyclesLight->dir = -ccl::transform_get_column(&a_transform, 2);
 }
 
 ccl::ShaderGraph*
@@ -157,7 +149,7 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
     ccl::ShaderGraph* graph = new ccl::ShaderGraph();
     if (isBackground) {
         ccl::BackgroundNode* backgroundNode = new ccl::BackgroundNode();
-        backgroundNode->color               = ccl::make_float3(0.0f, 0.0f, 0.0f);
+        backgroundNode->color = ccl::make_float3(0.0f, 0.0f, 0.0f);
 
         backgroundNode->strength = 1.0f;
         graph->add(backgroundNode);
@@ -166,8 +158,8 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
         graph->connect(backgroundNode->output("Background"), out->input("Surface"));
     } else {
         ccl::EmissionNode* emissionNode = new ccl::EmissionNode();
-        emissionNode->color             = ccl::make_float3(1.0f, 1.0f, 1.0f);
-        emissionNode->strength          = 1.0f;
+        emissionNode->color = ccl::make_float3(1.0f, 1.0f, 1.0f);
+        emissionNode->strength = 1.0f;
         graph->add(emissionNode);
 
         ccl::ShaderNode* out = graph->output();
@@ -177,9 +169,7 @@ HdCyclesLight::_GetDefaultShaderGraph(bool isBackground)
 }
 
 ccl::ShaderNode*
-HdCyclesLight::_FindShaderNode(const ccl::ShaderGraph* graph, 
-                               const ccl::NodeType* type, 
-                               const ccl::ustring name)
+HdCyclesLight::_FindShaderNode(const ccl::ShaderGraph* graph, const ccl::NodeType* type, const ccl::ustring name)
 {
     for (ccl::ShaderNode* node : graph->nodes) {
         if ((node->type == type) && (node->name == name)) {
@@ -210,8 +200,11 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
     m_cyclesLight->samples = 1;
     m_cyclesLight->max_bounces = 1024;
 
-    if (*dirtyBits & HdLight::DirtyParams) {
-        light_updated              = true;
+    // Always rebuild dome lights on transform change, the transform texture co-ordinate gets
+    // optimised/folded out and we can't get it back to tweak...
+    if (*dirtyBits & HdLight::DirtyParams
+        || (*dirtyBits & HdLight::DirtyTransform && m_cyclesLight->type == ccl::LIGHT_BACKGROUND)) {
+        light_updated = true;
         ccl::ShaderGraph* oldGraph = m_cyclesLight->shader->graph;
 
         // Check if we need to rebuild the graph
@@ -231,7 +224,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
         VtValue textureFile = sceneDelegate->GetLightParamValue(id, HdLightTokens->textureFile);
         if (textureFile.IsHolding<SdfAssetPath>()) {
-            SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
+            SdfAssetPath ap = textureFile.UncheckedGet<SdfAssetPath>();
             std::string filepath = ap.GetResolvedPath();
 
             if (filepath.length() > 0) {
@@ -239,15 +232,15 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             }
         }
 
-        ccl::ShaderGraph* graph  = nullptr;
+        ccl::ShaderGraph* graph = nullptr;
         ccl::ShaderNode* outNode = nullptr;
 
         // Ideally we would just check if it is different, however some nodes
         // simplify & fold internally so we have to re-create the graph, so if
         // there is any nodes used, re-create...
         if (shaderGraphBits || shaderGraphBits != m_shaderGraphBits) {
-            graph             = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND);
-            outNode           = graph->output()->input("Surface")->link->parent;
+            graph = _GetDefaultShaderGraph(m_cyclesLight->type == ccl::LIGHT_BACKGROUND);
+            outNode = graph->output()->input("Surface")->link->parent;
             m_shaderGraphBits = shaderGraphBits;
         } else {
             outNode = oldGraph->output()->input("Surface")->link->parent;
@@ -258,7 +251,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         // Color
         VtValue lightColor = sceneDelegate->GetLightParamValue(id, HdLightTokens->color);
         if (lightColor.IsHolding<GfVec3f>()) {
-            GfVec3f v               = lightColor.UncheckedGet<GfVec3f>();
+            GfVec3f v = lightColor.UncheckedGet<GfVec3f>();
             m_cyclesLight->strength = ccl::make_float3(v[0], v[1], v[2]);
         }
 
@@ -332,14 +325,14 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         // be used instead of ->filename, Blender uses it to store IES profiles in
         // .blend files...
         if (shaderGraphBits & ShaderGraphBits::IES) {
-            SdfAssetPath ap         = iesFile.UncheckedGet<SdfAssetPath>();
+            SdfAssetPath ap = iesFile.UncheckedGet<SdfAssetPath>();
             std::string iesfilepath = ap.GetResolvedPath();
 
             ccl::IESLightNode* iesNode = nullptr;
             if (graph) {
                 ccl::TextureCoordinateNode* iesTransform = new ccl::TextureCoordinateNode();
-                iesTransform->use_transform              = true;
-                iesTransform->ob_tfm                     = m_cyclesLight->tfm;
+                iesTransform->use_transform = true;
+                iesTransform->ob_tfm = m_cyclesLight->tfm;
                 graph->add(iesTransform);
 
                 iesNode = new ccl::IESLightNode();
@@ -374,7 +367,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             exposureOffset = 2.0f;
 
             if (shaderGraphBits & ShaderGraphBits::Texture) {
-                SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
+                SdfAssetPath ap = textureFile.UncheckedGet<SdfAssetPath>();
                 std::string filepath = ap.GetResolvedPath();
 
                 ccl::ImageTextureNode* textureNode = nullptr;
@@ -388,7 +381,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
                     if ((shaderGraphBits & ShaderGraphBits::Temperature) && blackbodyNode) {
                         ccl::VectorMathNode* vecMathNode = new ccl::VectorMathNode();
-                        vecMathNode->type                = ccl::NODE_VECTOR_MATH_MULTIPLY;
+                        vecMathNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
                         graph->add(vecMathNode);
 
                         graph->connect(textureNode->output("Color"), vecMathNode->input("Vector1"));
@@ -459,13 +452,13 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             VtValue shapingConeAngle = sceneDelegate->GetLightParamValue(id, HdLightTokens->shapingConeAngle);
             if (shapingConeAngle.IsHolding<float>()) {
                 m_cyclesLight->spot_angle = shapingConeAngle.UncheckedGet<float>() * (M_PI_F / 180.0f) * 2.0f;
-                m_cyclesLight->type       = ccl::LIGHT_SPOT;
+                m_cyclesLight->type = ccl::LIGHT_SPOT;
             }
 
             VtValue shapingConeSoftness = sceneDelegate->GetLightParamValue(id, HdLightTokens->shapingConeSoftness);
             if (shapingConeSoftness.IsHolding<float>()) {
                 m_cyclesLight->spot_smooth = shapingConeSoftness.UncheckedGet<float>();
-                m_cyclesLight->type        = ccl::LIGHT_SPOT;
+                m_cyclesLight->type = ccl::LIGHT_SPOT;
             }
 
             if (m_cyclesLight->type == ccl::LIGHT_SPOT) {
@@ -486,11 +479,9 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         }
 
         if (m_hdLightType == HdPrimTypeTokens->domeLight) {
-
             ccl::BackgroundNode* backgroundNode = static_cast<ccl::BackgroundNode*>(outNode);
             ccl::VectorMathNode* strengthNode = nullptr;
-            if (shaderGraphBits & ShaderGraphBits::Texture ||
-                shaderGraphBits & ShaderGraphBits::Temperature) {
+            if (shaderGraphBits & ShaderGraphBits::Texture || shaderGraphBits & ShaderGraphBits::Temperature) {
                 if (graph) {
                     strengthNode = new ccl::VectorMathNode();
                     strengthNode->type = ccl::NODE_VECTOR_MATH_MULTIPLY;
@@ -514,15 +505,20 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             m_cyclesLight->strength = ccl::make_float3(1.0f, 1.0f, 1.0f);
 
             if (shaderGraphBits & ShaderGraphBits::Texture) {
-                SdfAssetPath ap      = textureFile.UncheckedGet<SdfAssetPath>();
+                SdfAssetPath ap = textureFile.UncheckedGet<SdfAssetPath>();
                 std::string filepath = ap.GetResolvedPath();
 
                 ccl::EnvironmentTextureNode* backgroundTexture = nullptr;
                 if (graph) {
-                    // Add environment texture nodes
+                    // Add environment texture nodes. We set transform here for dome lights.
                     ccl::TextureCoordinateNode* backgroundTransform = new ccl::TextureCoordinateNode();
-                    backgroundTransform->use_transform              = true;
-                    backgroundTransform->ob_tfm                     = m_cyclesLight->tfm;
+                    backgroundTransform->use_transform = true;
+                    ccl::Transform transform = HdCyclesExtractTransform(sceneDelegate, id);
+                    // Reset translation
+                    transform.x[3] = 0.0f;
+                    transform.y[3] = 0.0f;
+                    transform.z[3] = 0.0f;
+                    backgroundTransform->ob_tfm = transform;
                     graph->add(backgroundTransform);
 
                     backgroundTexture = new ccl::EnvironmentTextureNode();
@@ -530,8 +526,8 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
                         // Change co-ordinate mapping on environment texture to match other Hydra delegates
                         backgroundTexture->tex_mapping.y_mapping = ccl::TextureMapping::Z;
                         backgroundTexture->tex_mapping.z_mapping = ccl::TextureMapping::Y;
-                        backgroundTexture->tex_mapping.scale     = ccl::make_float3(-1.0f, 1.0f, 1.0f);
-                        backgroundTexture->tex_mapping.rotation  = ccl::make_float3(0.0f, 0.0f, M_PI_F * -0.5f);
+                        backgroundTexture->tex_mapping.scale = ccl::make_float3(-1.0f, 1.0f, 1.0f);
+                        backgroundTexture->tex_mapping.rotation = ccl::make_float3(0.0f, 0.0f, M_PI_F * -0.5f);
                     }
 
                     graph->add(backgroundTexture);
@@ -597,11 +593,13 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
     // TODO: Light is_enabled doesn't seem to have any effect
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
-        light_updated             = true;
+        light_updated = true;
         m_cyclesLight->is_enabled = sceneDelegate->GetVisible(id);
     }
 
-    if (*dirtyBits & HdLight::DirtyTransform) {
+    // Dome light transform is set always on shader re-creation above
+    // (the internal transform gets optimised away, so a shader rebuild is required)
+    if (*dirtyBits & HdLight::DirtyTransform && m_cyclesLight->type != ccl::LIGHT_BACKGROUND) {
         light_updated = true;
         _SetTransform(HdCyclesExtractTransform(sceneDelegate, id));
     }

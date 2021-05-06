@@ -165,7 +165,7 @@ bool
 HdCyclesAttributeSource::IsHoldingFloat(const VtValue& value)
 {
     HdTupleType value_tuple_type = HdGetValueTupleType(value);
-    HdType component_type        = HdGetComponentType(value_tuple_type.type);
+    HdType component_type = HdGetComponentType(value_tuple_type.type);
     return component_type == HdTypeFloat;
 }
 
@@ -229,7 +229,7 @@ HdCyclesAttributeSource::_CheckValid() const
         }
     };
 
-    const size_t source_size  = get_source_size();
+    const size_t source_size = get_source_size();
     const size_t element_size = GetGeometry()->element_size(element, m_attributes->prim);
     if (!TF_VERIFY(source_size == element_size,
                    "SourceSize:%lu is not the same as ElementSize:%lu ! Attribute:%s can not be committed!",
@@ -259,7 +259,7 @@ HdCyclesAttributeSource::UncheckedCastToFloat(const VtValue& input_value)
     VtValue value = input_value;
 
     HdTupleType tuple_type = HdGetValueTupleType(value);
-    size_t count           = HdGetComponentCount(tuple_type.type);
+    size_t count = HdGetComponentCount(tuple_type.type);
 
     // Casting Matrix3 and Matrix4 is disabled.
     if (value.IsArrayValued()) {
@@ -296,8 +296,8 @@ HdCyclesAttributeSource::ResolveAsValue()
     // create attribute
     const ccl::ustring name { m_name.data(), m_name.size() };
     const ccl::AttributeElement& attrib_element = GetAttributeElement();
-    const ccl::TypeDesc& type_desc              = GetSourceTypeDesc();
-    m_attribute                                 = m_attributes->add(name, type_desc, attrib_element);
+    const ccl::TypeDesc& type_desc = GetSourceTypeDesc();
+    m_attribute = m_attributes->add(name, type_desc, attrib_element);
 
     // copy the data, source's stride is always <= than cycles'
     size_t num_src_comp = HdGetComponentCount(HdGetValueTupleType(m_value).type);
@@ -329,17 +329,17 @@ HdCyclesAttributeSource::ResolveAsArray()
     // create attribute
     const ccl::ustring name { m_name.data(), m_name.size() };
     const ccl::AttributeElement& attrib_element = GetAttributeElement();
-    const ccl::TypeDesc& type_desc              = GetSourceTypeDesc();
-    m_attribute                                 = m_attributes->add(name, type_desc, attrib_element);
+    const ccl::TypeDesc& type_desc = GetSourceTypeDesc();
+    m_attribute = m_attributes->add(name, type_desc, attrib_element);
 
     // copy the data, source's stride is always <= than cycles'
     size_t num_src_comp = HdGetComponentCount(HdGetValueTupleType(m_value).type);
-    size_t src_size     = m_value.GetArraySize() * num_src_comp;
-    auto src_data       = reinterpret_cast<const float*>(HdGetValueData(m_value));
+    size_t src_size = m_value.GetArraySize() * num_src_comp;
+    auto src_data = reinterpret_cast<const float*>(HdGetValueData(m_value));
     assert(src_data != nullptr);
 
     size_t num_dst_comp = GetTupleType(type_desc).count;
-    auto dst_data       = reinterpret_cast<float*>(m_attribute->data());
+    auto dst_data = reinterpret_cast<float*>(m_attribute->data());
     assert(dst_data != nullptr);
 
     assert(num_src_comp <= num_dst_comp);

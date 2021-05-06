@@ -36,7 +36,6 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 class HdCyclesResourceRegistry final : public HdResourceRegistry {
 public:
-
     HdCyclesResourceRegistry() = default;
 
     void UpdateScene(ccl::Scene* scene) { m_scene = scene; }
@@ -47,7 +46,7 @@ private:
     void _Commit() override;
     void _GarbageCollect() override;
 
-    ccl::Scene* m_scene{};
+    ccl::Scene* m_scene {};
     HdInstanceRegistry<HdCyclesObjectSourceSharedPtr> m_object_sources;
 };
 

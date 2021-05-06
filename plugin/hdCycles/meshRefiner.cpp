@@ -192,13 +192,13 @@ public:
     explicit SubdUniformRefiner(const Far::TopologyRefiner& refiner, const Osd::CpuPatchTable* patch_table)
         : m_patch_table { patch_table }
     {
-        int face_size                        = Sdc::SchemeTypeTraits::GetRegularFaceSize(refiner.GetSchemeType());
+        int face_size = Sdc::SchemeTypeTraits::GetRegularFaceSize(refiner.GetSchemeType());
         const Far::TopologyLevel& base_level = refiner.GetLevel(0);
         m_ptex_index_to_base_index.reserve(base_level.GetNumFaces() * face_size);  // worst case
 
         for (int base_face = 0; base_face < base_level.GetNumFaces(); ++base_face) {
             int num_base_vertices = base_level.GetFaceVertices(base_face).size();
-            int num_ptex_faces    = (num_base_vertices == face_size) ? 1 : num_base_vertices;
+            int num_ptex_faces = (num_base_vertices == face_size) ? 1 : num_base_vertices;
             for (int i = 0; i < num_ptex_faces; ++i) {
                 m_ptex_index_to_base_index.push_back(base_face);
             }
@@ -243,7 +243,7 @@ private:
 
             // patch -> ptex face
             const Far::PatchParam& patch_param = patch_param_table[patch_index];
-            Far::Index ptex_face_index         = patch_param.GetFaceId();
+            Far::Index ptex_face_index = patch_param.GetFaceId();
             assert(static_cast<size_t>(ptex_face_index) < m_ptex_index_to_base_index.size());
 
             // ptex face -> base face
@@ -280,7 +280,7 @@ VtValue
 RefineWithStencils(const VtValue& input, const Far::StencilTable* stencil_table)
 {
     HdTupleType value_tuple_type = HdGetValueTupleType(input);
-    int stride                   = static_cast<int>(HdGetComponentCount(value_tuple_type.type));
+    int stride = static_cast<int>(HdGetComponentCount(value_tuple_type.type));
 
     switch (value_tuple_type.type) {
     case HdTypeFloat: {
@@ -307,8 +307,8 @@ public:
     SubdVertexRefiner(const Far::TopologyRefiner& refiner, Far::StencilTableFactory::Options options)
     {
         options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VERTEX;
-        auto table                = Far::StencilTableFactory::Create(refiner, options);
-        m_stencils                = std::unique_ptr<const Far::StencilTable>(table);
+        auto table = Far::StencilTableFactory::Create(refiner, options);
+        m_stencils = std::unique_ptr<const Far::StencilTable>(table);
     }
 
     VtValue RefineArray(const VtValue& input) const { return RefineWithStencils(input, m_stencils.get()); }
@@ -327,8 +327,8 @@ public:
     SubdVaryingRefiner(const Far::TopologyRefiner& refiner, Far::StencilTableFactory::Options options)
     {
         options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_VARYING;
-        auto table                = Far::StencilTableFactory::Create(refiner, options);
-        m_stencils                = std::unique_ptr<const Far::StencilTable> { table };
+        auto table = Far::StencilTableFactory::Create(refiner, options);
+        m_stencils = std::unique_ptr<const Far::StencilTable> { table };
     }
 
     VtValue RefineArray(const VtValue& input) const { return RefineWithStencils(input, m_stencils.get()); }
@@ -347,14 +347,14 @@ public:
         : m_patch_table { patch_table }
     {
         options.interpolationMode = Far::StencilTableFactory::INTERPOLATE_FACE_VARYING;
-        auto table                = Far::StencilTableFactory::Create(refiner, options);
-        m_stencils                = std::unique_ptr<const Far::StencilTable>(table);
+        auto table = Far::StencilTableFactory::Create(refiner, options);
+        m_stencils = std::unique_ptr<const Far::StencilTable>(table);
     }
 
     VtValue RefineArray(const VtValue& input) const
     {
         HdTupleType value_tuple_type = HdGetValueTupleType(input);
-        auto stride                  = static_cast<int>(HdGetComponentCount(value_tuple_type.type));
+        auto stride = static_cast<int>(HdGetComponentCount(value_tuple_type.type));
 
         switch (value_tuple_type.type) {
         case HdTypeFloat: {
@@ -392,7 +392,7 @@ private:
         VtArray<T> eval_data(m_patch_table->GetPatchIndexSize());
         {
             for (size_t fvert = 0; fvert < m_patch_table->GetFVarPatchIndexSize(); ++fvert) {
-                int index        = m_patch_table->GetFVarPatchIndexBuffer()[fvert];
+                int index = m_patch_table->GetFVarPatchIndexBuffer()[fvert];
                 eval_data[fvert] = refined_data[index];
             }
         }
@@ -452,9 +452,9 @@ public:
                        VtFloat3Array& limit_dv) const
     {
         auto refined_ps_primvar = reinterpret_cast<const Float3fPrimvar*>(refined_vertices.data());
-        auto limit_ps_primvar   = reinterpret_cast<Float3fPrimvar*>(limit_ps.data());
-        auto limit_du_primvar   = reinterpret_cast<Float3fPrimvar*>(limit_du.data());
-        auto limit_dv_primvar   = reinterpret_cast<Float3fPrimvar*>(limit_dv.data());
+        auto limit_ps_primvar = reinterpret_cast<Float3fPrimvar*>(limit_ps.data());
+        auto limit_du_primvar = reinterpret_cast<Float3fPrimvar*>(limit_du.data());
+        auto limit_dv_primvar = reinterpret_cast<Float3fPrimvar*>(limit_dv.data());
 
         m_primvar_refiner.Limit(refined_ps_primvar, limit_ps_primvar, limit_du_primvar, limit_dv_primvar);
     }
@@ -505,12 +505,12 @@ public:
             // by default Far will not generate patches for all levels, triangulate quads option works for uniform subdivision only
             Far::PatchTableFactory::Options patch_options(m_topology->GetRefineLevel());
             patch_options.generateAllLevels = false;
-            patch_options.useInfSharpPatch  = true;
+            patch_options.useInfSharpPatch = true;
 
             // only if face varying is present
             patch_options.generateFVarTables = true;
-            patch_options.numFVarChannels    = m_refiner->GetNumFVarChannels();
-            int channel                      = 0;
+            patch_options.numFVarChannels = m_refiner->GetNumFVarChannels();
+            int channel = 0;
             patch_options.fvarChannelIndices = &channel;
 
             std::unique_ptr<Far::PatchTable> far_patch_table { Far::PatchTableFactory::Create(*m_refiner,
@@ -525,16 +525,16 @@ public:
             // Shared options for all stencils
             Far::StencilTableFactory::Options stencil_options;
             stencil_options.generateIntermediateLevels = false;
-            stencil_options.generateOffsets            = true;
+            stencil_options.generateOffsets = true;
 
             // required stencils for vertex and normal computation
-            m_vertex  = std::make_unique<SubdVertexRefiner>(*m_refiner, stencil_options);
+            m_vertex = std::make_unique<SubdVertexRefiner>(*m_refiner, stencil_options);
             m_uniform = std::make_unique<SubdUniformRefiner>(*m_refiner, m_patch_table.get());
 
             // optional refiners depending on presence of PrimVars
-            m_limit   = std::make_unique<SubdLimitRefiner>(*m_refiner);
+            m_limit = std::make_unique<SubdLimitRefiner>(*m_refiner);
             m_varying = std::make_unique<SubdVaryingRefiner>(*m_refiner, stencil_options);
-            m_fvar    = std::make_unique<SubdFVarRefiner>(*m_refiner, m_patch_table.get(), stencil_options);
+            m_fvar = std::make_unique<SubdFVarRefiner>(*m_refiner, m_patch_table.get(), stencil_options);
         }
 
         // create Osd topology
