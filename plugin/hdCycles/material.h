@@ -28,6 +28,7 @@
 namespace ccl {
 class Object;
 class Shader;
+class ShaderNode;
 class ShaderGraph;
 }  // namespace ccl
 
@@ -124,6 +125,8 @@ protected:
     ccl::ShaderGraph* m_shaderGraph;
 
     HdCyclesRenderDelegate* m_renderDelegate;
+
+    void _FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& preview_shaders);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
