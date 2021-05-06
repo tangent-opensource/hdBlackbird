@@ -494,9 +494,9 @@ HdBbAttributeSource::HdBbAttributeSource(const VtValue& value, ccl::AttributeSet
 {
 }
 
-HdCyclesPointCloudAttributeSource::HdCyclesPointCloudAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
+HdCyclesPointCloudAttributeSource::HdCyclesPointCloudAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
                                                          ccl::PointCloud* pc, const HdInterpolation& interpolation)
-    : HdCyclesAttributeSource(name, role, value, &pc->attributes, interpolation_to_pointcloud_element(interpolation))
+    : HdBbAttributeSource(std::move(name), role, value, &pc->attributes, interpolation_to_pointcloud_element(interpolation), GetTypeDesc(HdGetValueTupleType(value).type, role))
 {
 }
 

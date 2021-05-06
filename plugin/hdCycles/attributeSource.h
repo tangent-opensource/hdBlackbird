@@ -101,20 +101,11 @@ protected:
 };
 
 ///
-/// Blackbird Mesh
-///
-class HdBbMeshAttributeSource : public HdBbAttributeSource {
-public:
-    HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
-                            const HdInterpolation& interpolation);
-};
-
-///
 /// Cycles PointCloud
 ///
 class HdCyclesPointCloudAttributeSource : public HdBbAttributeSource {
 public:
-    HdCyclesPointCloudAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::PointCloud* pc,
+    HdCyclesPointCloudAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::PointCloud* pc,
                                 const HdInterpolation& interpolation);
 };
 
