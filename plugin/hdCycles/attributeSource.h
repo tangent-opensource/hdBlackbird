@@ -18,8 +18,8 @@
 //  limitations under the License.
 
 
-#ifndef HDCYCLES_ATTRIBUTESOURCE_H
-#define HDCYCLES_ATTRIBUTESOURCE_H
+#ifndef HDBB_ATTRIBUTESOURCE_H
+#define HDBB_ATTRIBUTESOURCE_H
 
 #include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/enums.h>
@@ -33,7 +33,7 @@ namespace ccl {
 PXR_NAMESPACE_OPEN_SCOPE
 
 ///
-/// Cycles Attribute to be resolved
+/// Blackbird Attribute to be resolved
 ///
 class HdBbAttributeSource : public HdBufferSource {
 public:
@@ -91,7 +91,7 @@ protected:
 };
 
 ///
-/// Cycles Standard Attribute
+/// Blackbird Standard Attribute
 ///
 class HdBbAttributeStandardSource : public HdBbAttributeSource {
 public:
@@ -100,7 +100,7 @@ public:
 
 
 ///
-/// Cycles Hair
+/// Blackbird Hair
 ///
 class HdBbHairAttributeSource : public HdBbAttributeSource {
 public:
@@ -109,7 +109,7 @@ public:
 };
 
 ///
-/// Cycles Mesh
+/// Blackbird Mesh
 ///
 class HdBbMeshAttributeSource : public HdBbAttributeSource {
 public:
@@ -129,4 +129,4 @@ public:
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  //HDCYCLES_ATTRIBUTESOURCE_H
+#endif  //HDBB_ATTRIBUTESOURCE_H
