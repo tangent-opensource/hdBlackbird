@@ -498,7 +498,7 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 static bool
 GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMaterialNetworkMap const& networkMap,
                    HdCyclesRenderParam const& renderParam, HdMaterialNetwork const** out_network,
-                   ccl::ShaderGraph* graph)
+                   ccl::ShaderGraph* graph, std::vector<ccl::ShaderNode*>* preview_shaders = nullptr)
 {
     std::map<SdfPath, std::pair<HdMaterialNode*, ccl::ShaderNode*>> conversionMap;
 
@@ -528,6 +528,9 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 
             if (node.identifier == UsdImagingTokens->UsdPreviewSurface) {
                 cycles_node = matConvertUSDPreviewSurface(node, graph);
+                if (cycles_node && preview_shaders) {
+                    preview_shaders->emplace_back(cycles_node);
+                }
             } else if (node.identifier == UsdImagingTokens->UsdUVTexture) {
                 cycles_node = matConvertUSDUVTexture(node, graph);
             } else if (node.identifier == UsdImagingTokens->UsdPrimvarReader_float2) {
@@ -692,8 +695,11 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
             HdMaterialNetwork const* displacement = nullptr;
             HdMaterialNetwork const* volume = nullptr;
 
+            // Keeping track of preview node to clean the output nodes
+            std::vector<ccl::ShaderNode*> preview_shaders;
+
             if (GetMaterialNetwork(HdCyclesMaterialTerminalTokens->surface, sceneDelegate, networkMap,
-                                   *cyclesRenderParam, &surface, m_shaderGraph)) {
+                                   *cyclesRenderParam, &surface, m_shaderGraph, &preview_shaders)) {
                 if (m_shader && m_shaderGraph) {
                     material_updated = true;
                 }
@@ -716,6 +722,8 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
             if (!material_updated) {
                 TF_CODING_WARNING("Material type not supported");
             }
+
+            _FixPreviewShadersOutput(preview_shaders);
         }
     }
 
@@ -800,6 +808,65 @@ bool
 HdCyclesMaterial::IsValid() const
 {
     return true;
+}
+
+void
+HdCyclesMaterial::_FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& preview_shaders)
+{
+    if (!m_shaderGraph->output()) {
+        return;
+    }
+
+    // This is a fix for preview materials being selected over cycles materials.
+    // If no outputs are present we leave the preview materials for presentation,
+    // otherwise delete them as they can override the cycles one during rendering
+    ccl::ShaderInput* out_surface = m_shaderGraph->output()->input("Surface");
+    ccl::ShaderInput* out_volume = m_shaderGraph->output()->input("Volume");
+    ccl::ShaderInput* out_displacement = m_shaderGraph->output()->input("Displacement");
+
+    int n_outputs = 0;
+
+    n_outputs += (out_surface && out_surface->link) ? 1 : 0;
+    n_outputs += (out_volume && out_volume->link) ? 1 : 0;
+    n_outputs += (out_displacement && out_displacement->link) ? 1 : 0;
+
+    int is_output_surface_preview = 0;
+    int is_output_volume_preview = 0;
+    int is_output_displacement_preview = 0;
+    if (out_surface && out_surface->link) {
+        is_output_surface_preview = (std::find(preview_shaders.begin(), preview_shaders.end(), out_surface->link->parent)
+                                     != preview_shaders.end())
+                                        ? 1
+                                        : 0;
+    }
+    if (out_volume && out_volume->link) {
+        is_output_volume_preview = (std::find(preview_shaders.begin(), preview_shaders.end(), out_volume->link->parent)
+                                    != preview_shaders.end())
+                                       ? 1
+                                       : 0;
+    }
+    if (out_displacement && out_displacement->link) {
+        is_output_displacement_preview
+            = (std::find(preview_shaders.begin(), preview_shaders.end(), out_displacement->link->parent)
+               != preview_shaders.end())
+                  ? 1
+                  : 0;
+    }
+
+    // Currently not deleting the node from the list to make sure it's deleted from the
+    // ShaderGraph. The ideal solution would be to have a post processing pass to clear unused ones
+    const int n_outputs_preview = is_output_surface_preview + is_output_displacement_preview + is_output_volume_preview;
+    if (n_outputs > 0 && n_outputs_preview > 0) {
+        if (is_output_surface_preview) {
+            m_shaderGraph->output()->input("Surface")->disconnect();
+        }
+        if (is_output_volume_preview) {
+            m_shaderGraph->output()->input("Volume")->disconnect();
+        }
+        if (is_output_displacement_preview) {
+            m_shaderGraph->output()->input("Displacement")->disconnect();
+        }
+    }
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE
