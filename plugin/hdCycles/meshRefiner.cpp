@@ -71,9 +71,10 @@ public:
         : m_topology { &topology }
     {
         // create triangulated topology
+        VtVec3iArray triangle_indices;
         HdMeshUtil mesh_util { &topology, m_topology->GetId() };
-        mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_primitive_param);
-        m_triangulated_topology = build_triangulated_topology(m_triangle_indices);
+        mesh_util.ComputeTriangleIndices(&triangle_indices, &m_primitive_param);
+        m_triangulated_topology = build_triangulated_topology(triangle_indices);
     }
 
     VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const override
@@ -176,7 +177,6 @@ public:
 
 private:
     const HdBbMeshTopology* m_topology;
-    VtVec3iArray m_triangle_indices;
     VtIntArray m_primitive_param;
 };
 
@@ -571,9 +571,10 @@ public:
 
         // create triangulated topology
         {
+            VtVec3iArray triangle_indices;
             HdMeshUtil mesh_util { &m_osd_topology, m_topology->GetId() };
-            mesh_util.ComputeTriangleIndices(&m_triangle_indices, &m_prim_param);
-            m_triangulated_topology = build_triangulated_topology(m_triangle_indices);
+            mesh_util.ComputeTriangleIndices(&triangle_indices, &m_prim_param);
+            m_triangulated_topology = build_triangulated_topology(triangle_indices);
         }
     }
 
@@ -649,10 +650,7 @@ public:
 
 private:
     const HdBbMeshTopology* m_topology;
-
     HdMeshTopology m_osd_topology;
-
-    VtVec3iArray m_triangle_indices;
     VtIntArray m_prim_param;
 
     // necessary osd structures
