@@ -54,7 +54,7 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
+    config.motion_blur.eval(m_useMotionBlur, true);
 
     config.default_point_resolution.eval(m_pointResolution, true);
 

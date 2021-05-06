@@ -17,7 +17,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-add_executable(tests tests.cpp)
+add_executable(tests
+        tests.cpp
+        test_attributeSource.cpp
+        test_transformSource.cpp
+        )
 
 target_include_directories(tests
         PRIVATE

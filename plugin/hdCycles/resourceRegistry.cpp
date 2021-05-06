@@ -18,13 +18,21 @@
 //  limitations under the License.
 
 #include "resourceRegistry.h"
+#include "renderDelegate.h"
+#include "renderParam.h"
 
 #include <pxr/base/work/loops.h>
 #include <pxr/usd/sdf/path.h>
 
+#include <render/object.h>
 #include <render/scene.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE
+
+HdCyclesResourceRegistry::HdCyclesResourceRegistry(HdCyclesRenderDelegate* renderDelegate)
+    : m_renderDelegate { renderDelegate }
+{
+}
 
 void
 HdCyclesResourceRegistry::_Commit()
@@ -32,30 +40,35 @@ HdCyclesResourceRegistry::_Commit()
     // This function is under heavy wip. In ideal situation committing all resources to cycles should happen in one
     // place only.
 
-    ccl::thread_scoped_lock scene_lock { m_scene->mutex };
+    auto scene = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene();
+    ccl::thread_scoped_lock scene_lock { scene->mutex };
     // TODO: acquire display lock
 
     // State used to control session/scene update reset
     std::atomic_bool requires_reset { false };
 
     // * bind objects to the scene
-    for (auto& object_source : m_object_sources) {
+    for (auto& object_source : m_objects) {
         if (!object_source.second.value->IsValid()) {
             continue;
         }
+
+        if (object_source.second.value->IsResolved()) {
+            continue;
+        }
+
         object_source.second.value->Resolve();
     }
 
     // * commit all pending object resources
     using ValueType = HdInstanceRegistry<HdCyclesObjectSourceSharedPtr>::const_iterator::value_type;
-    WorkParallelForEach(m_object_sources.begin(), m_object_sources.end(),
-                        [&requires_reset](const ValueType& object_source) {
-                            // resolve per object
-                            size_t num_resolved_sources = object_source.second.value->ResolvePendingSources();
-                            if (num_resolved_sources > 0) {
-                                requires_reset = true;
-                            }
-                        });
+    WorkParallelForEach(m_objects.begin(), m_objects.end(), [&requires_reset, scene](const ValueType& object_source) {
+        // resolve per object
+        size_t num_resolved_sources = object_source.second.value->ResolvePendingSources();
+        if (num_resolved_sources > 0) {
+            requires_reset = true;
+        }
+    });
 
     // * notify session that new resources have been committed and reset is required
     if (requires_reset) {
@@ -66,13 +79,15 @@ HdCyclesResourceRegistry::_Commit()
 void
 HdCyclesResourceRegistry::_GarbageCollect()
 {
-    ccl::thread_scoped_lock scene_lock { m_scene->mutex };
+    auto scene = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene();
+    ccl::thread_scoped_lock scene_lock { scene->mutex };
 
-    m_object_sources.GarbageCollect();
+    // delete unique objects
+    m_objects.GarbageCollect();
 }
 
 HdInstance<HdCyclesObjectSourceSharedPtr>
 HdCyclesResourceRegistry::GetObjectInstance(const SdfPath& id)
 {
-    return m_object_sources.GetInstance(id.GetHash());
+    return m_objects.GetInstance(id.GetHash());
 }

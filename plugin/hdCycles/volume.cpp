@@ -65,7 +65,7 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, Hd
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_useMotionBlur = config.enable_motion_blur.eval(m_useMotionBlur, true);
+    m_useMotionBlur = config.motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
     m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);

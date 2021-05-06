@@ -25,6 +25,7 @@
 #include "material.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
+#include "transformSource.h"
 #include "utils.h"
 
 #include <pxr/imaging/hd/extComputationUtils.h>
@@ -64,7 +65,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
 
     _InitializeNewCyclesMesh();
 }
@@ -1087,14 +1087,13 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
 
     m_cyclesObject = _CreateCyclesObject();
     m_cyclesMesh = _CreateCyclesMesh();
-    m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
 
     if (m_useMotionBlur) {
         // Motion steps are currently a static const compile time
         // variable... This is likely an issue...
         // TODO: Get this from usdCycles schema
         //m_motionSteps = config.motion_steps;
-        m_motionSteps = m_numTransformSamples;
+        m_motionSteps = HD_CYCLES_MOTION_STEPS;
 
         // Hardcoded for now until schema PR
         m_useDeformMotionBlur = true;
@@ -1173,6 +1172,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
+
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    if (object_instance.IsFirstInstance()) {
+        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id, true));
+    }
+    m_object_source = object_instance.GetValue();
 
     ccl::thread_scoped_lock lock { scene->mutex };
 
@@ -1308,7 +1314,26 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
+        auto fallback = sceneDelegate->GetTransform(id);
+        HdCyclesMatrix4dTimeSampleArray xf {};
+
+        std::shared_ptr<HdCyclesTransformSource> transform_source;
+        if (!m_useMotionBlur) {
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
+        } else {
+            sceneDelegate->SampleTransform(id, &xf);
+
+            VtValue ts_value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+            if (!ts_value.IsEmpty()) {
+                auto num_new_samples = ts_value.Get<int>();
+                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
+                                                                             num_new_samples);
+            } else {
+                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
+                                                                             3);
+            }
+        }
+        m_object_source->AddSource(std::move(transform_source));
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
