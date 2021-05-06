@@ -44,6 +44,37 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+namespace {
+
+ccl::AttributeElement
+interpolation_to_hair_element(const HdInterpolation& interpolation)
+{
+    switch (interpolation) {
+    case HdInterpolationConstant: return ccl::AttributeElement::ATTR_ELEMENT_OBJECT;
+    case HdInterpolationUniform: return ccl::AttributeElement::ATTR_ELEMENT_CURVE;
+    case HdInterpolationVarying: return ccl::AttributeElement::ATTR_ELEMENT_CURVE_KEY;
+    case HdInterpolationVertex: return ccl::AttributeElement::ATTR_ELEMENT_CURVE_KEY;
+    case HdInterpolationFaceVarying: return ccl::AttributeElement::ATTR_ELEMENT_NONE;  // not supported
+    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_NONE;     // not supported
+    default: return ccl::AttributeElement::ATTR_ELEMENT_NONE;
+    }
+}
+
+} // namespace
+
+///
+/// Blackbird Hair
+///
+class HdBbHairAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+                            const HdInterpolation& interpolation)
+        : HdBbAttributeSource(std::move(name), role, value, &hair->attributes, interpolation_to_hair_element(interpolation),
+                              GetTypeDesc(HdGetValueTupleType(value).type, role))
+    {
+    }
+};
+
 // TODO: Remove this when we deprecate old curve support
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(_tokens,

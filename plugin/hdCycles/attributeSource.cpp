@@ -402,18 +402,6 @@ HdBbAttributeSource::GetNumElements() const
     return 0;
 }
 
-HdBbAttributeSource::HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
-                                         ccl::AttributeSet* attributes, ccl::AttributeElement element,
-                                         const ccl::TypeDesc& type_desc)
-    : m_name { std::move(name) }
-    , m_value { value }
-    , m_attributes { attributes }
-    , m_element { element }
-    , m_type_desc { type_desc }
-    , m_attribute { nullptr }
-{
-}
-
 HdTupleType
 HdBbAttributeSource::GetTupleType() const
 {
@@ -444,20 +432,6 @@ interpolation_to_mesh_element(const HdInterpolation& interpolation)
 }
 
 ccl::AttributeElement
-interpolation_to_hair_element(const HdInterpolation& interpolation)
-{
-    switch (interpolation) {
-    case HdInterpolationConstant: return ccl::AttributeElement::ATTR_ELEMENT_OBJECT;
-    case HdInterpolationUniform: return ccl::AttributeElement::ATTR_ELEMENT_CURVE;
-    case HdInterpolationVarying: return ccl::AttributeElement::ATTR_ELEMENT_CURVE_KEY;
-    case HdInterpolationVertex: return ccl::AttributeElement::ATTR_ELEMENT_CURVE_KEY;
-    case HdInterpolationFaceVarying: return ccl::AttributeElement::ATTR_ELEMENT_NONE;  // not supported
-    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_NONE;     // not supported
-    default: return ccl::AttributeElement::ATTR_ELEMENT_NONE;
-    }
-}
-
-ccl::AttributeElement
 interpolation_to_pointcloud_element(const HdInterpolation& interpolation)
 {
     switch (interpolation) {
@@ -471,11 +445,21 @@ interpolation_to_pointcloud_element(const HdInterpolation& interpolation)
     }
 }
 
-
 }  // namespace
 
-HdBbAttributeStandardSource::HdBbAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs,
-                                                         ccl::AttributeStandard std)
+HdBbAttributeSource::HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
+                                         ccl::AttributeSet* attributes, ccl::AttributeElement element,
+                                         const ccl::TypeDesc& type_desc)
+    : m_name { std::move(name) }
+    , m_value { value }
+    , m_attributes { attributes }
+    , m_element { element }
+    , m_type_desc { type_desc }
+    , m_attribute { nullptr }
+{
+}
+
+HdBbAttributeSource::HdBbAttributeSource(const VtValue& value, ccl::AttributeSet* attribs, ccl::AttributeStandard std)
     : HdBbAttributeSource(TfToken { ccl::Attribute::standard_name(std) },
                           GetRole(attribs->geometry->standard_type(std)), value, attribs,
                           attribs->geometry->standard_element(std), attribs->geometry->standard_type(std))
@@ -485,13 +469,6 @@ HdBbAttributeStandardSource::HdBbAttributeStandardSource(const VtValue& value, c
 HdBbMeshAttributeSource::HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
                                                  ccl::Mesh* mesh, const HdInterpolation& interpolation)
     : HdBbAttributeSource(std::move(name), role, value, &mesh->attributes, interpolation_to_mesh_element(interpolation),
-                          GetTypeDesc(HdGetValueTupleType(value).type, role))
-{
-}
-
-HdBbHairAttributeSource::HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
-                                                         ccl::Hair* hair, const HdInterpolation& interpolation)
-    : HdBbAttributeSource(std::move(name), role, value, &hair->attributes, interpolation_to_hair_element(interpolation),
                           GetTypeDesc(HdGetValueTupleType(value).type, role))
 {
 }

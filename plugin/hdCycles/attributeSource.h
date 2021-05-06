@@ -37,6 +37,13 @@ PXR_NAMESPACE_OPEN_SCOPE
 ///
 class HdBbAttributeSource : public HdBufferSource {
 public:
+
+    // unfortunately AttributeSet has to be passed to support Geometry::attributes and Mesh::subd_attributes
+    HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::AttributeSet* attributes,
+                        ccl::AttributeElement element, const ccl::TypeDesc& type_desc);
+
+    HdBbAttributeSource(const VtValue& value, ccl::AttributeSet* attribs, ccl::AttributeStandard std);
+
     // immutable data accessors
     const TfToken& GetName() const override { return m_name; }
     const ccl::AttributeElement& GetAttributeElement() const { return m_element; }
@@ -79,33 +86,10 @@ protected:
     ccl::TypeDesc m_type_desc;        // type desc
     ccl::Attribute* m_attribute;      // attribute to be created
 
-    // unfortunately AttributeSet has to be passed to support Geometry::attributes and Mesh::subd_attributes
-
-    HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::AttributeSet* attributes,
-                        ccl::AttributeElement element, const ccl::TypeDesc& type_desc);
-
     bool _CheckValid() const override;
 
     virtual bool ResolveAsValue();
     virtual bool ResolveAsArray();
-};
-
-///
-/// Blackbird Standard Attribute
-///
-class HdBbAttributeStandardSource : public HdBbAttributeSource {
-public:
-    HdBbAttributeStandardSource(const VtValue& value, ccl::AttributeSet* attribs, ccl::AttributeStandard std);
-};
-
-
-///
-/// Blackbird Hair
-///
-class HdBbHairAttributeSource : public HdBbAttributeSource {
-public:
-    HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
-                            const HdInterpolation& interpolation);
 };
 
 ///
