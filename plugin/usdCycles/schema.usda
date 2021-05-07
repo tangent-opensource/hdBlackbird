@@ -959,6 +959,15 @@ class "CyclesLightSettingsAPI" (
         displayName = "Max Bounces"
         doc = "Maximum bounces of light ray"
     )
+
+    uniform int cycles:light:map_resolution = 0 (
+        customData = {
+            string apiName = "map_resolution"
+        }
+        displayGroup = "Light"
+        displayName = "Map Resolution"
+        doc = "Importance map size for dome light"
+    )
 }
 
 class "CyclesCameraSettingsAPI" (

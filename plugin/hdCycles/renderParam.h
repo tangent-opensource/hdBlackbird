@@ -357,6 +357,14 @@ public:
 
     void UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders);
 
+    /**
+     * @brief Return if square samples is enabled (for light samples to check against)
+     * 
+     * @return boolean
+     * 
+     */
+    bool IsSquareSamples() const { return m_useSquareSamples; }
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
