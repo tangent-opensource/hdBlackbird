@@ -589,6 +589,47 @@ HdCyclesPoints::_PopulateGenerated(ccl::Scene* scene, const SdfPath& id)
 }
 
 void
+HdCyclesPoints::_PopulateMaterial(HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* renderParam,
+                                  ccl::Shader* default_surface, const SdfPath& id)
+{
+    m_cyclesPointCloud->used_shaders = { default_surface };
+
+    _PopulateObjectMaterial(sceneDelegate, id);
+
+    renderParam->UpdateShadersTag(m_cyclesPointCloud->used_shaders);
+}
+
+void
+HdCyclesPoints::_PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, const SdfPath& id)
+{
+    // populate material for entire object
+    HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
+
+    auto& used_shaders = m_cyclesPointCloud->used_shaders;
+
+    const SdfPath& material_id = sceneDelegate->GetMaterialId(id);
+    if (material_id.IsEmpty()) {
+        return;
+    }
+
+    // search for state primitive that contains cycles shader
+    const HdSprim* material = render_index.GetSprim(HdPrimTypeTokens->material, material_id);
+    auto cycles_material = dynamic_cast<const HdCyclesMaterial*>(material);
+    if (!cycles_material) {
+        TF_WARN("Invalid HdCycles material %s", material_id.GetText());
+        return;
+    }
+
+    ccl::Shader* cycles_shader = cycles_material->GetCyclesShader();
+    if (!cycles_shader) {
+        return;
+    }
+
+    // override default material
+    used_shaders[0] = cycles_shader;
+}
+
+void
 HdCyclesPoints::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBVH)
 {
     m_cyclesObject->visibility = _sharedData.visible ? m_visibilityFlags : 0;
@@ -672,6 +713,10 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool sizeHasChanged;
         _PopulatePoints(sceneDelegate, id, sizeHasChanged, styleHasChanged);
         needsRebuildBVH = needsRebuildBVH || sizeHasChanged;
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
+        _PopulateMaterial(sceneDelegate, param, scene->default_surface, id);
     }
 
     // Loop through all the other primvars

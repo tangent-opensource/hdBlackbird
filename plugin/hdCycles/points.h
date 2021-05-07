@@ -151,7 +151,9 @@ protected:
      * @brief Fills in the point positions
      */
     void _PopulateGenerated(ccl::Scene* scene, const SdfPath& id);
-
+    void _PopulateMaterial(HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* renderParam,
+                           ccl::Shader* default_surface, const SdfPath& id);
+    void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     /**
      * @brief Flag the object for update in the scene
