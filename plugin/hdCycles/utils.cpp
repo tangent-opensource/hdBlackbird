@@ -68,19 +68,31 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
     std::string baseFileName = filepath.stem().string().substr(0, offset);
 
     std::vector<std::string> files;
+    try {
+        BOOST_NS::filesystem::path path(ccl::path_dirname(a_filepath));
+        if (BOOST_NS::filesystem::is_directory(path)) {
+            for (BOOST_NS::filesystem::directory_iterator it(path); it != BOOST_NS::filesystem::directory_iterator();
+                 ++it) {
+                if (BOOST_NS::filesystem::is_regular_file(it->status())
+                    || BOOST_NS::filesystem::is_symlink(it->status())) {
+                    std::string foundFile = BOOST_NS::filesystem::basename(it->path().filename());
 
-    BOOST_NS::filesystem::path path(ccl::path_dirname(a_filepath));
-    for (BOOST_NS::filesystem::directory_iterator it(path); it != BOOST_NS::filesystem::directory_iterator(); ++it) {
-        if (BOOST_NS::filesystem::is_regular_file(it->status()) || BOOST_NS::filesystem::is_symlink(it->status())) {
-            std::string foundFile = BOOST_NS::filesystem::basename(it->path().filename());
-
-            if (baseFileName == (foundFile.substr(0, offset))) {
-                files.push_back(foundFile);
+                    if (baseFileName == (foundFile.substr(0, offset))) {
+                        files.push_back(foundFile);
+                    }
+                }
             }
         }
+    } catch (BOOST_NS::exception& e) {
+        TF_WARN("Filesystem error in HdCyclesParseUDIMS() when parsing %s", a_filepath.c_str());
     }
 
     a_tiles.clear();
+
+    if (files.empty()) {
+        TF_WARN("Could not find any tiles for UDIM texture %s", a_filepath.c_str());
+        return;
+    }
 
     for (std::string file : files) {
         a_tiles.push_back(atoi(file.substr(offset, offset + 3).c_str()));
