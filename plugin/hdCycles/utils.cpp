@@ -181,7 +181,7 @@ _HdInterpolationStr(const HdInterpolation& i)
     case HdInterpolationVarying: return "Varying";
     case HdInterpolationFaceVarying: return "FaceVarying";
     case HdInterpolationVertex: return "Vertex";
-    default: "Unknown";
+    default: return "Unknown";
     }
 }
 
