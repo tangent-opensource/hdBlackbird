@@ -631,26 +631,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     // -------------------------------------
     // -- Resolve Drawstyles
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_style)) {
-        VtValue point_style_ = GetPrimvar(sceneDelegate, usdCyclesTokens->cyclesObjectPoint_style);
-        if (point_style_.IsEmpty()) {
-            TF_WARN("Point style primvar exists, but is empty for point cloud %s", id.GetText());
-        } else {
-            TfToken point_style = point_style_.Cast<TfToken>().UncheckedGet<TfToken>();
-            if (point_style == usdCyclesTokens->sphere) {
-                m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_SPHERE;
-            } else if (point_style == usdCyclesTokens->disc) {
-                m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC;
-            } else if (point_style == usdCyclesTokens->disc_oriented) {
-                m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
-            } else {
-                TF_WARN("Unrecognized point style %s for point cloud %s", point_style.GetText(), id.GetText());
-            }
-            needsRebuildBVH = true;
-            styleHasChanged = true;
-        }
-    }
-
     // todo: what do we do with PointDPI exactly? check other render delegates
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_resolution)) {
         needsRebuildBVH = true;
@@ -726,6 +706,24 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 continue;
             }
 
+            if(description.name == usdCyclesTokens->cyclesObjectPoint_style) {
+                if (value.IsEmpty()) {
+                    TF_WARN("Point style primvar exists, but is empty for point cloud %s", id.GetText());
+                } else {
+                    TfToken point_style = value.Cast<TfToken>().UncheckedGet<TfToken>();
+                    if (point_style == usdCyclesTokens->sphere) {
+                        m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_SPHERE;
+                    } else if (point_style == usdCyclesTokens->disc) {
+                        m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC;
+                    } else if (point_style == usdCyclesTokens->disc_oriented) {
+                        m_cyclesPointCloud->point_style = ccl::POINT_CLOUD_POINT_DISC_ORIENTED;
+                    } else {
+                        TF_WARN("Unrecognized point style %s for point cloud %s", point_style.GetText(), id.GetText());
+                    }
+                    needsRebuildBVH = true;
+                    styleHasChanged = true;
+                }
+            }
             if (description.name == HdTokens->widths) {
                 _PopulateWidths(sceneDelegate, id, interpolation, value);
             } else if (description.name == HdTokens->normals) {
