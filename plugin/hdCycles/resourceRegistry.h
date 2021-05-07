@@ -34,11 +34,11 @@ class Scene;
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+class HdCyclesRenderDelegate;
+
 class HdCyclesResourceRegistry final : public HdResourceRegistry {
 public:
-    HdCyclesResourceRegistry() = default;
-
-    void UpdateScene(ccl::Scene* scene) { m_scene = scene; }
+    explicit HdCyclesResourceRegistry(HdCyclesRenderDelegate* renderDelegate);
 
     HdInstance<HdCyclesObjectSourceSharedPtr> GetObjectInstance(const SdfPath& id);
 
@@ -46,8 +46,8 @@ private:
     void _Commit() override;
     void _GarbageCollect() override;
 
-    ccl::Scene* m_scene {};
-    HdInstanceRegistry<HdCyclesObjectSourceSharedPtr> m_object_sources;
+    HdCyclesRenderDelegate* m_renderDelegate;
+    HdInstanceRegistry<HdCyclesObjectSourceSharedPtr> m_objects;
 };
 
 using HdCyclesResourceRegistrySharedPtr = std::shared_ptr<HdCyclesResourceRegistry>;

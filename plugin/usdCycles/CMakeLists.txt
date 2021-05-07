@@ -146,7 +146,7 @@ set_target_properties(usdCycles PROPERTIES
 install(TARGETS usdCycles DESTINATION plugin/usd)
 if (MSVC)
     install(FILES $<TARGET_PDB_FILE:usdCycles> DESTINATION plugin/usd OPTIONAL)
-endif()
+endif ()
 
 install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/plugInfo.json
@@ -196,12 +196,12 @@ set_target_properties(_usdCycles PROPERTIES
         INSTALL_RPATH "$ORIGIN/../../usd"
         )
 
-if(WIN32)
-        set_target_properties(_usdCycles PROPERTIES SUFFIX ".pyd")
-endif()
+if (WIN32)
+    set_target_properties(_usdCycles PROPERTIES SUFFIX ".pyd")
+endif ()
 
 install(TARGETS _usdCycles DESTINATION plugin/python/UsdCycles)
 install(FILES __init__.py DESTINATION plugin/python/UsdCycles)
 if (MSVC)
     install(FILES $<TARGET_PDB_FILE:_usdCycles> DESTINATION plugin/python/UsdCycles OPTIONAL)
-endif()
+endif ()

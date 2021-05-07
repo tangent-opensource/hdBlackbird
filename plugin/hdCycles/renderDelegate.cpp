@@ -98,11 +98,6 @@ HdCyclesRenderDelegate::HdCyclesRenderDelegate()
     _Initialize({});
 }
 
-
-std::mutex HdCyclesRenderDelegate::m_resource_registry_mutex;
-std::atomic_int HdCyclesRenderDelegate::m_resource_registry_counter;
-HdCyclesResourceRegistrySharedPtr HdCyclesRenderDelegate::m_resourceRegistry;
-
 HdCyclesRenderDelegate::HdCyclesRenderDelegate(HdRenderSettingsMap const& settingsMap)
     : HdRenderDelegate(settingsMap)
     , m_hasStarted(false)
@@ -120,12 +115,7 @@ HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
         return;
 
     // -- Initialize Render Delegate components
-    std::lock_guard<std::mutex> guard { m_resource_registry_mutex };
-    if (m_resource_registry_counter.fetch_add(1) == 0) {
-        m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>();
-    }
-
-    m_resourceRegistry->UpdateScene(m_renderParam->GetCyclesScene());
+    m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>(this);
 }
 
 HdCyclesRenderDelegate::~HdCyclesRenderDelegate() { m_renderParam->StopRender(); }
@@ -214,12 +204,12 @@ HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
 
     // commit resource to the scene
     m_resourceRegistry->Commit();
+    m_renderParam->CommitResources();
+
     if (tracker->IsGarbageCollectionNeeded()) {
         m_resourceRegistry->GarbageCollect();
         tracker->ClearGarbageCollectionNeeded();
     }
-
-    m_renderParam->CommitResources();
 }
 
 HdRprim*

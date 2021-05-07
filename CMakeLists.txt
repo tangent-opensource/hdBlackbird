@@ -63,5 +63,6 @@ endif()
 add_subdirectory(plugin)
 
 if(${USE_TESTS})
+    message(STATUS "Building with tests")
     add_subdirectory(tests)
 endif()

@@ -17,5 +17,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#define DOCTEST_CONFIG_IMPLEMENT
-#include <doctest/doctest.h>
+//  Usage of the debug codes follows Arnold's render delegate
+//  https://github.com/Autodesk/arnold-usd/blob/11eb3ced2b6a148bb5737fddeb25e4e21273607f/render_delegate/
+
+#include "debug_codes.h"
+
+#include <pxr/base/tf/registryManager.h>
+
+PXR_NAMESPACE_OPEN_SCOPE
+
+TF_REGISTRY_FUNCTION(TfDebug)
+{
+    TF_DEBUG_ENVIRONMENT_SYMBOL(
+        HDCYCLES_MESH, "Print warnings when syncing cycles meshes");
+}
+
+PXR_NAMESPACE_CLOSE_SCOPE

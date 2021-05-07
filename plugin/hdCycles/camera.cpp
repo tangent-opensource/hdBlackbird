@@ -135,7 +135,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_rend
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_dof.eval(m_useDof, true);
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
+    config.motion_blur.eval(m_useMotionBlur, true);
 
     bool use_motion_blur = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->integrator->motion_blur;
     if (use_motion_blur) {

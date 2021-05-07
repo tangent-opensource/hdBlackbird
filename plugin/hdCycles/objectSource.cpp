@@ -22,20 +22,26 @@
 #include <pxr/imaging/hd/tokens.h>
 
 #include <graph/node.h>
+#include <render/geometry.h>
 #include <render/object.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
-HdCyclesObjectSource::HdCyclesObjectSource(ccl::Object* object, const SdfPath& id)
+HdCyclesObjectSource::HdCyclesObjectSource(ccl::Object* object, const SdfPath& id, bool isReference)
     : m_object { object }
     , m_id { id }
+    , m_isReference { isReference }
 {
     m_object->name = ccl::ustring { m_id.GetToken().GetText(), m_id.GetToken().size() };
 }
 
 HdCyclesObjectSource::~HdCyclesObjectSource()
 {
-    // TODO unbind from scene?
+    if (!m_isReference) {
+        assert(m_object != nullptr);
+        delete m_object->geometry;
+        delete m_object;
+    }
 }
 
 bool

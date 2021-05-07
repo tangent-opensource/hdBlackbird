@@ -37,6 +37,7 @@
 #include <render/mesh.h>
 #include <render/nodes.h>
 #include <render/object.h>
+#include <render/pointcloud.h>
 #include <render/scene.h>
 #include <render/session.h>
 #include <render/stats.h>
@@ -730,7 +731,7 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
                        INT_MAX);
     }*/
 
-    config.enable_motion_blur.eval(integrator->motion_blur, a_forceInit);
+    integrator->motion_blur = config.motion_blur.value;
 
     integrator->tag_update(m_cyclesScene);
 }
@@ -1416,6 +1417,10 @@ HdCyclesRenderParam::_CreateScene()
     default_object_display_color_surface = HdCyclesCreateObjectColorSurface();
     default_object_display_color_surface->tag_update(m_cyclesScene);
     m_cyclesScene->shaders.push_back(default_object_display_color_surface);
+
+    default_vcol_display_color_surface = HdCyclesCreateDefaultShader();
+    default_vcol_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_vcol_display_color_surface);
 
     SetBackgroundShader(nullptr);
 
