@@ -740,13 +740,12 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 _PopulateAccelerations(sceneDelegate, id, interpolation, value);
             } else {
                 // Register any custom primvar to be set as geometry
-                // attribute when resources are commited
-                auto primvar_source = std::make_shared<HdCyclesPointCloudAttributeSource>(description.name, description.role, value,
-                                                                                            m_cyclesPointCloud,
-                                                                                            interpolation);
-
+                // attribute when resources are committed
                 if (m_objectSource) {
-                    m_objectSource->AddSource(std::move(primvar_source));
+                    m_objectSource->CreateAttributeSource<HdCyclesPointCloudAttributeSource>(description.name,
+                                                                                             description.role, value,
+                                                                                             m_cyclesPointCloud,
+                                                                                             interpolation);
                 }
             }
         }

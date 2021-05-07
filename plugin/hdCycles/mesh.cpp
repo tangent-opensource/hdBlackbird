@@ -385,9 +385,8 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
     }
 
     // Primvar color attributes
-    auto color_source = std::make_shared<HdBbMeshAttributeSource>(name, role, data, m_cyclesMesh, interpolation,
-                                                                  m_topology);
-    m_object_source->AddSource(color_source);
+    m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(name, role, data, m_cyclesMesh, interpolation,
+                                                                    m_topology);
 }
 
 void
@@ -867,10 +866,9 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 
             // any other primvar for hair to be committed
             if (m_cyclesMesh) {
-                auto primvar_source = std::make_shared<HdBbMeshAttributeSource>(description.name, description.role,
+                m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(description.name, description.role,
                                                                                 value, m_cyclesMesh,
                                                                                 description.interpolation, m_topology);
-                m_object_source->AddSource(std::move(primvar_source));
             }
 
             // TODO: Add arbitrary primvar support when AOVs are working
@@ -1259,7 +1257,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                                                                              3);
             }
         }
-        m_object_source->AddSource(std::move(transform_source));
+        m_object_source->AddObjectPropertiesSource(std::move(transform_source));
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {

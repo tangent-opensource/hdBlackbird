@@ -100,6 +100,8 @@ protected:
     virtual bool ResolveAsArray();
 };
 
+using HdBbAttributeSourceSharedPtr = std::shared_ptr<HdBbAttributeSource>;
+
 ///
 /// Cycles PointCloud
 ///

@@ -20,8 +20,6 @@
 #ifndef HDCYCLES_TRANSFORMSOURCE_H
 #define HDCYCLES_TRANSFORMSOURCE_H
 
-#include "objectSource.h"
-
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/timeSampleArray.h>
@@ -53,9 +51,19 @@ using HdCyclesTransformTimeSampleArray = HdTimeSampleArray<ccl::Transform, HD_CY
 using HdCyclesTransformSmallVector = TfSmallVector<ccl::Transform, HD_CYCLES_MAX_TRANSFORM_STEPS>;
 
 ///
+/// Common abstract base for all properties to be committed to the object
+///
+class HdBbbObjectPropertiesSource : public HdBufferSource {
+protected:
+    using HdBufferSource::HdBufferSource;
+};
+
+using HdBbbObjectPropertiesSourceSharedPtr = std::shared_ptr<HdBbbObjectPropertiesSource>;
+
+///
 /// Transformation motion sample source
 ///
-class HdCyclesTransformSource : public HdBufferSource {
+class HdCyclesTransformSource : public HdBbbObjectPropertiesSource {
 public:
     HdCyclesTransformSource(ccl::Object* object, const HdCyclesMatrix4dTimeSampleArray& samples,
                             const GfMatrix4d& fallback, unsigned int new_num_samples = 0);
