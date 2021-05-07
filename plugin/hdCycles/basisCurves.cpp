@@ -630,7 +630,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                                                                              3);
             }
         }
-        m_object_source->AddSource(std::move(transform_source));
+        m_object_source->AddObjectPropertiesSource(std::move(transform_source));
 
         update_curve = true;
     }
@@ -666,9 +666,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
                     // any other primvar for hair to be committed
                     if (m_cyclesHair) {
-                        auto primvar_source = std::make_shared<HdBbHairAttributeSource>(pv.name, pv.role, value,
+                        m_object_source->CreateAttributeSource<HdBbHairAttributeSource>(pv.name, pv.role, value,
                                                                                         m_cyclesHair, pv.interpolation);
-                        object_instance.GetValue()->AddSource(std::move(primvar_source));
                     }
                 }
             }
