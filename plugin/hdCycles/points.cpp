@@ -68,12 +68,12 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
 HdCyclesPoints::~HdCyclesPoints()
 {
     if (m_cyclesPointCloud) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesPointCloud);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesPointCloud);
         delete m_cyclesPointCloud;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 }
@@ -111,8 +111,8 @@ HdCyclesPoints::_InitializeNewCyclesPointCloud()
 
     m_cyclesPointCloud = new ccl::PointCloud();
     assert(m_cyclesPointCloud);
-    m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)default_point_style;
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesPointCloud);
+    m_cyclesPointCloud->point_style = static_cast<ccl::PointCloudPointStyle>(default_point_style);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesPointCloud);
 
     m_cyclesObject = new ccl::Object();
     assert(m_cyclesObject);
@@ -120,7 +120,7 @@ HdCyclesPoints::_InitializeNewCyclesPointCloud()
     m_cyclesObject->tfm        = ccl::transform_identity();
     m_cyclesObject->pass_id    = -1;
     m_cyclesObject->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
 }
 
 void
