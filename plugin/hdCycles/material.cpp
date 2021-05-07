@@ -856,7 +856,7 @@ HdCyclesMaterial::_FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& 
     // Currently not deleting the node from the list to make sure it's deleted from the
     // ShaderGraph. The ideal solution would be to have a post processing pass to clear unused ones
     const int n_outputs_preview = is_output_surface_preview + is_output_displacement_preview + is_output_volume_preview;
-    if (n_outputs > 0 && n_outputs_preview > 0) {
+    if (n_outputs > 0 && n_outputs_preview > 0 && n_outputs_preview < n_outputs) {
         if (is_output_surface_preview) {
             m_shaderGraph->output()->input("Surface")->disconnect();
         }
