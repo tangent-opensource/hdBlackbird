@@ -244,6 +244,7 @@ private:
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
+    int m_refineLevel;
     HdMeshTopology m_topology;
     std::shared_ptr<const HdCyclesMeshRefiner> m_refiner;
 
