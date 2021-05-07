@@ -22,6 +22,7 @@
 
 #include <pxr/base/vt/array.h>
 #include <pxr/imaging/hd/enums.h>
+#include <pxr/imaging/hd/meshTopology.h>
 
 #include <memory>
 
@@ -35,6 +36,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 using VtFloat3Array = VtArray<ccl::float3>;
 
+class HdDisplayStyle;
 class HdMeshTopology;
 class VtValue;
 class TfToken;
@@ -49,15 +51,10 @@ class SdfPath;
 ///
 class HdCyclesMeshRefiner {
 public:
-    static std::shared_ptr<HdCyclesMeshRefiner> Create(const HdMeshTopology& topology, const SdfPath& id);
-
     virtual ~HdCyclesMeshRefiner();
 
-    /// @{ TODO: Those methods belong to HdCyclesMeshTopology
-    virtual size_t GetNumRefinedVertices() const = 0;
-    virtual const VtVec3iArray& GetRefinedVertexIndices() const = 0;
-    size_t GetNumRefinedTriangles() const;
-    /// @}
+    VtValue Refine(const TfToken& name, const TfToken& role, const VtValue& value,
+                   const HdInterpolation& interpolation) const;
 
     /// @{ \brief Refine/approximate primvar data.
     virtual VtValue RefineConstantData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
@@ -66,6 +63,8 @@ public:
     virtual VtValue RefineVertexData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     virtual VtValue RefineFaceVaryingData(const TfToken& name, const TfToken& role, const VtValue& data) const = 0;
     /// @}
+
+    const HdMeshTopology& GetTriangulatedTopology() const { return m_triangulated_topology; }
 
     virtual bool IsSubdivided() const = 0;
 
@@ -80,7 +79,38 @@ public:
 
 protected:
     HdCyclesMeshRefiner();
+
+    HdMeshTopology m_triangulated_topology;
 };
+
+///
+/// Hd Blackbird topology
+///
+class HdBbMeshTopology : public HdMeshTopology {
+public:
+    HdBbMeshTopology(const SdfPath& id, const HdMeshTopology& src, int refine_level);
+
+    const SdfPath& GetId() const { return m_id; }
+    const HdCyclesMeshRefiner* GetRefiner() const { return m_refiner.get(); }
+
+private:
+    const SdfPath m_id;
+    std::unique_ptr<HdCyclesMeshRefiner> m_refiner;
+};
+
+inline VtValue
+HdCyclesMeshRefiner::Refine(const TfToken& name, const TfToken& role, const VtValue& value,
+                            const HdInterpolation& interpolation) const
+{
+    switch (interpolation) {
+    case HdInterpolationConstant: return RefineConstantData(name, role, value);
+    case HdInterpolationUniform: return RefineUniformData(name, role, value);
+    case HdInterpolationVarying: return RefineVaryingData(name, role, value);
+    case HdInterpolationVertex: return RefineVertexData(name, role, value);
+    case HdInterpolationFaceVarying: return RefineFaceVaryingData(name, role, value);
+    default: assert(0); return value;
+    }
+}
 
 PXR_NAMESPACE_CLOSE_SCOPE
 

@@ -59,7 +59,7 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
     config.default_point_resolution.eval(m_pointResolution, true);
 
     if (m_useMotionBlur) {
-        config.motion_steps.eval(m_motionSteps, true);
+        m_motionSteps = HD_CYCLES_MOTION_STEPS;
     }
 
     _InitializeNewCyclesPointCloud();
