@@ -111,7 +111,7 @@ HdCyclesPoints::_InitializeNewCyclesPointCloud()
 
     m_cyclesPointCloud = new ccl::PointCloud();
     assert(m_cyclesPointCloud);
-    m_cyclesPointCloud->point_style = (ccl::PointCloudPointStyle)default_point_style;
+    m_cyclesPointCloud->point_style = static_cast<ccl::PointCloudPointStyle>(default_point_style);
     m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesPointCloud);
 
     m_cyclesObject = new ccl::Object();
