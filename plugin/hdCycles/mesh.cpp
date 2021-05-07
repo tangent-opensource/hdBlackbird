@@ -670,7 +670,7 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     }
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
-    m_topology = std::make_shared<HdBbMeshTopology>(id, topology, 0);  // display_style.refineLevel
+    m_topology = std::make_shared<HdBbMeshTopology>(id, topology, display_style.refineLevel);
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     // Mesh is independently updated in two stages, faces(topology) and vertices(data).
