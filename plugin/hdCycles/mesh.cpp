@@ -751,10 +751,9 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
 
     HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-
-    auto refine_value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
-    int refine_level = refine_value.IsEmpty() ? 0 : refine_value.Cast<int>().UncheckedGet<int>();
-    display_style.refineLevel = refine_level;
+    if (m_refineLevel > 0) {
+        display_style.refineLevel = m_refineLevel;
+    }
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
     m_topology = HdMeshTopology(topology, display_style.refineLevel);
@@ -1205,8 +1204,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
-            // Mesh Specific
+            // Open Subdiv
 
+            m_refineLevel = _HdCyclesGetMeshParam(pv, dirtyBits, id, this, sceneDelegate,
+                                                  usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level, 0);
+
+            // Motion blur
             m_useMotionBlur = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                                           usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
 
