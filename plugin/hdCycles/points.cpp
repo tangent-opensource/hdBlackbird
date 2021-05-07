@@ -238,7 +238,7 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
     if (points.size() != m_cyclesPointCloud->points.size() || styleHasChanged) {
         m_cyclesPointCloud->clear();
-        m_cyclesPointCloud->resize(points.size());
+        m_cyclesPointCloud->resize(static_cast<int>(points.size()));
         sizeHasChanged = true;
 
         // We set the size of the radius buffers to a default value
