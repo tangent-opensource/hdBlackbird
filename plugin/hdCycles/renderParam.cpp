@@ -62,7 +62,7 @@ struct HdCyclesAov {
     bool filter;
 };
 
-std::array<HdCyclesAov, 26> DefaultAovs = { {
+std::array<HdCyclesAov, 27> DefaultAovs = { {
     { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4, true },
     { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32, false },
     { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, false },
@@ -71,6 +71,7 @@ std::array<HdCyclesAov, 26> DefaultAovs = { {
     { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32, true },
     { "Emission", ccl::PASS_EMISSION, HdCyclesAovTokens->Emit, HdFormatFloat32Vec3, true },
     { "Shadow", ccl::PASS_SHADOW, HdCyclesAovTokens->Shadow, HdFormatFloat32Vec3, true },
+    { "AO", ccl::PASS_AO, HdCyclesAovTokens->AO, HdFormatFloat32Vec3, true },
 
     { "UV", ccl::PASS_UV, HdCyclesAovTokens->UV, HdFormatFloat32Vec3, true },
     { "Vector", ccl::PASS_MOTION, HdCyclesAovTokens->Vector, HdFormatFloat32Vec4, true },
@@ -1916,54 +1917,66 @@ HdCyclesRenderParam::GetRenderStats() const
     bool cryptoAsset = false;
     bool cryptoObject = false;
     bool cryptoMaterial = false;
+    std::string cryptoAssetName;
+    std::string cryptoObjectName;
+    std::string cryptoMaterialName;
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         TfToken sourceName = GetSourceName(aov);
-        if (sourceName == HdCyclesAovTokens->CryptoAsset) {
-            cryptoAsset = true;
+        if (!cryptoAsset && sourceName == HdCyclesAovTokens->CryptoAsset) {
+            cryptoAssetName = aov.aovName.GetText();
+            if (cryptoAssetName.length() > 2) {
+                cryptoAsset = true;
+                cryptoAssetName.erase(cryptoAssetName.end() - 2, cryptoAssetName.end());
+            }
             continue;
         }
-        if (sourceName == HdCyclesAovTokens->CryptoObject) {
-            cryptoObject = true;
+        if (!cryptoObject && sourceName == HdCyclesAovTokens->CryptoObject) {
+            cryptoObjectName = aov.aovName.GetText();
+            if (cryptoObjectName.length() > 2) {
+                cryptoObject = true;
+                cryptoObjectName.erase(cryptoObjectName.end() - 2, cryptoObjectName.end());
+            }
             continue;
         }
-        if (sourceName == HdCyclesAovTokens->CryptoMaterial) {
-            cryptoMaterial = true;
+        if (!cryptoMaterial && sourceName == HdCyclesAovTokens->CryptoMaterial) {
+            cryptoMaterialName = aov.aovName.GetText();
+            if (cryptoMaterialName.length() > 2) {
+                cryptoMaterial = true;
+                cryptoMaterialName.erase(cryptoMaterialName.end() - 2, cryptoMaterialName.end());
+            }
             continue;
         }
     }
 
     if (cryptoAsset) {
-        std::string cryptoName = HdCyclesAovTokens->CryptoAsset.GetText();
-        auto cryptoNameLength = static_cast<int>(cryptoName.length());
-        std::string identifier = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
+        auto cryptoNameLength = static_cast<int>(cryptoAssetName.length());
+        std::string identifier
+            = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoAssetName.c_str(), cryptoNameLength, 0));
         std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"] = VtValue(cryptoName);
+        result[prefix + "name"] = VtValue(cryptoAssetName);
         result[prefix + "hash"] = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
         result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_assets(m_cyclesScene));
     }
 
     if (cryptoObject) {
-        std::string cryptoName = HdCyclesAovTokens->CryptoObject.GetText();
-        auto cryptoNameLength = static_cast<int>(cryptoName.length());
-        std::string identifier = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
+        auto cryptoNameLength = static_cast<int>(cryptoObjectName.length());
+        std::string identifier
+            = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoObjectName.c_str(), cryptoNameLength, 0));
         std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"] = VtValue(cryptoName);
+        result[prefix + "name"] = VtValue(cryptoObjectName);
         result[prefix + "hash"] = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
         result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_objects(m_cyclesScene));
     }
 
     if (cryptoMaterial) {
-        std::string cryptoName = HdCyclesAovTokens->CryptoMaterial.GetText();
-        auto cryptoNameLength = static_cast<int>(cryptoName.length());
-        std::string identifier = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoNameLength, 0));
+        auto cryptoNameLength = static_cast<int>(cryptoMaterialName.length());
+        std::string identifier
+            = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoMaterialName.c_str(), cryptoNameLength, 0));
         std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"] = VtValue(cryptoName);
+        result[prefix + "name"] = VtValue(cryptoMaterialName);
         result[prefix + "hash"] = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
         result[prefix + "manifest"] = VtValue(m_cyclesScene->shader_manager->get_cryptomatte_materials(m_cyclesScene));
@@ -1990,6 +2003,9 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     int cryptoObject = 0;
     int cryptoMaterial = 0;
     int cryptoAsset = 0;
+    std::string cryptoObjectName;
+    std::string cryptoMaterialName;
+    std::string cryptoAssetName;
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         TfToken sourceName = GetSourceName(aov);
@@ -2016,14 +2032,23 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         for (HdCyclesAov& cyclesAov : CryptomatteAovs) {
             if (sourceName == cyclesAov.token) {
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoObject) {
+                    if (cryptoObject == 0) {
+                        cryptoObjectName = aov.aovName.GetText();
+                    }
                     cryptoObject += 1;
                     continue;
                 }
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial) {
+                    if (cryptoMaterial == 0) {
+                        cryptoMaterialName = aov.aovName.GetText();
+                    }
                     cryptoMaterial += 1;
                     continue;
                 }
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) {
+                    if (cryptoAsset == 0) {
+                        cryptoAssetName = aov.aovName.GetText();
+                    }
                     cryptoAsset += 1;
                     continue;
                 }
@@ -2031,14 +2056,38 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         }
     }
 
+    // Check for issues
+
     if (cryptoObject != film->cryptomatte_depth) {
         TF_WARN("Cryptomatte Object AOV/depth mismatch");
+        cryptoObject = 0;
     }
     if (cryptoMaterial != film->cryptomatte_depth) {
         TF_WARN("Cryptomatte Material AOV/depth mismatch");
+        cryptoMaterial = 0;
     }
     if (cryptoAsset != film->cryptomatte_depth) {
         TF_WARN("Cryptomatte Asset AOV/depth mismatch");
+        cryptoAsset = 0;
+    }
+
+    if (cryptoObjectName.length() < 3) {
+        TF_WARN("Cryptomatte Object has an invalid layer name");
+        cryptoObject = 0;
+    } else {
+        cryptoObjectName.erase(cryptoObjectName.end() - 2, cryptoObjectName.end());
+    }
+    if (cryptoMaterialName.length() < 3) {
+        TF_WARN("Cryptomatte Material has an invalid layer name");
+        cryptoMaterial = 0;
+    } else {
+        cryptoMaterialName.erase(cryptoMaterialName.end() - 2, cryptoMaterialName.end());
+    }
+    if (cryptoAssetName.length() < 3) {
+        TF_WARN("Cryptomatte Asset has an invalid layer name");
+        cryptoAsset = 0;
+    } else {
+        cryptoAssetName.erase(cryptoAssetName.end() - 2, cryptoAssetName.end());
     }
 
     // Ordering matters
@@ -2046,21 +2095,21 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_OBJECT);
         for (int i = 0; i < cryptoObject; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
-                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoObject.GetText(), i).c_str());
+                           ccl::string_printf("%s%02i", cryptoObjectName.c_str(), i).c_str());
         }
     }
     if (cryptoMaterial) {
         film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_MATERIAL);
         for (int i = 0; i < cryptoMaterial; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
-                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoMaterial.GetText(), i).c_str());
+                           ccl::string_printf("%s%02i", cryptoMaterialName.c_str(), i).c_str());
         }
     }
     if (cryptoAsset) {
         film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_ASSET);
         for (int i = 0; i < cryptoAsset; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
-                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoAsset.GetText(), i).c_str());
+                           ccl::string_printf("%s%02i", cryptoAssetName.c_str(), i).c_str());
         }
     }
 
