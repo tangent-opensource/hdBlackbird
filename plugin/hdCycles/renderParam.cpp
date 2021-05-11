@@ -1986,7 +1986,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
     ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
 
-    // This is necessary as the film renderbuffers are reset
+    // This is necessary as the scene film is edited
     ccl::thread_scoped_lock scene_lock { m_cyclesScene->mutex };
 
 
@@ -2110,15 +2110,15 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
 void
 HdCyclesRenderParam::tagSettingsDirty() {
-    Interrupt();
+    //Interrupt();
 
     // Aovs access is synchronized with the Cycles display lock
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
+    ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
     m_settingsHaveChanged = true;
 
     // This guarantess that aov bindings point to a valid render buffer
     m_aovs.clear();
-
 }
 
 void
@@ -2180,7 +2180,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
 
             // todo: Is there a utility to convert HdFormat to string?
             if (pixels_type == ccl::RenderBuffers::ComponentType::None) {
-                TF_WARN("Unsupported component type %d for aov %s ", rb->GetFormat(), aov.aovName.GetText());
+                TF_WARN("Unsupported component type %d for aov %s ", (int)rb->GetFormat(), aov.aovName.GetText());
                 return;
             }
 
