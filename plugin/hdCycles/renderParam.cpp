@@ -66,7 +66,7 @@ struct HdCyclesAov {
 std::array<HdCyclesAov, 26> DefaultAovs = { {
     { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4, true },
     { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32, false },
-    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, false },
+    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, true },
     { "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32, false },
     { "IndexMA", ccl::PASS_MATERIAL_ID, HdCyclesAovTokens->IndexMA, HdFormatFloat32, false },
     { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32, true },
@@ -1282,6 +1282,7 @@ HdCyclesRenderParam::_CreateSession()
 
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
+#if 1
     m_cyclesSession->display_copy_cb = [this](int samples) {
         if (m_settingsHaveChanged) {
             m_settingsHaveChanged = false;
@@ -1292,6 +1293,7 @@ HdCyclesRenderParam::_CreateSession()
             BlitFromCyclesPass(aov, m_cyclesSession->display->draw_width, m_cyclesSession->display->draw_height, samples);
         }
     };
+#endif
 
     m_cyclesSession->write_render_tile_cb  = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
     m_cyclesSession->update_render_tile_cb = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1, ccl::_2);
@@ -1979,7 +1981,14 @@ HdCyclesRenderParam::GetRenderStats() const
 void
 HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
+    // Synchronizes with the render buffers reset and blitting (display)
+    // Also mirror the locks used when in the display_copy_cb callback
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
+    ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
+
+    // This is necessary as the film renderbuffers are reset
+    ccl::thread_scoped_lock scene_lock { m_cyclesScene->mutex };
+
 
     m_settingsHaveChanged = true;
 
@@ -1990,6 +1999,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     m_bufferParams.passes.clear();
     bool has_combined     = false;
     bool has_sample_count = false;
+
     ccl::Film* film       = m_cyclesScene->film;
 
     ccl::CryptomatteType cryptomatte_passes = ccl::CRYPT_NONE;
@@ -2152,8 +2162,6 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     void* data = rb->Map();
 
     if (data) {
-        //std::cout << "Blitting " << aov.aovName << " samples " << samples << std::endl;
-
         auto n_comps_cycles = HdGetComponentCount(cyclesAov.format);
         auto n_comps_hd     = HdGetComponentCount(rb->GetFormat());
 
@@ -2168,6 +2176,12 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             case HdFormatFloat32Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float32x4; break;
             case HdFormatInt32: pixels_type = ccl::RenderBuffers::ComponentType::Int32; break;
             default: assert(false); break;
+            }
+
+            // todo: Is there a utility to convert HdFormat to string?
+            if (pixels_type == ccl::RenderBuffers::ComponentType::None) {
+                TF_WARN("Unsupported component type %d for aov %s ", rb->GetFormat(), aov.aovName.GetText());
+                return;
             }
 
             const int stride     = HdDataSizeOfFormat(rb->GetFormat());
