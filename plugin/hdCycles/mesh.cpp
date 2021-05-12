@@ -1122,6 +1122,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     m_cyclesObject->is_shadow_catcher = false;
     m_cyclesObject->pass_id = 0;
     m_cyclesObject->use_holdout = false;
+    m_cyclesObject->asset_name = "";
 
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
@@ -1155,6 +1156,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             m_cyclesObject->use_holdout = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                                                       usdCyclesTokens->primvarsCyclesObjectUse_holdout,
                                                                       m_cyclesObject->use_holdout);
+
+            std::string assetName = m_cyclesObject->asset_name.c_str();
+            assetName = _HdCyclesGetMeshParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
+                                                           usdCyclesTokens->primvarsCyclesObjectAsset_name,
+                                                           assetName);
+            m_cyclesObject->asset_name = ccl::ustring(assetName);
 
             // Visibility
 

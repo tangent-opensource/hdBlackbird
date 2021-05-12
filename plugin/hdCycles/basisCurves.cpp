@@ -451,6 +451,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     m_cyclesObject->is_shadow_catcher = false;
     m_cyclesObject->pass_id = 0;
     m_cyclesObject->use_holdout = false;
+    m_cyclesObject->asset_name = "";
 
     if (*dirtyBits & HdChangeTracker::DirtyPoints) {
         HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
@@ -538,6 +539,12 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
         m_cyclesObject->use_holdout = _HdCyclesGetCurveParam<bool>(dirtyBits, id, this, sceneDelegate,
                                                                    usdCyclesTokens->primvarsCyclesObjectUse_holdout,
                                                                    m_cyclesObject->use_holdout);
+
+        std::string assetName = m_cyclesObject->asset_name.c_str();
+        assetName = _HdCyclesGetCurveParam<std::string>(dirtyBits, id, this, sceneDelegate,
+                                                        usdCyclesTokens->primvarsCyclesObjectAsset_name,
+                                                        assetName);
+        m_cyclesObject->asset_name = ccl::ustring(assetName);
 
         // Visibility
 

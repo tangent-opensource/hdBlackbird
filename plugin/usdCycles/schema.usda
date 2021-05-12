@@ -1346,6 +1346,15 @@ class "CyclesObjectSettingsAPI" (
         displayName = "Visibility Scatter"
         doc = "Should this object be visible by scatter rays"
     )
+
+    string primvars:cycles:object:asset_name = "" (
+        customData = {
+            string apiName = "object_asset_name"
+        }
+        displayGroup = "Object"
+        displayName = "Asset Name"
+        doc = "Asset name for cryptomatte asset pass"
+    )
 }
 
 class "CyclesMeshSettingsAPI" (
