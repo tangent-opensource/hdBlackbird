@@ -864,8 +864,8 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                 continue;
             }
 
-            // any other primvar for hair to be committed
-            if (m_cyclesMesh) {
+            // do not commit primvars with cycles: prefix
+            if (m_cyclesMesh && !TfStringStartsWith(description.name.GetString(), "cycles:")) {
                 m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(description.name, description.role,
                                                                                 value, m_cyclesMesh,
                                                                                 description.interpolation, m_topology);
