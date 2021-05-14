@@ -132,6 +132,18 @@ HdCyclesConfig::HdCyclesConfig()
     default_point_style      = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE", ccl::POINT_CLOUD_POINT_SPHERE);
     default_point_resolution = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
 
+    texture_use_cache = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_USE_CACHE", false);
+    texture_cache_size = HdCyclesEnvValue<int>("HD_BLACKBIRD_TEXTURE_CACHE_SIZE", 4096);
+    texture_tile_size = HdCyclesEnvValue<int>("HD_BLACKBIRD_TEXTURE_TILE_SIZE", 64);
+    texture_diffuse_blur = HdCyclesEnvValue<float>("HD_BLACKBIRD_TEXTURE_DIFFUSE_BLUR", 1.0f / 64.0f);
+    texture_glossy_blur = HdCyclesEnvValue<float>("HD_BLACKBIRD_TEXTURE_GLOSSY_BLUR", 0.0f);
+    texture_auto_convert = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_AUTO_CONVERT", false);
+    texture_accept_unmipped = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_ACCEPT_UNMIPPED", false);
+    texture_accept_untiled = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_ACCEPT_UNTILED", false);
+    texture_auto_tile = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_AUTO_TILE", false);
+    texture_auto_mip = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_AUTO_MIP", false);
+    texture_use_custom_path = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_USE_CUSTOM_PATH", false);
+    texture_custom_path = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_TEXTURE_CUSTOM_PATH", "");
 
     // -- Curve Settings
 

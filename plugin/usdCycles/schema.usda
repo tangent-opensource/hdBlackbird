@@ -229,6 +229,105 @@ class "CyclesRendererSettingsAPI" (
         doc = ""
     )
 
+    uniform bool cycles:texture_use_cache = 0 (
+        customData = {
+            string apiName = "texture_use_cache"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Enable OpenImageIO Texture Cache"
+        doc = ""
+    )
+
+    uniform int cycles:texture_cache_size = 0 (
+        customData = {
+            string apiName = "texture_cache_size"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Cache Size (MB)"
+        doc = ""
+    )
+
+    uniform int cycles:texture_tile_size = 0 (
+        customData = {
+            string apiName = "texture_tile_size"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Tile Size"
+        doc = ""
+    )
+
+    uniform float cycles:texture_diffuse_blur = 0 (
+        customData = {
+            string apiName = "texture_diffuse_blur"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Diffuse Blur"
+        doc = ""
+    )
+
+    uniform float cycles:texture_glossy_blur = 0 (
+        customData = {
+            string apiName = "texture_glossy_blur"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Glossy Blur"
+        doc = ""
+    )
+
+    uniform bool cycles:texture_auto_convert = 0 (
+        customData = {
+            string apiName = "texture_auto_convert"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Automatically generate tiled mip maps"
+        doc = ""
+    )
+
+    uniform bool cycles:texture_accept_unmipped = 0 (
+        customData = {
+            string apiName = "texture_accept_unmipped"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Accept unmipped files"
+        doc = ""
+    )
+
+    uniform bool cycles:texture_accept_untiled = 0 (
+        customData = {
+            string apiName = "texture_accept_untiled"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Accept untiled files"
+        doc = ""
+    )
+
+    uniform bool cycles:texture_auto_tile = 0 (
+        customData = {
+            string apiName = "texture_auto_tile"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Automatically tile in memory"
+        doc = ""
+    )
+
+    uniform bool cycles:texture_auto_mip = 0 (
+        customData = {
+            string apiName = "texture_auto_mip"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Automatically mip map in memory"
+        doc = ""
+    )
+
+    uniform bool cycles:texture_use_custom_path = 0 (
+        customData = {
+            string apiName = "texture_use_custom_path"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Use custom cache path"
+        doc = ""
+    )
+
     uniform bool cycles:display_buffer_linear = true (
         customData = {
             string apiName = "display_buffer_linear"
