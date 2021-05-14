@@ -571,6 +571,15 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                     continue;
                 }
 
+                if(primvar_name == usdCyclesTokens->primvarsCyclesObjectAsset_name) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectAsset_name);
+                    if(value.IsHolding<std::string>()) {
+                        std::string assetName = value.Get<std::string>();
+                        m_cyclesObject->asset_name = ccl::ustring(assetName);
+                    }
+                    continue;
+                }
+
                 if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
                     VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
                     if (value.IsHolding<bool>())
