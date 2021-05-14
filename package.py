@@ -62,3 +62,6 @@ def commands():
 
     # required on windows
     env.PATH.append('{root}/plugin/usd')
+
+    # For houdini_cycles to locate the schema
+    env.USD_CYCLES_GENERATED_SCHEMA.set('{root}/plugin/usd/usdCycles/resources/generatedSchema.usda')
