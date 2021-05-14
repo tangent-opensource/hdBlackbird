@@ -1251,6 +1251,7 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const Vt
 void
 HdCyclesRenderParam::_HandlePasses()
 {
+    std::cout << "_HandlePasses" << std::endl;
     // TODO: These might need to live elsewhere when we fully implement aovs/passes
     m_bufferParams.passes.clear();
 
@@ -2099,13 +2100,14 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     if (!has_combined) {
         ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str(), DefaultAovs[0].filter);
     }
+    
 
     film->display_pass = m_bufferParams.passes[0].type;
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
 
     film->tag_update(m_cyclesScene);
-    Interrupt();
-    std::cout << "Finished setting aov bindings, total passes " << m_bufferParams.passes.size() << std::endl;
+
+    DirectReset();
 }
 
 void
