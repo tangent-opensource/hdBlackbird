@@ -34,8 +34,8 @@ _ConvertPixel(HdFormat dstFormat, uint8_t* dst, HdFormat srcFormat, uint8_t cons
 {
     HdFormat srcComponentFormat = HdGetComponentFormat(srcFormat);
     HdFormat dstComponentFormat = HdGetComponentFormat(dstFormat);
-    size_t srcComponentCount    = HdGetComponentCount(srcFormat);
-    size_t dstComponentCount    = HdGetComponentCount(dstFormat);
+    size_t srcComponentCount = HdGetComponentCount(srcFormat);
+    size_t dstComponentCount = HdGetComponentCount(dstFormat);
 
     for (size_t c = 0; c < dstComponentCount; ++c) {
         T readValue = 0;

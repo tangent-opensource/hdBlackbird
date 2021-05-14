@@ -17,20 +17,34 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#include <pxr/base/tf/registryManager.h>
-#include <pxr/base/tf/scriptModuleLoader.h>
-#include <pxr/base/tf/token.h>
-#include <pxr/pxr.h>
+#ifndef HDBB_MESHSOURCE_H
+#define HDBB_MESHSOURCE_H
 
-#include <vector>
+#include "attributeSource.h"
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-TF_REGISTRY_FUNCTION(TfScriptModuleLoader)
-{
-    // List of direct deps for this library
-    const std::vector<TfToken> reqs = { TfToken("sdf"), TfToken("tf"), TfToken("usd"), TfToken("vt") };
-    TfScriptModuleLoader::GetInstance().RegisterLibrary(TfToken("usdCycles"), TfToken("UsdCycles"), reqs);
-}
+class HdBbMeshTopology;
+
+///
+/// Blackbird Mesh attribute source
+///
+class HdBbMeshAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
+                            const HdInterpolation& interpolation, std::shared_ptr<HdBbMeshTopology> topology);
+
+    // Underlying VtValue has different size than ccl::Geometry, we have to accommodate for that.
+    bool Resolve() override;
+    const HdInterpolation& GetInterpolation() const { return m_interpolation; }
+
+private:
+    bool _CheckValid() const override;
+
+    HdInterpolation m_interpolation;
+    std::shared_ptr<HdBbMeshTopology> m_topology;
+};
 
 PXR_NAMESPACE_CLOSE_SCOPE
+
+#endif  //HDCYCLES_MESHSOURCE_H

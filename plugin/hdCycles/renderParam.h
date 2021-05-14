@@ -35,6 +35,7 @@ namespace ccl {
 class Session;
 class Scene;
 class Mesh;
+class PointCloud;
 class RenderTile;
 class Shader;
 }  // namespace ccl
@@ -344,6 +345,7 @@ public:
      * TODO: Refactor this somewhere else
      * 
      */
+    ccl::Shader* default_vcol_display_color_surface;
     ccl::Shader* default_attrib_display_color_surface;
     ccl::Shader* default_object_display_color_surface;
 
@@ -356,6 +358,14 @@ public:
     UpAxis GetUpAxis() const { return m_upAxis; }
 
     void UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders);
+
+    /**
+     * @brief Return if square samples is enabled (for light samples to check against)
+     * 
+     * @return boolean
+     * 
+     */
+    bool IsSquareSamples() const { return m_useSquareSamples; }
 
 private:
     ccl::Session* m_cyclesSession;

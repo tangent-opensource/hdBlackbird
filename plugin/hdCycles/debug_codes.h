@@ -17,6 +17,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+//  Usage of the debug codes follows Arnold's render delegate
+//  https://github.com/Autodesk/arnold-usd/blob/11eb3ced2b6a148bb5737fddeb25e4e21273607f/render_delegate/
+
 #ifndef HD_CYCLES_DEBUG_CODES_H
 #define HD_CYCLES_DEBUG_CODES_H
 

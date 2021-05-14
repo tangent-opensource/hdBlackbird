@@ -18,21 +18,31 @@
 //  limitations under the License.
 
 
-#ifndef HDCYCLES_ATTRIBUTESOURCE_H
-#define HDCYCLES_ATTRIBUTESOURCE_H
+#ifndef HDBB_ATTRIBUTESOURCE_H
+#define HDBB_ATTRIBUTESOURCE_H
 
 #include <pxr/imaging/hd/bufferSource.h>
 #include <pxr/imaging/hd/enums.h>
 
 #include <render/attribute.h>
 
+namespace ccl {
+    class PointCloud;
+}
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 ///
-/// Cycles Attribute to be resolved
+/// Blackbird Attribute to be resolved
 ///
-class HdCyclesAttributeSource : public HdBufferSource {
+class HdBbAttributeSource : public HdBufferSource {
 public:
+    // unfortunately AttributeSet has to be passed to support Geometry::attributes and Mesh::subd_attributes
+    HdBbAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::AttributeSet* attributes,
+                        ccl::AttributeElement element, const ccl::TypeDesc& type_desc);
+
+    HdBbAttributeSource(const VtValue& value, ccl::AttributeSet* attribs, ccl::AttributeStandard std);
+
     // immutable data accessors
     const TfToken& GetName() const override { return m_name; }
     const ccl::AttributeElement& GetAttributeElement() const { return m_element; }
@@ -66,7 +76,7 @@ public:
     static bool CanCastToFloat(const VtValue& value);
     static VtValue UncheckedCastToFloat(const VtValue& value);
 
-private:
+protected:
     TfToken m_name;   // attribute name
     VtValue m_value;  // source data to be committed
 
@@ -75,36 +85,33 @@ private:
     ccl::TypeDesc m_type_desc;        // type desc
     ccl::Attribute* m_attribute;      // attribute to be created
 
-protected:
-    // unfortunately AttributeSet has to be passed to support Geometry::attributes and Mesh::subd_attributes
+    // broken down checks
+    bool _CheckBuffersValid() const;
+    bool _CheckBuffersSize() const;
+    bool _CheckBuffersType() const;
 
-    HdCyclesAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value,
-                            ccl::AttributeSet* attributes, ccl::AttributeElement element);
-
+    //
     bool _CheckValid() const override;
+
+    //
+    bool ResolveUnlocked();
 
     virtual bool ResolveAsValue();
     virtual bool ResolveAsArray();
 };
 
+using HdBbAttributeSourceSharedPtr = std::shared_ptr<HdBbAttributeSource>;
+
 ///
-/// Cycles Hair
+/// Cycles PointCloud
 ///
-class HdCyclesHairAttributeSource : public HdCyclesAttributeSource {
+class HdCyclesPointCloudAttributeSource : public HdBbAttributeSource {
 public:
-    HdCyclesHairAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+    HdCyclesPointCloudAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::PointCloud* pc,
                                 const HdInterpolation& interpolation);
 };
 
-///
-/// Cycles Mesh
-///
-class HdCyclesMeshAttributeSource : public HdCyclesAttributeSource {
-public:
-    HdCyclesMeshAttributeSource(const TfToken& name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
-                                const HdInterpolation& interpolation);
-};
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  //HDCYCLES_ATTRIBUTESOURCE_H
+#endif  //HDBB_ATTRIBUTESOURCE_H

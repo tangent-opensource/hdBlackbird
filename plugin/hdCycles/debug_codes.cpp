@@ -17,20 +17,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#include <pxr/base/tf/registryManager.h>
-#include <pxr/base/tf/scriptModuleLoader.h>
-#include <pxr/base/tf/token.h>
-#include <pxr/pxr.h>
+//  Usage of the debug codes follows Arnold's render delegate
+//  https://github.com/Autodesk/arnold-usd/blob/11eb3ced2b6a148bb5737fddeb25e4e21273607f/render_delegate/
 
-#include <vector>
+#include "debug_codes.h"
+
+#include <pxr/base/tf/registryManager.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-TF_REGISTRY_FUNCTION(TfScriptModuleLoader)
+TF_REGISTRY_FUNCTION(TfDebug)
 {
-    // List of direct deps for this library
-    const std::vector<TfToken> reqs = { TfToken("sdf"), TfToken("tf"), TfToken("usd"), TfToken("vt") };
-    TfScriptModuleLoader::GetInstance().RegisterLibrary(TfToken("usdCycles"), TfToken("UsdCycles"), reqs);
+    TF_DEBUG_ENVIRONMENT_SYMBOL(
+        HDCYCLES_MESH, "Print warnings when syncing cycles meshes");
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

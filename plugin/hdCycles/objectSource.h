@@ -20,6 +20,9 @@
 #ifndef HDCYCLES_OBJECTSOURCE_H
 #define HDCYCLES_OBJECTSOURCE_H
 
+#include "attributeSource.h"
+#include "transformSource.h"
+
 #include <pxr/base/tf/hash.h>
 #include <pxr/base/tf/hashmap.h>
 #include <pxr/imaging/hd/bufferSource.h>
@@ -39,10 +42,24 @@ class SdfPath;
 ///
 class HdCyclesObjectSource : public HdBufferSource {
 public:
-    explicit HdCyclesObjectSource(ccl::Object* object, const SdfPath& id);
+    explicit HdCyclesObjectSource(ccl::Object* object, const SdfPath& id, bool isReference = true);
     ~HdCyclesObjectSource() override;
 
-    void AddSource(HdBufferSourceSharedPtr source);
+    HdBbbObjectPropertiesSource* AddObjectPropertiesSource(HdBbbObjectPropertiesSourceSharedPtr source);
+
+    /// Add new source to the pending sources list
+    HdBbAttributeSource* AddAttributeSource(HdBbAttributeSourceSharedPtr source);
+
+    /// Create new source, private attributes are going to be ignored and nullptr is returned
+    template<typename T, typename... Args>
+    HdBbAttributeSource* CreateAttributeSource(const TfToken& name,  Args&&... args) {
+        const std::string& name_str = name.GetString();
+        if(name_str.find("__", 0) == 0){
+            return nullptr;
+        }
+
+        return AddAttributeSource(std::make_shared<T>(name, std::forward<Args>(args)...));
+    }
 
     const ccl::Object* GetObject() const { return m_object; }
     ccl::Object* GetObject() { return m_object; }
@@ -62,8 +79,10 @@ protected:
 
     ccl::Object* m_object;
     SdfPath m_id;
+    bool m_isReference;
 
-    TfHashMap<TfToken, HdBufferSourceSharedPtr, TfHash> m_pending_sources;
+    TfHashMap<TfToken, HdBbbObjectPropertiesSourceSharedPtr, TfHash> m_pending_properties;
+    TfHashMap<TfToken, HdBbAttributeSourceSharedPtr, TfHash> m_pending_attributes;
 };
 
 using HdCyclesObjectSourceSharedPtr = std::shared_ptr<HdCyclesObjectSource>;
