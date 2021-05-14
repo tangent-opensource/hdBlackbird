@@ -113,74 +113,58 @@ HdCyclesConfig::HdCyclesConfig()
 
     up_axis = TfGetEnvSetting(HD_CYCLES_UP_AXIS);
 
-    enable_motion_blur = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_MOTION_BLUR",
-                                                false);
-    motion_steps       = HdCyclesEnvValue<int>("HD_CYCLES_MOTION_STEPS", 3);
-    enable_subdivision = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_SUBDIVISION",
-                                                false);
-    subdivision_dicing_rate
-        = HdCyclesEnvValue<float>("HD_CYCLES_SUBDIVISION_DICING_RATE", 1.0);
-    max_subdivision = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SUBDIVISION", 12);
-    enable_dof      = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_DOF", true);
+    enable_motion_blur      = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_MOTION_BLUR", false);
+    motion_steps            = HdCyclesEnvValue<int>("HD_BLACKBIRD_MOTION_STEPS", 3);
+    enable_subdivision      = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_SUBDIVISION", false);
+    subdivision_dicing_rate = HdCyclesEnvValue<float>("HD_BLACKBIRD_SUBDIVISION_DICING_RATE", 1.0);
+    max_subdivision         = HdCyclesEnvValue<int>("HD_BLACKBIRD_MAX_SUBDIVISION", 12);
+    enable_dof              = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_DOF", true);
 
-    render_width   = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_WIDTH", 1280);
-    render_height  = HdCyclesEnvValue<int>("HD_CYCLES_RENDER_HEIGHT", 720);
-    use_old_curves = HdCyclesEnvValue<bool>("HD_CYCLES_USE_OLD_CURVES", false);
+    render_width   = HdCyclesEnvValue<int>("HD_BLACKBIRD_RENDER_WIDTH", 1280);
+    render_height  = HdCyclesEnvValue<int>("HD_BLACKBIRD_RENDER_HEIGHT", 720);
+    use_old_curves = HdCyclesEnvValue<bool>("HD_BLACKBIRD_USE_OLD_CURVES", false);
 
-    enable_transparent_background
-        = HdCyclesEnvValue<bool>("HD_CYCLES_USE_TRANSPARENT_BACKGROUND", false);
-    use_square_samples = HdCyclesEnvValue<bool>("HD_CYCLES_USE_SQUARE_SAMPLES",
-                                                false);
+    enable_transparent_background = HdCyclesEnvValue<bool>("HD_BLACKBIRD_USE_TRANSPARENT_BACKGROUND", false);
+    use_square_samples            = HdCyclesEnvValue<bool>("HD_BLACKBIRD_USE_SQUARE_SAMPLES", false);
 
     // -- Cycles Settings
-    enable_experimental
-        = HdCyclesEnvValue<bool>("HD_CYCLES_ENABLE_EXPERIMENTAL", false);
-    bvh_type = HdCyclesEnvValue<std::string>("HD_CYCLES_BVH_TYPE", "DYNAMIC");
-    device_name = HdCyclesEnvValue<std::string>("HD_CYCLES_DEVICE_NAME", "CPU");
-    shading_system = HdCyclesEnvValue<std::string>("HD_CYCLES_SHADING_SYSTEM",
-                                                   "SVM");
-    display_buffer_linear
-        = HdCyclesEnvValue<bool>("HD_CYCLES_DISPLAY_BUFFER_LINEAR", true);
+    enable_experimental   = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_EXPERIMENTAL", false);
+    bvh_type              = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_BVH_TYPE", "DYNAMIC");
+    device_name           = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_DEVICE_NAME", "CPU");
+    shading_system        = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_SHADING_SYSTEM", "SVM");
+    display_buffer_linear = HdCyclesEnvValue<bool>("HD_BLACKBIRD_DISPLAY_BUFFER_LINEAR", true);
 
-    max_samples = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SAMPLES", 512);
+    max_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_MAX_SAMPLES", 512);
 
-    num_threads      = HdCyclesEnvValue<int>("HD_CYCLES_NUM_THREADS", 0);
-    pixel_size       = HdCyclesEnvValue<int>("HD_CYCLES_PIXEL_SIZE", 1);
-    tile_size_x      = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_X", 64);
-    tile_size_y      = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_Y", 64);
-    start_resolution = HdCyclesEnvValue<int>("HD_CYCLES_START_RESOLUTION", 8);
-    shutter_motion_position
-        = HdCyclesEnvValue<int>("HD_CYCLES_SHUTTER_MOTION_POSITION", 1);
+    num_threads             = HdCyclesEnvValue<int>("HD_BLACKBIRD_NUM_THREADS", 0);
+    pixel_size              = HdCyclesEnvValue<int>("HD_BLACKBIRD_PIXEL_SIZE", 1);
+    tile_size_x             = HdCyclesEnvValue<int>("HD_BLACKBIRD_TILE_SIZE_X", 64);
+    tile_size_y             = HdCyclesEnvValue<int>("HD_BLACKBIRD_TILE_SIZE_Y", 64);
+    start_resolution        = HdCyclesEnvValue<int>("HD_BLACKBIRD_START_RESOLUTION", 8);
+    shutter_motion_position = HdCyclesEnvValue<int>("HD_BLACKBIRD_SHUTTER_MOTION_POSITION", 1);
 
-    default_point_style = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE",
-                                                0);
-    default_point_resolution
-        = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
+    default_point_style      = HdCyclesEnvValue<int>("HD_BLACKBIRD_DEFAULT_POINT_STYLE", 0);
+    default_point_resolution = HdCyclesEnvValue<int>("HD_BLACKBIRD_DEFAULT_POINT_RESOLUTION", 16);
 
 
     // -- Curve Settings
 
-    curve_subdivisions = HdCyclesEnvValue<int>("HD_CYCLES_CURVE_SUBDIVISIONS",
-                                               3);
+    curve_subdivisions = HdCyclesEnvValue<int>("HD_BLACKBIRD_CURVE_SUBDIVISIONS", 3);
 
     // -- Film
-    exposure = HdCyclesEnvValue<float>("HD_CYCLES_EXPOSURE", 1.0);
+    exposure = HdCyclesEnvValue<float>("HD_BLACKBIRD_EXPOSURE", 1.0);
 
     // -- Integrator Settings
-    integrator_method
-        = HdCyclesEnvValue<std::string>("HD_CYCLES_INTEGRATOR_METHOD", "PATH");
+    integrator_method = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_INTEGRATOR_METHOD", "PATH");
 
-    diffuse_samples = HdCyclesEnvValue<int>("HD_CYCLES_DIFFUSE_SAMPLES", 1);
-    glossy_samples  = HdCyclesEnvValue<int>("HD_CYCLES_GLOSSY_SAMPLES", 1);
-    transmission_samples
-        = HdCyclesEnvValue<int>("HD_CYCLES_TRANSMISSION_SAMPLES", 1);
-    ao_samples           = HdCyclesEnvValue<int>("HD_CYCLES_AO_SAMPLES", 1);
-    mesh_light_samples   = HdCyclesEnvValue<int>("HD_CYCLES_MESH_LIGHT_SAMPLES",
-                                               1);
-    subsurface_samples   = HdCyclesEnvValue<int>("HD_CYCLES_SUBSURFACE_SAMPLES",
-                                               1);
-    volume_samples       = HdCyclesEnvValue<int>("HD_CYCLES_VOLUME_SAMPLES", 1);
-    adaptive_min_samples = HdCyclesEnvValue<int>("HD_CYCLES_VOLUME_SAMPLES", 1);
+    diffuse_samples      = HdCyclesEnvValue<int>("HD_BLACKBIRD_DIFFUSE_SAMPLES", 1);
+    glossy_samples       = HdCyclesEnvValue<int>("HD_BLACKBIRD_GLOSSY_SAMPLES", 1);
+    transmission_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_TRANSMISSION_SAMPLES", 1);
+    ao_samples           = HdCyclesEnvValue<int>("HD_BLACKBIRD_AO_SAMPLES", 1);
+    mesh_light_samples   = HdCyclesEnvValue<int>("HD_BLACKBIRD_MESH_LIGHT_SAMPLES", 1);
+    subsurface_samples   = HdCyclesEnvValue<int>("HD_BLACKBIRD_SUBSURFACE_SAMPLES", 1);
+    volume_samples       = HdCyclesEnvValue<int>("HD_BLACKBIRD_VOLUME_SAMPLES", 1);
+    adaptive_min_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_VOLUME_SAMPLES", 1);
 }
 
 const HdCyclesConfig&
