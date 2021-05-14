@@ -2239,20 +2239,20 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
 
             // todo: Is there a utility to convert HdFormat to string?
             if (pixels_type == ccl::RenderBuffers::ComponentType::None) {
-                TF_WARN("Unsupported component type %d for aov %s ", (int)rb->GetFormat(), aov.aovName.GetText());
+                TF_WARN("Unsupported component type %d for aov %s ", static_cast<int>(rb->GetFormat()), aov.aovName.GetText());
                 return;
             }
 
             const int stride     = HdDataSizeOfFormat(rb->GetFormat());
             const float exposure = m_cyclesScene->film->exposure;
             auto buffers         = m_cyclesSession->buffers;
-            buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, (uint8_t*)data,
+            buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, static_cast<uint8_t*>(data),
                                       pixels_type, w, h, stride);
 
             if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
                 if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
                     /* We bump the PrimId() before sending it to hydra, decrementing it here */
-                    int32_t* pixels = (int32_t*)data;
+                    int32_t* pixels = static_cast<int32_t*>(data);
                     for (size_t i = 0; i < rb->GetWidth() * rb->GetHeight(); ++i) {
                         pixels[i] -= 1;
                     }
