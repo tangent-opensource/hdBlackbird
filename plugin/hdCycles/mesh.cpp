@@ -684,6 +684,10 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
         m_cyclesMesh->triangles[i] = refined_indices[i];
     }
 
+    for (size_t i = 0; i < m_cyclesMesh->verts.size(); ++i) {
+        m_cyclesMesh->verts[i] = ccl::float3 { 0.f, 0.f, 0.f, 0.f };
+    }
+
     for (size_t i {}; i < refiner->GetTriangulatedTopology().GetNumFaces(); ++i) {
         m_cyclesMesh->smooth[i] = true;  // TODO: move to Populate normals?
     }
@@ -1159,8 +1163,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
             std::string assetName = m_cyclesObject->asset_name.c_str();
             assetName = _HdCyclesGetMeshParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
-                                                           usdCyclesTokens->primvarsCyclesObjectAsset_name,
-                                                           assetName);
+                                                           usdCyclesTokens->primvarsCyclesObjectAsset_name, assetName);
             m_cyclesObject->asset_name = ccl::ustring(assetName);
 
             // Visibility
