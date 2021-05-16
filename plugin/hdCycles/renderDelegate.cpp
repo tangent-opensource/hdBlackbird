@@ -33,6 +33,7 @@
 #include "renderBuffer.h"
 #include "renderParam.h"
 #include "renderPass.h"
+#include "renderPassState.h"
 #include "utils.h"
 
 #include <render/background.h>
@@ -46,9 +47,7 @@
 #include <pxr/imaging/hd/camera.h>
 #include <pxr/imaging/hd/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -61,6 +60,10 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesIntegratorTokens, HDCYCLES_INTEGRATOR_TOKENS);
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesAovTokens, HDCYCLES_AOV_TOKENS);
+
+PXR_NAMESPACE_CLOSE_SCOPE
+
+PXR_NAMESPACE_USING_DIRECTIVE
 
 // clang-format off
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_RPRIM_TYPES = {
@@ -112,15 +115,10 @@ HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
         return;
 
     // -- Initialize Render Delegate components
-
-    m_resourceRegistry.reset(new HdResourceRegistry());
+    m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>(this);
 }
 
-HdCyclesRenderDelegate::~HdCyclesRenderDelegate()
-{
-    m_renderParam->StopRender();
-    m_resourceRegistry.reset();
-}
+HdCyclesRenderDelegate::~HdCyclesRenderDelegate() { m_renderParam->StopRender(); }
 
 TfTokenVector const&
 HdCyclesRenderDelegate::GetSupportedRprimTypes() const
@@ -143,7 +141,6 @@ HdCyclesRenderDelegate::GetSupportedBprimTypes() const
 void
 HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
     // TODO: Undecided how to approach these
@@ -155,8 +152,6 @@ HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
     m_settingDescriptors.push_back({ std::string("Samples"),
                                      usdCyclesTokens->cyclesSamples,
                                      VtValue(config.exposure.) });*/
-
-#endif
 }
 
 void
@@ -190,7 +185,7 @@ HdRenderPassSharedPtr
 HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection)
 {
     HdRenderPassSharedPtr xx = HdRenderPassSharedPtr(new HdCyclesRenderPass(this, index, collection));
-    m_renderPass             = static_cast<HdCyclesRenderPass*>(xx.get());
+    m_renderPass = static_cast<HdCyclesRenderPass*>(xx.get());
     return xx;
 }
 
@@ -207,7 +202,14 @@ HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
         }
     }
 
+    // commit resource to the scene
+    m_resourceRegistry->Commit();
     m_renderParam->CommitResources();
+
+    if (tracker->IsGarbageCollectionNeeded()) {
+        m_resourceRegistry->GarbageCollect();
+        tracker->ClearGarbageCollectionNeeded();
+    }
 }
 
 HdRprim*
@@ -335,7 +337,7 @@ HdCyclesRenderDelegate::GetCyclesRenderParam() const
 HdAovDescriptor
 HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
 {
-    bool use_tiles  = GetCyclesRenderParam()->IsTiledRender();
+    bool use_tiles = GetCyclesRenderParam()->IsTiledRender();
     bool use_linear = GetCyclesRenderParam()->GetCyclesSession()->params.display_buffer_linear;
 
     HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;
@@ -400,4 +402,56 @@ HdCyclesRenderDelegate::Resume()
     return true;
 }
 
-PXR_NAMESPACE_CLOSE_SCOPE
+HdRenderPassStateSharedPtr
+HdCyclesRenderDelegate::CreateRenderPassState() const
+{
+    return std::make_shared<HdCyclesRenderPassState>(this);
+}
+
+HdCyclesDiagnosticDelegate::HdCyclesDiagnosticDelegate(std::ostream& os)
+    : _os { os }
+{
+}
+
+void
+HdCyclesDiagnosticDelegate::IssueError(const TfError& err)
+{
+    IssueDiagnosticBase(err);
+}
+
+HdCyclesDiagnosticDelegate::~HdCyclesDiagnosticDelegate() {}
+
+void
+HdCyclesDiagnosticDelegate::IssueFatalError(const TfCallContext& context, const std::string& msg)
+{
+    std::string message = TfStringPrintf("[FATAL ERROR] %s -- in %s at line %zu of %s", msg.c_str(),
+                                         context.GetFunction(), context.GetLine(), context.GetFile());
+    IssueMessage(message);
+}
+
+void
+HdCyclesDiagnosticDelegate::IssueDiagnosticBase(const TfDiagnosticBase& d)
+{
+    std::string msg = TfStringPrintf("%s -- %s in %s at line %zu of %s", d.GetCommentary().c_str(),
+                                     TfDiagnosticMgr::GetCodeName(d.GetDiagnosticCode()).c_str(),
+                                     d.GetContext().GetFunction(), d.GetContext().GetLine(), d.GetContext().GetFile());
+    IssueMessage(msg);
+}
+
+HdCyclesRenderDelegate::HdCyclesDiagnosticDelegateHolder::HdCyclesDiagnosticDelegateHolder()
+{
+    // add extra output file etc, if required
+    std::string error_output = TfGetenv("HD_CYCLES_DIAGNOSTIC_OUTPUT", "stdout");
+    if (error_output == "stdout") {
+        _delegate = std::make_unique<HdCyclesDiagnosticDelegate>(std::cout);
+        TfDiagnosticMgr::GetInstance().AddDelegate(_delegate.get());
+        return;
+    }
+}
+
+HdCyclesRenderDelegate::HdCyclesDiagnosticDelegateHolder::~HdCyclesDiagnosticDelegateHolder()
+{
+    if (_delegate) {
+        TfDiagnosticMgr::GetInstance().RemoveDelegate(_delegate.get());
+    }
+}

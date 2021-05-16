@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@
 
 #include "api.h"
 
+#include "attributeSource.h"
 #include "hdcycles.h"
+#include "objectSource.h"
 #include "renderDelegate.h"
 #include "utils.h"
 
@@ -214,7 +216,14 @@ private:
     ccl::Hair* m_cyclesHair;
     ccl::Geometry* m_cyclesGeometry;
 
+    HdCyclesObjectSourceSharedPtr m_object_source;
     HdCyclesRenderDelegate* m_renderDelegate;
+};
+
+class HdBbHairAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+                            const HdInterpolation& interpolation);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

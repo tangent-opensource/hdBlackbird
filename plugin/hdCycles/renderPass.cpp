@@ -72,58 +72,57 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         }
     }
 
-    const auto vp = renderPassState->GetViewport();
-
-    GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
-    GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
-
     m_isConverged = renderParam->IsConverged();
-
-    // XXX: Need to cast away constness to process updated camera params since
-    // the Hydra camera doesn't update the Cycles camera directly.
-    HdCyclesCamera* hdCam = const_cast<HdCyclesCamera*>(
-        dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
-
-    ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
 
     bool shouldUpdate = false;
 
-    if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
-        m_projMtx = projMtx;
-        m_viewMtx = viewMtx;
+    // TODO: Revisit this code and move it to HdCyclesRenderPassState
+    auto hdCam = const_cast<HdCyclesCamera*>(dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
+    if (hdCam) {
+        GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
+        GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
 
-        const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
-        hdCam->SetFOV(fov_rad);
+        ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
 
-        shouldUpdate = true;
+        if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
+            m_projMtx = projMtx;
+            m_viewMtx = viewMtx;
+
+            const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
+            hdCam->SetFOV(fov_rad);
+
+            shouldUpdate = true;
+        }
+
+        if (!shouldUpdate) {
+            shouldUpdate = hdCam->IsDirty();
+        }
+
+        if (shouldUpdate) {
+            hdCam->ApplyCameraSettings(active_camera);
+
+            // Needed for now, as houdini looks through a generated camera
+            // and doesn't copy the projection type (as of 18.0.532)
+            bool is_ortho = round(m_projMtx[3][3]) == 1.0;
+
+            if (is_ortho) {
+                active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+            } else
+                active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+
+            active_camera->tag_update();
+
+            // DirectReset here instead of Interrupt for faster IPR camera orbits
+            renderParam->DirectReset();
+        }
     }
 
-    if (!shouldUpdate)
-        shouldUpdate = hdCam->IsDirty();
-
-    if (shouldUpdate) {
-        hdCam->ApplyCameraSettings(active_camera);
-
-        // Needed for now, as houdini looks through a generated camera
-        // and doesn't copy the projection type (as of 18.0.532)
-        bool is_ortho = round(m_projMtx[3][3]) == 1.0;
-
-        if (is_ortho) {
-            active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
-        } else
-            active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
-
-        active_camera->tag_update();
-
-        // DirectReset here instead of Interrupt for faster IPR camera orbits
-        renderParam->DirectReset();
-    }
-
-    const auto width  = static_cast<int>(vp[2]);
-    const auto height = static_cast<int>(vp[3]);
+    const GfVec4f& viewport = renderPassState->GetViewport();
+    const auto width = static_cast<int>(viewport[2]);
+    const auto height = static_cast<int>(viewport[3]);
 
     if (width != m_width || height != m_height) {
-        m_width  = width;
+        m_width = width;
         m_height = height;
 
         // TODO: Due to the startup flow of Cycles, this gets called after a tiled render

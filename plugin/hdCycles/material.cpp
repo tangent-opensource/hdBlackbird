@@ -42,9 +42,7 @@
 #include <pxr/usd/sdr/shaderProperty.h>
 #include <pxr/usdImaging/usdImaging/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -81,8 +79,6 @@ TF_DEFINE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens, HD_CYCLES_MATERIAL_TERMI
 
 TF_MAKE_STATIC_DATA(NdrTokenVec, _sourceTypes) { *_sourceTypes = { TfToken("OSL"), TfToken("cycles") }; }
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
 std::map<TfToken, ccl::DisplacementMethod> DISPLACEMENT_CONVERSION = {
     { usdCyclesTokens->displacement_bump, ccl::DISPLACE_BUMP },
     { usdCyclesTokens->displacement_true, ccl::DISPLACE_TRUE },
@@ -99,8 +95,6 @@ std::map<TfToken, ccl::VolumeSampling> VOLUME_SAMPLING_CONVERSION = {
     { usdCyclesTokens->volume_sampling_equiangular, ccl::VOLUME_SAMPLING_EQUIANGULAR },
     { usdCyclesTokens->volume_sampling_multiple_importance, ccl::VOLUME_SAMPLING_MULTIPLE_IMPORTANCE },
 };
-
-#endif
 
 bool
 IsValidCyclesIdentifier(const std::string& identifier)
@@ -133,7 +127,7 @@ ApplyPrimvarAOVs(ccl::ShaderGraph* graph)
             auto* attr = new ccl::AttributeNode();
             graph->add(attr);
             attr->attribute = ccl::ustring("Pref");
-            auto* aov       = new ccl::OutputAOVNode();
+            auto* aov = new ccl::OutputAOVNode();
             graph->add(aov);
             aov->name = ccl::ustring("Pref");
             graph->connect(attr->output("Vector"), aov->input("Color"));
@@ -161,19 +155,19 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_
     , m_shaderGraph(nullptr)
     , m_renderDelegate(a_renderDelegate)
 {
-    m_shader        = new ccl::Shader();
-    m_shader->name  = id.GetString();
-    m_shaderGraph   = new ccl::ShaderGraph();
+    m_shader = new ccl::Shader();
+    m_shader->name = id.GetString();
+    m_shaderGraph = new ccl::ShaderGraph();
     m_shader->graph = m_shaderGraph;
 
     if (m_renderDelegate)
-        m_renderDelegate->GetCyclesRenderParam()->AddShader(m_shader);
+        m_renderDelegate->GetCyclesRenderParam()->AddShaderSafe(m_shader);
 }
 
 HdCyclesMaterial::~HdCyclesMaterial()
 {
     if (m_shader) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveShader(m_shader);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveShaderSafe(m_shader);
         delete m_shader;
     }
 }
@@ -185,7 +179,7 @@ ccl::ShaderNode*
 matConvertUSDPrimvarReader(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_graph)
 {
     ccl::UVMapNode* uvmap = new ccl::UVMapNode();
-    uvmap->attribute      = ccl::ustring("st");
+    uvmap->attribute = ccl::ustring("st");
 
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
         if (params.first == _tokens->varname) {
@@ -244,7 +238,7 @@ ccl::ShaderNode*
 matConvertUSDPreviewSurface(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_graph)
 {
     ccl::PrincipledBsdfNode* principled = new ccl::PrincipledBsdfNode();
-    principled->base_color              = ccl::make_float3(1.0f, 1.0f, 1.0f);
+    principled->base_color = ccl::make_float3(1.0f, 1.0f, 1.0f);
 
     // Convert params
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
@@ -389,7 +383,19 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 
             case ccl::SocketType::ENUM: {
                 if (params.second.IsHolding<int>()) {
-                    cyclesNode->set(socket, (*socket.enum_values)[params.second.Get<int>()].string().c_str());
+                    const ccl::NodeEnum& node_enums = *socket.enum_values;
+                    auto index = params.second.Get<int>();
+                    if (node_enums.exists(index)) {
+                        const char* value = node_enums[index].string().c_str();
+                        cyclesNode->set(socket, value);
+                    } else {
+                        // fallback to Blender's defaults
+                        if (cycles_node_name == "principled_bsdf") {
+                            cyclesNode->set(socket, "GGX");
+                        } else {
+                            TF_CODING_ERROR("Invalid enum without fallback value");
+                        }
+                    }
                 } else if (params.second.IsHolding<std::string>()) {
                     cyclesNode->set(socket, params.second.Get<std::string>().c_str());
                 } else if (params.second.IsHolding<TfToken>()) {
@@ -492,7 +498,7 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 static bool
 GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMaterialNetworkMap const& networkMap,
                    HdCyclesRenderParam const& renderParam, HdMaterialNetwork const** out_network,
-                   ccl::ShaderGraph* graph)
+                   ccl::ShaderGraph* graph, std::vector<ccl::ShaderNode*>* preview_shaders = nullptr)
 {
     std::map<SdfPath, std::pair<HdMaterialNode*, ccl::ShaderNode*>> conversionMap;
 
@@ -522,6 +528,9 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 
             if (node.identifier == UsdImagingTokens->UsdPreviewSurface) {
                 cycles_node = matConvertUSDPreviewSurface(node, graph);
+                if (cycles_node && preview_shaders) {
+                    preview_shaders->emplace_back(cycles_node);
+                }
             } else if (node.identifier == UsdImagingTokens->UsdUVTexture) {
                 cycles_node = matConvertUSDUVTexture(node, graph);
             } else if (node.identifier == UsdImagingTokens->UsdPrimvarReader_float2) {
@@ -566,19 +575,28 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 
         // Link material nodes
         for (const HdMaterialRelationship& matRel : net.second.relationships) {
-            ccl::ShaderNode* tonode   = conversionMap[matRel.outputId].second;
+            ccl::ShaderNode* tonode = conversionMap[matRel.outputId].second;
             ccl::ShaderNode* fromnode = conversionMap[matRel.inputId].second;
 
-            HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
+            HdMaterialNode* hd_tonode = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
 
-            std::string to_identifier   = hd_tonode->identifier.GetString();
+            // Skip invalid connections. I don't know where they come from, but they exist.
+            assert(tonode);
+            assert(fromnode);
+            assert(hd_tonode);
+            assert(hd_fromnode);
+            if (fromnode == nullptr || hd_fromnode == nullptr || hd_tonode == nullptr || hd_fromnode == nullptr) {
+                continue;
+            }
+
+            std::string to_identifier = hd_tonode->identifier.GetString();
             std::string from_identifier = hd_fromnode->identifier.GetString();
 
             ccl::ShaderOutput* output = NULL;
-            ccl::ShaderInput* input   = NULL;
+            ccl::ShaderInput* input = NULL;
 
-            bool to_has_valid_prefix   = IsValidCyclesIdentifier(to_identifier);
+            bool to_has_valid_prefix = IsValidCyclesIdentifier(to_identifier);
             bool from_has_valid_prefix = IsValidCyclesIdentifier(from_identifier);
 
             // Converts Preview surface connections
@@ -655,12 +673,12 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 void
 HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits)
 {
-    auto cyclesRenderParam     = static_cast<HdCyclesRenderParam*>(renderParam);
+    auto cyclesRenderParam = static_cast<HdCyclesRenderParam*>(renderParam);
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     const SdfPath& id = GetId();
 
-    param->GetCyclesScene()->mutex.lock();
+    ccl::thread_scoped_lock lock { param->GetCyclesScene()->mutex };
     bool material_updated = false;
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
@@ -673,12 +691,15 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
             auto& networkMap = vtMat.UncheckedGet<HdMaterialNetworkMap>();
 
-            HdMaterialNetwork const* surface      = nullptr;
+            HdMaterialNetwork const* surface = nullptr;
             HdMaterialNetwork const* displacement = nullptr;
-            HdMaterialNetwork const* volume       = nullptr;
+            HdMaterialNetwork const* volume = nullptr;
+
+            // Keeping track of preview node to clean the output nodes
+            std::vector<ccl::ShaderNode*> preview_shaders;
 
             if (GetMaterialNetwork(HdCyclesMaterialTerminalTokens->surface, sceneDelegate, networkMap,
-                                   *cyclesRenderParam, &surface, m_shaderGraph)) {
+                                   *cyclesRenderParam, &surface, m_shaderGraph, &preview_shaders)) {
                 if (m_shader && m_shaderGraph) {
                     material_updated = true;
                 }
@@ -701,12 +722,12 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
             if (!material_updated) {
                 TF_CODING_WARNING("Material type not supported");
             }
+
+            _FixPreviewShadersOutput(preview_shaders);
         }
     }
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
-#ifdef USE_USD_CYCLES_SCHEMA
-
         TfToken displacementMethod = _HdCyclesGetParam<TfToken>(sceneDelegate, id,
                                                                 usdCyclesTokens->cyclesMaterialDisplacement_method,
                                                                 usdCyclesTokens->displacement_bump);
@@ -749,8 +770,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
             m_shader->volume_sampling_method = VOLUME_SAMPLING_CONVERSION[volume_sampling];
         }
         material_updated = true;
-
-#endif
     }
 
     if (material_updated) {
@@ -764,8 +783,6 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
         _DumpGraph(m_shaderGraph, m_shader->name.c_str());
     }
-
-    param->GetCyclesScene()->mutex.unlock();
 
     *dirtyBits = Clean;
 }
@@ -791,6 +808,65 @@ bool
 HdCyclesMaterial::IsValid() const
 {
     return true;
+}
+
+void
+HdCyclesMaterial::_FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& preview_shaders)
+{
+    if (!m_shaderGraph->output()) {
+        return;
+    }
+
+    // This is a fix for preview materials being selected over cycles materials.
+    // If no outputs are present we leave the preview materials for presentation,
+    // otherwise delete them as they can override the cycles one during rendering
+    ccl::ShaderInput* out_surface = m_shaderGraph->output()->input("Surface");
+    ccl::ShaderInput* out_volume = m_shaderGraph->output()->input("Volume");
+    ccl::ShaderInput* out_displacement = m_shaderGraph->output()->input("Displacement");
+
+    int n_outputs = 0;
+
+    n_outputs += (out_surface && out_surface->link) ? 1 : 0;
+    n_outputs += (out_volume && out_volume->link) ? 1 : 0;
+    n_outputs += (out_displacement && out_displacement->link) ? 1 : 0;
+
+    int is_output_surface_preview = 0;
+    int is_output_volume_preview = 0;
+    int is_output_displacement_preview = 0;
+    if (out_surface && out_surface->link) {
+        is_output_surface_preview = (std::find(preview_shaders.begin(), preview_shaders.end(), out_surface->link->parent)
+                                     != preview_shaders.end())
+                                        ? 1
+                                        : 0;
+    }
+    if (out_volume && out_volume->link) {
+        is_output_volume_preview = (std::find(preview_shaders.begin(), preview_shaders.end(), out_volume->link->parent)
+                                    != preview_shaders.end())
+                                       ? 1
+                                       : 0;
+    }
+    if (out_displacement && out_displacement->link) {
+        is_output_displacement_preview
+            = (std::find(preview_shaders.begin(), preview_shaders.end(), out_displacement->link->parent)
+               != preview_shaders.end())
+                  ? 1
+                  : 0;
+    }
+
+    // Currently not deleting the node from the list to make sure it's deleted from the
+    // ShaderGraph. The ideal solution would be to have a post processing pass to clear unused ones
+    const int n_outputs_preview = is_output_surface_preview + is_output_displacement_preview + is_output_volume_preview;
+    if (n_outputs > 0 && n_outputs_preview > 0 && n_outputs_preview < n_outputs) {
+        if (is_output_surface_preview) {
+            m_shaderGraph->output()->input("Surface")->disconnect();
+        }
+        if (is_output_volume_preview) {
+            m_shaderGraph->output()->input("Volume")->disconnect();
+        }
+        if (is_output_displacement_preview) {
+            m_shaderGraph->output()->input("Displacement")->disconnect();
+        }
+    }
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

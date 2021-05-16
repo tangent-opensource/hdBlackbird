@@ -17,24 +17,41 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//  Usage of the debug codes follows Arnold's render delegate
-//  https://github.com/Autodesk/arnold-usd/blob/11eb3ced2b6a148bb5737fddeb25e4e21273607f/render_delegate/
+#ifndef HDCYCLES_RESOURCEREGISTRY_H
+#define HDCYCLES_RESOURCEREGISTRY_H
 
-#ifndef HD_CYCLES_DEBUG_CODES_H
-#define HD_CYCLES_DEBUG_CODES_H
+#include "objectSource.h"
 
-#include <pxr/pxr.h>
+#include <pxr/imaging/hd/bufferSource.h>
+#include <pxr/imaging/hd/instanceRegistry.h>
+#include <pxr/imaging/hd/resourceRegistry.h>
 
-#include <pxr/base/tf/debug.h>
+#include <tbb/concurrent_vector.h>
+
+namespace ccl {
+class Scene;
+}
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-// clang-format off
-TF_DEBUG_CODES(
-	HDCYCLES_MESH
-)
-// clang-format on
+class HdCyclesRenderDelegate;
+
+class HdCyclesResourceRegistry final : public HdResourceRegistry {
+public:
+    explicit HdCyclesResourceRegistry(HdCyclesRenderDelegate* renderDelegate);
+
+    HdInstance<HdCyclesObjectSourceSharedPtr> GetObjectInstance(const SdfPath& id);
+
+private:
+    void _Commit() override;
+    void _GarbageCollect() override;
+
+    HdCyclesRenderDelegate* m_renderDelegate;
+    HdInstanceRegistry<HdCyclesObjectSourceSharedPtr> m_objects;
+};
+
+using HdCyclesResourceRegistrySharedPtr = std::shared_ptr<HdCyclesResourceRegistry>;
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_DEBUG_CODES_H
+#endif  //HDCYCLES_RESOURCEREGISTRY_H

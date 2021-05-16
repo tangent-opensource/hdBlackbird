@@ -24,35 +24,34 @@ endif()
 find_package(Houdini REQUIRED PATHS ${HOUDINI_ROOT}/toolkit/cmake)
 target_link_libraries(UsdInterface INTERFACE Houdini)
 
-# Find hboost
+# DSO
 target_compile_definitions(UsdInterface
     INTERFACE
     USE_HBOOST
     BOOST_NS=hboost
 )
 
-find_library(_houdini_hboost_python
-    NAMES
-    hboost_python27-mt-x64
-    hboost_python-mt-x64
-    PATHS
-    ${HOUDINI_ROOT}/dsolib
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/
-    REQUIRED
-    )
+set(_houdini_libs OpenImageIO_sidefx;hboost_filesystem-mt-x64;hboost_iostreams-mt-x64;hboost_system-mt-x64;hboost_regex-mt-x64)
+foreach(_houdini_lib ${_houdini_libs})
+    find_library(${_houdini_lib}_path
+            NAMES
+            ${_houdini_lib}
+            PATHS
+            ${HOUDINI_ROOT}/dsolib
+            ${HOUDINI_ROOT}/custom/houdini/dsolib/
+            REQUIRED
+            )
 
-find_library(_houdini_hboost_filesystem
-    NAMES
-    hboost_filesystem-mt-x64
-    PATHS
-    ${HOUDINI_ROOT}/dsolib
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/
-    REQUIRED
-    )
+    message(STATUS "Found ${_houdini_lib}: ${${_houdini_lib}_path}")
 
-target_link_libraries(Houdini INTERFACE ${_houdini_hboost_python} ${_houdini_hboost_filesystem})
+    target_link_libraries(UsdInterface
+            INTERFACE
+            ${${_houdini_lib}_path}
+            )
 
-# Find Python
+endforeach()
+
+# Python
 find_library(_houdini_python_lib
     NAMES
     python27
@@ -64,35 +63,58 @@ find_library(_houdini_python_lib
     ${HOUDINI_ROOT}/python/lib
     REQUIRED
     )
-target_link_libraries(Houdini INTERFACE ${_houdini_python_lib})
 
-# Find OpenImageIO_sidefx
-find_library(_houdini_oiio_lib
-    NAMES
-    OpenImageIO_sidefx
-    PATHS
-    ${HOUDINI_ROOT}/dsolib
-    ${HOUDINI_ROOT}/custom/houdini/dsolib/
-    REQUIRED
-    )
-target_link_libraries(UsdInterface INTERFACE ${_houdini_oiio_lib})
-
-# Find Usd
-list(APPEND CMAKE_FIND_LIBRARY_PREFIXES lib) # append lib prefix to have same behaviour on win and lin
-set(_houdini_pxr_libs pxr_ar;pxr_arch;pxr_cameraUtil;pxr_garch;pxr_gf;pxr_glf;pxr_hd;pxr_hdSt;pxr_hdx;pxr_hf;pxr_hgi;pxr_hgiGL;pxr_hgiInterop;pxr_hio;pxr_js;pxr_kind;pxr_ndr;pxr_pcp;pxr_plug;pxr_pxOsd;pxr_sdf;pxr_sdr;pxr_tf;pxr_trace;pxr_usd;pxr_usdAppUtils;pxr_usdGeom;pxr_usdHydra;pxr_usdImaging;pxr_usdImagingGL;pxr_usdLux;pxr_usdMedia;pxr_usdRender;pxr_usdRi;pxr_usdRiImaging;pxr_usdShade;pxr_usdSkel;pxr_usdSkelImaging;pxr_usdUI;pxr_usdUtils;pxr_usdviewq;pxr_usdVol;pxr_usdVolImaging;pxr_vt;pxr_work;)
-foreach(_pxr_lib ${_houdini_pxr_libs})
-    find_library(${_pxr_lib}_path
+find_library(_houdini_hboost_python
         NAMES
-        ${_pxr_lib}
+        hboost_python27-mt-x64
+        hboost_python-mt-x64
         PATHS
         ${HOUDINI_ROOT}/dsolib
         ${HOUDINI_ROOT}/custom/houdini/dsolib/
         REQUIRED
-    )
+        )
+
+target_link_libraries(Houdini INTERFACE ${_houdini_python_lib} ${_houdini_hboost_python})
+
+# Usd
+list(APPEND CMAKE_FIND_LIBRARY_PREFIXES lib) # append lib prefix to have same behaviour on win and lin
+set(_houdini_pxr_libs pxr_ar;pxr_arch;pxr_cameraUtil;pxr_garch;pxr_gf;pxr_glf;pxr_hd;pxr_hdSt;pxr_hdx;pxr_hf;pxr_hgi;pxr_hgiGL;pxr_hgiInterop;pxr_hio;pxr_js;pxr_kind;pxr_ndr;pxr_pcp;pxr_plug;pxr_pxOsd;pxr_sdf;pxr_sdr;pxr_tf;pxr_trace;pxr_usd;pxr_usdAppUtils;pxr_usdGeom;pxr_usdHydra;pxr_usdImaging;pxr_usdImagingGL;pxr_usdLux;pxr_usdMedia;pxr_usdRender;pxr_usdRi;pxr_usdRiImaging;pxr_usdShade;pxr_usdSkel;pxr_usdSkelImaging;pxr_usdUI;pxr_usdUtils;pxr_usdviewq;pxr_usdVol;pxr_usdVolImaging;pxr_vt;pxr_work;)
+foreach(_pxr_lib ${_houdini_pxr_libs})
+    find_library(${_pxr_lib}_path
+            NAMES
+            ${_pxr_lib}
+            PATHS
+            ${HOUDINI_ROOT}/dsolib
+            ${HOUDINI_ROOT}/custom/houdini/dsolib/
+            REQUIRED
+            )
 
     target_link_libraries(UsdInterface
-        INTERFACE
-        ${${_pxr_lib}_path}
-    )
+            INTERFACE
+            ${${_pxr_lib}_path}
+            )
 
 endforeach()
+
+# Find Usd Schema Generator
+
+find_program(USD_SCHEMA_GENERATOR
+        NAMES
+        usdGenSchema
+        PATHS
+        ${HOUDINI_ROOT}/bin
+        )
+
+# Fallback to py script, remove after 18.5.519 release and add REQUIORED to usdGenSchema find_program
+
+if(NOT USD_SCHEMA_GENERATOR)
+    find_program(USD_SCHEMA_GENERATOR
+            NAMES
+            usdGenSchema.py
+            PATHS
+            ${HOUDINI_ROOT}/bin
+            REQUIRED
+            )
+    list(PREPEND USD_SCHEMA_GENERATOR hython)
+    set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
+endif()

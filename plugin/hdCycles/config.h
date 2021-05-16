@@ -48,7 +48,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 template<typename T> struct HdCyclesEnvValue {
     HdCyclesEnvValue() = default;
 
-    HdCyclesEnvValue(const char* a_envName, T a_default) {}
+    HdCyclesEnvValue(const char* a_envName, T a_default)
+        : value { a_default }
+        , envName { a_envName }
+    {
+    }
 
     T value;
     bool hasOverride;
@@ -131,13 +135,7 @@ public:
      * @brief If enabled, HdCycles will populate object's motion and enable motion blur
      *
      */
-    HdCyclesEnvValue<bool> enable_motion_blur;
-
-    /**
-     * @brief Number of frames to populate motion for
-     *
-     */
-    HdCyclesEnvValue<int> motion_steps;
+    HdCyclesEnvValue<bool> motion_blur;
 
     /**
      * @brief If enabled, subdiv meshes will be subdivided
@@ -244,12 +242,6 @@ public:
      *
      */
     HdCyclesEnvValue<int> max_samples;
-
-    /**
-     * @brief Number of threads to use for cycles render
-     *
-     */
-    HdCyclesEnvValue<int> num_threads;
 
     /**
      * @brief Size of pixel
@@ -361,9 +353,9 @@ private:
      * @return 
      */
     HdCyclesConfig();
-    ~HdCyclesConfig()                     = default;
+    ~HdCyclesConfig() = default;
     HdCyclesConfig(const HdCyclesConfig&) = delete;
-    HdCyclesConfig(HdCyclesConfig&&)      = delete;
+    HdCyclesConfig(HdCyclesConfig&&) = delete;
     HdCyclesConfig& operator=(const HdCyclesConfig&) = delete;
 
     friend class TfSingleton<HdCyclesConfig>;

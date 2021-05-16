@@ -24,6 +24,7 @@
 
 #include "hdcycles.h"
 #include "meshRefiner.h"
+#include "objectSource.h"
 
 #include <util/util_transform.h>
 
@@ -232,6 +233,8 @@ private:
         DirtyTangents = HdChangeTracker::CustomBitsBegin,
     };
 
+    HdCyclesObjectSourceSharedPtr m_object_source;
+
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
     std::vector<ccl::Object*> m_cyclesInstances;
@@ -239,11 +242,10 @@ private:
     ccl::Shader* m_object_display_color_shader;
     ccl::Shader* m_attrib_display_color_shader;
 
-    int m_numTransformSamples;
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    HdMeshTopology m_topology;
-    std::shared_ptr<const HdCyclesMeshRefiner> m_refiner;
+    int m_refineLevel;
+    std::shared_ptr<HdBbMeshTopology> m_topology;
 
     float m_velocityScale;
 

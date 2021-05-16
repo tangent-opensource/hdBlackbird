@@ -38,7 +38,7 @@ target_link_libraries(ndrCycles
 
 target_compile_options(ndrCycles
         PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /wd4273 /Zi /experimental:external /external:W0>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
         $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated -Wshadow -Wdouble-promotion -Wconversion -Wnull-dereference -Wold-style-cast -Wuseless-cast>
         )
@@ -52,13 +52,13 @@ target_compile_definitions(ndrCycles
 set_target_properties(ndrCycles PROPERTIES
         PREFIX ""
         )
-install(TARGETS ndrCycles DESTINATION plugin/usd/ndrCycles)
+install(TARGETS ndrCycles DESTINATION plugin/usd)
 if (MSVC)
-    install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd/ndrCycles OPTIONAL)
-endif()
+    install(FILES $<TARGET_PDB_FILE:ndrCycles> DESTINATION plugin/usd OPTIONAL)
+endif ()
 
 # plugInfo.json
-set(PLUG_INFO_LIBRARY_PATH "ndrCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(PLUG_INFO_LIBRARY_PATH "../ndrCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
 set(PLUG_INFO_RESOURCE_PATH "resources")
 set(PLUG_INFO_ROOT "..")
 configure_file(plugInfo.json plugInfo.json @ONLY)
