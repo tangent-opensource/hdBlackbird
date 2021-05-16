@@ -73,18 +73,22 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::vector<int>& a_tiles)
         if (BOOST_NS::filesystem::is_directory(path)) {
             for (BOOST_NS::filesystem::directory_iterator it(path); it != BOOST_NS::filesystem::directory_iterator();
                  ++it) {
-                if (BOOST_NS::filesystem::is_regular_file(it->status())
-                    || BOOST_NS::filesystem::is_symlink(it->status())) {
-                    std::string foundFile = BOOST_NS::filesystem::basename(it->path().filename());
+                try {
+                    if (BOOST_NS::filesystem::is_regular_file(it->status())
+                        || BOOST_NS::filesystem::is_symlink(it->status())) {
+                        std::string foundFile = BOOST_NS::filesystem::basename(it->path().filename());
 
-                    if (baseFileName == (foundFile.substr(0, offset))) {
-                        files.push_back(foundFile);
+                        if (baseFileName == (foundFile.substr(0, offset))) {
+                            files.push_back(foundFile);
+                        }
                     }
+                } catch (BOOST_NS::exception& e) {
+                    TF_WARN("Filesystem error in HdCyclesParseUDIMS() when parsing file %s",it->path().filename().c_str());
                 }
             }
         }
     } catch (BOOST_NS::exception& e) {
-        TF_WARN("Filesystem error in HdCyclesParseUDIMS() when parsing %s", a_filepath.c_str());
+        TF_WARN("Filesystem error in HdCyclesParseUDIMS() when parsing directory %s", a_filepath.c_str());
     }
 
     a_tiles.clear();
