@@ -1257,7 +1257,6 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const Vt
 void
 HdCyclesRenderParam::_HandlePasses()
 {
-    std::cout << "_HandlePasses" << std::endl;
     // TODO: These might need to live elsewhere when we fully implement aovs/passes
     m_bufferParams.passes.clear();
 
@@ -1997,7 +1996,6 @@ HdCyclesRenderParam::GetRenderStats() const
 void
 HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
-    std::cout << "Setting " << a_aovs.size() << " aov bindings" << std::endl;
     // Synchronizes with the render buffers reset and blitting (display)
     // Also mirror the locks used when in the display_copy_cb callback
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
@@ -2151,8 +2149,6 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
 
     film->tag_update(m_cyclesScene);
-
-    DirectReset();
 }
 
 /*

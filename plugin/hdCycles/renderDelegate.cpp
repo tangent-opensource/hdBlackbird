@@ -294,7 +294,6 @@ HdBprim*
 HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
 {
     if (typeId == HdPrimTypeTokens->renderBuffer) {
-        std::cout << "Creating cycles render buffer " << std::endl;
         return new HdCyclesRenderBuffer(this, SdfPath());
     }
     if (typeId == _tokens->openvdbAsset) {
@@ -307,7 +306,6 @@ HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
 void
 HdCyclesRenderDelegate::DestroyBprim(HdBprim* bPrim)
 {
-    std::cout << "Deleting Bprim " << bPrim->GetId() << std::endl;
     if (bPrim)
         delete bPrim;
 }

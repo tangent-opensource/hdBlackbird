@@ -63,24 +63,20 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 {
     auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(m_delegate->GetRenderParam());
 
-    const GfVec4f& viewport = renderPassState->GetViewport();
-    const auto width = static_cast<int>(viewport[2]);
-    const auto height = static_cast<int>(viewport[3]);
+    // Update convergence status. Cycles will stop blitting once rendering has finished,
+    // but this is needed to let Hydra and the viewport know.
+    m_isConverged = renderParam->IsConverged();
 
-    if (width != m_width || height != m_height) {
-        std::cout << "Setting viewport " << std::endl;
-    }
-
+    // Update the Cycles render passes with the new aov bindings if they have changed
+    // Do not reset the session yet
     HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
-    if (renderParam->GetAovBindings() != aovBindings) {
+    const bool aovBindingsHaveChanged = renderParam->GetAovBindings() != aovBindings;
+    if (aovBindingsHaveChanged) {
         renderParam->SetAovBindings(aovBindings);
     }
 
-    m_isConverged = renderParam->IsConverged();
-
-    bool shouldUpdate = false;
-
     // TODO: Revisit this code and move it to HdCyclesRenderPassState
+    bool shouldUpdate = false;
     auto hdCam = const_cast<HdCyclesCamera*>(dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
     if (hdCam) {
         GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
@@ -121,6 +117,11 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         }
     }
 
+    // Resetting the Cycles session if the viewport size or AOV bindings changed
+    const GfVec4f& viewport = renderPassState->GetViewport();
+    const auto width = static_cast<int>(viewport[2]);
+    const auto height = static_cast<int>(viewport[3]);
+
     if (width != m_width || height != m_height) {
         m_width = width;
         m_height = height;
@@ -136,6 +137,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
             renderParam->StartRender();
         }
 
+        renderParam->Interrupt();
+    } else if (aovBindingsHaveChanged) {
+        renderParam->DirectReset();
         renderParam->Interrupt();
     }
 }

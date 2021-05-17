@@ -85,14 +85,17 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegat
 
 HdCyclesRenderBuffer::~HdCyclesRenderBuffer() {}
 
+/*
+    Do not call _Deallocate() from within this function. If you really have to
+    try to make use of recursive locking.
+
+    For some reasons if _Deallocate() is called before _Allocate, I get deadlocks
+    when resizing the houdini viewport and the reason is still unclear
+*/
 bool
 HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool multiSampled)
 {
     TF_UNUSED(multiSampled);
-
-    _Deallocate();
-
-    std::cout << "Allocating render buffer " << dimensions[0] << " " << dimensions[1] << std::endl;
 
     if (dimensions[2] != 1) {
         TF_WARN("Render buffer allocated with dims <%d, %d, %d> and format %s; depth must be 1!", dimensions[0],
@@ -100,9 +103,11 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
         return false;
     }
 
-    std::cout << "Locking " << std::endl;
-
     m_mutex.lock();
+
+    // Simulating shrink to fit
+    std::vector<uint8_t> buffer_empty {};
+    m_buffer.swap(buffer_empty);
 
     m_width     = static_cast<unsigned int>(dimensions[0]);
     m_height    = static_cast<unsigned int>(dimensions[1]);
@@ -111,8 +116,6 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
     m_buffer.resize(m_width * m_height * m_pixelSize, 0);
 
     m_mutex.unlock();
-
-    std::cout << "Finished allocating" << std::endl;
 
     return true;
 }
@@ -150,13 +153,13 @@ HdCyclesRenderBuffer::IsMultiSampled() const
 void*
 HdCyclesRenderBuffer::Map()
 {    
+    m_mutex.lock();
     if (m_buffer.empty()) {
+        m_mutex.unlock();
         return nullptr;
     }
 
-    m_mutex.lock(); 
     m_mappers++;
-    //std::cout << "LOCK " << GetId() << std::endl;
     return m_buffer.data();
 }
 
@@ -165,7 +168,6 @@ HdCyclesRenderBuffer::Unmap()
 {
     if (!m_buffer.empty()) {
         m_mappers--;
-        //std::cout << "UNLOCK " << GetId() << std::endl;
         m_mutex.unlock();
     }
 }
