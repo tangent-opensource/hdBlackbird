@@ -130,8 +130,10 @@ GetSourceName(const HdRenderPassAovBinding& aov)
         }
     }
 
+    // If a source name is not present, we attempt to use the name of the
+    // AOV for the same purpose. This picks up the default aovs in
+    // usdview and the Houdini Render Outputs pane
     return aov.aovName;
-    return TfToken();
 }
 
 bool
@@ -1290,7 +1292,7 @@ HdCyclesRenderParam::_CreateSession()
 
     m_cyclesSession->display_copy_cb = [this](int samples) {
         for (auto aov : m_aovs) {
-            BlitFromCyclesPass(aov, m_cyclesSession->display->draw_width, m_cyclesSession->display->draw_height, samples);
+            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width, m_cyclesSession->tile_manager.state.buffer.height, samples);
         }
     };
 
