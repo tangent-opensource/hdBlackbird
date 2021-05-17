@@ -598,7 +598,7 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
 
     sceneParams->bvh_layout = ccl::BVH_LAYOUT_EMBREE;
 
-    sceneParams->persistent_data = true;
+    sceneParams->persistent_data = false;
 
     sceneParams->texture.use_cache = false;
     sceneParams->texture.auto_convert = false;
