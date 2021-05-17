@@ -373,42 +373,20 @@ private:
 
     HdRenderPassAovBindingVector m_aovs;
 
-    /* Synchronizes blitting, which is a callback from the Cycles session
-     * with changing the render settings. */
-    std::mutex m_aovs_mutex;
-
     bool m_settingsHaveChanged = false;
 
-    TfToken m_displayAovToken;
-
 public:
-    void tagSettingsDirty();
-
-    /**
-     * @brief Set the default display AOV
-     * 
-     * @param a_aov Set a HdRenderPassAovBinding from HdCyclesRenderPass
-     * 
-     * TODO: Currently there is no upstream from Houdini way to apply a default
-     * AOV to view, so it'll just default to color or the first one found. A
-     * possible workaround is to just make Cycles render all AOVs at once in
-     * display mode.
-     */
-    void SetDisplayAov(HdRenderPassAovBinding const& a_aov);
-
-    /**
-     * @brief Get the default display AOV token
-     * 
-     * @return TfToken of the default AOV diplay
-     */
-    const TfToken& GetDisplayAovToken() const { return m_displayAovToken; }
-
     /**
      * @brief Set the AOV bindings
      * 
      * @param a_aovs Set a HdRenderPassAovBindingVector from HdCyclesRenderPass
      */
     void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs);
+
+    /**
+     * @brief Remove the AOV binding, probably because the buffer has been deleted
+     */
+    void RemoveAovBinding(HdRenderBuffer* rb);
 
     /**
      * @brief Get the AOV bindings

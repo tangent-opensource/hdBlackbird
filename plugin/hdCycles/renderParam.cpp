@@ -176,7 +176,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useSquareSamples(false)
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
-    , m_displayAovToken(HdAovTokens->color)
 {
     _InitializeDefaults();
 }
@@ -1291,11 +1290,6 @@ HdCyclesRenderParam::_CreateSession()
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
     m_cyclesSession->display_copy_cb = [this](int samples) {
-        if (m_settingsHaveChanged) {
-            m_settingsHaveChanged = false;
-            return;
-        }
-
         for (auto aov : m_aovs) {
             BlitFromCyclesPass(aov, m_cyclesSession->display->draw_width, m_cyclesSession->display->draw_height, samples);
         }
@@ -1670,7 +1664,7 @@ HdCyclesRenderParam::SetViewport(int w, int h)
 
     m_aovBindingsNeedValidation = true;
 
-    m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
+    DirectReset();
 }
 
 void
@@ -2003,6 +1997,7 @@ HdCyclesRenderParam::GetRenderStats() const
 void
 HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
+    std::cout << "Setting " << a_aovs.size() << " aov bindings" << std::endl;
     // Synchronizes with the render buffers reset and blitting (display)
     // Also mirror the locks used when in the display_copy_cb callback
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
@@ -2011,11 +2006,6 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     // This is necessary as the scene film is edited
     ccl::thread_scoped_lock scene_lock { m_cyclesScene->mutex };
 
-
-    m_settingsHaveChanged = true;
-
-    std::cout << "Setting " << a_aovs.size() << " aov bindings" << std::endl;
-    
     m_aovs = a_aovs;
 
     m_bufferParams.passes.clear();
@@ -2039,8 +2029,6 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
-
-        std::cout << "Binding " << aov.aovName << std::endl;
 
         TfToken sourceName = GetSourceName(aov);
 
@@ -2167,36 +2155,23 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     DirectReset();
 }
 
+/*
+    We need to remove the aov binding because the renderbuffer can be
+    deallocated before new aov bindings are set in the renderpass.
+*/
 void
-HdCyclesRenderParam::tagSettingsDirty() {
-    //Interrupt();
+HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb) {
+    if (!rb) {
+        return;
+    }
 
     // Aovs access is synchronized with the Cycles display lock
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
     ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
-    m_settingsHaveChanged = true;
 
-    // This guarantess that aov bindings point to a valid render buffer
-    m_aovs.clear();
-}
-
-void
-HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
-{
-    m_cyclesScene->film->display_pass = DefaultAovs[0].type;
-    m_displayAovToken = DefaultAovs[0].token;
-    if (!m_aovs.empty()) {
-        TfToken sourceName = GetSourceName(a_aov);
-        for (HdCyclesAov& cyclesAov : DefaultAovs) {
-            if (sourceName == cyclesAov.token) {
-                m_cyclesScene->film->display_pass = cyclesAov.type;
-                m_displayAovToken = a_aov.aovName;
-                break;
-            }
-        }
-        m_cyclesScene->film->tag_update(m_cyclesScene);
-        Interrupt();
-    }
+    m_aovs.erase(std::remove_if(m_aovs.begin(), m_aovs.end(), [rb](HdRenderPassAovBinding& aov) {
+        return aov.renderBuffer == rb;
+    }), m_aovs.end());
 }
 
 void
@@ -2213,6 +2188,12 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     // The RenderParam logic should guarantee that aov bindings always point to valid renderbuffer
     auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
     if (!rb) {
+        return;
+    }
+
+    // No point in blitting since the session will be reset
+    if (m_cyclesSession->buffers->params.width != rb->GetWidth()
+        || m_cyclesSession->buffers->params.height != rb->GetHeight()) {
         return;
     }
 
@@ -2240,6 +2221,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             // todo: Is there a utility to convert HdFormat to string?
             if (pixels_type == ccl::RenderBuffers::ComponentType::None) {
                 TF_WARN("Unsupported component type %d for aov %s ", static_cast<int>(rb->GetFormat()), aov.aovName.GetText());
+                rb->Unmap();
                 return;
             }
 

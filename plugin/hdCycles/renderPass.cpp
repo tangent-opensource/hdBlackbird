@@ -63,13 +63,17 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 {
     auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(m_delegate->GetRenderParam());
 
-    HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
+    const GfVec4f& viewport = renderPassState->GetViewport();
+    const auto width = static_cast<int>(viewport[2]);
+    const auto height = static_cast<int>(viewport[3]);
 
+    if (width != m_width || height != m_height) {
+        std::cout << "Setting viewport " << std::endl;
+    }
+
+    HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
     if (renderParam->GetAovBindings() != aovBindings) {
         renderParam->SetAovBindings(aovBindings);
-        if (!aovBindings.empty()) {
-            renderParam->SetDisplayAov(aovBindings[0]);
-        }
     }
 
     m_isConverged = renderParam->IsConverged();
@@ -116,10 +120,6 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
             renderParam->DirectReset();
         }
     }
-
-    const GfVec4f& viewport = renderPassState->GetViewport();
-    const auto width = static_cast<int>(viewport[2]);
-    const auto height = static_cast<int>(viewport[3]);
 
     if (width != m_width || height != m_height) {
         m_width = width;

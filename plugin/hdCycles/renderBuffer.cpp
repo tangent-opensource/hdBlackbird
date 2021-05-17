@@ -92,11 +92,15 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
 
     _Deallocate();
 
+    std::cout << "Allocating render buffer " << dimensions[0] << " " << dimensions[1] << std::endl;
+
     if (dimensions[2] != 1) {
         TF_WARN("Render buffer allocated with dims <%d, %d, %d> and format %s; depth must be 1!", dimensions[0],
                 dimensions[1], dimensions[2], TfEnum::GetName(format).c_str());
         return false;
     }
+
+    std::cout << "Locking " << std::endl;
 
     m_mutex.lock();
 
@@ -107,6 +111,8 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
     m_buffer.resize(m_width * m_height * m_pixelSize, 0);
 
     m_mutex.unlock();
+
+    std::cout << "Finished allocating" << std::endl;
 
     return true;
 }
@@ -150,6 +156,7 @@ HdCyclesRenderBuffer::Map()
 
     m_mutex.lock(); 
     m_mappers++;
+    //std::cout << "LOCK " << GetId() << std::endl;
     return m_buffer.data();
 }
 
@@ -158,6 +165,7 @@ HdCyclesRenderBuffer::Unmap()
 {
     if (!m_buffer.empty()) {
         m_mappers--;
+        //std::cout << "UNLOCK " << GetId() << std::endl;
         m_mutex.unlock();
     }
 }
@@ -200,7 +208,7 @@ HdCyclesRenderBuffer::Clear()
 void
 HdCyclesRenderBuffer::Finalize(HdRenderParam *renderParam) {
     auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
-    param->tagSettingsDirty();
+    param->RemoveAovBinding(this);
 }
 
 void

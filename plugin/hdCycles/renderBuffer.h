@@ -159,8 +159,9 @@ private:
     std::atomic<int> m_mappers;
     std::atomic<bool> m_converged;
 
-    // Synchronizes buffer resize with the Cycles session callback
-    // to update the content from the renderpasses
+    // Synchronizes resize with writes from cycles and
+    // reads from hydra. Maybe it could be made more lightweight
+    // with some assumptions on execution?
     std::mutex m_mutex;
 
     HdCyclesRenderDelegate* m_renderDelegate;
