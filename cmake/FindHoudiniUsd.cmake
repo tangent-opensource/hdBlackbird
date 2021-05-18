@@ -103,6 +103,7 @@ find_program(USD_SCHEMA_GENERATOR
         usdGenSchema
         PATHS
         ${HOUDINI_ROOT}/bin
+        NO_DEFAULT_PATH
         )
 
 # Fallback to py script, remove after 18.5.519 release and add REQUIORED to usdGenSchema find_program
@@ -114,6 +115,7 @@ if(NOT USD_SCHEMA_GENERATOR)
             PATHS
             ${HOUDINI_ROOT}/bin
             REQUIRED
+            NO_DEFAULT_PATH
             )
     list(PREPEND USD_SCHEMA_GENERATOR hython)
     set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
