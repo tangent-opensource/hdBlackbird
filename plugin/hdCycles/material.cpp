@@ -582,19 +582,15 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
 
             // Skip invalid connections. I don't know where they come from, but they exist.
-            assert(tonode);
-            assert(fromnode);
-            assert(hd_tonode);
-            assert(hd_fromnode);
-            if (fromnode == nullptr || hd_fromnode == nullptr || hd_tonode == nullptr || hd_fromnode == nullptr) {
+            if (fromnode == nullptr || hd_fromnode == nullptr || tonode == nullptr || hd_tonode == nullptr) {
                 continue;
             }
 
             std::string to_identifier = hd_tonode->identifier.GetString();
             std::string from_identifier = hd_fromnode->identifier.GetString();
 
-            ccl::ShaderOutput* output = NULL;
-            ccl::ShaderInput* input = NULL;
+            ccl::ShaderOutput* output = nullptr;
+            ccl::ShaderInput* input = nullptr;
 
             bool to_has_valid_prefix = IsValidCyclesIdentifier(to_identifier);
             bool from_has_valid_prefix = IsValidCyclesIdentifier(from_identifier);

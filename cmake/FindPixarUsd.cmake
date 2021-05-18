@@ -31,7 +31,7 @@ target_compile_definitions(UsdInterface
 
 target_link_libraries(UsdInterface
     INTERFACE
-    hd usdHydra usdImaging usdRender
+    hd usdHydra usdImaging usdRender usdSkel
     )
 # Find Usd Schema Generator
 
