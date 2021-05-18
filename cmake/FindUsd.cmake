@@ -20,11 +20,9 @@
 # Tangent specific build variables
 if(DEFINED ENV{REZ_HOUDINI_ROOT})
     message(STATUS "Rez Houdini USD override")
-    set(USE_HOUDINI_USD TRUE)
     set(HOUDINI_ROOT $ENV{HFS})
 elseif(DEFINED ENV{REZ_USD_ROOT})
     message(STATUS "Rez Pixar USD override")
-    set(USE_HOUDINI_USD FALSE)
     set(USD_ROOT $ENV{REZ_USD_ROOT})
 endif()
 
@@ -32,11 +30,11 @@ endif()
 add_library(UsdInterface INTERFACE)
 add_library(Usd::Usd ALIAS UsdInterface)
 
-message(STATUS "Use Houdini Usd ${USE_HOUDINI_USD}")
-
-if(${USE_HOUDINI_USD})
+if(DEFINED HOUDINI_ROOT)
+    message(STATUS "Using Houdini USD: ${HOUDINI_ROOT}")
     include(cmake/FindHoudiniUsd.cmake)
 else()
+    message(STATUS "Using Pixar USD: ${USD_ROOT}")
     include(cmake/FindPixarUsd.cmake)
 endif()
 

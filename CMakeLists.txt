@@ -18,7 +18,7 @@
 #  limitations under the License.
 
 cmake_minimum_required(VERSION 3.18)
-project(hdCycles CXX C)
+project(HdBlackbird CXX C)
 
 # Options
 option(USE_HOUDINI_USD "" OFF)
