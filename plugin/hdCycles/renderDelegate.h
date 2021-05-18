@@ -117,6 +117,7 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     (TransCol)              \
     (VolumeCol)             \
                             \
+    (Mist)                  \
     (Emit)                  \
     (Env)                   \
     (AO)                    \

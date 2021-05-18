@@ -66,11 +66,11 @@ struct HdCyclesAov {
 
 std::array<HdCyclesAov, 27> DefaultAovs = { {
     { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4, true },
-    { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32, false },
+    { "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32, false },
     { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, true },
     { "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32, false },
     { "IndexMA", ccl::PASS_MATERIAL_ID, HdCyclesAovTokens->IndexMA, HdFormatFloat32, false },
-    { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32, true },
+    { "Mist", ccl::PASS_MIST, HdCyclesAovTokens->Mist, HdFormatFloat32, true },
     { "Emission", ccl::PASS_EMISSION, HdCyclesAovTokens->Emit, HdFormatFloat32Vec3, true },
     { "Shadow", ccl::PASS_SHADOW, HdCyclesAovTokens->Shadow, HdFormatFloat32Vec3, true },
     { "AO", ccl::PASS_AO, HdCyclesAovTokens->AO, HdFormatFloat32Vec3, true },
@@ -124,6 +124,9 @@ GetSourceName(const HdRenderPassAovBinding& aov)
             TfToken token = TfToken(it->second.UncheckedGet<std::string>());
             if (token == defaultHoudiniColor) {
                 return HdAovTokens->color;
+            // To be backwards-compatible with older scenes
+            } else if (token == HdAovTokens->cameraDepth) {
+                return HdAovTokens->depth;
             } else {
                 return token;
             }
