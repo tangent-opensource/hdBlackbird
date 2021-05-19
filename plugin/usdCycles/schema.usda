@@ -1366,16 +1366,6 @@ class "CyclesMeshSettingsAPI" (
 {
     string displayName = "Mesh"
 
-    token primvars:cycles:mesh:subdivision_type = "none" (
-        allowedTokens = ["none", "linear", "catmull_clark"]
-        customData = {
-            string apiName = "mesh_subdivision_type"
-        }
-        displayGroup = "Subdivision"
-        displayName = "Subdivision Type"
-        doc = "Type of subdivision to apply per mesh"
-    )
-
     uniform float primvars:cycles:mesh:dicing:rate = 1.0 (
         customData = {
             string apiName = "mesh_dicing_rate"
