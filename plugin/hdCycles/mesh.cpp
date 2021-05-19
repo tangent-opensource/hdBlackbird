@@ -1127,13 +1127,21 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     m_cyclesObject->pass_id = 0;
     m_cyclesObject->use_holdout = false;
     m_cyclesObject->asset_name = "";
+    m_refineLevel = 0;
 
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
-            // Open Subdiv
+            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                continue;
+            }
 
-            m_refineLevel = _HdCyclesGetMeshParam(pv, dirtyBits, id, this, sceneDelegate,
-                                                  usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level, 0);
+            const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
+                m_refineLevel = value.Get<int>();
+                continue;
+            }
 
             // Motion blur
             m_useMotionBlur = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
