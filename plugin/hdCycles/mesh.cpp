@@ -664,7 +664,9 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
 
     HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-    display_style.refineLevel = m_refineLevel;
+    if (m_refineLevel > 0) {
+        display_style.refineLevel = m_refineLevel;
+    }
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
     m_topology = std::make_shared<HdBbMeshTopology>(id, topology, display_style.refineLevel);
