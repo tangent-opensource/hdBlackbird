@@ -19,8 +19,8 @@
 
 #include "renderBuffer.h"
 #include "renderDelegate.h"
-#include "renderPass.h"
 #include "renderParam.h"
+#include "renderPass.h"
 
 #include <pxr/base/gf/vec2i.h>
 #include <pxr/base/gf/vec3i.h>
@@ -103,19 +103,17 @@ HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool 
         return false;
     }
 
-    m_mutex.lock();
+    std::lock_guard<std::mutex> lock_guard { m_mutex };
 
     // Simulating shrink to fit
     std::vector<uint8_t> buffer_empty {};
     m_buffer.swap(buffer_empty);
 
-    m_width     = static_cast<unsigned int>(dimensions[0]);
-    m_height    = static_cast<unsigned int>(dimensions[1]);
-    m_format    = format;
+    m_width = static_cast<unsigned int>(dimensions[0]);
+    m_height = static_cast<unsigned int>(dimensions[1]);
+    m_format = format;
     m_pixelSize = static_cast<unsigned int>(HdDataSizeOfFormat(format));
     m_buffer.resize(m_width * m_height * m_pixelSize, 0);
-
-    m_mutex.unlock();
 
     return true;
 }
@@ -152,7 +150,7 @@ HdCyclesRenderBuffer::IsMultiSampled() const
 
 void*
 HdCyclesRenderBuffer::Map()
-{    
+{
     m_mutex.lock();
     if (m_buffer.empty()) {
         m_mutex.unlock();
@@ -201,14 +199,15 @@ HdCyclesRenderBuffer::Clear()
     if (m_format == HdFormatInvalid)
         return;
 
-    m_mutex.lock();
+    std::lock_guard<std::mutex> lock { m_mutex };
+
     size_t pixelSize = HdDataSizeOfFormat(m_format);
     memset(&m_buffer[0], 0, m_buffer.size() * pixelSize);
-    m_mutex.unlock();
 }
 
 void
-HdCyclesRenderBuffer::Finalize(HdRenderParam *renderParam) {
+HdCyclesRenderBuffer::Finalize(HdRenderParam* renderParam)
+{
     auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
     param->RemoveAovBinding(this);
 }
@@ -272,18 +271,16 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
 void
 HdCyclesRenderBuffer::_Deallocate()
 {
-    m_mutex.lock();
+    std::lock_guard<std::mutex> lock { m_mutex };
 
-    m_width      = 0;
-    m_height     = 0;
-    m_format     = HdFormatInvalid;
+    m_width = 0;
+    m_height = 0;
+    m_format = HdFormatInvalid;
 
     std::vector<uint8_t> buffer_empty {};
     m_buffer.swap(buffer_empty);
     m_mappers.store(0);
     m_converged.store(false);
-
-    m_mutex.unlock();
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

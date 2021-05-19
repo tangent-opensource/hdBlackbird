@@ -24,8 +24,8 @@
 #include "renderDelegate.h"
 #include "utils.h"
 
-#include <memory>
 #include <algorithm>
+#include <memory>
 #include <unordered_set>
 
 #include <device/device.h>
@@ -1292,7 +1292,8 @@ HdCyclesRenderParam::_CreateSession()
 
     m_cyclesSession->display_copy_cb = [this](int samples) {
         for (auto aov : m_aovs) {
-            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width, m_cyclesSession->tile_manager.state.buffer.height, samples);
+            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width,
+                               m_cyclesSession->tile_manager.state.buffer.height, samples);
         }
     };
 
@@ -2145,7 +2146,7 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     if (!has_combined) {
         ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str(), DefaultAovs[0].filter);
     }
-    
+
 
     film->display_pass = m_bufferParams.passes[0].type;
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
@@ -2153,12 +2154,13 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     film->tag_update(m_cyclesScene);
 }
 
-/*
-    We need to remove the aov binding because the renderbuffer can be
-    deallocated before new aov bindings are set in the renderpass.
-*/
+// We need to remove the aov binding because the renderbuffer can be
+// deallocated before new aov bindings are set in the renderpass.
+//
+// clang-format off
 void
-HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb) {
+HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb)
+{
     if (!rb) {
         return;
     }
@@ -2167,13 +2169,15 @@ HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb) {
     ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
     ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
 
-    m_aovs.erase(std::remove_if(m_aovs.begin(), m_aovs.end(), [rb](HdRenderPassAovBinding& aov) {
-        return aov.renderBuffer == rb;
+    m_aovs.erase(std::remove_if(m_aovs.begin(), m_aovs.end(), [rb](HdRenderPassAovBinding& aov) { 
+        return aov.renderBuffer == rb; 
     }), m_aovs.end());
 }
+// clang-format on
 
 void
-HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples) {
+HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples)
+{
     if (samples < 0) {
         return;
     }
@@ -2201,7 +2205,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
 
     if (data) {
         auto n_comps_cycles = HdGetComponentCount(cyclesAov.format);
-        auto n_comps_hd     = HdGetComponentCount(rb->GetFormat());
+        auto n_comps_hd = HdGetComponentCount(rb->GetFormat());
 
         if (n_comps_cycles <= n_comps_hd) {
             ccl::RenderBuffers::ComponentType pixels_type = ccl::RenderBuffers::ComponentType::None;
@@ -2218,16 +2222,17 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
 
             // todo: Is there a utility to convert HdFormat to string?
             if (pixels_type == ccl::RenderBuffers::ComponentType::None) {
-                TF_WARN("Unsupported component type %d for aov %s ", static_cast<int>(rb->GetFormat()), aov.aovName.GetText());
+                TF_WARN("Unsupported component type %d for aov %s ", static_cast<int>(rb->GetFormat()),
+                        aov.aovName.GetText());
                 rb->Unmap();
                 return;
             }
 
-            const int stride     = HdDataSizeOfFormat(rb->GetFormat());
+            const int stride = HdDataSizeOfFormat(rb->GetFormat());
             const float exposure = m_cyclesScene->film->exposure;
-            auto buffers         = m_cyclesSession->buffers;
-            buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles, static_cast<uint8_t*>(data),
-                                      pixels_type, w, h, stride);
+            auto buffers = m_cyclesSession->buffers;
+            buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
+                                      static_cast<uint8_t*>(data), pixels_type, w, h, stride);
 
             if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
                 if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
