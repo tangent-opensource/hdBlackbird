@@ -144,6 +144,7 @@ HdCyclesConfig::HdCyclesConfig()
     texture_auto_mip = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_AUTO_MIP", false);
     texture_use_custom_path = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_USE_CUSTOM_PATH", false);
     texture_custom_path = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_TEXTURE_CUSTOM_PATH", "");
+    texture_max_size = HdCyclesEnvValue<int>("HD_BLACKBIRD_TEXTURE_MAX_SIZE", 0);
 
     // -- Curve Settings
 

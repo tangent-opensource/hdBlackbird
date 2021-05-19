@@ -723,6 +723,10 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
         sceneParams->texture.use_custom_cache_path
             = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.use_custom_cache_path, &texture_updated);
     }
+    if (key == usdCyclesTokens->cyclesTexture_max_size) {
+        sceneParams->texture_limit
+            = _HdCyclesGetVtValue<int>(value, sceneParams->texture_limit, &texture_updated);
+    }
 
     if (scene_updated || texture_updated) {
         // Although this is called, it does not correctly reset session in IPR

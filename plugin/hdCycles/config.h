@@ -418,6 +418,12 @@ public:
      */
     HdCyclesEnvValue<std::string>  texture_custom_path;
 
+    /**
+     * @brief Max Texture Size
+     *
+     */
+    HdCyclesEnvValue<int> texture_max_size;
+
 private:
     /**
      * @brief Constructor for reading the values from the environment variables.
