@@ -25,8 +25,6 @@
 #include <pxr/imaging/hd/renderBuffer.h>
 #include <pxr/pxr.h>
 
-#include <mutex>
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 class HdCyclesRenderDelegate;
@@ -127,8 +125,6 @@ public:
 
     void Clear();
 
-    void Finalize(HdRenderParam* renderParam) override;
-
     /**
      * @brief Helper to blit the render buffer data
      * 
@@ -139,6 +135,8 @@ public:
      * @param stride Stride of pixel
      * @param data Pointer to data
      */
+    void Blit(HdFormat format, int width, int height, int offset, int stride, uint8_t const* data);
+
     void BlitTile(HdFormat format, unsigned int x, unsigned int y, unsigned int width, unsigned int height, int offset,
                   int stride, uint8_t const* data);
 
@@ -159,12 +157,16 @@ private:
     std::atomic<int> m_mappers;
     std::atomic<bool> m_converged;
 
-    // Synchronizes resize with writes from cycles and
-    // reads from hydra. Maybe it could be made more lightweight
-    // with some assumptions on execution?
-    std::mutex m_mutex;
-
     HdCyclesRenderDelegate* m_renderDelegate;
+
+    // Needed as a stopgap, because Houdini dellocates renderBuffers
+    // when changing render settings. This causes the current blit to
+    // fail (Probably can be fixed with proper render thread management)
+    bool m_wasUpdated;
+
+public:
+    const bool& WasUpdated() { return m_wasUpdated; }
+    void SetWasUpdated(const bool& val) { m_wasUpdated = val; }
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

@@ -19,7 +19,6 @@
 
 #include "renderBuffer.h"
 #include "renderDelegate.h"
-#include "renderParam.h"
 #include "renderPass.h"
 
 #include <pxr/base/gf/vec2i.h>
@@ -80,34 +79,22 @@ HdCyclesRenderBuffer::HdCyclesRenderBuffer(HdCyclesRenderDelegate* renderDelegat
     , m_mappers(0)
     , m_converged(false)
     , m_renderDelegate(renderDelegate)
+    , m_wasUpdated(false)
 {
 }
 
 HdCyclesRenderBuffer::~HdCyclesRenderBuffer() {}
 
-/*
-    Do not call _Deallocate() from within this function. If you really have to
-    try to make use of recursive locking.
-
-    For some reasons if _Deallocate() is called before _Allocate, I get deadlocks
-    when resizing the houdini viewport and the reason is still unclear
-*/
 bool
 HdCyclesRenderBuffer::Allocate(const GfVec3i& dimensions, HdFormat format, bool multiSampled)
 {
-    TF_UNUSED(multiSampled);
+    _Deallocate();
 
     if (dimensions[2] != 1) {
         TF_WARN("Render buffer allocated with dims <%d, %d, %d> and format %s; depth must be 1!", dimensions[0],
                 dimensions[1], dimensions[2], TfEnum::GetName(format).c_str());
         return false;
     }
-
-    std::lock_guard<std::mutex> lock_guard { m_mutex };
-
-    // Simulating shrink to fit
-    std::vector<uint8_t> buffer_empty {};
-    m_buffer.swap(buffer_empty);
 
     m_width = static_cast<unsigned int>(dimensions[0]);
     m_height = static_cast<unsigned int>(dimensions[1]);
@@ -151,12 +138,6 @@ HdCyclesRenderBuffer::IsMultiSampled() const
 void*
 HdCyclesRenderBuffer::Map()
 {
-    m_mutex.lock();
-    if (m_buffer.empty()) {
-        m_mutex.unlock();
-        return nullptr;
-    }
-
     m_mappers++;
     return m_buffer.data();
 }
@@ -164,10 +145,7 @@ HdCyclesRenderBuffer::Map()
 void
 HdCyclesRenderBuffer::Unmap()
 {
-    if (!m_buffer.empty()) {
-        m_mappers--;
-        m_mutex.unlock();
-    }
+    m_mappers--;
 }
 
 bool
@@ -194,22 +172,61 @@ HdCyclesRenderBuffer::SetConverged(bool cv)
 }
 
 void
+HdCyclesRenderBuffer::Blit(HdFormat format, int width, int height, int offset, int stride, uint8_t const* data)
+{
+    if (m_format == format) {
+        if (static_cast<unsigned int>(width) == m_width && static_cast<unsigned int>(height) == m_height) {
+            // Blit line by line.
+            for (unsigned int j = 0; j < m_height; ++j) {
+                memcpy(&m_buffer[(j * m_width) * m_pixelSize], &data[(j * stride + offset) * m_pixelSize],
+                       m_width * m_pixelSize);
+            }
+        } else {
+            // Blit pixel by pixel, with nearest point sampling.
+            float scalei = static_cast<float>(width) / float(m_width);
+            float scalej = static_cast<float>(height) / float(m_height);
+            for (unsigned int j = 0; j < m_height; ++j) {
+                for (unsigned int i = 0; i < m_width; ++i) {
+                    auto ii = static_cast<unsigned int>(scalei * static_cast<float>(i));
+                    auto jj = static_cast<unsigned int>(scalej * static_cast<float>(j));
+                    memcpy(&m_buffer[(j * m_width + i) * m_pixelSize], &data[(jj * stride + offset + ii) * m_pixelSize],
+                           m_pixelSize);
+                }
+            }
+        }
+    } else {
+        // Convert pixel by pixel, with nearest point sampling.
+        // If src and dst are both int-based, don't round trip to float.
+        size_t pixelSize = HdDataSizeOfFormat(format);
+        bool convertAsInt = (HdGetComponentFormat(format) == HdFormatInt32)
+                            && (HdGetComponentFormat(m_format) == HdFormatInt32);
+
+        float scalei = static_cast<float>(width) / float(m_width);
+        float scalej = static_cast<float>(height) / float(m_height);
+        for (unsigned int j = 0; j < m_height; ++j) {
+            for (unsigned int i = 0; i < m_width; ++i) {
+                auto ii = static_cast<unsigned int>(scalei * static_cast<float>(i));
+                auto jj = static_cast<unsigned int>(scalej * static_cast<float>(j));
+                if (convertAsInt) {
+                    _ConvertPixel<int32_t>(m_format, &m_buffer[(j * m_width + i) * m_pixelSize], format,
+                                           &data[(jj * stride + offset + ii) * pixelSize]);
+                } else {
+                    _ConvertPixel<float>(m_format, &m_buffer[(j * m_width + i) * m_pixelSize], format,
+                                         &data[(jj * stride + offset + ii) * pixelSize]);
+                }
+            }
+        }
+    }
+}
+
+void
 HdCyclesRenderBuffer::Clear()
 {
     if (m_format == HdFormatInvalid)
         return;
 
-    std::lock_guard<std::mutex> lock { m_mutex };
-
     size_t pixelSize = HdDataSizeOfFormat(m_format);
     memset(&m_buffer[0], 0, m_buffer.size() * pixelSize);
-}
-
-void
-HdCyclesRenderBuffer::Finalize(HdRenderParam* renderParam)
-{
-    auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
-    param->RemoveAovBinding(this);
 }
 
 void
@@ -271,14 +288,11 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
 void
 HdCyclesRenderBuffer::_Deallocate()
 {
-    std::lock_guard<std::mutex> lock { m_mutex };
-
+    m_wasUpdated = true;
     m_width = 0;
     m_height = 0;
     m_format = HdFormatInvalid;
-
-    std::vector<uint8_t> buffer_empty {};
-    m_buffer.swap(buffer_empty);
+    m_buffer.resize(0);
     m_mappers.store(0);
     m_converged.store(false);
 }
