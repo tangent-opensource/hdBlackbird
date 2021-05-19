@@ -124,8 +124,8 @@ GetSourceName(const HdRenderPassAovBinding& aov)
             TfToken token = TfToken(it->second.UncheckedGet<std::string>());
             if (token == defaultHoudiniColor) {
                 return HdAovTokens->color;
-            // To be backwards-compatible with older scenes
             } else if (token == HdAovTokens->cameraDepth) {
+                // To be backwards-compatible with older scenes
                 return HdAovTokens->depth;
             } else {
                 return token;
@@ -2032,8 +2032,6 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     std::string cryptoAssetName;
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
-        auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
-
         TfToken sourceName = GetSourceName(aov);
 
         for (HdCyclesAov& cyclesAov : DefaultAovs) {
@@ -2207,8 +2205,8 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     void* data = rb->Map();
 
     if (data) {
-        auto n_comps_cycles = HdGetComponentCount(cyclesAov.format);
-        auto n_comps_hd = HdGetComponentCount(rb->GetFormat());
+        const int n_comps_cycles = static_cast<int>(HdGetComponentCount(cyclesAov.format));
+        const int n_comps_hd = static_cast<int>(HdGetComponentCount(rb->GetFormat()));
 
         if (n_comps_cycles <= n_comps_hd) {
             ccl::RenderBuffers::ComponentType pixels_type = ccl::RenderBuffers::ComponentType::None;
@@ -2231,7 +2229,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
                 return;
             }
 
-            const int stride = HdDataSizeOfFormat(rb->GetFormat());
+            const int stride = static_cast<int>(HdDataSizeOfFormat(rb->GetFormat()));
             const float exposure = m_cyclesScene->film->exposure;
             auto buffers = m_cyclesSession->buffers;
             buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
