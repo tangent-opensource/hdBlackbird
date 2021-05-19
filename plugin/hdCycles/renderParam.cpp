@@ -24,7 +24,9 @@
 #include "renderDelegate.h"
 #include "utils.h"
 
+#include <algorithm>
 #include <memory>
+#include <unordered_set>
 
 #include <device/device.h>
 #include <render/background.h>
@@ -64,11 +66,11 @@ struct HdCyclesAov {
 
 std::array<HdCyclesAov, 27> DefaultAovs = { {
     { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4, true },
-    { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32, false },
-    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, false },
+    { "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32, false },
+    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, true },
     { "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32, false },
     { "IndexMA", ccl::PASS_MATERIAL_ID, HdCyclesAovTokens->IndexMA, HdFormatFloat32, false },
-    { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32, true },
+    { "Mist", ccl::PASS_MIST, HdCyclesAovTokens->Mist, HdFormatFloat32, true },
     { "Emission", ccl::PASS_EMISSION, HdCyclesAovTokens->Emit, HdFormatFloat32Vec3, true },
     { "Shadow", ccl::PASS_SHADOW, HdCyclesAovTokens->Shadow, HdFormatFloat32Vec3, true },
     { "AO", ccl::PASS_AO, HdCyclesAovTokens->AO, HdFormatFloat32Vec3, true },
@@ -122,13 +124,19 @@ GetSourceName(const HdRenderPassAovBinding& aov)
             TfToken token = TfToken(it->second.UncheckedGet<std::string>());
             if (token == defaultHoudiniColor) {
                 return HdAovTokens->color;
+            } else if (token == HdAovTokens->cameraDepth) {
+                // To be backwards-compatible with older scenes
+                return HdAovTokens->depth;
             } else {
                 return token;
             }
         }
     }
 
-    return TfToken();
+    // If a source name is not present, we attempt to use the name of the
+    // AOV for the same purpose. This picks up the default aovs in
+    // usdview and the Houdini Render Outputs pane
+    return aov.aovName;
 }
 
 bool
@@ -173,7 +181,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useSquareSamples(false)
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
-    , m_displayAovToken(HdAovTokens->color)
 {
     _InitializeDefaults();
 }
@@ -1286,6 +1293,13 @@ HdCyclesRenderParam::_CreateSession()
 
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
+    m_cyclesSession->display_copy_cb = [this](int samples) {
+        for (auto aov : m_aovs) {
+            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width,
+                               m_cyclesSession->tile_manager.state.buffer.height, samples);
+        }
+    };
+
     m_cyclesSession->write_render_tile_cb = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
     m_cyclesSession->update_render_tile_cb = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1, ccl::_2);
 
@@ -1655,7 +1669,7 @@ HdCyclesRenderParam::SetViewport(int w, int h)
 
     m_aovBindingsNeedValidation = true;
 
-    m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
+    DirectReset();
 }
 
 void
@@ -1988,10 +2002,20 @@ HdCyclesRenderParam::GetRenderStats() const
 void
 HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
+    // Synchronizes with the render buffers reset and blitting (display)
+    // Also mirror the locks used when in the display_copy_cb callback
+    ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
+    ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
+
+    // This is necessary as the scene film is edited
+    ccl::thread_scoped_lock scene_lock { m_cyclesScene->mutex };
+
     m_aovs = a_aovs;
+
     m_bufferParams.passes.clear();
     bool has_combined = false;
     bool has_sample_count = false;
+
     ccl::Film* film = m_cyclesScene->film;
 
     ccl::CryptomatteType cryptomatte_passes = ccl::CRYPT_NONE;
@@ -2123,30 +2147,114 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     if (!has_combined) {
         ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str(), DefaultAovs[0].filter);
     }
+
+
     film->display_pass = m_bufferParams.passes[0].type;
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
 
     film->tag_update(m_cyclesScene);
-    Interrupt();
 }
 
+// We need to remove the aov binding because the renderbuffer can be
+// deallocated before new aov bindings are set in the renderpass.
+//
+// clang-format off
 void
-HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
+HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb)
 {
-    m_cyclesScene->film->display_pass = DefaultAovs[0].type;
-    m_displayAovToken = DefaultAovs[0].token;
-    if (!m_aovs.empty()) {
-        TfToken sourceName = GetSourceName(a_aov);
-        for (HdCyclesAov& cyclesAov : DefaultAovs) {
-            if (sourceName == cyclesAov.token) {
-                m_cyclesScene->film->display_pass = cyclesAov.type;
-                m_displayAovToken = a_aov.aovName;
-                break;
+    if (!rb) {
+        return;
+    }
+
+    // Aovs access is synchronized with the Cycles display lock
+    ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
+    ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
+
+    m_aovs.erase(std::remove_if(m_aovs.begin(), m_aovs.end(), [rb](HdRenderPassAovBinding& aov) { 
+        return aov.renderBuffer == rb; 
+    }), m_aovs.end());
+}
+// clang-format on
+
+void
+HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples)
+{
+    if (samples < 0) {
+        return;
+    }
+
+    HdCyclesAov cyclesAov;
+    if (!GetCyclesAov(aov, cyclesAov)) {
+        return;
+    }
+
+    // The RenderParam logic should guarantee that aov bindings always point to valid renderbuffer
+    auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
+    if (!rb) {
+        return;
+    }
+
+    // No point in blitting since the session will be reset
+    if (m_cyclesSession->buffers->params.width != rb->GetWidth()
+        || m_cyclesSession->buffers->params.height != rb->GetHeight()) {
+        return;
+    }
+
+    // This acquires the whole object, not just the pixel buffer
+    // It needs to wrap any getters
+    void* data = rb->Map();
+
+    if (data) {
+        const int n_comps_cycles = static_cast<int>(HdGetComponentCount(cyclesAov.format));
+        const int n_comps_hd = static_cast<int>(HdGetComponentCount(rb->GetFormat()));
+
+        if (n_comps_cycles <= n_comps_hd) {
+            ccl::RenderBuffers::ComponentType pixels_type = ccl::RenderBuffers::ComponentType::None;
+            switch (rb->GetFormat()) {
+            case HdFormatFloat16: pixels_type = ccl::RenderBuffers::ComponentType::Float16; break;
+            case HdFormatFloat16Vec3: pixels_type = ccl::RenderBuffers::ComponentType::Float16x3; break;
+            case HdFormatFloat16Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float16x4; break;
+            case HdFormatFloat32: pixels_type = ccl::RenderBuffers::ComponentType::Float32; break;
+            case HdFormatFloat32Vec3: pixels_type = ccl::RenderBuffers::ComponentType::Float32x3; break;
+            case HdFormatFloat32Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float32x4; break;
+            case HdFormatInt32: pixels_type = ccl::RenderBuffers::ComponentType::Int32; break;
+            default: assert(false); break;
             }
+
+            // todo: Is there a utility to convert HdFormat to string?
+            if (pixels_type == ccl::RenderBuffers::ComponentType::None) {
+                TF_WARN("Unsupported component type %d for aov %s ", static_cast<int>(rb->GetFormat()),
+                        aov.aovName.GetText());
+                rb->Unmap();
+                return;
+            }
+
+            const int stride = static_cast<int>(HdDataSizeOfFormat(rb->GetFormat()));
+            const float exposure = m_cyclesScene->film->exposure;
+            auto buffers = m_cyclesSession->buffers;
+            buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
+                                      static_cast<uint8_t*>(data), pixels_type, w, h, stride);
+
+            if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
+                if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
+                    /* We bump the PrimId() before sending it to hydra, decrementing it here */
+                    int32_t* pixels = static_cast<int32_t*>(data);
+                    for (size_t i = 0; i < rb->GetWidth() * rb->GetHeight(); ++i) {
+                        pixels[i] -= 1;
+                    }
+                } else {
+                    TF_WARN("Object ID pass %s has unrecognized type", aov.aovName.GetText());
+                }
+            }
+        } else {
+            TF_WARN("Don't know how to narrow aov %s from %d components (cycles) to %d components (HdRenderBuffer)",
+                    aov.aovName.GetText(), n_comps_cycles, n_comps_hd);
         }
-        m_cyclesScene->film->tag_update(m_cyclesScene);
-        Interrupt();
+        rb->Unmap();
+    } else {
+        TF_WARN("Failed to map renderbuffer %s for writing on Cycles display callback", aov.aovName.GetText());
     }
 }
+
 
 PXR_NAMESPACE_CLOSE_SCOPE

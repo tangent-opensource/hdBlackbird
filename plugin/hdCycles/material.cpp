@@ -806,6 +806,7 @@ HdCyclesMaterial::IsValid() const
     return true;
 }
 
+// clang-format off
 void
 HdCyclesMaterial::_FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& preview_shaders)
 {
@@ -830,23 +831,22 @@ HdCyclesMaterial::_FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& 
     int is_output_volume_preview = 0;
     int is_output_displacement_preview = 0;
     if (out_surface && out_surface->link) {
-        is_output_surface_preview = (std::find(preview_shaders.begin(), preview_shaders.end(), out_surface->link->parent)
-                                     != preview_shaders.end())
-                                        ? 1
-                                        : 0;
+        is_output_surface_preview =
+            (std::find(preview_shaders.begin(), preview_shaders.end(), out_surface->link->parent)
+                != preview_shaders.end())
+            ? 1 : 0;
     }
     if (out_volume && out_volume->link) {
-        is_output_volume_preview = (std::find(preview_shaders.begin(), preview_shaders.end(), out_volume->link->parent)
-                                    != preview_shaders.end())
-                                       ? 1
-                                       : 0;
+        is_output_volume_preview =
+            (std::find(preview_shaders.begin(), preview_shaders.end(), out_volume->link->parent)
+                != preview_shaders.end())
+            ? 1 : 0;
     }
     if (out_displacement && out_displacement->link) {
-        is_output_displacement_preview
-            = (std::find(preview_shaders.begin(), preview_shaders.end(), out_displacement->link->parent)
-               != preview_shaders.end())
-                  ? 1
-                  : 0;
+        is_output_displacement_preview =
+            (std::find(preview_shaders.begin(), preview_shaders.end(), out_displacement->link->parent)
+                != preview_shaders.end())
+            ? 1 : 0;
     }
 
     // Currently not deleting the node from the list to make sure it's deleted from the
@@ -864,5 +864,6 @@ HdCyclesMaterial::_FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& 
         }
     }
 }
+// clang-format on
 
 PXR_NAMESPACE_CLOSE_SCOPE

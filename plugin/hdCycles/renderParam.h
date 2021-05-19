@@ -126,6 +126,8 @@ public:
      */
     bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
+    void BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples);
+
 protected:
     /**
      * @brief Start a cycles render
@@ -370,34 +372,21 @@ private:
     ccl::Scene* m_cyclesScene;
 
     HdRenderPassAovBindingVector m_aovs;
-    TfToken m_displayAovToken;
+
+    bool m_settingsHaveChanged = false;
 
 public:
-    /**
-     * @brief Set the default display AOV
-     * 
-     * @param a_aov Set a HdRenderPassAovBinding from HdCyclesRenderPass
-     * 
-     * TODO: Currently there is no upstream from Houdini way to apply a default
-     * AOV to view, so it'll just default to color or the first one found. A
-     * possible workaround is to just make Cycles render all AOVs at once in
-     * display mode.
-     */
-    void SetDisplayAov(HdRenderPassAovBinding const& a_aov);
-
-    /**
-     * @brief Get the default display AOV token
-     * 
-     * @return TfToken of the default AOV diplay
-     */
-    const TfToken& GetDisplayAovToken() const { return m_displayAovToken; }
-
     /**
      * @brief Set the AOV bindings
      * 
      * @param a_aovs Set a HdRenderPassAovBindingVector from HdCyclesRenderPass
      */
     void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs);
+
+    /**
+     * @brief Remove the AOV binding, probably because the buffer has been deleted
+     */
+    void RemoveAovBinding(HdRenderBuffer* rb);
 
     /**
      * @brief Get the AOV bindings
