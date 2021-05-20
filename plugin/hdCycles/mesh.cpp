@@ -1030,6 +1030,13 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
 
     m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);
     m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
+
+    // when time comes to switch object management to resource registry we need to switch off reference
+    const SdfPath& id = GetId();
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id, true));
+    m_object_source = object_instance.GetValue();
 }
 
 void
@@ -1094,13 +1101,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
-
-    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
-    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
-    if (object_instance.IsFirstInstance()) {
-        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id, true));
-    }
-    m_object_source = object_instance.GetValue();
 
     ccl::thread_scoped_lock lock { scene->mutex };
 
