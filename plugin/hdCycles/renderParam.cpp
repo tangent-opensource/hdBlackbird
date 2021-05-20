@@ -605,7 +605,7 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
 
     sceneParams->bvh_layout = ccl::BVH_LAYOUT_EMBREE;
 
-    sceneParams->persistent_data = true;
+    sceneParams->persistent_data = false;
 
     config.curve_subdivisions.eval(sceneParams->hair_subdivisions, a_forceInit);
 }
@@ -631,6 +631,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
         sceneParams = &m_cyclesScene->params;
 
     bool scene_updated = false;
+    bool texture_updated = false;
 
     if (key == usdCyclesTokens->cyclesShading_system) {
         TfToken shading_system = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->svm, &scene_updated);
@@ -678,10 +679,71 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
                                                                    &scene_updated);
     }
 
-    if (scene_updated) {
+    if (key == usdCyclesTokens->cyclesTexture_use_cache) {
+        sceneParams->texture.use_cache = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.use_cache,
+                                                                   &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_cache_size) {
+        sceneParams->texture.cache_size = _HdCyclesGetVtValue<int>(value, sceneParams->texture.cache_size,
+                                                                   &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_tile_size) {
+        sceneParams->texture.tile_size = _HdCyclesGetVtValue<int>(value, sceneParams->texture.tile_size,
+                                                                  &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_diffuse_blur) {
+        sceneParams->texture.diffuse_blur = _HdCyclesGetVtValue<float>(value, sceneParams->texture.diffuse_blur,
+                                                                       &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_glossy_blur) {
+        sceneParams->texture.glossy_blur = _HdCyclesGetVtValue<float>(value, sceneParams->texture.glossy_blur,
+                                                                      &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_auto_convert) {
+        sceneParams->texture.auto_convert = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.auto_convert,
+                                                                      &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_accept_unmipped) {
+        sceneParams->texture.accept_unmipped = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.accept_unmipped,
+                                                                         &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_accept_untiled) {
+        sceneParams->texture.accept_untiled = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.accept_untiled,
+                                                                        &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_auto_tile) {
+        sceneParams->texture.auto_tile = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.auto_tile,
+                                                                   &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_auto_mip) {
+        sceneParams->texture.auto_mip = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.auto_mip,
+                                                                  &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_use_custom_path) {
+        sceneParams->texture.use_custom_cache_path
+            = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.use_custom_cache_path, &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_max_size) {
+        sceneParams->texture_limit
+            = _HdCyclesGetVtValue<int>(value, sceneParams->texture_limit, &texture_updated);
+    }
+
+    if (scene_updated || texture_updated) {
         // Although this is called, it does not correctly reset session in IPR
-        if (m_cyclesSession && m_cyclesScene)
+        if (m_cyclesSession && m_cyclesScene) {
             Interrupt(true);
+            if (texture_updated) {
+                m_cyclesScene->image_manager->need_update = true;
+                m_cyclesScene->shader_manager->need_update = true;
+            }
+        }
         return true;
     }
 

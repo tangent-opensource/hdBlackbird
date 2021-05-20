@@ -346,6 +346,84 @@ public:
      */
     HdCyclesEnvValue<int> adaptive_min_samples;
 
+    /**
+     * @brief Use OpenImageIO texture cache
+     *
+     */
+    HdCyclesEnvValue<bool> texture_use_cache;
+
+    /**
+     * @brief Texture cache size
+     *
+     */
+    HdCyclesEnvValue<int> texture_cache_size;
+
+    /**
+     * @brief Texture cache tile size
+     *
+     */
+    HdCyclesEnvValue<int> texture_tile_size;
+
+    /**
+     * @brief Texture cache diffuse blur
+     *
+     */
+    HdCyclesEnvValue<float> texture_diffuse_blur;
+
+    /**
+     * @brief Texture cache glossy blur
+     *
+     */
+    HdCyclesEnvValue<float> texture_glossy_blur;
+
+    /**
+     * @brief Create tiled mip maps automatically
+     *
+     */
+    HdCyclesEnvValue<bool> texture_auto_convert;
+
+    /**
+     * @brief Accept textures without mip maps
+     *
+     */
+    HdCyclesEnvValue<bool> texture_accept_unmipped;
+
+    /**
+     * @brief Accept textures that are not tiled
+     *
+     */
+    HdCyclesEnvValue<bool> texture_accept_untiled;
+
+    /**
+     * @brief Automatically tile textures
+     *
+     */
+    HdCyclesEnvValue<bool> texture_auto_tile;
+
+    /**
+     * @brief Automatically create mip maps
+     *
+     */
+    HdCyclesEnvValue<bool> texture_auto_mip;
+
+    /**
+     * @brief Use custom texture cache path
+     *
+     */
+    HdCyclesEnvValue<bool> texture_use_custom_path;
+
+    /**
+     * @brief The custom texture cache path
+     *
+     */
+    HdCyclesEnvValue<std::string>  texture_custom_path;
+
+    /**
+     * @brief Max Texture Size
+     *
+     */
+    HdCyclesEnvValue<int> texture_max_size;
+
 private:
     /**
      * @brief Constructor for reading the values from the environment variables.
