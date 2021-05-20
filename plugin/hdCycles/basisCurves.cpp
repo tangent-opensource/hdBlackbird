@@ -101,6 +101,12 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& insta
     config.motion_blur.eval(m_useMotionBlur, true);
 
     m_cyclesObject = _CreateObject();
+
+    // when time comes to switch object management to resource registry we need to switch off reference
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
+    m_object_source = object_instance.GetValue();
 }
 
 HdCyclesBasisCurves::~HdCyclesBasisCurves()
@@ -427,14 +433,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                           TfToken const& reprSelector)
 {
     SdfPath const& id = GetId();
-
-
-    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
-    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
-    if (object_instance.IsFirstInstance()) {
-        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
-    }
-    m_object_source = object_instance.GetValue();
 
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
