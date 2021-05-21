@@ -1253,6 +1253,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         //         m_doubleSided = sceneDelegate->GetDoubleSided(id);
     }
 
+    // Object transform needs to be applied to instances.
+    ccl::Transform obj_tfm = ccl::transform_identity();
+
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
         auto fallback = sceneDelegate->GetTransform(id);
         HdCyclesMatrix4dTimeSampleArray xf {};
@@ -1274,6 +1277,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             }
         }
         m_object_source->AddObjectPropertiesSource(std::move(transform_source));
+
+        obj_tfm = mat4d_to_transform(fallback);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
@@ -1331,7 +1336,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 for (size_t j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = _CreateCyclesObject();
 
-                    instanceObj->tfm = mat4d_to_transform(combinedTransforms[j].data()[0]);
+                    instanceObj->tfm = mat4d_to_transform(combinedTransforms[j].data()[0]) * obj_tfm;
                     instanceObj->geometry = m_cyclesMesh;
 
                     // TODO: Implement motion blur for point instanced objects
