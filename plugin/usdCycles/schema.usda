@@ -1,0 +1,1916 @@
+#usda 1.0
+(
+    """ This file contains an the usd cycles schema to allow
+        a complete render of a cycles scene within HdCycles.
+    """
+    subLayers = [
+        @usd/schema.usda@,
+        @usdLux/schema.usda@
+    ]
+)
+
+over "GLOBAL" (
+    customData = {
+        string libraryName       = "usdCycles"
+        string libraryPath       = "."
+        string libraryPrefix     = "usdCycles"
+    }
+) {
+}
+
+# TODO: At some point (maybe with new Cycles API) we should split into Scene and Session schemas
+class "CyclesRendererSettingsAPI" (
+    customData = {
+        string className = "RendererSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Renderer"
+
+    uniform token cycles:device = "cpu" (
+        allowedTokens = ["cpu", "gpu"]
+        customData = {
+            string apiName = "device"
+        }
+        displayGroup = "Rendering"
+        displayName = "Device"
+        doc = "Device to use for rendering"
+    )
+
+    uniform token cycles:shading_system = "svm" (
+        allowedTokens = ["svm", "osl"]
+        customData = {
+            string apiName = "shading_system"
+        }
+        displayName = "Shading System"
+        doc = "Shading system for Cycles to use"
+    )
+
+    # Removed because this setting is intrinsically tied to tiled or not tiled renders
+    # This is handled completely by HdCycles
+    # If 100% required, this will require discussion
+
+    #uniform bool cycles:background = false (
+    #    customData = {
+    #        string apiName = "background"
+    #    }
+    #    displayName = "Background"
+    #    doc = "Should cycles render in the background"
+    #)
+
+    uniform bool cycles:progressive = false (
+        customData = {
+            string apiName = "progressive"
+        }
+        displayGroup = "Samples"
+        displayName = "Progressive"
+        doc = ""
+    )
+
+    uniform bool cycles:progressive_refine = false (
+        customData = {
+            string apiName = "progressive_refine"
+        }
+        displayGroup = "Samples"
+        displayName = "Progressive Refine"
+        doc = "Should cycles progressively refine the render"
+    )
+
+    uniform float cycles:progressive_update_timeout = 1.0 (
+        customData = {
+            string apiName = "progressive_update_timeout"
+        }
+        displayGroup = "Samples"
+        displayName = "Progressive Update Timeout"
+        doc = ""
+    )
+
+    uniform bool cycles:adaptive_sampling = false (
+        customData = {
+            string apiName = "adaptive_sampling"
+        }
+        displayGroup = "Sampling"
+        displayName = "Adaptive Sampling"
+        doc = ""
+    )
+
+    uniform int cycles:start_resolution = 16 (
+        customData = {
+            string apiName = "start_resolution"
+        }
+        displayGroup = "Samples"
+        displayName = "Start Resolution"
+        doc = "Resolution of first rendered output of cycles"
+    )
+
+    uniform int cycles:pixel_size = 1 (
+        customData = {
+            string apiName = "pixel_size"
+        }
+        displayName = "Pixel Size"
+        doc = "Size of a pixel in rendered image"
+    )
+
+    uniform int cycles:samples = 128 (
+        customData = {
+            string apiName = "samples"
+        }
+        displayName = "Samples"
+        doc = "Cycles render samples"
+    )
+
+    uniform int cycles:threads = 32 (
+        customData = {
+            string apiName = "threads"
+        }
+        displayName = "Threads"
+        doc = "Number of threads to render with"
+    )
+
+    uniform int2 cycles:tile_size = (64, 64) (
+        customData = {
+            string apiName = "tile_size"
+        }
+        displayGroup = "Tiles"
+        displayName = "Tile Size"
+        doc = "Size of each tile"
+    )
+
+    uniform token cycles:tile_order = "hilbert_spiral" (
+        allowedTokens = [
+            "hilbert_spiral",
+            "center",
+            "right_to_left",
+            "left_to_right",
+            "top_to_bottom",
+            "bottom_to_top"
+        ]
+        customData = {
+            string apiName = "tile_order"
+        }
+        displayGroup = "Tiles"
+        displayName = "Tile Order"
+        doc = "Order of tiles to be rendered"
+    )
+
+    # Discuss: Should this be a token labelled: feature_set
+    uniform bool cycles:experimental = false (
+        customData = {
+            string apiName = "experimental"
+        }
+        displayName = "Use Experimental"
+        doc = "Use experimental cycles featureset"
+    )
+
+    uniform bool cycles:use_square_samples = false (
+        customData = {
+            string apiName = "use_square_samples"
+        }
+        displayName = "Use Square Samples"
+        doc = "Square sampling values for easier artist control"
+    )
+
+    # Switched to a string for initial functionality
+    # Ideally this becomes a relationship to another UsdGeomCamera
+    # in the current stage
+    # rel cycles:dicing_camera (
+    string cycles:dicing_camera (
+        customData = {
+            string apiName = "dicing_camera"
+        }
+        displayGroup = "Dicing"
+        displayName = "Dicing Camera"
+        doc = "Camera to use as reference point when subdividing geometry, useful to avoid crawling artifacts in animations when the scene camera is moving"
+    )
+
+    uniform bool cycles:use_profiling = false (
+        customData = {
+            string apiName = "use_profiling"
+        }
+        displayName = "Use Profiling"
+        doc = "Should cycles run in profiling mode"
+    )
+
+    uniform token cycles:bvh_type = "bvh_dynamic" (
+        allowedTokens = ["bvh_dynamic", "bvh_static"]
+        customData = {
+            string apiName = "bvh_type"
+        }
+        displayGroup = "BVH"
+        displayName = "BVH Type"
+        doc = "Type of BVH for cycles to construct"
+    )
+
+    uniform bool cycles:use_bvh_spatial_split = false (
+        customData = {
+            string apiName = "use_bvh_spatial_split"
+        }
+        displayGroup = "BVH"
+        displayName = "Use BVH Spatial Split"
+        doc = ""
+    )
+
+    uniform bool cycles:use_bvh_unaligned_nodes = true (
+        customData = {
+            string apiName = "use_bvh_unaligned_nodes"
+        }
+        displayGroup = "BVH"
+        displayName = "Use BVH Unaligned Nodes"
+        doc = ""
+    )
+
+    uniform int cycles:num_bvh_time_steps = 0 (
+        customData = {
+            string apiName = "num_bvh_time_steps"
+        }
+        displayGroup = "BVH"
+        displayName = "Num BVH Time Steps"
+        doc = ""
+    )
+
+    uniform bool cycles:display_buffer_linear = true (
+        customData = {
+            string apiName = "display_buffer_linear"
+        }
+        displayName = "Use Linear Display Buffer"
+        doc = "Use linear display buffer"
+    )
+
+    uniform int cycles:denoising_start_sample = 0 (
+        customData = {
+            string apiName = "denoising_start_sample"
+        }
+        displayGroup = "Denoising"
+        displayName = "Denoising Start Sample"
+        doc = ""
+    )
+
+    uniform bool cycles:run_denoising = false (
+        customData = {
+            string apiName = "run_denoising"
+        }
+        displayGroup = "Denoising"
+        displayName = "Run Denoising"
+        doc = ""
+    )
+
+    uniform bool cycles:write_denoising_passes = false (
+        customData = {
+            string apiName = "write_denoising_passes"
+        }
+        displayGroup = "Denoising"
+        displayName = "Write Denoising Passes"
+        doc = ""
+    )
+
+    uniform bool cycles:full_denoising = false (
+        customData = {
+            string apiName = "full_denoising"
+        }
+        displayGroup = "Denoising"
+        displayName = "Full Denoising"
+        doc = ""
+    )
+
+    uniform bool cycles:optix_denoising = false (
+        customData = {
+            string apiName = "optix_denoising"
+        }
+        displayGroup = "Denoising"
+        displayName = "Optix Denoising"
+        doc = ""
+    )
+
+    # This has been removed in favour of per curve "curve_shape"
+    # This involves a patch to the Cycles API to override the global curve shape
+    #uniform token cycles:global_curve_shape = "thick" (
+    #    allowedTokens = ["ribbon", "thick"]
+    #    customData = {
+    #        string apiName = "global_curve_shape"
+    #    }
+    #    displayGroup = "Curves"
+    #    displayName = "Global Curve Shape"
+    #    doc = "Global setting of how curves should be rendered. Ribbon, or thick."
+    #)
+
+    uniform int cycles:curve_subdivisions = 2 (
+        customData = {
+            string apiName = "curve_subdivisions"
+        }
+        displayGroup = "Curves"
+        displayName = "Curve Subdivisions"
+        doc = "Number of subdivisions used in Cardinal curve intersection (power of 2)"
+    )
+}
+
+class "CyclesDenoiseSettingsAPI" (
+    customData = {
+        string className = "DenoiseSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Denoiser"
+
+    uniform bool cycles:denoise:use = false (
+        customData = {
+            string apiName = "denoise_use"
+        }
+        displayGroup = "Denoising"
+        displayName = "Use Denoising"
+        doc = ""
+    )
+
+    uniform bool cycles:denoise:store_passes = false (
+        customData = {
+            string apiName = "denoise_store_passes"
+        }
+        displayGroup = "Denoising"
+        displayName = "Store Passes"
+        doc = ""
+    )
+
+    uniform token cycles:denoise:type = "nlm" (
+        allowedTokens = ["none", "nlm", "optix", "openimagedenoise"]
+        customData = {
+            string apiName = "denoise_type"
+        }
+        displayGroup = "Denoising"
+        displayName = "Type"
+        doc = ""
+    )
+
+    uniform int cycles:denoise:start_sample = 0 (
+        customData = {
+            string apiName = "denoise_start_sample"
+        }
+        displayGroup = "Denoising"
+        displayName = "Start Sample"
+        doc = ""
+    )
+
+    uniform int cycles:denoise:radius = 8 (
+        customData = {
+            string apiName = "denoise_radius"
+        }
+        displayGroup = "Denoising"
+        displayName = "Radius"
+        doc = ""
+    )
+
+    uniform float cycles:denoise:strength = 0.5 (
+        customData = {
+            string apiName = "denoise_strength"
+        }
+        displayGroup = "Denoising"
+        displayName = "Strength"
+        doc = ""
+    )
+
+    uniform float cycles:denoise:feature_strength = 0.5 (
+        customData = {
+            string apiName = "denoise_feature_strength"
+        }
+        displayGroup = "Denoising"
+        displayName = "Feature Strength"
+        doc = ""
+    )
+
+    uniform bool cycles:denoise:relative_pca = false (
+        customData = {
+            string apiName = "denoise_relative_pca"
+        }
+        displayGroup = "Denoising"
+        displayName = "Relative PCA"
+        doc = ""
+    )
+
+    uniform int cycles:denoise:neighbor_frames = 2 (
+        customData = {
+            string apiName = "denoise_neighbor_frames"
+        }
+        displayGroup = "Denoising"
+        displayName = "Neighbor Frames"
+        doc = ""
+    )
+
+    uniform bool cycles:denoise:clamp_input = true (
+        customData = {
+            string apiName = "denoise_clamp_input"
+        }
+        displayGroup = "Denoising"
+        displayName = "Clamp Input"
+        doc = ""
+    )
+
+    uniform token cycles:denoise:input_passes = "rgb_albedo_normal" (
+        allowedTokens = ["rgb", "rgb_albedo", "rgb_albedo_normal"]
+        customData = {
+            string apiName = "denoise_input_passes"
+        }
+        displayGroup = "Denoising"
+        displayName = "Input Passes (OIIO)"
+        doc = ""
+    )
+}
+
+class "CyclesIntegratorSettingsAPI" (
+    customData = {
+        string className = "IntegratorSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Integrator"
+
+    uniform token cycles:integrator:method = "branched_path" (
+        allowedTokens = ["path", "branched_path"]
+        customData = {
+            string apiName = "integrator_method"
+        }
+        displayGroup = "Integrator"
+        displayName = "Method"
+        doc = "Cycles render device"
+    )
+
+    uniform token cycles:integrator:sampling_method = "sobol" (
+        allowedTokens = ["sobol", "cmj", "pmj"]
+        customData = {
+            string apiName = "integrator_sampling_method"
+        }
+        displayGroup = "Integrator"
+        displayName = "Sampling Method"
+        doc = "Cycles render device"
+    )
+
+    uniform int cycles:integrator:seed = 0 (
+        customData = {
+            string apiName = "integrator_seed"
+        }
+        displayName = "Seed"
+        doc = "Cycles integrator seed"
+    )
+
+    uniform int cycles:integrator:min_bounce = 0 (
+        customData = {
+            string apiName = "integrator_min_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Min Bounce"
+        doc = "Minimum ray bounces"
+    )
+
+    uniform int cycles:integrator:max_bounce = 7 (
+        customData = {
+            string apiName = "integrator_max_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Max Bounce"
+        doc = "Maximum ray bounces"
+    )
+
+    uniform int cycles:integrator:max_diffuse_bounce = 7 (
+        customData = {
+            string apiName = "integrator_max_diffuse_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Max Diffuse Bounce"
+        doc = "Maximum diffuse bounces"
+    )
+
+    uniform int cycles:integrator:max_glossy_bounce = 7 (
+        customData = {
+            string apiName = "integrator_max_glossy_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Max Glossy Bounce"
+        doc = "Maximum glossy bounces"
+    )
+
+    uniform int cycles:integrator:max_transmission_bounce = 7 (
+        customData = {
+            string apiName = "integrator_max_transmission_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Max Transmission Bounce"
+        doc = "Maximum transmission bounces"
+    )
+
+    uniform int cycles:integrator:max_volume_bounce = 7 (
+        customData = {
+            string apiName = "integrator_max_volume_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Max Volume Bounce"
+        doc = "Maximum volume bounces"
+    )
+
+    uniform int cycles:integrator:transparent_min_bounce = 0 (
+        customData = {
+            string apiName = "integrator_transparent_min_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Transparent Min Bounce"
+        doc = "Minimum transparent bounces"
+    )
+
+    uniform int cycles:integrator:transparent_max_bounce = 7 (
+        customData = {
+            string apiName = "integrator_transparent_max_bounce"
+        }
+        displayGroup = "Bounce"
+        displayName = "Transparent Max Bounce"
+        doc = "Maximum transparent bounces"
+    )
+
+    uniform int cycles:integrator:ao_bounces = 0 (
+        customData = {
+            string apiName = "integrator_ao_bounces"
+        }
+        displayGroup = "Bounce"
+        displayName = "AO Bounces"
+        doc = "Number of ambient occlusion bounces"
+    )
+
+    uniform int cycles:integrator:volume_max_steps = 1024 (
+        customData = {
+            string apiName = "integrator_volume_max_steps"
+        }
+        displayGroup = "Volume"
+        displayName = "Volume Max Steps"
+        doc = "Maximum number of volume steps"
+    )
+
+    uniform float cycles:integrator:volume_step_size = 0.1 (
+        customData = {
+            string apiName = "integrator_volume_step_size"
+        }
+        displayGroup = "Volume"
+        displayName = "Volume Step Size"
+        doc = "Size of volume marching step"
+    )
+
+    uniform int cycles:integrator:aa_samples = 0 (
+        customData = {
+            string apiName = "integrator_aa_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "AA Samples"
+        doc = "Cycles anti aliasing samples"
+    )
+
+    uniform int cycles:integrator:diffuse_samples = 1 (
+        customData = {
+            string apiName = "integrator_diffuse_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "Diffuse Samples"
+        doc = "Cycles diffuse samples"
+    )
+
+    uniform int cycles:integrator:glossy_samples = 1 (
+        customData = {
+            string apiName = "integrator_glossy_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "Glossy Samples"
+        doc = "Cycles glossy samples"
+    )
+
+    uniform int cycles:integrator:transmission_samples = 1 (
+        customData = {
+            string apiName = "integrator_transmission_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "Transmission Samples"
+        doc = "Cycles transmission samples"
+    )
+
+    uniform int cycles:integrator:ao_samples = 1 (
+        customData = {
+            string apiName = "integrator_ao_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "AO Samples"
+        doc = "Cycles ao samples"
+    )
+
+    uniform int cycles:integrator:mesh_light_samples = 1 (
+        customData = {
+            string apiName = "integrator_mesh_light_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "Mesh Light Samples"
+        doc = "Cycles mesh_light samples"
+    )
+
+    uniform int cycles:integrator:subsurface_samples = 1 (
+        customData = {
+            string apiName = "integrator_subsurface_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "Subsurface Samples"
+        doc = "Cycles subsurface samples"
+    )
+
+    uniform int cycles:integrator:volume_samples = 1 (
+        customData = {
+            string apiName = "integrator_volume_samples"
+        }
+        displayGroup = "Samples"
+        displayName = "Volume Samples"
+        doc = "Cycles volume samples"
+    )
+
+    # TODO: Is this needed anymore?
+    # TODO: Add docstring
+    uniform int cycles:integrator:start_sample = 0 (
+        customData = {
+            string apiName = "integrator_start_sample"
+        }
+        displayGroup = "Samples"
+        displayName = "Start Sample"
+        doc = ""
+    )
+
+    uniform bool cycles:integrator:caustics_reflective = true (
+        customData = {
+            string apiName = "integrator_caustics_reflective"
+        }
+        displayGroup = "Caustics"
+        displayName = "Caustics Reflective"
+        doc = "Use reflective caustics, resulting in a brighter image (more noise but added realism)"
+    )
+
+    uniform bool cycles:integrator:caustics_refractive = true (
+        customData = {
+            string apiName = "integrator_caustics_refractive"
+        }
+        displayGroup = "Caustics"
+        displayName = "Caustics Refractive"
+        doc = "Use refractive caustics, resulting in a brighter image (more noise but added realism)"
+    )
+
+    uniform float cycles:integrator:filter_glossy = 1.0 (
+        customData = {
+            string apiName = "integrator_filter_glossy"
+        }
+        displayGroup = "Integrator"
+        displayName = "Filter Glossy"
+        doc = "Adaptively blur glossy shaders after blurry bounces"
+    )
+
+    uniform float cycles:integrator:sample_clamp_direct = 0 (
+        customData = {
+            string apiName = "integrator_sample_clamp_direct"
+        }
+        displayGroup = "Integrator"
+        displayName = "Sample Clamp Direct"
+        doc = "If non-zero, the maximum value for a direct sample, higher values will be scaled down to avoid too much noise and slow convergence at the cost of accuracy"
+    )
+
+    uniform float cycles:integrator:sample_clamp_indirect = 0 (
+        customData = {
+            string apiName = "integrator_sample_clamp_indirect"
+        }
+        displayGroup = "Integrator"
+        displayName = "Sample Clamp Indirect"
+        doc = "If non-zero, the maximum value for an indirect sample, higher values will be scaled down to avoid too much noise and slow convergence at the cost of accuracy"
+    )
+
+    # Discuss: Should this live under general render settings?
+    uniform bool cycles:integrator:motion_blur = false (
+        customData = {
+            string apiName = "integrator_motion_blur"
+        }
+        displayGroup = "Integrator"
+        displayName = "Motion Blur"
+        doc = "Should motion blur be applied for this render"
+    )
+
+    uniform bool cycles:integrator:sample_all_lights_direct = true (
+        customData = {
+            string apiName = "integrator_sample_all_lights_direct"
+        }
+        displayGroup = "Integrator"
+        displayName = "Sample All Lights Direct"
+        doc = "Sample all lights (for direct samples), rather than randomly picking one"
+    )
+
+    uniform bool cycles:integrator:sample_all_lights_indirect = true (
+        customData = {
+            string apiName = "integrator_sample_all_lights_indirect"
+        }
+        displayGroup = "Integrator"
+        displayName = "Sample All Lights Indirect"
+        doc = "Sample all lights (for indirect samples), rather than randomly picking one"
+    )
+
+    uniform float cycles:integrator:light_sampling_threshold = 0.05 (
+        customData = {
+            string apiName = "integrator_light_sampling_threshold"
+        }
+        displayGroup = "Integrator"
+        displayName = "Light Sampling Threshold"
+        doc = "Probabilistically terminate light samples when the light contribution is below this threshold (more noise but faster rendering). Zero disables the test and never ignores lights"
+    )
+
+    uniform int cycles:integrator:adaptive_min_samples = 0 (
+        customData = {
+            string apiName = "integrator_adaptive_min_samples"
+        }
+        displayGroup = "Integrator"
+        displayName = "Adaptive Min Samples"
+        doc = "Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling. Zero for automatic setting based on number of AA samples"
+    )
+
+    uniform float cycles:integrator:adaptive_threshold = 0.0 (
+        customData = {
+            string apiName = "integrator_adaptive_threshold"
+        }
+        displayGroup = "Integrator"
+        displayName = "Adaptive Threshold"
+        doc = "Noise level step to stop sampling at, lower values reduce noise the cost of render time. Zero for automatic setting based on number of AA samples"
+    )
+}
+
+class "CyclesFilmSettingsAPI" (
+    customData = {
+        string className = "FilmSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Film"
+
+    float cycles:film:exposure = 1.0 (
+        customData = {
+            string apiName = "film_exposure"
+        }
+        displayGroup = "Film"
+        displayName = "Exposure"
+        doc = "Exposure of output image"
+    )
+
+    # TODO: Add docstring
+    uniform float cycles:film:pass_alpha_threshold = 0.0 (
+        customData = {
+            string apiName = "film_pass_alpha_threshold"
+        }
+        displayGroup = "Film"
+        displayName = "Pass Alpha Threshold"
+        doc = ""
+    )
+
+    uniform token cycles:film:filter_type = "box" (
+        allowedTokens = ["box", "gaussian", "blackman_harris"]
+        customData = {
+            string apiName = "film_filter_type"
+        }
+        displayGroup = "Film"
+        displayName = "Filter"
+        doc = ""
+    )
+
+    uniform float cycles:film:filter_width = 1.5 (
+        customData = {
+            string apiName = "film_filter_width"
+        }
+        displayGroup = "Film"
+        displayName = "Filter Width"
+        doc = ""
+    )
+
+    float cycles:film:mist_start = 0.0 (
+        customData = {
+            string apiName = "film_mist_start"
+        }
+        displayGroup = "Film"
+        displayName = "Mist Start"
+        doc = ""
+    )
+
+    float cycles:film:mist_depth = 100.0 (
+        customData = {
+            string apiName = "film_mist_depth"
+        }
+        displayGroup = "Film"
+        displayName = "Mist Depth"
+        doc = ""
+    )
+
+    float cycles:film:mist_falloff = 1.0 (
+        customData = {
+            string apiName = "film_mist_falloff"
+        }
+        displayGroup = "Film"
+        displayName = "Mist Falloff"
+        doc = ""
+    )
+
+    uniform bool cycles:film:use_light_visibility = false (
+        customData = {
+            string apiName = "film_use_light_visibility"
+        }
+        displayGroup = "Film"
+        displayName = "Use Light Visibility"
+        doc = ""
+    )
+
+    # TODO: Is this actually used? Seems like all Cycles logic points to regular cycles:adaptive_sampling
+    uniform bool cycles:film:use_adaptive_sampling = false (
+        customData = {
+            string apiName = "film_use_adaptive_sampling"
+        }
+        displayGroup = "Film"
+        displayName = "Use Adaptive Sampling"
+        doc = ""
+    )
+
+    # Denoising
+
+    uniform bool cycles:film:denoising_data_pass = false (
+        customData = {
+            string apiName = "film_denoising_data_pass"
+        }
+        displayGroup = "Denoising"
+        displayName = "Denoising Data Pass"
+        doc = ""
+    )
+
+    uniform bool cycles:film:denoising_clean_pass = false (
+        customData = {
+            string apiName = "film_denoising_clean_pass"
+        }
+        displayGroup = "Denoising"
+        displayName = "Denoising Clean Pass"
+        doc = ""
+    )
+
+    uniform bool cycles:film:denoising_prefiltered_pass = false (
+        customData = {
+            string apiName = "film_denoising_prefiltered_pass"
+        }
+        displayGroup = "Denoising"
+        displayName = "Denoising Prefiltered Pass"
+        doc = ""
+    )
+
+    uniform int cycles:film:denoising_flags = 0 (
+        customData = {
+            string apiName = "film_denoising_flags"
+        }
+        displayGroup = "Denoising"
+        displayName = "Denoising Flags"
+        doc = ""
+    )
+
+    # Cryptomatte
+
+    # TODO: Unsure if this is needed
+    uniform int cycles:film:cryptomatte_depth = 0 (
+        customData = {
+            string apiName = "film_cryptomatte_depth"
+        }
+        displayGroup = "Cryptomatte"
+        displayName = "Cryptomatte Depth"
+        doc = ""
+    )
+}
+
+class "CyclesTextureSettingsAPI" (
+    customData = {
+        string className = "TextureSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Texture"
+
+    bool cycles:texture_use_cache = false (
+        customData = {
+            string apiName = "texture_use_cache"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Enable OpenImageIO Texture Cache"
+        doc = """Use the OpenImageIO texture cache for
+        out of core texturing."""
+    )
+
+    int cycles:texture_cache_size = 4096 (
+        customData = {
+            string apiName = "texture_cache_size"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Cache Size (MB)"
+        doc = """Maximum size of the Texture Cache."""
+    )
+
+    int cycles:texture_tile_size = 64 (
+        customData = {
+            string apiName = "texture_tile_size"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Tile Size"
+        doc = """Tile size used for mip map generation."""
+    )
+
+    float cycles:texture_diffuse_blur = 0.015625 (
+        customData = {
+            string apiName = "texture_diffuse_blur"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Diffuse Blur"
+        doc = """Blur texture lookups for diffuse bounces."""
+    )
+
+    float cycles:texture_glossy_blur = 0 (
+        customData = {
+            string apiName = "texture_glossy_blur"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Glossy Blur"
+        doc = """Blur texture lookups for glossy bounces."""
+    )
+
+    bool cycles:texture_auto_convert = 0 (
+        customData = {
+            string apiName = "texture_auto_convert"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Auto .tx convert"
+        doc = """Automatically generate .tx files
+        that contain tiled mip map representations."""
+    )
+
+    bool cycles:texture_accept_unmipped = 0 (
+        customData = {
+            string apiName = "texture_accept_unmipped"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Accept unmipped"
+        doc = """Allow the cache to use (inefficient) tetxures
+        that are not in a mip mapped format."""
+    )
+
+    bool cycles:texture_accept_untiled = 0 (
+        customData = {
+            string apiName = "texture_accept_untiled"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Accept untiled"
+        doc = """Allow the cache to use (inefficient) tetxures
+        that are not in a tiled format."""
+    )
+
+    bool cycles:texture_auto_tile = 0 (
+        customData = {
+            string apiName = "texture_auto_tile"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "AutoTile"
+        doc = """Convert in memory textures to tiled layout."""
+    )
+
+    bool cycles:texture_auto_mip = 0 (
+        customData = {
+            string apiName = "texture_auto_mip"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "AutoMip"
+        doc = """Generate in memory Mip Maps automatically."""
+    )
+
+    bool cycles:texture_use_custom_path = 0 (
+        customData = {
+            string apiName = "texture_use_custom_path"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Custom cache path"
+        doc = """Place autogenerated .tx files in this path
+        instead of next to the original."""
+    )
+
+    int cycles:texture_max_size = 0 (
+        customData = {
+            string apiName = "texture_max_size"
+        }
+        displayGroup = "Texture Cache"
+        displayName = "Max tetxure size"
+        doc = """Imposes a maximum limit on textures.
+        Textures larget htan it will be resized.
+        Set to 0 for umlimited texture size."""
+    )
+}
+
+class "CyclesLightSettingsAPI" (
+    customData = {
+        string className = "LightSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Light"
+
+    bool cycles:light:use_mis = true (
+        customData = {
+            string apiName = "light_use_mis"
+        }
+        displayGroup = "Light"
+        displayName = "Use MIS"
+        doc = "Use multiple importance scattering"
+    )
+
+    bool cycles:light:use_diffuse = true (
+        customData = {
+            string apiName = "light_use_diffuse"
+        }
+        displayGroup = "Light"
+        displayName = "Use Diffuse"
+        doc = "Use in diffuse light paths"
+    )
+
+    bool cycles:light:use_glossy = true (
+        customData = {
+            string apiName = "light_use_glossy"
+        }
+        displayGroup = "Light"
+        displayName = "Use Glossy"
+        doc = "Use in glossy light paths"
+    )
+
+    bool cycles:light:use_transmission = true (
+        customData = {
+            string apiName = "light_use_transmission"
+        }
+        displayGroup = "Light"
+        displayName = "Use Transmission"
+        doc = "Use in transmission light paths"
+    )
+
+    bool cycles:light:use_scatter = true (
+        customData = {
+            string apiName = "light_use_scatter"
+        }
+        displayGroup = "Light"
+        displayName = "Use Scatter"
+        doc = "Use in scatter light paths"
+    )
+
+    bool cycles:light:is_portal = false (
+        customData = {
+            string apiName = "light_is_portal"
+        }
+        displayGroup = "Light"
+        displayName = "Is Portal"
+        doc = "Should light act as a portal"
+    )
+
+    uniform int cycles:light:samples = 1 (
+        customData = {
+            string apiName = "light_samples"
+        }
+        displayGroup = "Light"
+        displayName = "Samples"
+        doc = "Number of samples"
+    )
+
+    uniform int cycles:light:max_bounces = 1024 (
+        customData = {
+            string apiName = "light_max_bounces"
+        }
+        displayGroup = "Light"
+        displayName = "Max Bounces"
+        doc = "Maximum bounces of light ray"
+    )
+
+    uniform int cycles:light:map_resolution = 0 (
+        customData = {
+            string apiName = "map_resolution"
+        }
+        displayGroup = "Light"
+        displayName = "Map Resolution"
+        doc = "Importance map size for dome light"
+    )
+}
+
+class "CyclesCameraSettingsAPI" (
+    customData = {
+        string className = "CameraSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Camera"
+
+    # Discuss: Should this be object:motion_position
+    # Discuss: Should this also be specified more weakly at render settings level?
+    token cycles:camera:motion_position = "center" (
+        allowedTokens = ["start", "center", "end"]
+        customData = {
+            string apiName = "camera_motion_position"
+        }
+        displayGroup = "Camera"
+        displayName = "Motion Position"
+        doc = "Shutter open position for motion blur"
+    )
+
+    # Is this needed?
+    float cycles:camera:shutter_time = 0.5 (
+        customData = {
+            string apiName = "camera_shutter_time"
+        }
+        displayGroup = "Camera"
+        displayName = "Shutter Time"
+        doc = ""
+    )
+
+    float[] cycles:camera:shutter_curve (
+        customData = {
+            string apiName = "camera_shutter_curve"
+        }
+        displayGroup = "Camera"
+        displayName = "Shutter Curve"
+        doc = ""
+    )
+
+    token cycles:camera:rolling_shutter_type = "none" (
+        allowedTokens = ["none", "top"]
+        customData = {
+            string apiName = "camera_rolling_shutter_type"
+        }
+        displayGroup = "Camera"
+        displayName = "Rolling Shutter Type"
+        doc = "Type of rolling shutter for cycles to use"
+    )
+
+    float cycles:camera:rolling_shutter_duration = 0.1 (
+        customData = {
+            string apiName = "camera_rolling_shutter_duration"
+        }
+        displayGroup = "Camera"
+        displayName = "Rolling Shutter Duration"
+        doc = "Duration of rolling shutter"
+    )
+
+    token cycles:camera:stereo_eye = "none" (
+        allowedTokens = ["none", "left", "right"]
+        customData = {
+            string apiName = "camera_stereo_eye"
+        }
+        displayGroup = "Camera"
+        displayName = "Stereo Eye"
+        doc = "Eye of stereo camera"
+    )
+
+    # TODO: Ideally we use extend the UsdGeomCamera projection tokens
+    # to incorporate panoramic. For now, we use this...
+    bool cycles:camera:use_panoramic = false (
+        customData = {
+            string apiName = "camera_use_panoramic"
+        }
+        displayGroup = "Camera"
+        displayName = "Use Panorama"
+        doc = ""
+    )
+
+    token cycles:camera:panorama_type = "equirectangular" (
+        allowedTokens = ["equirectangular", "fisheye_equidistant", "fisheye_equisolid", "mirrorball"]
+        customData = {
+            string apiName = "camera_panorama_type"
+        }
+        displayGroup = "Camera"
+        displayName = "Panorama Type"
+        doc = "Type of panorama algorithm"
+    )
+
+    uint cycles:camera:blades = 0 (
+        customData = {
+            string apiName = "camera_blades"
+        }
+        displayGroup = "Aperture"
+        displayName = "Aperture Blades"
+        doc = ""
+    )
+
+    float cycles:camera:blades_rotation = 0.0 (
+        customData = {
+            string apiName = "camera_blades_rotation"
+        }
+        displayGroup = "Aperture"
+        displayName = "Aperture Rotation"
+        doc = ""
+    )
+
+    float cycles:camera:offscreen_dicing_scale = 1.0 (
+        customData = {
+            string apiName = "camera_offscreen_dicing_scale"
+        }
+        displayGroup = "Dicing"
+        displayName = "Offscreen Dicing Scale"
+        doc = "Multiplier for dicing rate of geometry outside of the camera view. The dicing rate of objects is gradually increased the further they are outside the camera view. Lower values provide higher quality reflections and shadows for off screen objects, while higher values use less memory"
+    )
+
+    # Panorama
+
+    # TODO: Is this needed or can it be encoded with regular UsdGeomCamera attribs
+    float cycles:camera:fisheye_fov = 3.1415926535897932 (
+        customData = {
+            string apiName = "camera_fisheye_fov"
+        }
+        displayGroup = "Panorama"
+        displayName = "Fisheye FOV"
+        doc = ""
+    )
+
+    float cycles:camera:fisheye_lens = 10.5 (
+        customData = {
+            string apiName = "camera_fisheye_lens"
+            float max = 20.0
+        }
+        displayGroup = "Panorama"
+        displayName = "Fisheye Lens"
+        doc = ""
+    )
+
+    float cycles:camera:latitude_min = -1.5707963267948966 (
+        customData = {
+            string apiName = "camera_latitude_min"
+        }
+        displayGroup = "Panorama"
+        displayName = "Latitude Min"
+        doc = ""
+    )
+
+    float cycles:camera:latitude_max = 1.5707963267948966 (
+        customData = {
+            string apiName = "camera_latitude_max"
+        }
+        displayGroup = "Panorama"
+        displayName = "Latitude Max"
+        doc = ""
+    )
+
+    float cycles:camera:longitude_min = -3.1415926535897932 (
+        customData = {
+            string apiName = "camera_longitude_min"
+        }
+        displayGroup = "Panorama"
+        displayName = "Longitude Min"
+        doc = ""
+    )
+
+    float cycles:camera:longitude_max = 3.1415926535897932 (
+        customData = {
+            string apiName = "camera_longitude_max"
+        }
+        displayGroup = "Panorama"
+        displayName = "Longitude Max"
+        doc = ""
+    )
+
+    # Stereo
+
+    bool cycles:camera:use_spherical_stereo = false (
+        customData = {
+            string apiName = "camera_use_spherical_stereo"
+        }
+        displayGroup = "Stereo"
+        displayName = "Use Spherical Stereo"
+        doc = ""
+    )
+
+    float cycles:camera:interocular_distance = 0.065 (
+        customData = {
+            string apiName = "camera_interocular_distance"
+        }
+        displayGroup = "Stereo"
+        displayName = "Interocular Distance"
+        doc = ""
+    )
+
+    float cycles:camera:convergence_distance = 1.95 (
+        customData = {
+            string apiName = "camera_convergence_distance"
+        }
+        displayGroup = "Stereo"
+        displayName = "Convergence Distance"
+        doc = ""
+    )
+
+    bool cycles:camera:use_pole_merge = false (
+        customData = {
+            string apiName = "camera_use_pole_merge"
+        }
+        displayGroup = "Stereo"
+        displayName = "Use Pole Merge"
+        doc = ""
+    )
+
+    float cycles:camera:pole_merge_angle_from = 1.0471975512 (
+        customData = {
+            string apiName = "camera_pole_merge_angle_from"
+        }
+        displayGroup = "Stereo"
+        displayName = "Pole Merge Angle From"
+        doc = ""
+    )
+
+    float cycles:camera:pole_merge_angle_to = 1.308996939 (
+        customData = {
+            string apiName = "camera_pole_merge_angle_to"
+        }
+        displayGroup = "Stereo"
+        displayName = "Pole Merge Angle To"
+        doc = ""
+    )
+}
+
+class "CyclesObjectSettingsAPI" (
+    customData = {
+        string className = "ObjectSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Object"
+
+    bool primvars:cycles:object:mblur = false (
+        customData = {
+            string apiName = "object_mblur"
+        }
+        displayGroup = "Object"
+        displayName = "Motion Blur"
+        doc = "Object level override of if object should be subject to motion blur"
+    )
+
+    uniform int primvars:cycles:object:transform:samples = 3 (
+        customData = {
+            string apiName = "object_transform_samples"
+        }
+        displayGroup = "Object"
+        displayName = "Motion Blur Transform Samples"
+        doc = ""
+    )
+
+    uniform int primvars:cycles:object:mblur:steps = 3 (
+        customData = {
+            string apiName = "object_mblur_steps"
+        }
+        displayGroup = "Object"
+        displayName = "Motion Blur Steps"
+        doc = "Control accuracy of motion blur, more steps gives more memory usage (actual number of steps is 2^(steps - 1))"
+    )
+
+    # Discuss: This might not be needed for HdCycles
+    uniform bool primvars:cycles:object:mblur:deform = true (
+        customData = {
+            string apiName = "object_mblur_deform"
+        }
+        displayGroup = "Object"
+        displayName = "Motion Blur Deform"
+        doc = "Use deformation motion blur for this object"
+    )
+
+    uniform float primvars:cycles:object:mblur:volume_vel_scale = 1.0 (
+        customData = {
+            string apiName = "object_mblur_volume_vel_scale"
+        }
+        displayGroup = "Object"
+        displayName = "Volume Velocity Scale"
+        doc = ""
+    )
+
+    float primvars:cycles:object:mblur:velocity_scale = 1.0 (
+        customData = {
+            string apiName = "object_mblur_velocity_scale"
+        }
+        displayGroup = "Object"
+        displayName = "Velocity Scale"
+        doc = "Arbitrary scale of object velocity attributes"
+    )
+
+    int primvars:cycles:object:pass_id = 0 (
+        customData = {
+            string apiName = "object_pass_id"
+        }
+        displayGroup = "Object"
+        displayName = "Pass ID"
+        doc = "Index number of the 'Material Index' render pass"
+    )
+
+    bool primvars:cycles:object:use_holdout = false (
+        customData = {
+            string apiName = "object_use_holdout"
+        }
+        displayGroup = "Object"
+        displayName = "Use Holdout"
+        doc = "Render objects as a holdout or matte, creating a hole in the image with zero alpha, to fill out in compositing with real footage or another render"
+    )
+
+    bool primvars:cycles:object:is_shadow_catcher = false (
+        customData = {
+            string apiName = "object_is_shadow_catcher"
+        }
+        displayGroup = "Object"
+        displayName = "Is Shadow Catcher"
+        doc = "Only render shadows on this object, for compositing renders into real footage"
+    )
+
+    bool primvars:cycles:object:visibility:camera = true (
+        customData = {
+            string apiName = "object_visibility_camera"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Camera"
+        doc = "Should this object be visible by camera rays"
+    )
+
+    bool primvars:cycles:object:visibility:diffuse = true (
+        customData = {
+            string apiName = "object_visibility_diffuse"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Diffuse"
+        doc = "Should this object be visible by diffuse rays"
+    )
+
+    bool primvars:cycles:object:visibility:glossy = true (
+        customData = {
+            string apiName = "object_visibility_glossy"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Glossy"
+        doc = "Should this object be visible by glossy rays"
+    )
+
+    bool primvars:cycles:object:visibility:transmission = true (
+        customData = {
+            string apiName = "object_visibility_transmission"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Transmission"
+        doc = "Should this object be visible by transmission rays"
+    )
+
+    bool primvars:cycles:object:visibility:shadow = true (
+        customData = {
+            string apiName = "object_visibility_shadow"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Shadow"
+        doc = "Should this object be visible by shadow rays"
+    )
+
+    bool primvars:cycles:object:visibility:scatter = true (
+        customData = {
+            string apiName = "object_visibility_scatter"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Scatter"
+        doc = "Should this object be visible by scatter rays"
+    )
+
+    string primvars:cycles:object:asset_name = "" (
+        customData = {
+            string apiName = "object_asset_name"
+        }
+        displayGroup = "Object"
+        displayName = "Asset Name"
+        doc = "Asset name for cryptomatte asset pass"
+    )
+}
+
+class "CyclesMeshSettingsAPI" (
+    customData = {
+        string className = "MeshSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Mesh"
+
+    uniform float primvars:cycles:mesh:dicing:rate = 1.0 (
+        customData = {
+            string apiName = "mesh_dicing_rate"
+        }
+        displayGroup = "Subdivision"
+        displayName = "Dicing Rate"
+        doc = "Size of a micropolygon in pixels"
+    )
+
+    uniform int primvars:cycles:mesh:subdivision_max_level = 3 (
+        customData = {
+            string apiName = "mesh_subdivision_max_level"
+        }
+        displayGroup = "Subdivision"
+        displayName = "Max Subdivisions"
+        doc = "Stop subdividing when this level is reached even if the dice rate would produce finer tessellation"
+    )
+}
+
+class "CyclesMaterialSettingsAPI" (
+    customData = {
+        string className = "MaterialSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Material"
+
+    uniform int cycles:material:pass_id = 0 (
+        customData = {
+            string apiName = "material_pass_id"
+        }
+        displayGroup = "Material"
+        displayName = "Pass ID"
+        doc = "Used for material id aov pass"
+    )
+
+    uniform token cycles:material:displacement_method = "displacement_bump" (
+        allowedTokens = ["displacement_bump", "displacement_true", "displacement_both"]
+        customData = {
+            string apiName = "displacement_method"
+        }
+        displayGroup = "Material"
+        displayName = "Displacement Method"
+        doc = "Method to use for the displacement"
+    )
+
+    bool cycles:material:use_mis = true (
+        customData = {
+            string apiName = "material_use_mis"
+        }
+        displayGroup = "Material"
+        displayName = "Use MIS"
+        doc = ""
+    )
+
+    bool cycles:material:use_transparent_shadow = true (
+        customData = {
+            string apiName = "material_use_transparent_shadow"
+        }
+        displayGroup = "Material"
+        displayName = "Use Transparent Shadow"
+        doc = "Use transparent shadows for this material if it contains a Transparent BSDF, disabling will render faster but not give accurate shadows"
+    )
+
+    uniform bool cycles:material:heterogeneous_volume = true (
+        customData = {
+            string apiName = "material_heterogeneous_volume"
+        }
+        displayGroup = "Volume"
+        displayName = "Heterogeneous Volume"
+        doc = "Is this volume heterogeneous"
+    )
+
+    uniform token cycles:material:volume_sampling_method = "volume_sampling_distance" (
+        allowedTokens = ["volume_sampling_distance", "volume_sampling_equiangular", "volume_sampling_multiple_importance"]
+        customData = {
+            string apiName = "volume_sampling_method"
+        }
+        displayGroup = "Volume"
+        displayName = "Volume Sampling Method"
+        doc = "Method of sampling volumes"
+    )
+
+    uniform token cycles:material:volume_interpolation_method = "volume_interpolation_linear" (
+        allowedTokens = ["volume_interpolation_linear", "volume_interpolation_cubic"]
+        customData = {
+            string apiName = "volume_interpolation_method"
+        }
+        displayGroup = "Volume"
+        displayName = "Volume Interpolation Method"
+        doc = "Method of interpolating volumes"
+    )
+
+    uniform float cycles:material:volume_step_rate = 1.0 (
+        customData = {
+            string apiName = "material_volume_step_rate"
+        }
+        displayGroup = "Volume"
+        displayName = "Volume Step Rate"
+        doc = "Globally adjust detail for volume rendering, on top of automatically estimated step size. Higher values reduce render time, lower values render with more detail"
+    )
+}
+
+# For now this is a render setting like schema.
+# This solution doesnt solve for background shaders (dome lights with materials)
+# It might make sense (when the usdlux shader api is released)
+# to make this a subclass of a dome light
+class "CyclesBackgroundAPI" (
+    customData = {
+        string className = "BackgroundAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Background"
+
+    uniform float cycles:background:ao_factor = 1.0 (
+        customData = {
+            string apiName = "background_ao_factor"
+        }
+        displayGroup = "Ambient Occlusion"
+        displayName = "AO Factor"
+        doc = "Amount to scale AO by"
+    )
+
+    uniform float cycles:background:ao_distance = 1.0 (
+        customData = {
+            string apiName = "background_ao_distance"
+        }
+        displayGroup = "Ambient Occlusion"
+        displayName = "AO Distance"
+        doc = ""
+    )
+
+    uniform bool cycles:background:use_shader = true (
+        customData = {
+            string apiName = "background_use_shader"
+        }
+        displayGroup = "Background"
+        displayName = "Use Shader"
+        doc = "Should the background use a shader network"
+    )
+
+    uniform bool cycles:background:use_ao = false (
+        customData = {
+            string apiName = "background_use_ao"
+        }
+        displayGroup = "Background"
+        displayName = "Use Ambient Occlusion"
+        doc = "Should the background use AO"
+    )
+
+    # Transparency
+
+    uniform bool cycles:background:transparent = false (
+        customData = {
+            string apiName = "background_transparent"
+        }
+        displayGroup = "Transparent"
+        displayName = "Transparent"
+        doc = "Should the background render transparent"
+    )
+
+    uniform bool cycles:background:transparent_glass = false (
+        customData = {
+            string apiName = "background_transparent_glass"
+        }
+        displayGroup = "Transparent"
+        displayName = "Transparent Glass"
+        doc = "Render transmissive surfaces as transparent, for compositing glass over another background"
+    )
+
+    uniform float cycles:background:transparent_roughness_threshold = 0.1 (
+        customData = {
+            string apiName = "background_transparent_roughness_threshold"
+        }
+        displayGroup = "Transparent"
+        displayName = "Transparent Roughness Threshold"
+        doc = "For transparent transmission, keep surfaces with roughness above the threshold opaque"
+    )
+
+    # Volume
+
+    uniform float cycles:background:volume_step_size = 0.1 (
+        customData = {
+            string apiName = "background_volume_step_size"
+        }
+        displayGroup = "Volume"
+        displayName = "Volume Step Size"
+        doc = "Distance between volume shader samples when rendering the volume (lower values give more accurate and detailed results, but also increased render time)"
+    )
+
+    # Visibility
+
+    bool cycles:background:visibility:camera = true (
+        customData = {
+            string apiName = "object_visibility_camera"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Camera"
+        doc = "Should the background be visible by camera rays"
+    )
+
+    bool cycles:background:visibility:diffuse = true (
+        customData = {
+            string apiName = "object_visibility_diffuse"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Diffuse"
+        doc = "Should the background be visible by diffuse rays"
+    )
+
+    bool cycles:background:visibility:glossy = true (
+        customData = {
+            string apiName = "object_visibility_glossy"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Glossy"
+        doc = "Should the background be visible by glossy rays"
+    )
+
+    bool cycles:background:visibility:transmission = true (
+        customData = {
+            string apiName = "object_visibility_transmission"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Transmission"
+        doc = "Should the background be visible by transmission rays"
+    )
+
+    bool cycles:background:visibility:scatter = true (
+        customData = {
+            string apiName = "object_visibility_scatter"
+        }
+        displayGroup = "Visibility"
+        displayName = "Visibility Scatter"
+        doc = "Should the background be visible by scatter rays"
+    )
+}
+
+class "CyclesCurveSettingsAPI" (
+    customData = {
+        string className = "CurveSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Curve"
+
+    uniform token primvars:cycles:curve:shape = "ribbon" (
+        allowedTokens = ["ribbon", "thick"]
+        customData = {
+            string apiName = "curve_shape"
+        }
+        displayGroup = "Curve"
+        displayName = "Curve Shape"
+        doc = "How should these curves be rendered. Ribbons or thick."
+    )
+}
+
+class "CyclesPointsSettingsAPI" (
+    customData = {
+        string className = "PointsSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Points"
+
+    uniform token cycles:object:point_style = "disc" (
+        allowedTokens = ["disc", "disc_oriented", "sphere"]
+        customData = {
+            string apiName = "object_point_style"
+        }
+        displayGroup = "Point"
+        displayName = "Point Style"
+        doc = "How should these points be rendered. Discs (ray oriented), normal oriented discs or spheres."
+    )
+
+    uniform int cycles:object:point_resolution = 3 (
+        customData = {
+            string apiName = "object_point_resolution"
+        }
+        displayGroup = "Point"
+        displayName = "Point Resolution"
+        doc = "Resolution of generated point geometry"
+    )
+}
+
+class "CyclesBakeSettingsAPI" (
+    customData = {
+        string className = "BakeSettingsAPI"
+    }
+    inherits = </APISchemaBase>
+)
+{
+    string displayName = "Bake"
+
+    uniform bool cycles:bake:enable = false (
+        customData = {
+            string apiName = "bake_enable"
+        }
+        displayGroup = "Bake"
+        displayName = "Enable Baking"
+        doc = "Should Cycles run in bake mode"
+    )
+
+    string cycles:bake:object (
+        customData = {
+            string apiName = "bake_object"
+        }
+        displayGroup = "Bake"
+        displayName = "Object"
+        doc = "Object to bake"
+    )
+
+    token cycles:bake:bake_type = "combined" (
+        allowedTokens = [
+            "combined",
+            "ambient_occlusion",
+            "shadow",
+            "normal",
+            "uv",
+            "roughness",
+            "emit",
+            "environment",
+            "diffuse",
+            "glossy",
+            "transmission",
+            "diffuse_color",
+            "glossy_color",
+            "transmission_color",
+        ]
+        customData = {
+            string apiName = "bake_bake_type"
+        }
+        displayGroup = "Bake"
+        displayName = "Bake Type"
+        doc = "Pass to bake"
+    )
+
+    uniform bool cycles:bake:direct = true (
+        customData = {
+            string apiName = "bake_direct"
+        }
+        displayGroup = "Influence"
+        displayName = "Direct"
+        doc = "Add direct lighting contribution"
+    )
+
+    uniform bool cycles:bake:indirect = true (
+        customData = {
+            string apiName = "bake_indirect"
+        }
+        displayGroup = "Influence"
+        displayName = "Indirect"
+        doc = "Add indirect lighting contribution"
+    )
+
+    uniform bool cycles:bake:filter:color = true (
+        customData = {
+            string apiName = "bake_filter_color"
+        }
+        displayGroup = "Influence"
+        displayName = "Color"
+        doc = "Add color contribution"
+    )
+
+    uniform bool cycles:bake:filter:diffuse = true (
+        customData = {
+            string apiName = "bake_filter_diffuse"
+        }
+        displayGroup = "Influence"
+        displayName = "Diffuse"
+        doc = "Add diffuse contribution"
+    )
+
+    uniform bool cycles:bake:filter:glossy = true (
+        customData = {
+            string apiName = "bake_filter_glossy"
+        }
+        displayGroup = "Influence"
+        displayName = "Glossy"
+        doc = "Add glossy contribution"
+    )
+
+    uniform bool cycles:bake:filter:transmission = true (
+        customData = {
+            string apiName = "bake_filter_transmission"
+        }
+        displayGroup = "Influence"
+        displayName = "Transmission"
+        doc = "Add transmission contribution"
+    )
+
+    uniform bool cycles:bake:filter:ambient_occlusion = true (
+        customData = {
+            string apiName = "bake_filter_ambient_occlusion"
+        }
+        displayGroup = "Influence"
+        displayName = "Ambient Occlusion"
+        doc = "Add ambient occlusion contribution"
+    )
+
+    uniform bool cycles:bake:filter:emission = true (
+        customData = {
+            string apiName = "bake_filter_emission"
+        }
+        displayGroup = "Influence"
+        displayName = "Emit"
+        doc = "Add emission contribution"
+    )
+
+    uniform int cycles:bake:margin = 16 (
+        customData = {
+            string apiName = "bake_margin"
+        }
+        displayGroup = "Bake"
+        displayName = "Margin"
+        doc = "Bake margin"
+    )
+}

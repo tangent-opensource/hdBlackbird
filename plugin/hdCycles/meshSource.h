@@ -17,24 +17,34 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-//  Usage of the debug codes follows Arnold's render delegate
-//  https://github.com/Autodesk/arnold-usd/blob/11eb3ced2b6a148bb5737fddeb25e4e21273607f/render_delegate/
+#ifndef HDBB_MESHSOURCE_H
+#define HDBB_MESHSOURCE_H
 
-#ifndef HD_CYCLES_DEBUG_CODES_H
-#define HD_CYCLES_DEBUG_CODES_H
-
-#include <pxr/pxr.h>
-
-#include <pxr/base/tf/debug.h>
+#include "attributeSource.h"
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-// clang-format off
-TF_DEBUG_CODES(
-	HDCYCLES_MESH
-)
-// clang-format on
+class HdBbMeshTopology;
+
+///
+/// Blackbird Mesh attribute source
+///
+class HdBbMeshAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
+                            const HdInterpolation& interpolation, std::shared_ptr<HdBbMeshTopology> topology);
+
+    // Underlying VtValue has different size than ccl::Geometry, we have to accommodate for that.
+    bool Resolve() override;
+    const HdInterpolation& GetInterpolation() const { return m_interpolation; }
+
+private:
+    bool _CheckValid() const override;
+
+    HdInterpolation m_interpolation;
+    std::shared_ptr<HdBbMeshTopology> m_topology;
+};
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_DEBUG_CODES_H
+#endif  //HDCYCLES_MESHSOURCE_H

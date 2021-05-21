@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,10 +17,27 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_H
-#define HD_CYCLES_H
+#ifndef HDCYCLES_RENDERPASSSTATE_H
+#define HDCYCLES_RENDERPASSSTATE_H
 
-static constexpr int HD_CYCLES_MOTION_STEPS = 3;
-static constexpr int HD_CYCLES_MAX_PRIMVAR_SAMPLES = 3;
+#include <pxr/imaging/hd/renderPassState.h>
 
-#endif  // HD_CYCLES_H
+PXR_NAMESPACE_OPEN_SCOPE
+
+class HdCyclesRenderDelegate;
+
+class HdCyclesRenderPassState : public HdRenderPassState {
+public:
+    explicit HdCyclesRenderPassState(const HdCyclesRenderDelegate* renderDelegate);
+
+    void Prepare(const HdResourceRegistrySharedPtr& resourceRegistry) override;
+
+private:
+    const HdCyclesRenderDelegate* m_renderDelegate;
+};
+
+using HdCyclesRenderPassStateSharedPtr = std::shared_ptr<HdCyclesRenderPassState>;
+
+PXR_NAMESPACE_CLOSE_SCOPE
+
+#endif  //HDCYCLES_RENDERPASSSTATE_H
