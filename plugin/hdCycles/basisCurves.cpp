@@ -98,9 +98,9 @@ HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& insta
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.motion_blur.eval(m_useMotionBlur, true);
+    config.motion_blur.eval(m_motionBlur, true);
 
-    m_cyclesObject = _CreateObject();
+    m_cyclesObject = new ccl::Object();
 
     // when time comes to switch object management to resource registry we need to switch off reference
     auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
@@ -141,17 +141,6 @@ HdCyclesBasisCurves::Finalize(HdRenderParam* renderParam)
 {
 }
 
-ccl::Object*
-HdCyclesBasisCurves::_CreateObject()
-{
-    // Create container object
-    ccl::Object* object = new ccl::Object();
-
-    object->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
-
-    return object;
-}
-
 void
 HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
 {
@@ -180,28 +169,39 @@ HdCyclesBasisCurves::_PopulateCurveMesh(HdRenderParam* renderParam)
 }
 
 void
-HdCyclesBasisCurves::_PopulateMotion()
+HdCyclesBasisCurves::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
-    if (m_pointSamples.count <= 1)
-        return;
+    HdCyclesValueTimeSampleArray motion_samples;
+    sceneDelegate->SamplePrimvar(id, HdTokens->points, &motion_samples);
 
-    m_cyclesGeometry->use_motion_blur = true;
+    const size_t numSamples = motion_samples.count;
+    auto& times = motion_samples.times;
+    auto& values = motion_samples.values;
 
-    m_cyclesGeometry->motion_steps = static_cast<unsigned int>(m_pointSamples.count + 1);
-
-    ccl::Attribute* attr_mP = m_cyclesGeometry->attributes.find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-
-    if (!attr_mP) {
-        attr_mP = m_cyclesGeometry->attributes.add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    ccl::AttributeSet* attributes = &m_cyclesHair->attributes;
+    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    if (attr_mP) {
+        attributes->remove(attr_mP);
     }
 
+    if (numSamples <= 1) {
+        m_cyclesHair->use_motion_blur = false;
+        m_cyclesHair->motion_steps = 0;
+        return;
+    }
+
+    m_cyclesHair->use_motion_blur = true;
+    m_cyclesHair->motion_steps = static_cast<unsigned int>(numSamples + ((numSamples % 2) ? 0 : 1));
+
+    attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     ccl::float3* mP = attr_mP->data_float3();
-    for (size_t i = 0; i < m_pointSamples.count; ++i) {
-        if (m_pointSamples.times.data()[i] == 0.0f) {
+
+    for (size_t i = 0; i < motion_samples.count; ++i) {
+        if (times[i] == 0.0f)  // todo: more flexible check?
             continue;
-        }
+
         VtVec3fArray pp;
-        pp = m_pointSamples.values.data()[i].Get<VtVec3fArray>();
+        pp = motion_samples.values.data()[i].Get<VtVec3fArray>();
 
         for (size_t j = 0; j < m_points.size(); ++j, ++mP) {
             *mP = vec3f_to_float3(pp[j]);
@@ -445,7 +445,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     // Defaults
     m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
-    m_useMotionBlur = false;
+    m_motionBlur = true;
+    m_motionTransformSteps = 3;
+    m_motionDeformSteps = 3;
     m_cyclesObject->is_shadow_catcher = false;
     m_cyclesObject->pass_id = 0;
     m_cyclesObject->use_holdout = false;
@@ -455,7 +457,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     TfToken curveShape = usdCyclesTokens->ribbon;
     m_points.clear();
     m_indices.clear();
-    m_pointSamples.count = 0;
     m_widths = VtFloatArray(1, 0.1f);
     m_widthsInterpolation = HdInterpolationConstant;
     m_normals.clear();
@@ -503,7 +504,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                 if (description.name == HdTokens->points) {
                     VtValue value = sceneDelegate->Get(id, HdTokens->points);
                     m_points = value.Get<VtVec3fArray>();
-                    sceneDelegate->SamplePrimvar(id, HdTokens->points, &m_pointSamples);
                     generate_new_curve = true;
                     continue;
                 }
@@ -569,9 +569,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                     continue;
                 }
 
-                if(primvar_name == usdCyclesTokens->primvarsCyclesObjectAsset_name) {
+                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectAsset_name) {
                     VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectAsset_name);
-                    if(value.IsHolding<std::string>()) {
+                    if (value.IsHolding<std::string>()) {
                         std::string assetName = value.Get<std::string>();
                         m_cyclesObject->asset_name = ccl::ustring(assetName);
                     }
@@ -580,8 +580,19 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
                 if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
                     VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
-                    if (value.IsHolding<bool>())
-                        m_useMotionBlur = value.Get<bool>();
+                    m_motionBlur = value.Get<bool>();
+                    continue;
+                }
+
+                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+                    m_motionTransformSteps = value.Get<int>();
+                    continue;
+                }
+
+                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
+                    m_motionDeformSteps = value.Get<int>();
                     continue;
                 }
 
@@ -645,7 +656,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                 }
 
                 if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission);
+                    VtValue value = GetPrimvar(sceneDelegate,
+                                               usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission);
                     if (value.IsHolding<bool>())
                         m_visTransmission = value.Get<bool>();
                     continue;
@@ -689,8 +701,14 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
             param->AddGeometry(m_cyclesGeometry);
         }
 
-        if (m_useMotionBlur)
-            _PopulateMotion();
+        if (m_cyclesHair) {
+            if (m_motionBlur && m_motionDeformSteps > 0) {
+                _PopulateMotion(sceneDelegate, id);
+            } else {
+                m_cyclesHair->use_motion_blur = false;
+                m_cyclesHair->motion_steps = 0;
+            }
+        }
     }
 
     //
@@ -717,24 +735,17 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
         HdCyclesMatrix4dTimeSampleArray xf {};
 
         std::shared_ptr<HdCyclesTransformSource> transform_source;
-        if (!m_useMotionBlur) {
-            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
-        } else {
+        if (m_motionBlur && m_motionTransformSteps > 1) {
             sceneDelegate->SampleTransform(id, &xf);
-
-            VtValue ts_value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
-            if (!ts_value.IsEmpty()) {
-                auto num_new_samples = ts_value.Get<int>();
-                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
-                                                                             num_new_samples);
-            } else {
-                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
-                                                                             3);
-            }
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
+                                                                         m_motionTransformSteps);
+        } else {
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
         }
-        m_object_source->AddObjectPropertiesSource(std::move(transform_source));
-
-        update_curve = true;
+        if (transform_source->IsValid()) {
+            transform_source->Resolve();
+            update_curve = true;
+        }
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {

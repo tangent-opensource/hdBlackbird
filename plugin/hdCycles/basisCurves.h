@@ -140,7 +140,7 @@ protected:
      */
     void _AddUVS(TfToken name, VtValue uvs, HdInterpolation interpolation);
 
-    void _PopulateMotion();
+    void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     /**
      * @brief Populate generated coordinates for basisCurves
@@ -156,13 +156,10 @@ protected:
     HdInterpolation m_widthsInterpolation;
     VtIntArray m_indices;
     GfMatrix4f m_transform;
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    HdCyclesSampledPrimvarType m_pointSamples;
-
-    int m_numTransformSamples;
-    bool m_useMotionBlur;
-    int m_motionSteps;
+    bool m_motionBlur;
+    int m_motionTransformSteps;
+    int m_motionDeformSteps;
 
     unsigned int m_visibilityFlags;
 
@@ -179,13 +176,6 @@ protected:
     ccl::vector<ccl::Shader*> m_usedShaders;
 
 private:
-    /**
-     * @brief Create the cycles curve mesh and object representation
-     * 
-     * @return New allocated pointer to ccl::Mesh
-     */
-    ccl::Object* _CreateObject();
-
     /**
      * @brief Populate the Cycles mesh representation from delegate's data
      */
