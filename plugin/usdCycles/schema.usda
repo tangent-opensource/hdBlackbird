@@ -1336,7 +1336,7 @@ class "CyclesObjectSettingsAPI" (
 {
     string displayName = "Object"
 
-    bool primvars:cycles:object:mblur = false (
+    bool primvars:cycles:object:mblur = true (
         customData = {
             string apiName = "object_mblur"
         }
@@ -1354,23 +1354,13 @@ class "CyclesObjectSettingsAPI" (
         doc = ""
     )
 
-    uniform int primvars:cycles:object:mblur:steps = 3 (
+    uniform int primvars:cycles:object:deform:samples = 3 (
         customData = {
-            string apiName = "object_mblur_steps"
+            string apiName = "object_deform_samples"
         }
         displayGroup = "Object"
-        displayName = "Motion Blur Steps"
-        doc = "Control accuracy of motion blur, more steps gives more memory usage (actual number of steps is 2^(steps - 1))"
-    )
-
-    # Discuss: This might not be needed for HdCycles
-    uniform bool primvars:cycles:object:mblur:deform = true (
-        customData = {
-            string apiName = "object_mblur_deform"
-        }
-        displayGroup = "Object"
-        displayName = "Motion Blur Deform"
-        doc = "Use deformation motion blur for this object"
+        displayName = "Motion Blur Deform Samples"
+        doc = ""
     )
 
     uniform float primvars:cycles:object:mblur:volume_vel_scale = 1.0 (
