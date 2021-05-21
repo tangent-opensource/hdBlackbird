@@ -45,6 +45,7 @@
 #include <render/stats.h>
 #include <util/util_murmurhash.h>
 #include <util/util_task.h>
+#include <util/util_time.h>
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
@@ -1332,6 +1333,67 @@ HdCyclesRenderParam::_HandlePasses()
     m_cyclesScene->film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
 }
 
+
+void
+HdCyclesRenderParam::_InitBlitArguments() {
+    if (m_aovs.empty()) {
+        return;
+    }
+
+    const size_t n_aovs = m_aovs.size();
+
+    m_blitNames.clear();
+    m_blitComponents.clear();
+    m_blitComponentTypes.clear();
+    m_blitPixelsStrides.clear();
+    m_blitPixels.clear();
+    m_blitRenderBuffers.clear();
+
+    m_blitNames.reserve(n_aovs);
+    m_blitComponents.reserve(n_aovs);
+    m_blitComponentTypes.reserve(n_aovs);
+    m_blitPixelsStrides.reserve(n_aovs);
+    m_blitPixels.reserve(n_aovs);
+    m_blitRenderBuffers.reserve(n_aovs);
+
+    for (HdRenderPassAovBinding& aov : m_aovs) {
+        HdCyclesAov cyclesAov;
+        if (!GetCyclesAov(aov, cyclesAov)) {
+            TF_WARN("Failed to find Cycles AOV for %s, will not be blit to", aov.aovName.GetText());
+            continue;
+        }
+
+        if (!aov.renderBuffer) {
+            TF_WARN("AOV %s has no render buffer attached, something is wrong", aov.aovName.GetText());
+        }
+        HdRenderBuffer* rb = aov.renderBuffer;
+
+        const int n_comps_cycles = static_cast<int>(HdGetComponentCount(cyclesAov.format));
+        m_blitComponents.push_back(n_comps_cycles);
+
+        m_blitNames.push_back(ccl::string(cyclesAov.name));
+
+        ccl::RenderBuffers::ComponentType pixels_type = ccl::RenderBuffers::ComponentType::None;
+        switch (rb->GetFormat()) {
+            case HdFormatFloat16: pixels_type = ccl::RenderBuffers::ComponentType::Float16; break;
+            case HdFormatFloat16Vec3: pixels_type = ccl::RenderBuffers::ComponentType::Float16x3; break;
+            case HdFormatFloat16Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float16x4; break;
+            case HdFormatFloat32: pixels_type = ccl::RenderBuffers::ComponentType::Float32; break;
+            case HdFormatFloat32Vec3: pixels_type = ccl::RenderBuffers::ComponentType::Float32x3; break;
+            case HdFormatFloat32Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float32x4; break;
+            case HdFormatInt32: pixels_type = ccl::RenderBuffers::ComponentType::Int32; break;
+            default: assert(false); break;
+        }
+        m_blitComponentTypes.push_back((int)pixels_type);
+
+        const int stride = static_cast<int>(HdDataSizeOfFormat(rb->GetFormat()));
+        m_blitPixelsStrides.push_back(stride);
+
+        m_blitPixels.push_back(nullptr);
+        m_blitRenderBuffers.push_back(rb);
+    }
+}
+
 bool
 HdCyclesRenderParam::SetRenderSetting(const TfToken& key, const VtValue& value)
 {
@@ -1356,18 +1418,101 @@ HdCyclesRenderParam::_CreateSession()
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
     m_cyclesSession->display_copy_cb = [this](int samples) {
+        auto t0 = ccl::time_dt();
         for (auto aov : m_aovs) {
             BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width,
                                m_cyclesSession->tile_manager.state.buffer.height, samples);
         }
+        auto t1 = ccl::time_dt();
+        printf("Blit took %f\n", t1 - t0);
     };
 
+    m_cyclesSession->display_copy_cb = std::bind(&HdCyclesRenderParam::_WriteRenderBuffers, this, ccl::_1);
     m_cyclesSession->write_render_tile_cb = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
     m_cyclesSession->update_render_tile_cb = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1, ccl::_2);
 
     m_cyclesSession->progress.set_update_callback(std::bind(&HdCyclesRenderParam::_SessionUpdateCallback, this));
 
     return true;
+}
+
+void
+HdCyclesRenderParam::_WriteRenderBuffers(int samples) {
+    // This can be different from the size of m_aovs
+    const size_t n_aovs = m_blitNames.size();
+    assert(m_blitPixels.size() == n_aovs);
+    assert(m_blitComponents.size() == n_aovs);
+    assert(m_blitComponentTypes.size() == n_aovs);
+    assert(m_blitPixelsStrides.size() == n_aovs);
+    assert(m_blitRenderBuffers.size() == n_aovs);
+
+    const float exposure = m_cyclesScene->film->exposure;
+
+    // Blitting aovs in groups with same dimensions
+    for (size_t i = 0; i < n_aovs;) {
+        size_t j = i;
+        while (++j < n_aovs) {
+            HdRenderBuffer* rb_prev = m_blitRenderBuffers[j - 1];
+            HdRenderBuffer* rb_next = m_blitRenderBuffers[j];
+            if (rb_prev && rb_next) {
+                if (rb_prev->GetWidth() == rb_next->GetWidth() &&
+                    rb_prev->GetHeight() == rb_next->GetHeight()) {
+                    continue;
+                } 
+            }
+        }
+        const size_t n_aovs_blit = j - i;
+
+        for (size_t j = 0; j < n_aovs_blit; ++j) {
+            const size_t aov_idx = i + j;
+            if (m_blitRenderBuffers[aov_idx]) {
+                m_blitPixels[aov_idx] = (uint8_t*)m_blitRenderBuffers[aov_idx]->Map();
+            }
+        }
+
+        auto tbeg = ccl::time_dt();
+        bool wrote = m_cyclesSession->buffers->get_pass_rects_as(
+            &m_blitNames[i],
+            exposure,
+            samples + 1,
+            &m_blitComponents[i],
+            &m_blitPixels[i],
+            &m_blitComponentTypes[i],
+            m_cyclesSession->tile_manager.state.buffer.width,
+            m_cyclesSession->tile_manager.state.buffer.height,
+            &m_blitPixelsStrides[i],
+            &m_blitAuxMem,
+            n_aovs_blit);
+        auto tend = ccl::time_dt();
+        // printf("blit took %f\n", tend - tbeg);
+
+        // for (size_t j = 0; j < n_aovs_blit; ++j) {
+        //     assert(sizeof(ccl::half4) == 8);
+        //     const size_t aov_idx = i + j;
+        //     if (m_blitNames[aov_idx] == "Combined") {
+        //         ccl::half4* vals = (ccl::half4*)m_blitPixels[i];
+        //         for (size_t k = 0; k < m_blitRenderBuffers[aov_idx]->GetWidth() * m_blitRenderBuffers[aov_idx]->GetHeight(); ++k) {
+        //             vals[k].x = ccl::float_to_half(0.f);
+        //             vals[k].y = ccl::float_to_half(0.f);
+        //             vals[k].z = ccl::float_to_half(0.f);
+        //             vals[k].w = ccl::float_to_half(1.f);
+        //         }
+        //     }
+        // }
+
+        if (!wrote) {
+            TF_WARN("Failed to write render buffers %d to %d", i, j);
+        }
+
+        for (size_t j = 0; j < n_aovs_blit; ++j) {
+            const size_t aov_idx = i + j;
+            if (m_blitRenderBuffers[aov_idx]) {
+                m_blitRenderBuffers[aov_idx]->Unmap();
+            }
+        }
+
+        i += n_aovs_blit;
+    }
 }
 
 void
@@ -2215,6 +2360,22 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
 
     film->tag_update(m_cyclesScene);
+
+    _InitBlitArguments();
+
+    // todo: triple check that this is not a problem
+    std::sort(m_aovs.begin(), m_aovs.end(),
+        [](const HdRenderPassAovBinding& lhs, const HdRenderPassAovBinding& rhs) -> bool {
+            if (lhs.renderBuffer && rhs.renderBuffer) {
+                const unsigned int lhs_w = lhs.renderBuffer->GetWidth();
+                const unsigned int rhs_w = rhs.renderBuffer->GetWidth();
+                if (lhs_w != rhs_w) {
+                    return lhs_w < rhs_w;
+                }
+                return lhs.renderBuffer->GetHeight() < rhs.renderBuffer->GetHeight();
+            }
+            return false;
+        });
 }
 
 // We need to remove the aov binding because the renderbuffer can be
@@ -2241,6 +2402,7 @@ HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb)
 void
 HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples)
 {
+    auto tbeg = ccl::time_dt();
     if (samples < 0) {
         return;
     }
@@ -2261,6 +2423,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
         || m_cyclesSession->buffers->params.height != rb->GetHeight()) {
         return;
     }
+
 
     // This acquires the whole object, not just the pixel buffer
     // It needs to wrap any getters
@@ -2297,6 +2460,7 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
                                       static_cast<uint8_t*>(data), pixels_type, w, h, stride);
 
+
             if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
                 if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
                     /* We bump the PrimId() before sending it to hydra, decrementing it here */
@@ -2316,6 +2480,8 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     } else {
         TF_WARN("Failed to map renderbuffer %s for writing on Cycles display callback", aov.aovName.GetText());
     }
+    auto tend = ccl::time_dt();
+    printf("Blit took %f\n", tend - tbeg);
 }
 
 

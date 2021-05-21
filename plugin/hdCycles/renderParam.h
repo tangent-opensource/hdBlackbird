@@ -147,6 +147,7 @@ protected:
      */
     void _SessionUpdateCallback();
 
+    void _WriteRenderBuffers(int samples);
     void _WriteRenderTile(ccl::RenderTile& rtile);
     void _UpdateRenderTile(ccl::RenderTile& rtile, bool highlight);
 
@@ -279,6 +280,7 @@ private:
     bool _HandleBackgroundRenderSetting(const TfToken& key, const VtValue& value);
 
     void _HandlePasses();
+    void _InitBlitArguments();
 
     /**
      * @brief Initialize member values based on config
@@ -374,6 +376,15 @@ private:
     HdRenderPassAovBindingVector m_aovs;
 
     bool m_settingsHaveChanged = false;
+
+    // Info only about render buffers
+    std::vector<std::string> m_blitNames;
+    std::vector<int> m_blitComponents;
+    std::vector<uint8_t*> m_blitPixels;
+    std::vector<int> m_blitComponentTypes;
+    std::vector<int> m_blitPixelsStrides;
+    std::vector<float> m_blitAuxMem;
+    std::vector<HdRenderBuffer*> m_blitRenderBuffers;
 
 public:
     /**
