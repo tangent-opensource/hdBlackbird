@@ -724,10 +724,10 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         std::shared_ptr<HdCyclesTransformSource> transform_source;
         if (m_motionBlur && m_motionTransformSteps > 1) {
             sceneDelegate->SampleTransform(id, &xf);
-            transform_source = std::make_shared<HdCyclesTransformSource>(m_obj->GetObject(), xf, fallback,
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_objectSource->GetObject(), xf, fallback,
                                                                          m_motionTransformSteps);
         } else {
-            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_objectSource->GetObject(), xf, fallback);
         }
         if (transform_source->IsValid()) {
             transform_source->Resolve();
