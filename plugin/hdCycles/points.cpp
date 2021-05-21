@@ -747,7 +747,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             auto value = GetPrimvar(sceneDelegate, description.name);
 
             if (value.IsEmpty()) {
-                TF_WARN("Primvar %s is empty with interpolation %s", description.name,
+                TF_WARN("Primvar %s is empty with interpolation %s", description.name.c_str(),
                         _HdInterpolationStr(interpolation));
                 continue;
             }
