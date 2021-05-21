@@ -237,51 +237,6 @@ class "CyclesRendererSettingsAPI" (
         doc = "Use linear display buffer"
     )
 
-    uniform int cycles:denoising_start_sample = 0 (
-        customData = {
-            string apiName = "denoising_start_sample"
-        }
-        displayGroup = "Denoising"
-        displayName = "Denoising Start Sample"
-        doc = ""
-    )
-
-    uniform bool cycles:run_denoising = false (
-        customData = {
-            string apiName = "run_denoising"
-        }
-        displayGroup = "Denoising"
-        displayName = "Run Denoising"
-        doc = ""
-    )
-
-    uniform bool cycles:write_denoising_passes = false (
-        customData = {
-            string apiName = "write_denoising_passes"
-        }
-        displayGroup = "Denoising"
-        displayName = "Write Denoising Passes"
-        doc = ""
-    )
-
-    uniform bool cycles:full_denoising = false (
-        customData = {
-            string apiName = "full_denoising"
-        }
-        displayGroup = "Denoising"
-        displayName = "Full Denoising"
-        doc = ""
-    )
-
-    uniform bool cycles:optix_denoising = false (
-        customData = {
-            string apiName = "optix_denoising"
-        }
-        displayGroup = "Denoising"
-        displayName = "Optix Denoising"
-        doc = ""
-    )
-
     # This has been removed in favour of per curve "curve_shape"
     # This involves a patch to the Cycles API to override the global curve shape
     #uniform token cycles:global_curve_shape = "thick" (
@@ -331,8 +286,8 @@ class "CyclesDenoiseSettingsAPI" (
         doc = ""
     )
 
-    uniform token cycles:denoise:type = "nlm" (
-        allowedTokens = ["none", "nlm", "optix", "openimagedenoise"]
+    uniform token cycles:denoise:type = "none" (
+        allowedTokens = ["none", "optix", "openimagedenoise"]
         customData = {
             string apiName = "denoise_type"
         }
@@ -341,66 +296,12 @@ class "CyclesDenoiseSettingsAPI" (
         doc = ""
     )
 
-    uniform int cycles:denoise:start_sample = 0 (
+    uniform int cycles:denoise:start_sample = 8 (
         customData = {
             string apiName = "denoise_start_sample"
         }
         displayGroup = "Denoising"
         displayName = "Start Sample"
-        doc = ""
-    )
-
-    uniform int cycles:denoise:radius = 8 (
-        customData = {
-            string apiName = "denoise_radius"
-        }
-        displayGroup = "Denoising"
-        displayName = "Radius"
-        doc = ""
-    )
-
-    uniform float cycles:denoise:strength = 0.5 (
-        customData = {
-            string apiName = "denoise_strength"
-        }
-        displayGroup = "Denoising"
-        displayName = "Strength"
-        doc = ""
-    )
-
-    uniform float cycles:denoise:feature_strength = 0.5 (
-        customData = {
-            string apiName = "denoise_feature_strength"
-        }
-        displayGroup = "Denoising"
-        displayName = "Feature Strength"
-        doc = ""
-    )
-
-    uniform bool cycles:denoise:relative_pca = false (
-        customData = {
-            string apiName = "denoise_relative_pca"
-        }
-        displayGroup = "Denoising"
-        displayName = "Relative PCA"
-        doc = ""
-    )
-
-    uniform int cycles:denoise:neighbor_frames = 2 (
-        customData = {
-            string apiName = "denoise_neighbor_frames"
-        }
-        displayGroup = "Denoising"
-        displayName = "Neighbor Frames"
-        doc = ""
-    )
-
-    uniform bool cycles:denoise:clamp_input = true (
-        customData = {
-            string apiName = "denoise_clamp_input"
-        }
-        displayGroup = "Denoising"
-        displayName = "Clamp Input"
         doc = ""
     )
 
@@ -410,7 +311,7 @@ class "CyclesDenoiseSettingsAPI" (
             string apiName = "denoise_input_passes"
         }
         displayGroup = "Denoising"
-        displayName = "Input Passes (OIIO)"
+        displayName = "Input Passes"
         doc = ""
     )
 }
