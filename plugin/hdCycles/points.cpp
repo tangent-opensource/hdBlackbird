@@ -49,18 +49,13 @@ HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, Hd
     , m_cyclesObject(nullptr)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_point_display_color_shader(nullptr)
-    , m_useMotionBlur(false)
-    , m_motionSteps(1)
+    , m_motionBlur(false)
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.motion_blur.eval(m_useMotionBlur, true);
+    config.motion_blur.eval(m_motionBlur, true);
 
     config.default_point_resolution.eval(m_pointResolution, true);
-
-    if (m_useMotionBlur) {
-        m_motionSteps = HD_CYCLES_MOTION_STEPS;
-    }
 
     _InitializeNewCyclesPointCloud();
 }
@@ -117,16 +112,24 @@ HdCyclesPoints::_InitializeNewCyclesPointCloud()
     m_cyclesObject = new ccl::Object();
     assert(m_cyclesObject);
     m_cyclesObject->geometry = m_cyclesPointCloud;
-    m_cyclesObject->tfm = ccl::transform_identity();
-    m_cyclesObject->pass_id = -1;
-    m_cyclesObject->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
     m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
+
+    // when time comes to switch object management to resource registry we need to switch off reference
+    const SdfPath& id = GetId();
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id, true));
+    m_objectSource = object_instance.GetValue();
 }
 
 void
 HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits)
 {
     assert(m_cyclesObject);
+
+    m_motionBlur = true;
+    m_motionTransformSteps = 3;
+    m_motionDeformSteps = 3;
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
         { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
@@ -137,15 +140,31 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
 
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
-            // Points specific
+            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                continue;
+            }
 
-            m_useMotionBlur = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                            usdCyclesTokens->primvarsCyclesObjectMblur,
-                                                            m_useMotionBlur);
+            const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
 
-            m_motionSteps = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                          usdCyclesTokens->primvarsCyclesObjectMblurSteps,
-                                                          m_motionSteps);
+            // motion blur settings
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
+                m_motionBlur = value.Get<bool>();
+                continue;
+            }
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+                m_motionTransformSteps = value.Get<int>();
+                continue;
+            }
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
+                m_motionDeformSteps = value.Get<int>();
+                continue;
+            }
 
             // Object Generic
 
@@ -460,7 +479,7 @@ HdCyclesPoints::_PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPat
 
     // Is motion blur enabled?
     // because of the structure of the rendering code.
-    if (!m_useMotionBlur) {
+    if (!m_motionBlur) {
         return;
     }
 
@@ -519,7 +538,7 @@ HdCyclesPoints::_PopulateAccelerations(HdSceneDelegate* sceneDelegate, const Sdf
 {
     assert(m_cyclesPointCloud);
 
-    if (!m_useMotionBlur) {
+    if (!m_motionBlur) {
         return;
     }
 
@@ -653,13 +672,6 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
     const SdfPath& id = GetId();
 
-    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
-    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
-    if (object_instance.IsFirstInstance()) {
-        object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id));
-        m_objectSource = object_instance.GetValue();
-    }
-
     m_point_display_color_shader = param->default_vcol_display_color_surface;
     assert(m_point_display_color_shader);
 
@@ -706,7 +718,20 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
+        auto fallback = sceneDelegate->GetTransform(id);
+        HdCyclesMatrix4dTimeSampleArray xf {};
+
+        std::shared_ptr<HdCyclesTransformSource> transform_source;
+        if (m_motionBlur && m_motionTransformSteps > 1) {
+            sceneDelegate->SampleTransform(id, &xf);
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_obj->GetObject(), xf, fallback,
+                                                                         m_motionTransformSteps);
+        } else {
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
+        }
+        if (transform_source->IsValid()) {
+            transform_source->Resolve();
+        }
     }
 
     // Checking points separately as they dictate the size of other attribute buffers
