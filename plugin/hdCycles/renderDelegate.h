@@ -134,7 +134,10 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     (Pref)                  \
     (Ngn)                   \
     (RenderTime)            \
-    (SampleCount)
+    (SampleCount)           \
+                            \
+    (DenoiseNormal)         \
+    (DenoiseAlbedo)
 
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens,
     HDCYCLES_AOV_TOKENS
