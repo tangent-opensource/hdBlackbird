@@ -9,7 +9,7 @@ authors = [
 ]
 
 requires = [
-    'cycles-1.13.0-ta.1.10.0',
+    'cycles-1.13.0-ta.1.11.0',
 ]
 
 variants = [
