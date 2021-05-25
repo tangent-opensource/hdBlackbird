@@ -109,10 +109,18 @@ target_compile_definitions(hdCycles
         MFB_ALT_PACKAGE_NAME=hdCycles
         )
 
+if(APPLE)
+set_target_properties(hdCycles PROPERTIES
+        PREFIX ""
+        INSTALL_RPATH "@loader_path"
+        )
+else()
 set_target_properties(hdCycles PROPERTIES
         PREFIX ""
         INSTALL_RPATH "$ORIGIN"
         )
+endif()
+
 install(TARGETS hdCycles DESTINATION plugin/usd)
 
 if (MSVC)
