@@ -272,6 +272,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // Defaults
     m_useMotionBlur = false;
     m_cyclesObject->velocity_scale = 1.0f;
+    m_cyclesObject->lightgroup = "";
 
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
         m_cyclesVolume->clear();
@@ -347,6 +348,12 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             m_cyclesObject->use_holdout = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                                                         usdCyclesTokens->primvarsCyclesObjectUse_holdout,
                                                                         m_cyclesObject->use_holdout);
+
+            std::string lightGroup = m_cyclesObject->lightgroup.c_str();
+            lightGroup = _HdCyclesGetVolumeParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
+                                                              usdCyclesTokens->primvarsCyclesObjectLightgroup,
+                                                              lightGroup);
+            m_cyclesObject->lightgroup = ccl::ustring(lightGroup);
 
             // Visibility
 

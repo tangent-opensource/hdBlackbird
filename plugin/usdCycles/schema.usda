@@ -994,6 +994,15 @@ class "CyclesLightSettingsAPI" (
         displayName = "Map Resolution"
         doc = "Importance map size for dome light"
     )
+
+    uniform string cycles:light:lightgroup = "" (
+        customData = {
+            string apiName = "lightgroup"
+        }
+        displayGroup = "Light"
+        displayName = "Light Group"
+        doc = "Light Group name to output to corresponding AOV name"
+    )
 }
 
 class "CyclesCameraSettingsAPI" (
@@ -1370,6 +1379,15 @@ class "CyclesObjectSettingsAPI" (
         displayGroup = "Object"
         displayName = "Asset Name"
         doc = "Asset name for cryptomatte asset pass"
+    )
+
+    string primvars:cycles:object:lightgroup = "" (
+        customData = {
+            string apiName = "lightgroup"
+        }
+        displayGroup = "Object"
+        displayName = "Light Group"
+        doc = "Light Group name to output to corresponding AOV name"
     )
 }
 
