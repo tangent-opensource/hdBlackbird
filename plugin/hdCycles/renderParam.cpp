@@ -1857,14 +1857,13 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* light)
 void
 HdCyclesRenderParam::RemoveObject(ccl::Object* object)
 {
-    for (auto it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
-        if (object == *it) {
-            it = m_cyclesScene->objects.erase(it);
+    for (auto &it : m_cyclesScene->objects) {
+        if (object == it) {
+            it = *(m_cyclesScene->objects.end() - 1);
+            m_cyclesScene->objects.resize(m_cyclesScene->objects.size() - 1);
 
             m_objectsUpdated = true;
             break;
-        } else {
-            ++it;
         }
     }
 

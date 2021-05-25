@@ -73,20 +73,21 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
 
 HdCyclesMesh::~HdCyclesMesh()
 {
+    ccl::thread_scoped_lock lock { m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->mutex };
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometry(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
         delete m_cyclesObject;
     }
 
 
     for (auto instance : m_cyclesInstances) {
         if (instance) {
-            m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
+            m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
             delete instance;
         }
     }
