@@ -262,7 +262,7 @@ HdCyclesPoints::_PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
         // We set the size of the radius buffers to a default value
         for (size_t i = 0; i < m_cyclesPointCloud->radius.size(); ++i) {
-            m_cyclesPointCloud->radius[i] = 0.025f;
+            m_cyclesPointCloud->radius[i] = 1.f;
         }
     }
 
