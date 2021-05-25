@@ -17,13 +17,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_LIGHT_H
-#define HD_CYCLES_LIGHT_H
+#ifndef HD_BLACKBIRD_LIGHT_H
+#define HD_BLACKBIRD_LIGHT_H
 
 #include "api.h"
 
 #include "renderDelegate.h"
-
 #include <render/graph.h>
 #include <render/light.h>
 #include <render/nodes.h>
@@ -65,8 +64,7 @@ public:
      * @param a_renderDelegate Associated Render Delegate
      * as a prototype
      */
-    HdCyclesLight(SdfPath const& id, TfToken const& lightType,
-                  HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesLight(SdfPath const& id, TfToken const& lightType, HdCyclesRenderDelegate* a_renderDelegate);
 
     /**
      * @brief Destroy the HdCycles Light object
@@ -84,8 +82,7 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -106,16 +103,14 @@ public:
     void Finalize(HdRenderParam* renderParam) override;
 
 private:
-    // Tracking for Cycles light shader graphs, saves on potentially 
+    // Tracking for Cycles light shader graphs, saves on potentially
     // expensive new/delete re-creation of graphs for interactive sessions.
     enum ShaderGraphBits : uint8_t {
-        Default     = 0,
+        Default = 0,
         Temperature = 1 << 0,
-        IES         = 1 << 1,
-        Texture     = 1 << 2,
-        All         = (Temperature
-                       |IES
-                       |Texture)
+        IES = 1 << 1,
+        Texture = 1 << 2,
+        All = (Temperature | IES | Texture)
     };
 
     /**
@@ -140,7 +135,7 @@ private:
      * @param isBackground Is the shader graph for the background shader
      * @return Newly allocated default shader graph
      */
-    ccl::ShaderGraph *_GetDefaultShaderGraph(const bool isBackground = false);
+    ccl::ShaderGraph* _GetDefaultShaderGraph(const bool isBackground = false);
 
     /**
      * @brief Find first shader node based on type.
@@ -149,19 +144,16 @@ private:
      * @param type The type of ShaderNode to search for
      * @return The first ShaderNode found based on type in graph
      */
-    ccl::ShaderNode *_FindShaderNode(const ccl::ShaderGraph *graph, const ccl::NodeType *type);
+    ccl::ShaderNode* _FindShaderNode(const ccl::ShaderGraph* graph, const ccl::NodeType* type,
+                                     const ccl::ustring name = ccl::ustring());
 
     const TfToken m_hdLightType;
     ccl::Light* m_cyclesLight;
     ShaderGraphBits m_shaderGraphBits;
 
-    bool m_normalize;
-
     HdCyclesRenderDelegate* m_renderDelegate;
-
-    float m_finalIntensity;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_LIGHT_H
+#endif  // HD_BLACKBIRD_LIGHT_H

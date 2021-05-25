@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_RENDER_PARAM_H
-#define HD_CYCLES_RENDER_PARAM_H
+#ifndef HD_BLACKBIRD_RENDER_PARAM_H
+#define HD_BLACKBIRD_RENDER_PARAM_H
 
 #include "api.h"
 
@@ -35,6 +35,7 @@ namespace ccl {
 class Session;
 class Scene;
 class Mesh;
+class PointCloud;
 class RenderTile;
 class Shader;
 }  // namespace ccl
@@ -64,15 +65,13 @@ public:
      * @brief Start cycles render session
      * 
      */
-    HDCYCLES_API
     void StartRender();
 
     /**
      * @brief Stop the current render and close cycles instance
      * 
-     * @return HDCYCLES_API StopRender 
+     * @return StopRender 
      */
-    HDCYCLES_API
     void StopRender();
 
     /**
@@ -80,14 +79,12 @@ public:
      * Currently unused, likely broken
      *  
      */
-    HDCYCLES_API
     void RestartRender();
 
     /**
      * @brief Restarts the current cycles render
      * 
      */
-    HDCYCLES_API
     void Interrupt(bool a_forceUpdate = false);
 
     /**
@@ -111,10 +108,8 @@ public:
     /**
      * @return Progress completed of render
      */
-    HDCYCLES_API
     float GetProgress();
 
-    HDCYCLES_API
     bool IsConverged();
 
     /**
@@ -131,8 +126,9 @@ public:
      */
     bool SetRenderSetting(const TfToken& key, const VtValue& valuekey);
 
-protected:
+    void BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples);
 
+protected:
     /**
      * @brief Start a cycles render
      * 
@@ -189,8 +185,7 @@ public:
      * @param a_shader Shader to use
      * @param a_emissive Should the default bg be emissive
      */
-    void SetBackgroundShader(ccl::Shader* a_shader = nullptr,
-                             bool a_emissive       = true);
+    void SetBackgroundShader(ccl::Shader* a_shader = nullptr, bool a_emissive = true);
 
     /* ======= Cycles Settings ======= */
 
@@ -201,8 +196,7 @@ public:
      * @param params Specific params
      * @return Returns true if could set the device type
      */
-    bool SetDeviceType(ccl::DeviceType a_deviceType,
-                       ccl::SessionParams& params);
+    bool SetDeviceType(ccl::DeviceType a_deviceType, ccl::SessionParams& params);
 
     /**
      * @brief Set Cycles render device type
@@ -211,8 +205,7 @@ public:
      * @param params Specific params
      * @return Returns true if could set the device type
      */
-    bool SetDeviceType(const std::string& a_deviceType,
-                       ccl::SessionParams& params);
+    bool SetDeviceType(const std::string& a_deviceType, ccl::SessionParams& params);
 
     /**
      * @brief Set Cycles render device type
@@ -222,84 +215,29 @@ public:
      */
     bool SetDeviceType(const std::string& a_deviceType);
 
-    /* ====== HdCycles Settings ====== */
+    /* ====== Thread unsafe operations ====== */
 
-    /**
-     * @brief Add light to scene
-     * 
-     * @param a_light Light to add
-     */
-    void AddLight(ccl::Light* a_light);
+    void AddShader(ccl::Shader* shader);
+    void AddLight(ccl::Light* light);
+    void AddObject(ccl::Object* object);
+    void AddGeometry(ccl::Geometry* geometry);
 
-    /**
-     * @brief Add geometry to scene
-     * 
-     * @param a_geometry Geometry to add
-     */
-    void AddGeometry(ccl::Geometry* a_geometry);
+    void RemoveShader(ccl::Shader* shader);
+    void RemoveLight(ccl::Light* light);
+    void RemoveObject(ccl::Object* object);
+    void RemoveGeometry(ccl::Geometry* geometry);
 
-    /**
-     * @brief Add mesh to scene
-     * 
-     * @param a_geometry Mesh to add
-     */
-    void AddMesh(ccl::Mesh* a_mesh);
+    /* ====== Thread safe operations ====== */
 
-    /**
-     * @brief Add geometry to scene
-     * 
-     * @param a_geometry Geometry to add
-     */
-    void AddCurve(ccl::Geometry* a_curve);
+    void AddShaderSafe(ccl::Shader* shader);
+    void AddLightSafe(ccl::Light* light);
+    void AddObjectSafe(ccl::Object* object);
+    void AddGeometrySafe(ccl::Geometry* geometry);
 
-    /**
-     * @brief Add shader to scene
-     * 
-     * @param a_shader Shader to add
-     */
-    void AddShader(ccl::Shader* a_shader);
-
-    /**
-     * @brief Add object to scene
-     * 
-     * @param a_object Object to add
-     */
-    void AddObject(ccl::Object* a_object);
-
-    /**
-     * @brief Remove hair geometry from cycles scene
-     * 
-     * @param a_hair Hair to remove
-     */
-    void RemoveCurve(ccl::Hair* a_hair);
-
-    /**
-     * @brief Remove light from cycles scene
-     * 
-     * @param a_light Light to remove
-     */
-    void RemoveLight(ccl::Light* a_light);
-
-    /**
-     * @brief Remove shader from cycles scene
-     * 
-     * @param a_shader Shader to remove
-     */
-    void RemoveShader(ccl::Shader* a_shader);
-
-    /**
-     * @brief Remove mesh geometry from cycles scene
-     * 
-     * @param a_mesh Mesh to remove
-     */
-    void RemoveMesh(ccl::Mesh* a_mesh);
-
-    /**
-     * @brief Remove object from cycles scene
-     * 
-     * @param a_object Object to remove
-     */
-    void RemoveObject(ccl::Object* a_object);
+    void RemoveShaderSafe(ccl::Shader* shader);
+    void RemoveLightSafe(ccl::Light* light);
+    void RemoveObjectSafe(ccl::Object* object);
+    void RemoveGeometrySafe(ccl::Geometry* geometry);
 
 private:
     bool _CreateSession();
@@ -317,13 +255,11 @@ private:
     bool _CreateScene();
 
     void _UpdateDelegateFromConfig(bool a_forceInit = false);
-    void
-    _UpdateDelegateFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    void _UpdateDelegateFromRenderSettings(HdRenderSettingsMap const& settingsMap);
     bool _HandleDelegateRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateSessionFromConfig(bool a_forceInit = false);
-    void
-    _UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    void _UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap);
     bool _HandleSessionRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateSceneFromConfig(bool a_forceInit = false);
@@ -335,16 +271,12 @@ private:
     bool _HandleFilmRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateIntegratorFromConfig(bool a_forceInit = false);
-    void
-    _UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap);
-    bool _HandleIntegratorRenderSetting(const TfToken& key,
-                                        const VtValue& value);
+    void _UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleIntegratorRenderSetting(const TfToken& key, const VtValue& value);
 
     void _UpdateBackgroundFromConfig(bool a_forceInit = false);
-    void
-    _UpdateBackgroundFromRenderSettings(HdRenderSettingsMap const& settingsMap);
-    bool _HandleBackgroundRenderSetting(const TfToken& key,
-                                        const VtValue& value);
+    void _UpdateBackgroundFromRenderSettings(HdRenderSettingsMap const& settingsMap);
+    bool _HandleBackgroundRenderSetting(const TfToken& key, const VtValue& value);
 
     void _HandlePasses();
 
@@ -355,8 +287,7 @@ private:
      */
     void _InitializeDefaults();
 
-    bool _SetDevice(const ccl::DeviceType& a_deviceType,
-                    ccl::SessionParams& params);
+    bool _SetDevice(const ccl::DeviceType& a_deviceType, ccl::SessionParams& params);
 
     ccl::SessionParams m_sessionParams;
     ccl::SceneParams m_sceneParams;
@@ -380,8 +311,6 @@ private:
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;
-    bool m_curveUpdated;
-    bool m_meshUpdated;
     bool m_lightsUpdated;
     bool m_shadersUpdated;
 
@@ -416,7 +345,9 @@ public:
      * TODO: Refactor this somewhere else
      * 
      */
-    ccl::Shader* default_vcol_surface;
+    ccl::Shader* default_vcol_display_color_surface;
+    ccl::Shader* default_attrib_display_color_surface;
+    ccl::Shader* default_object_display_color_surface;
 
     VtDictionary GetRenderStats() const;
 
@@ -426,25 +357,45 @@ public:
      */
     UpAxis GetUpAxis() const { return m_upAxis; }
 
+    void UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders);
+
+    /**
+     * @brief Return if square samples is enabled (for light samples to check against)
+     * 
+     * @return boolean
+     * 
+     */
+    bool IsSquareSamples() const { return m_useSquareSamples; }
+
 private:
     ccl::Session* m_cyclesSession;
     ccl::Scene* m_cyclesScene;
 
-
     HdRenderPassAovBindingVector m_aovs;
 
-public:
-    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
-    {
-        m_aovs = a_aovs;
-    }
+    bool m_settingsHaveChanged = false;
 
-    HdRenderPassAovBindingVector const& GetAovBindings() const
-    {
-        return m_aovs;
-    }
+public:
+    /**
+     * @brief Set the AOV bindings
+     * 
+     * @param a_aovs Set a HdRenderPassAovBindingVector from HdCyclesRenderPass
+     */
+    void SetAovBindings(HdRenderPassAovBindingVector const& a_aovs);
+
+    /**
+     * @brief Remove the AOV binding, probably because the buffer has been deleted
+     */
+    void RemoveAovBinding(HdRenderBuffer* rb);
+
+    /**
+     * @brief Get the AOV bindings
+     * 
+     * @return HdRenderPassAovBindingVector
+     */
+    HdRenderPassAovBindingVector const& GetAovBindings() const { return m_aovs; }
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_RENDER_PARAM_H
+#endif  // HD_BLACKBIRD_RENDER_PARAM_H

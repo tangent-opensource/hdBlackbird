@@ -17,14 +17,15 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_RENDER_DELEGATE_H
-#define HD_CYCLES_RENDER_DELEGATE_H
+#ifndef HD_BLACKBIRD_RENDER_DELEGATE_H
+#define HD_BLACKBIRD_RENDER_DELEGATE_H
 
 #include "api.h"
+#include "resourceRegistry.h"
 
+#include <pxr/base/tf/diagnosticMgr.h>
 #include <pxr/base/tf/staticTokens.h>
 #include <pxr/imaging/hd/renderDelegate.h>
-#include <pxr/imaging/hd/resourceRegistry.h>
 #include <pxr/pxr.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -34,6 +35,10 @@ class HdCyclesRenderPass;
 class HdCyclesRenderDelegate;
 
 // clang-format off
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((useDefaultBackground, "useDefaultBackground"))
     ((device, "device"))
@@ -80,18 +85,20 @@ TF_DEFINE_PRIVATE_TOKENS(HdCyclesRenderSettingsTokens,
     ((pixelFilterBox, "pixelFilter:box"))
     ((pixelFilterGaussian, "pixelFilter:gaussian"))
 );
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #define HDCYCLES_INTEGRATOR_TOKENS  \
     (BranchedPathTracing)           \
     (PathTracing)
 
-TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens, 
-    HDCYCLES_API,
+TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     HDCYCLES_INTEGRATOR_TOKENS
 );
 
-
 #define HDCYCLES_AOV_TOKENS \
+    (UV)                    \
     (Vector)                \
     (IndexMA)               \
                             \
@@ -100,17 +107,63 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     (TransDir)              \
     (VolumeDir)             \
                             \
+    (DiffInd)               \
+    (GlossInd)              \
+    (TransInd)              \
+    (VolumeInd)             \
+                            \
+    (DiffCol)               \
+    (GlossCol)              \
+    (TransCol)              \
+    (VolumeCol)             \
+                            \
+    (Mist)                  \
     (Emit)                  \
     (Env)                   \
     (AO)                    \
-    (Shadow)
+    (Shadow)                \
+                            \
+    (CryptoObject)          \
+    (CryptoMaterial)        \
+    (CryptoAsset)           \
+                            \
+    (AOVC)                  \
+    (AOVV)                  \
+                            \
+    (P)                     \
+    (Pref)                  \
+    (Ngn)                   \
+    (RenderTime)            \
+    (SampleCount)           \
+                            \
+    (DenoiseNormal)         \
+    (DenoiseAlbedo)
 
-TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens, 
-    HDCYCLES_API, 
+TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens,
     HDCYCLES_AOV_TOKENS
 );
 
 // clang-format on
+
+///
+/// Issues errors messages to specified ostream
+///
+class HdCyclesDiagnosticDelegate : public TfDiagnosticMgr::Delegate {
+public:
+    explicit HdCyclesDiagnosticDelegate(std::ostream& os);
+    ~HdCyclesDiagnosticDelegate() override;
+
+    void IssueError(const TfError& err) override;
+    void IssueFatalError(const TfCallContext& context, const std::string& msg) override;
+    void IssueStatus(const TfStatus& status) override {}
+    void IssueWarning(const TfWarning& warning) override {}
+
+private:
+    void IssueDiagnosticBase(const TfDiagnosticBase& d);
+    void IssueMessage(const std::string& message) { _os << message << '\n'; }
+
+    std::ostream& _os;
+};
 
 /**
  * @brief Represents the core interactions between Cycles and Hydra.
@@ -124,95 +177,95 @@ public:
      * @brief Render delegate constructor.
      * 
      */
-    HDCYCLES_API HdCyclesRenderDelegate();
-    HDCYCLES_API HdCyclesRenderDelegate(HdRenderSettingsMap const& settingsMap);
-    HDCYCLES_API ~HdCyclesRenderDelegate() override;
+    HdCyclesRenderDelegate();
+    HdCyclesRenderDelegate(HdRenderSettingsMap const& settingsMap);
+    ~HdCyclesRenderDelegate() override;
 
-    HDCYCLES_API HdRenderParam* GetRenderParam() const override;
-    HDCYCLES_API HdCyclesRenderParam* GetCyclesRenderParam() const;
+    HdRenderParam* GetRenderParam() const override;
+    HdCyclesRenderParam* GetCyclesRenderParam() const;
 
     /// -- Supported types
-    HDCYCLES_API virtual const TfTokenVector&
-    GetSupportedRprimTypes() const override;
-    HDCYCLES_API virtual const TfTokenVector&
-    GetSupportedSprimTypes() const override;
-    HDCYCLES_API virtual const TfTokenVector&
-    GetSupportedBprimTypes() const override;
+    virtual const TfTokenVector& GetSupportedRprimTypes() const override;
+    virtual const TfTokenVector& GetSupportedSprimTypes() const override;
+    virtual const TfTokenVector& GetSupportedBprimTypes() const override;
 
-    HDCYCLES_API bool IsPauseSupported() const override;
+    bool IsPauseSupported() const override;
 
-    HDCYCLES_API bool Pause() override;
-    HDCYCLES_API bool Resume() override;
+    bool Pause() override;
+    bool Resume() override;
 
-    HDCYCLES_API void _InitializeCyclesRenderSettings();
+    void _InitializeCyclesRenderSettings();
 
-    HDCYCLES_API void SetRenderSetting(const TfToken& key,
-                                       const VtValue& value) override;
+    void SetRenderSetting(const TfToken& key, const VtValue& value) override;
 
-    HDCYCLES_API HdRenderSettingDescriptorList
-    GetRenderSettingDescriptors() const override;
+    HdRenderSettingDescriptorList GetRenderSettingDescriptors() const override;
 
-    HDCYCLES_API virtual HdRenderSettingsMap GetRenderSettingsMap() const;
+    virtual HdRenderSettingsMap GetRenderSettingsMap() const;
 
-    HDCYCLES_API virtual HdResourceRegistrySharedPtr
-    GetResourceRegistry() const override;
+    virtual HdResourceRegistrySharedPtr GetResourceRegistry() const override;
+
+    // Render Pass and State
+    HdRenderPassSharedPtr CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection) override;
+    HdRenderPassStateSharedPtr CreateRenderPassState() const override;
 
     // Prims
-    HDCYCLES_API virtual HdRenderPassSharedPtr
-    CreateRenderPass(HdRenderIndex* index,
-                     HdRprimCollection const& collection) override;
+    HdInstancer* CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& instancerId) override;
+    void DestroyInstancer(HdInstancer* instancer) override;
 
-    HDCYCLES_API HdInstancer*
-    CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id,
-                    SdfPath const& instancerId) override;
-    HDCYCLES_API void DestroyInstancer(HdInstancer* instancer) override;
+    HdRprim* CreateRprim(TfToken const& typeId, SdfPath const& rprimId, SdfPath const& instancerId) override;
+    void DestroyRprim(HdRprim* rPrim) override;
 
-    HDCYCLES_API HdRprim* CreateRprim(TfToken const& typeId,
-                                      SdfPath const& rprimId,
-                                      SdfPath const& instancerId) override;
-    HDCYCLES_API void DestroyRprim(HdRprim* rPrim) override;
+    HdSprim* CreateSprim(TfToken const& typeId, SdfPath const& sprimId) override;
+    HdSprim* CreateFallbackSprim(TfToken const& typeId) override;
+    void DestroySprim(HdSprim* sprim) override;
 
-    HDCYCLES_API HdSprim* CreateSprim(TfToken const& typeId,
-                                      SdfPath const& sprimId) override;
-    HDCYCLES_API HdSprim* CreateFallbackSprim(TfToken const& typeId) override;
-    HDCYCLES_API void DestroySprim(HdSprim* sprim) override;
+    HdBprim* CreateBprim(TfToken const& typeId, SdfPath const& bprimId) override;
+    HdBprim* CreateFallbackBprim(TfToken const& typeId) override;
+    void DestroyBprim(HdBprim* bprim) override;
 
-    HDCYCLES_API HdBprim* CreateBprim(TfToken const& typeId,
-                                      SdfPath const& bprimId) override;
-    HDCYCLES_API HdBprim* CreateFallbackBprim(TfToken const& typeId) override;
-    HDCYCLES_API void DestroyBprim(HdBprim* bprim) override;
+    virtual HdAovDescriptor GetDefaultAovDescriptor(TfToken const& name) const override;
 
-    HDCYCLES_API virtual HdAovDescriptor
-    GetDefaultAovDescriptor(TfToken const& name) const override;
+    void CommitResources(HdChangeTracker* tracker) override;
 
-    HDCYCLES_API void CommitResources(HdChangeTracker* tracker) override;
+    TfToken GetMaterialNetworkSelector() const override;
+    virtual TfToken GetMaterialBindingPurpose() const override;
 
-    HDCYCLES_API TfToken GetMaterialNetworkSelector() const override;
-    HDCYCLES_API virtual TfToken GetMaterialBindingPurpose() const override;
+    virtual VtDictionary GetRenderStats() const override;
 
-    HDCYCLES_API virtual VtDictionary GetRenderStats() const override;
-
-protected:
+private:
     static const TfTokenVector SUPPORTED_RPRIM_TYPES;
     static const TfTokenVector SUPPORTED_SPRIM_TYPES;
     static const TfTokenVector SUPPORTED_BPRIM_TYPES;
 
-private:
     // This class does not support copying.
     HdCyclesRenderDelegate(const HdCyclesRenderDelegate&) = delete;
     HdCyclesRenderDelegate& operator=(const HdCyclesRenderDelegate&) = delete;
 
     void _Initialize(HdRenderSettingsMap const& settingsMap);
 
-protected:  // data
     HdCyclesRenderPass* m_renderPass;
     HdRenderSettingDescriptorList m_settingDescriptors;
-    HdResourceRegistrySharedPtr m_resourceRegistry;
 
     std::unique_ptr<HdCyclesRenderParam> m_renderParam;
     bool m_hasStarted;
+
+    HdCyclesResourceRegistrySharedPtr m_resourceRegistry;
+
+    ///
+    /// Auto add/remove cycles diagnostic delegate
+    ///
+    class HdCyclesDiagnosticDelegateHolder {
+    public:
+        HdCyclesDiagnosticDelegateHolder();
+        ~HdCyclesDiagnosticDelegateHolder();
+
+    private:
+        std::unique_ptr<HdCyclesDiagnosticDelegate> _delegate;
+    };
+
+    HdCyclesDiagnosticDelegateHolder _diagnostic_holder;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_RENDER_DELEGATE_H
+#endif  // HD_BLACKBIRD_RENDER_DELEGATE_H

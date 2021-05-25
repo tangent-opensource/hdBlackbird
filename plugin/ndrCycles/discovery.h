@@ -39,14 +39,12 @@ public:
      * @brief Creates an instance of NdrCyclesDiscoveryPlugin
      * 
      */
-    NDRCYCLES_API
     NdrCyclesDiscoveryPlugin();
 
     /**
      * @brief Destructor of NdrCyclesDiscoveryPlugin
      * 
      */
-    NDRCYCLES_API
     ~NdrCyclesDiscoveryPlugin() override;
 
     /**
@@ -55,7 +53,6 @@ public:
      * @param context NdrDiscoveryPluginContext of the discovery process
      * @return List of the discovered cycles nodes
      */
-    NDRCYCLES_API
     NdrNodeDiscoveryResultVec DiscoverNodes(const Context& context) override;
 
     /**

@@ -25,10 +25,11 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 // Register the plugin with the renderer plugin system.
-TF_REGISTRY_FUNCTION(TfType)
-{
-    HdRendererPluginRegistry::Define<HdCyclesRendererPlugin>();
-}
+TF_REGISTRY_FUNCTION(TfType) { HdRendererPluginRegistry::Define<HdCyclesRendererPlugin>(); }
+
+HdCyclesRendererPlugin::HdCyclesRendererPlugin() {}
+
+HdCyclesRendererPlugin::~HdCyclesRendererPlugin() {}
 
 HdRenderDelegate*
 HdCyclesRendererPlugin::CreateRenderDelegate()
@@ -37,8 +38,7 @@ HdCyclesRendererPlugin::CreateRenderDelegate()
 }
 
 HdRenderDelegate*
-HdCyclesRendererPlugin::CreateRenderDelegate(
-    HdRenderSettingsMap const& settingsMap)
+HdCyclesRendererPlugin::CreateRenderDelegate(HdRenderSettingsMap const& settingsMap)
 {
     return new HdCyclesRenderDelegate(settingsMap);
 }

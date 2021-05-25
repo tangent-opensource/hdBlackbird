@@ -2,25 +2,21 @@
 
 name = 'hdcycles'
 
-version = '0.8.5'
+version = '0.13.0'
 
 authors = [
     'benjamin.skinner',
 ]
 
 requires = [
-    'usdcycles',
-    'cycles-1.13',
+    'cycles-1.13.0-ta.1.11.0',
 ]
 
 variants = [
-    # Windows
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.05-ta.1.2'],
     ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.11'],
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-19.11-houdini'],
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'usd-20.08-houdini'],
-    # Linux
-    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'usd-20.08-houdini'],
+    ['platform-windows', 'arch-x64', 'os-windows-10', 'houdini-18.5'],
+    ['platform-linux', 'arch-x86_64', 'os-centos-7', 'houdini-18.5'],
 ]
 
 build_system = "cmake"
@@ -40,9 +36,9 @@ with scope("config") as c:
 def private_build_requires():
     import sys
     if 'win' in str(sys.platform):
-        return ['visual_studio']
+        return ['cmake-3.18<3.20', 'visual_studio', 'Jinja2']
     else:
-        return ['gcc-6']
+        return ['cmake-3.18<3.20', 'gcc-6']
 
 # Pass along rez version to cmake build
 def pre_build_commands():
@@ -58,7 +54,14 @@ def commands():
     env.HDCYCLES_PLUGIN_ROOT.set('{root}/plugin')
     env.HDCYCLES_TOOLS_ROOT.set('{root}/tools')
 
-    env.PXR_PLUGINPATH_NAME.append('{0}/usd/ndrCycles/resources'.format(env.HDCYCLES_PLUGIN_ROOT))
-    env.PXR_PLUGINPATH_NAME.append('{0}/usd/hdCycles/resources'.format(env.HDCYCLES_PLUGIN_ROOT))
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/ndrCycles/resources')
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/usdCycles/resources')
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/hdCycles/resources')
 
-    env.PATH.append("{0}".format(env.HDCYCLES_TOOLS_ROOT))
+    env.PYTHONPATH.prepend('{root}/plugin/python')
+
+    # required on windows
+    env.PATH.append('{root}/plugin/usd')
+
+    # For houdini_cycles to locate the schema
+    env.USD_CYCLES_GENERATED_SCHEMA.set('{root}/plugin/usd/usdCycles/resources/generatedSchema.usda')

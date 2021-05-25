@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_POINTS_H
-#define HD_CYCLES_POINTS_H
+#ifndef HD_BLACKBIRD_POINTS_H
+#define HD_BLACKBIRD_POINTS_H
 
 #include "api.h"
 
@@ -34,6 +34,8 @@ namespace ccl {
 class Object;
 class Mesh;
 class Scene;
+class PointCloud;
+class Shader;
 }  // namespace ccl
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -41,14 +43,8 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdSceneDelegate;
 class HdCyclesRenderDelegate;
 
-enum HdCyclesPointStyle {
-    POINT_DISCS,
-    POINT_SPHERES,
-};
-
 /**
- * @brief An intermediate solution for HdPoints as Cycles doesn't
- * natively support point clouds.
+ * @brief HdCycles Points Rprim mapped to Cycles point cloud or mesh instances
  * 
  */
 class HdCyclesPoints final : public HdPoints {
@@ -60,8 +56,7 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this curve
      * as a prototype
      */
-    HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId,
-                   HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
     /**
      * @brief Destroy the HdCycles Points object
      * 
@@ -78,8 +73,8 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits, TfToken const& reprSelector) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+              TfToken const& reprSelector) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -101,6 +96,71 @@ public:
 
 protected:
     /**
+     * @brief Initialize the cycles objects and adds them to the scene
+     */
+    void _InitializeNewCyclesPointCloud();
+
+    /**
+     * @brief Reads various object flags before setting other geometric data
+     */
+    void _ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
+
+    /**
+     * @brief Fills in the point positions
+     */
+    void _PopulatePoints(HdSceneDelegate* sceneDelegate, const SdfPath& id, bool styleHasChanged, bool& sizeHasChanged);
+
+    /**
+     * @brief Fill in the point widths
+     */
+    void _PopulateWidths(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                         VtValue value);
+
+    /**
+     * @brief Fill in the point colors
+     */
+    void _PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                         VtValue value);
+
+    /**
+     * @brief Fill in the point alpha
+     */
+    void _PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                            VtValue value);
+
+    /**
+     * @brief Fill in the point normals
+     */
+    void _PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                          VtValue value);
+
+    /**
+     * @brief Fill in the point normals
+     */
+    void _PopulateVelocities(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                             VtValue value);
+
+    /**
+     * @brief Fill in the point accelerations if velocities
+     */
+    void _PopulateAccelerations(HdSceneDelegate* sceneDelegate, const SdfPath& id, const HdInterpolation& interpolation,
+                                VtValue value);
+
+
+    /**
+     * @brief Fills in the point positions
+     */
+    void _PopulateGenerated(ccl::Scene* scene, const SdfPath& id);
+    void _PopulateMaterial(HdSceneDelegate* sceneDelegate, HdCyclesRenderParam* renderParam,
+                           ccl::Shader* default_surface, const SdfPath& id);
+    void _PopulateObjectMaterial(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+
+    /**
+     * @brief Flag the object for update in the scene
+     */
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBVH = false);
+
+    /**
      * @brief Initialize the given representation of this Rprim.
      * This is called prior to syncing the prim.
      * 
@@ -119,51 +179,30 @@ protected:
 
 private:
     /**
-     * @brief Create the cycles points as discs mesh and object representation
-     * 
-     * @param resolution Resolution of the disc geometry
-     * @return New allocated pointer to ccl::Mesh
-     */
-    void _CreateDiscMesh();
+     * @brief Check that the combination of object attributes matches
+     * the Cycles specification. If it doesn't, it notifies the user
+     * and reverts the object to a state where it doesn't crash
+     * the renderer internally.
+    */
+    void _CheckIntegrity(HdCyclesRenderParam* param);
 
-    /**
-     * @brief Create the cycles points as spheres mesh and object representation
-     * 
-     * @param scene Cycles scene to add mesh to
-     * @param transform Initial transform for object
-     * @return New allocated pointer to ccl::Mesh
-     */
-    void _CreateSphereMesh();
+    ccl::PointCloud* m_cyclesPointCloud;
+    ccl::Object* m_cyclesObject;
 
-    /**
-     * @brief Create the cycles object for an individual point
-     * 
-     * @param transform Transform of the point
-     * @param mesh Mesh to populate the point with
-     * @return ccl::Object* 
-     */
-    ccl::Object* _CreatePointsObject(const ccl::Transform& transform,
-                                     ccl::Mesh* mesh);
+    ccl::Shader* m_point_display_color_shader;
 
-    ccl::Mesh* m_cyclesMesh;
+    int m_pointResolution;  // ?
 
-    std::vector<ccl::Object*> m_cyclesObjects;
+    unsigned int m_visibilityFlags;
 
+    HdCyclesObjectSourceSharedPtr m_objectSource;
     HdCyclesRenderDelegate* m_renderDelegate;
 
-    ccl::Transform m_transform;
-
-    int m_pointStyle;
-    int m_pointResolution;
-
-    // -- Currently unused
-
-    bool m_useMotionBlur;
-    int m_motionSteps;
-
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+    bool m_motionBlur;
+    int m_motionTransformSteps;
+    int m_motionDeformSteps;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_POINTS_H
+#endif  // HD_BLACKBIRD_POINTS_H

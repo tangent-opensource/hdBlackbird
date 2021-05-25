@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_CAMERA_H
-#define HD_CYCLES_CAMERA_H
+#ifndef HD_BLACKBIRD_CAMERA_H
+#define HD_BLACKBIRD_CAMERA_H
 
 #include "api.h"
 
@@ -67,9 +67,7 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    virtual void Sync(HdSceneDelegate* sceneDelegate,
-                      HdRenderParam* renderParam,
-                      HdDirtyBits* dirtyBits) override;
+    virtual void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -82,9 +80,7 @@ public:
     /**
      * @return Return time sampled xforms that were quereied during Sync
      */
-    HDCYCLES_API
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> const&
-    GetTimeSampleXforms() const
+    HdTimeSampleArray<GfMatrix4d, HD_BLACKBIRD_MOTION_STEPS> const& GetTimeSampleXforms() const
     {
         return m_transformSamples;
     }
@@ -230,7 +226,7 @@ private:
     float m_fisheyeLens;
     float m_latMin, m_latMax, m_longMin, m_longMax;
     bool m_useSphericalStereo;
-    
+
     float m_interocularDistance;
     float m_convergenceDistance;
     bool m_usePoleMerge;
@@ -239,8 +235,9 @@ private:
     bool m_useDof;
 
     bool m_useMotionBlur;
+    float m_fps;
 
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+    HdTimeSampleArray<GfMatrix4d, HD_BLACKBIRD_MOTION_STEPS> m_transformSamples;
 
     ccl::Camera* m_cyclesCamera;
 
@@ -251,4 +248,4 @@ private:
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_CAMERA_H
+#endif  // HD_BLACKBIRD_CAMERA_H

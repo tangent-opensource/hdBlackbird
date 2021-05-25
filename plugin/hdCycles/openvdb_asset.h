@@ -17,22 +17,21 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_OPENVDB_ASSET_H
-#define HD_CYCLES_OPENVDB_ASSET_H
+#ifndef HD_BLACKBIRD_OPENVDB_ASSET_H
+#define HD_BLACKBIRD_OPENVDB_ASSET_H
 
 #include "api.h"
 #include <pxr/pxr.h>
 
-#include <pxr/imaging/hd/field.h>
-
 #include "renderDelegate.h"
+#include <pxr/imaging/hd/field.h>
 
 #include <mutex>
 #include <unordered_set>
 
 #ifdef WITH_OPENVDB
-#    include <render/image_vdb.h>
 #    include <openvdb/openvdb.h>
+#    include <render/image_vdb.h>
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -41,61 +40,82 @@ PXR_NAMESPACE_OPEN_SCOPE
 // Very temporary. Apparently Cycles has code to do this but it isnt in the head cycles standalone repo
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
-    HdCyclesVolumeLoader(const char* filepath, const char* grid_name)
-        : ccl::VDBImageLoader(grid_name)
+    HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in)
+        : ccl::VDBImageLoader(grid_name_in)
+        , m_file_path(filepath)
     {
-        openvdb::io::File file(filepath);
+        UpdateGrid();
+    }
 
-        try {
-            file.setCopyMaxBytes(0);
-            file.open();
-            this->grid = file.readGrid(grid_name);
-        } catch (const openvdb::IoError& e) {
-            std::cout << "LOAD ERROR\n";
+    void UpdateGrid()
+    {
+        if (TF_VERIFY(!m_file_path.empty())) {
+            try {
+                openvdb::io::File file(m_file_path);
+                file.setCopyMaxBytes(0);
+                file.open();
+
+                if (grid) {
+                    grid.reset();
+                }
+
+                this->grid = file.readGrid(grid_name);
+            } catch (const openvdb::IoError& e) {
+                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name.c_str(), m_file_path.c_str());
+            } catch (const std::exception& e) {
+                TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
+            }
+        } else {
+            TF_WARN("Volume file path is empty!");
         }
     }
+
+    void cleanup() override
+    {
+#    ifdef WITH_NANOVDB
+        nanogrid.reset();
+#    endif
+    }
+
+private:
+    std::string m_file_path;
 };
 #endif
 
 
-/// Utility class for translating Hydra Openvdb Asset to Arnold Volume.
+/// Utility class for translating Hydra Openvdb Asset to Cycles Volume.
 class HdCyclesOpenvdbAsset : public HdField {
 public:
     /// Constructor for HdCyclesOpenvdbAsset
     ///
     /// @param delegate Pointer to the Render Delegate.
     /// @param id Path to the OpenVDB Asset.
-    HDCYCLES_API
     HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* delegate, const SdfPath& id);
 
-    /// Syncing the Hydra Openvdb Asset to the Arnold Volume.
+    /// Syncing the Hydra Openvdb Asset to the Cycles Volume.
     ///
     /// The functions main purpose is to dirty every Volume primitive's
     /// topology, so the grid definitions on the volume can be rebuilt, since
     /// changing the the grid name on the openvdb asset doesn't dirty the
-    /// volume primitive, which holds the arnold volume shape.
+    /// volume primitive, which holds the cycles volume shape.
     ///
     /// @param sceneDelegate Pointer to the Hydra Scene Delegate.
-    /// @param renderParam Pointer to a HdArnoldRenderParam instance.
+    /// @param renderParam Pointer to a HdCyclesRenderParam instance.
     /// @param dirtyBits Dirty Bits to sync.
-    HDCYCLES_API
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
 
     /// Returns the initial Dirty Bits for the Primitive.
     ///
     /// @return Initial Dirty Bits.
-    HDCYCLES_API
     HdDirtyBits GetInitialDirtyBitsMask() const override;
 
-    /// Tracks a HdArnoldVolume primitive.
+    /// Tracks a HdCyclesVolume primitive.
     ///
     /// Hydra separates the volume definitions from the grids each volume
     /// requires, so we need to make sure each grid definition, which can be
     /// shared between multiple volumes, knows which volume it belongs to.
     ///
     /// @param id Path to the Hydra Volume.
-    HDCYCLES_API
     void TrackVolumePrimitive(const SdfPath& id);
 
 private:
@@ -106,4 +126,4 @@ private:
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_OPENVDB_ASSET_H
+#endif  // HD_BLACKBIRD_OPENVDB_ASSET_H

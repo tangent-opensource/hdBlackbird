@@ -17,10 +17,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_H
-#define HD_CYCLES_H
+#ifndef HD_BLACKBIRD_H
+#define HD_BLACKBIRD_H
 
-static constexpr int HD_CYCLES_MOTION_STEPS = 3;
-static constexpr int HD_CYCLES_MAX_PRIMVAR_SAMPLES = 3;
+static constexpr int HD_BLACKBIRD_MOTION_STEPS = 3;
+static constexpr int HD_BLACKBIRD_MAX_PRIMVAR_SAMPLES = 3;
 
-#endif  // HD_CYCLES_H
+#endif  // HD_BLACKBIRD_H

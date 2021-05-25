@@ -17,14 +17,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_VOLUME_H
-#define HD_CYCLES_VOLUME_H
+#ifndef HD_BLACKBIRD_VOLUME_H
+#define HD_BLACKBIRD_VOLUME_H
 
 #include "api.h"
 
-#include "utils.h"
 #include "hdcycles.h"
 #include "renderDelegate.h"
+#include "utils.h"
 
 #include <util/util_transform.h>
 
@@ -33,7 +33,7 @@
 #include <pxr/pxr.h>
 
 #ifdef WITH_OPENVDB
-#include <openvdb/openvdb.h>
+#    include <openvdb/openvdb.h>
 #endif
 
 namespace ccl {
@@ -49,22 +49,21 @@ class HdSceneDelegate;
 class HdCyclesRenderDelegate;
 
 /**
- * @brief Cycles Basis Curve Rprim mapped to Cycles Basis Curve
+ * @brief USD Volume mapped to Cycles Volume
  * 
  */
 class HdCyclesVolume final : public HdVolume {
 public:
     /**
-     * @brief Construct a new HdCycles Basis Curve object
+     * @brief Construct a new HdCycles Volume object
      * 
-     * @param id Path to the Basis Curve Primitive
-     * @param instancerId If specified the HdInstancer at this id uses this curve
+     * @param id Path to the Volume Primitive
+     * @param instancerId If specified the HdInstancer at this id uses this volume
      * as a prototype
      */
-    HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId,
-                   HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
     /**
-     * @brief Destroy the HdCycles Basis Curves object
+     * @brief Destroy the HdCycles Volume object
      * 
      */
     virtual ~HdCyclesVolume();
@@ -75,23 +74,23 @@ public:
      * 
      * This must be thread safe.
      * 
-     * @param sceneDelegate The data source for the basis curve
+     * @param sceneDelegate The data source for the volume
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits, TfToken const& reprSelector) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+              TfToken const& reprSelector) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
      * the first Sync() call
      * 
-     * @return The initial dirty state this basis curve wants to query
+     * @return The initial dirty state this volume wants to query
      */
     HdDirtyBits GetInitialDirtyBitsMask() const override;
 
     /**
-     * @return Return true if this light is valid.
+     * @return Return true if this volume is valid.
      */
     bool IsValid() const;
 
@@ -125,19 +124,28 @@ protected:
 
 private:
     /**
-     * @brief Create the cycles curve mesh and object representation
+     * @brief Create the cycles object representation
      * 
-     * @return New allocated pointer to ccl::Mesh
+     * @return New allocated pointer to ccl::Object
      */
     ccl::Object* _CreateObject();
 
+    /**
+     * @brief Create the cycles volume mesh representation
+     * 
+     * @return New allocated pointer to ccl::Mesh
+     */
     ccl::Mesh* _CreateVolume();
 
     /**
      * @brief Populate the Cycles mesh representation from delegate's data
      */
-    void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate,
-                         ccl::Scene* scene);
+    void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, ccl::Scene* scene);
+
+    /**
+     * @brief Update the OpenVDB loader grid for mesh builder  
+     */
+    void _UpdateGrids();
 
     ccl::Object* m_cyclesObject;
 
@@ -145,13 +153,13 @@ private:
 
     HdCyclesRenderDelegate* m_renderDelegate;
 
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+    HdTimeSampleArray<GfMatrix4d, HD_BLACKBIRD_MOTION_STEPS> m_transformSamples;
 
-    ccl::vector<ccl::Shader *> m_usedShaders;
+    ccl::vector<ccl::Shader*> m_usedShaders;
 
     //openvdb::VolumeGridVector* grids;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_VOLUME_H
+#endif  // HD_BLACKBIRD_VOLUME_H

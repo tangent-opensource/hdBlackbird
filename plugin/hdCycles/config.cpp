@@ -19,52 +19,48 @@
 
 #include "config.h"
 
+#include "points.h"
+
 #include <pxr/base/tf/envSetting.h>
 #include <pxr/base/tf/getenv.h>
 #include <pxr/base/tf/instantiateSingleton.h>
 
+#include <render/pointcloud.h>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
-template<>
-HdCyclesEnvValue<bool>::HdCyclesEnvValue(const char* a_envName, bool a_default)
+template<> HdCyclesEnvValue<bool>::HdCyclesEnvValue(const char* a_envName, bool a_default)
 {
-    envName     = std::string(a_envName);
-    value       = TfGetenvBool(envName, a_default);
+    envName = std::string(a_envName);
+    value = TfGetenvBool(envName, a_default);
     hasOverride = TfGetenv(envName) != "";
 }
 
-template<>
-HdCyclesEnvValue<int>::HdCyclesEnvValue(const char* a_envName, int a_default)
+template<> HdCyclesEnvValue<int>::HdCyclesEnvValue(const char* a_envName, int a_default)
 {
-    envName     = std::string(a_envName);
-    value       = TfGetenvInt(envName, a_default);
+    envName = std::string(a_envName);
+    value = TfGetenvInt(envName, a_default);
     hasOverride = TfGetenv(envName) != "";
 }
 
-template<>
-HdCyclesEnvValue<double>::HdCyclesEnvValue(const char* a_envName,
-                                           double a_default)
+template<> HdCyclesEnvValue<double>::HdCyclesEnvValue(const char* a_envName, double a_default)
 {
-    envName     = std::string(a_envName);
-    value       = TfGetenvDouble(envName, a_default);
+    envName = std::string(a_envName);
+    value = TfGetenvDouble(envName, a_default);
     hasOverride = TfGetenv(envName) != "";
 }
 
-template<>
-HdCyclesEnvValue<float>::HdCyclesEnvValue(const char* a_envName,
-                                          float a_default)
+template<> HdCyclesEnvValue<float>::HdCyclesEnvValue(const char* a_envName, float a_default)
 {
-    envName     = std::string(a_envName);
-    value       = (float)TfGetenvDouble(envName, (double)a_default);
+    envName = std::string(a_envName);
+    value = static_cast<float>(TfGetenvDouble(envName, static_cast<double>(a_default)));
     hasOverride = TfGetenv(envName) != "";
 }
 
-template<>
-HdCyclesEnvValue<std::string>::HdCyclesEnvValue(const char* a_envName,
-                                                std::string a_default)
+template<> HdCyclesEnvValue<std::string>::HdCyclesEnvValue(const char* a_envName, std::string a_default)
 {
-    envName     = std::string(a_envName);
-    value       = TfGetenv(envName, a_default);
+    envName = std::string(a_envName);
+    value = TfGetenv(envName, a_default);
     hasOverride = TfGetenv(envName) != "";
 }
 
@@ -74,78 +70,81 @@ TF_INSTANTIATE_SINGLETON(HdCyclesConfig);
 
 // For distinct generic delegate settings we still use the pixar TF_DEFINE_ENV_SETTING
 
-TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging");
+TF_DEFINE_ENV_SETTING(CYCLES_ENABLE_LOGGING, false, "Enable HdCycles Logging")
 
-TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1,
-                      "Enable HdCycles progress reporting");
+TF_DEFINE_ENV_SETTING(CYCLES_LOGGING_SEVERITY, 1, "Enable HdCycles progress reporting")
 
-TF_DEFINE_ENV_SETTING(
-    CYCLES_DUMP_SHADER_GRAPH_DIR, "",
-    "Valid, existing directory to dump shader graphs for render");
+TF_DEFINE_ENV_SETTING(CYCLES_DUMP_SHADER_GRAPH_DIR, "", "Valid, existing directory to dump shader graphs for render")
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_LOGGING, false,
-                      "Enable HdCycles Logging");
+TF_DEFINE_ENV_SETTING(HD_BLACKBIRD_ENABLE_LOGGING, false, "Enable HdCycles Logging")
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_ENABLE_PROGRESS, false,
-                      "Enable HdCycles progress reporting");
+TF_DEFINE_ENV_SETTING(HD_BLACKBIRD_ENABLE_PROGRESS, false, "Enable HdCycles progress reporting")
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_USE_TILED_RENDERING, false,
-                      "Use Tiled Rendering (Experimental)");
+TF_DEFINE_ENV_SETTING(HD_BLACKBIRD_USE_TILED_RENDERING, false, "Use Tiled Rendering (Experimental)")
 
-TF_DEFINE_ENV_SETTING(HD_CYCLES_UP_AXIS, "Z",
-                      "Set custom up axis (Z or Y currently supported)");
+TF_DEFINE_ENV_SETTING(HD_BLACKBIRD_UP_AXIS, "Z", "Set custom up axis (Z or Y currently supported)")
 
 // HdCycles Constructor
 HdCyclesConfig::HdCyclesConfig()
 {
     // -- Cycles Settings
-    use_tiled_rendering = TfGetEnvSetting(HD_CYCLES_USE_TILED_RENDERING);
+    use_tiled_rendering = TfGetEnvSetting(HD_BLACKBIRD_USE_TILED_RENDERING);
 
-    cycles_enable_logging   = TfGetEnvSetting(CYCLES_ENABLE_LOGGING);
+    cycles_enable_logging = TfGetEnvSetting(CYCLES_ENABLE_LOGGING);
     cycles_logging_severity = TfGetEnvSetting(CYCLES_LOGGING_SEVERITY);
 
-    cycles_shader_graph_dump_dir = TfGetEnvSetting(
-        CYCLES_DUMP_SHADER_GRAPH_DIR);
+    cycles_shader_graph_dump_dir = TfGetEnvSetting(CYCLES_DUMP_SHADER_GRAPH_DIR);
 
     // -- HdCycles Settings
-    enable_logging  = TfGetEnvSetting(HD_CYCLES_ENABLE_LOGGING);
-    enable_progress = TfGetEnvSetting(HD_CYCLES_ENABLE_PROGRESS);
+    enable_logging = TfGetEnvSetting(HD_BLACKBIRD_ENABLE_LOGGING);
+    enable_progress = TfGetEnvSetting(HD_BLACKBIRD_ENABLE_PROGRESS);
 
-    up_axis = TfGetEnvSetting(HD_CYCLES_UP_AXIS);
+    up_axis = TfGetEnvSetting(HD_BLACKBIRD_UP_AXIS);
 
-    enable_motion_blur      = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_MOTION_BLUR", false);
-    motion_steps            = HdCyclesEnvValue<int>("HD_BLACKBIRD_MOTION_STEPS", 3);
-    enable_subdivision      = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_SUBDIVISION", false);
+    motion_blur = HdCyclesEnvValue<bool>("HD_BLACKBIRD_MOTION_BLUR", true);
+    enable_subdivision = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_SUBDIVISION", false);
     subdivision_dicing_rate = HdCyclesEnvValue<float>("HD_BLACKBIRD_SUBDIVISION_DICING_RATE", 1.0);
-    max_subdivision         = HdCyclesEnvValue<int>("HD_BLACKBIRD_MAX_SUBDIVISION", 12);
-    enable_dof              = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_DOF", true);
+    max_subdivision = HdCyclesEnvValue<int>("HD_BLACKBIRD_MAX_SUBDIVISION", 12);
+    enable_dof = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_DOF", true);
 
-    render_width   = HdCyclesEnvValue<int>("HD_BLACKBIRD_RENDER_WIDTH", 1280);
-    render_height  = HdCyclesEnvValue<int>("HD_BLACKBIRD_RENDER_HEIGHT", 720);
+    render_width = HdCyclesEnvValue<int>("HD_BLACKBIRD_RENDER_WIDTH", 1280);
+    render_height = HdCyclesEnvValue<int>("HD_BLACKBIRD_RENDER_HEIGHT", 720);
     use_old_curves = HdCyclesEnvValue<bool>("HD_BLACKBIRD_USE_OLD_CURVES", false);
 
     enable_transparent_background = HdCyclesEnvValue<bool>("HD_BLACKBIRD_USE_TRANSPARENT_BACKGROUND", false);
-    use_square_samples            = HdCyclesEnvValue<bool>("HD_BLACKBIRD_USE_SQUARE_SAMPLES", false);
+    use_square_samples = HdCyclesEnvValue<bool>("HD_BLACKBIRD_USE_SQUARE_SAMPLES", false);
 
     // -- Cycles Settings
-    enable_experimental   = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_EXPERIMENTAL", false);
-    bvh_type              = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_BVH_TYPE", "DYNAMIC");
-    device_name           = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_DEVICE_NAME", "CPU");
-    shading_system        = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_SHADING_SYSTEM", "SVM");
+    enable_experimental = HdCyclesEnvValue<bool>("HD_BLACKBIRD_ENABLE_EXPERIMENTAL", false);
+    bvh_type = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_BVH_TYPE", "DYNAMIC");
+    device_name = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_DEVICE_NAME", "CPU");
+    shading_system = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_SHADING_SYSTEM", "SVM");
     display_buffer_linear = HdCyclesEnvValue<bool>("HD_BLACKBIRD_DISPLAY_BUFFER_LINEAR", true);
 
     max_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_MAX_SAMPLES", 512);
 
-    num_threads             = HdCyclesEnvValue<int>("HD_BLACKBIRD_NUM_THREADS", 0);
-    pixel_size              = HdCyclesEnvValue<int>("HD_BLACKBIRD_PIXEL_SIZE", 1);
-    tile_size_x             = HdCyclesEnvValue<int>("HD_BLACKBIRD_TILE_SIZE_X", 64);
-    tile_size_y             = HdCyclesEnvValue<int>("HD_BLACKBIRD_TILE_SIZE_Y", 64);
-    start_resolution        = HdCyclesEnvValue<int>("HD_BLACKBIRD_START_RESOLUTION", 8);
+    pixel_size = HdCyclesEnvValue<int>("HD_BLACKBIRD_PIXEL_SIZE", 1);
+    tile_size_x = HdCyclesEnvValue<int>("HD_BLACKBIRD_TILE_SIZE_X", 64);
+    tile_size_y = HdCyclesEnvValue<int>("HD_BLACKBIRD_TILE_SIZE_Y", 64);
+    start_resolution = HdCyclesEnvValue<int>("HD_BLACKBIRD_START_RESOLUTION", 8);
     shutter_motion_position = HdCyclesEnvValue<int>("HD_BLACKBIRD_SHUTTER_MOTION_POSITION", 1);
 
-    default_point_style      = HdCyclesEnvValue<int>("HD_BLACKBIRD_DEFAULT_POINT_STYLE", 0);
+    default_point_style      = HdCyclesEnvValue<int>("HD_BLACKBIRD_DEFAULT_POINT_STYLE", ccl::POINT_CLOUD_POINT_SPHERE);
     default_point_resolution = HdCyclesEnvValue<int>("HD_BLACKBIRD_DEFAULT_POINT_RESOLUTION", 16);
 
+    texture_use_cache = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_USE_CACHE", false);
+    texture_cache_size = HdCyclesEnvValue<int>("HD_BLACKBIRD_TEXTURE_CACHE_SIZE", 4096);
+    texture_tile_size = HdCyclesEnvValue<int>("HD_BLACKBIRD_TEXTURE_TILE_SIZE", 64);
+    texture_diffuse_blur = HdCyclesEnvValue<float>("HD_BLACKBIRD_TEXTURE_DIFFUSE_BLUR", 1.0f / 64.0f);
+    texture_glossy_blur = HdCyclesEnvValue<float>("HD_BLACKBIRD_TEXTURE_GLOSSY_BLUR", 0.0f);
+    texture_auto_convert = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_AUTO_CONVERT", false);
+    texture_accept_unmipped = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_ACCEPT_UNMIPPED", false);
+    texture_accept_untiled = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_ACCEPT_UNTILED", false);
+    texture_auto_tile = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_AUTO_TILE", false);
+    texture_auto_mip = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_AUTO_MIP", false);
+    texture_use_custom_path = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_USE_CUSTOM_PATH", false);
+    texture_custom_path = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_TEXTURE_CUSTOM_PATH", "");
+    texture_max_size = HdCyclesEnvValue<int>("HD_BLACKBIRD_TEXTURE_MAX_SIZE", 0);
 
     // -- Curve Settings
 
@@ -157,13 +156,13 @@ HdCyclesConfig::HdCyclesConfig()
     // -- Integrator Settings
     integrator_method = HdCyclesEnvValue<std::string>("HD_BLACKBIRD_INTEGRATOR_METHOD", "PATH");
 
-    diffuse_samples      = HdCyclesEnvValue<int>("HD_BLACKBIRD_DIFFUSE_SAMPLES", 1);
-    glossy_samples       = HdCyclesEnvValue<int>("HD_BLACKBIRD_GLOSSY_SAMPLES", 1);
+    diffuse_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_DIFFUSE_SAMPLES", 1);
+    glossy_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_GLOSSY_SAMPLES", 1);
     transmission_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_TRANSMISSION_SAMPLES", 1);
-    ao_samples           = HdCyclesEnvValue<int>("HD_BLACKBIRD_AO_SAMPLES", 1);
-    mesh_light_samples   = HdCyclesEnvValue<int>("HD_BLACKBIRD_MESH_LIGHT_SAMPLES", 1);
-    subsurface_samples   = HdCyclesEnvValue<int>("HD_BLACKBIRD_SUBSURFACE_SAMPLES", 1);
-    volume_samples       = HdCyclesEnvValue<int>("HD_BLACKBIRD_VOLUME_SAMPLES", 1);
+    ao_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_AO_SAMPLES", 1);
+    mesh_light_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_MESH_LIGHT_SAMPLES", 1);
+    subsurface_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_SUBSURFACE_SAMPLES", 1);
+    volume_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_VOLUME_SAMPLES", 1);
     adaptive_min_samples = HdCyclesEnvValue<int>("HD_BLACKBIRD_VOLUME_SAMPLES", 1);
 }
 

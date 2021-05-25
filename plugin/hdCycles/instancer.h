@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_INSTANCER_H
-#define HD_CYCLES_INSTANCER_H
+#ifndef HD_BLACKBIRD_INSTANCER_H
+#define HD_BLACKBIRD_INSTANCER_H
 
 #include "hdcycles.h"
 
@@ -42,16 +42,14 @@ class HdSceneDelegate;
  */
 class HdCyclesInstancer : public HdInstancer {
 public:
-    HdCyclesInstancer(HdSceneDelegate* delegate, SdfPath const& id,
-                      SdfPath const& parentInstancerId)
+    HdCyclesInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& parentInstancerId)
         : HdInstancer(delegate, id, parentInstancerId)
     {
     }
 
     VtMatrix4dArray ComputeTransforms(SdfPath const& prototypeId);
 
-    HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS>
-    SampleInstanceTransforms(SdfPath const& prototypeId);
+    HdTimeSampleArray<VtMatrix4dArray, HD_BLACKBIRD_MOTION_STEPS> SampleInstanceTransforms(SdfPath const& prototypeId);
 
 private:
     void Sync();
@@ -66,4 +64,4 @@ private:
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_INSTANCER_H
+#endif  // HD_BLACKBIRD_INSTANCER_H

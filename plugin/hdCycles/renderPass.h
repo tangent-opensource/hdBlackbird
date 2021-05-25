@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_RENDER_PASS_H
-#define HD_CYCLES_RENDER_PASS_H
+#ifndef HD_BLACKBIRD_RENDER_PASS_H
+#define HD_BLACKBIRD_RENDER_PASS_H
 
 #include "api.h"
 
@@ -49,8 +49,7 @@ public:
      * @param index The render index containing scene data to render
      * @param collection Initial rprim collection for this render pass
      */
-    HdCyclesRenderPass(HdCyclesRenderDelegate* delegate, HdRenderIndex* index,
-                       HdRprimCollection const& collection);
+    HdCyclesRenderPass(HdCyclesRenderDelegate* delegate, HdRenderIndex* index, HdRprimCollection const& collection);
 
     /**
      * @brief Destroy the HdCycles Render Pass object
@@ -65,8 +64,7 @@ protected:
      * @param renderPassState Input parameters
      * @param renderTags  Which render tags should be drawn this pass
      */
-    void _Execute(HdRenderPassStateSharedPtr const& renderPassState,
-                  TfTokenVector const& renderTags) override;
+    void _Execute(HdRenderPassStateSharedPtr const& renderPassState, TfTokenVector const& renderTags) override;
 
     bool IsConverged() const override { return m_isConverged; }
 
@@ -77,7 +75,7 @@ protected:
     GfMatrix4d m_viewMtx;
 
 public:
-    int m_width  = 0;
+    int m_width = 0;
     int m_height = 0;
 
     bool m_isConverged = false;
@@ -85,4 +83,4 @@ public:
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_RENDER_PASS_H
+#endif  // HD_BLACKBIRD_RENDER_PASS_H

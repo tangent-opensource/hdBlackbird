@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,14 +17,16 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_BASIS_CURVES_H
-#define HD_CYCLES_BASIS_CURVES_H
+#ifndef HD_BLACKBIRD_BASIS_CURVES_H
+#define HD_BLACKBIRD_BASIS_CURVES_H
 
 #include "api.h"
 
+#include "attributeSource.h"
 #include "hdcycles.h"
-#include "utils.h"
+#include "objectSource.h"
 #include "renderDelegate.h"
+#include "utils.h"
 
 #include <util/util_transform.h>
 
@@ -60,8 +62,7 @@ public:
      * @param instancerId If specified the HdInstancer at this id uses this curve
      * as a prototype
      */
-    HdCyclesBasisCurves(SdfPath const& id, SdfPath const& instancerId,
-                        HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesBasisCurves(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate);
     /**
      * @brief Destroy the HdCycles Basis Curves object
      * 
@@ -78,8 +79,8 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits, TfToken const& reprSelector) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
+              TfToken const& reprSelector) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -139,7 +140,7 @@ protected:
      */
     void _AddUVS(TfToken name, VtValue uvs, HdInterpolation interpolation);
 
-    void _PopulateMotion();
+    void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     /**
      * @brief Populate generated coordinates for basisCurves
@@ -155,13 +156,10 @@ protected:
     HdInterpolation m_widthsInterpolation;
     VtIntArray m_indices;
     GfMatrix4f m_transform;
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    HdCyclesSampledPrimvarType m_pointSamples;
-
-    int m_numTransformSamples;
-    bool m_useMotionBlur;
-    int m_motionSteps;
+    bool m_motionBlur;
+    int m_motionTransformSteps;
+    int m_motionDeformSteps;
 
     unsigned int m_visibilityFlags;
 
@@ -175,16 +173,9 @@ protected:
     ccl::CurveShapeType m_curveShape;
     int m_curveResolution;
 
-    ccl::vector<ccl::Shader *> m_usedShaders;
+    ccl::vector<ccl::Shader*> m_usedShaders;
 
 private:
-    /**
-     * @brief Create the cycles curve mesh and object representation
-     * 
-     * @return New allocated pointer to ccl::Mesh
-     */
-    ccl::Object* _CreateObject();
-
     /**
      * @brief Populate the Cycles mesh representation from delegate's data
      */
@@ -215,9 +206,16 @@ private:
     ccl::Hair* m_cyclesHair;
     ccl::Geometry* m_cyclesGeometry;
 
+    HdCyclesObjectSourceSharedPtr m_object_source;
     HdCyclesRenderDelegate* m_renderDelegate;
+};
+
+class HdBbHairAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+                            const HdInterpolation& interpolation);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_BASIS_CURVES_H
+#endif  // HD_BLACKBIRD_BASIS_CURVES_H

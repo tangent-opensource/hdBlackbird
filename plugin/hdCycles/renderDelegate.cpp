@@ -33,13 +33,12 @@
 #include "renderBuffer.h"
 #include "renderParam.h"
 #include "renderPass.h"
+#include "renderPassState.h"
 #include "utils.h"
 
 #include <render/background.h>
 #include <render/film.h>
 #include <render/integrator.h>
-
-#include <boost/algorithm/string.hpp>
 
 #include <pxr/base/gf/api.h>
 #include <pxr/base/gf/vec2i.h>
@@ -47,10 +46,9 @@
 #include <pxr/base/vt/api.h>
 #include <pxr/imaging/hd/camera.h>
 #include <pxr/imaging/hd/tokens.h>
+#include <pxr/imaging/hd/extComputation.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -63,6 +61,10 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesIntegratorTokens, HDCYCLES_INTEGRATOR_TOKENS);
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesAovTokens, HDCYCLES_AOV_TOKENS);
+
+PXR_NAMESPACE_CLOSE_SCOPE
+
+PXR_NAMESPACE_USING_DIRECTIVE
 
 // clang-format off
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_RPRIM_TYPES = {
@@ -81,6 +83,7 @@ const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_SPRIM_TYPES = {
     HdPrimTypeTokens->domeLight,
     HdPrimTypeTokens->rectLight,
     HdPrimTypeTokens->sphereLight,
+    HdPrimTypeTokens->extComputation
 };
 
 const TfTokenVector HdCyclesRenderDelegate::SUPPORTED_BPRIM_TYPES = { 
@@ -97,8 +100,7 @@ HdCyclesRenderDelegate::HdCyclesRenderDelegate()
     _Initialize({});
 }
 
-HdCyclesRenderDelegate::HdCyclesRenderDelegate(
-    HdRenderSettingsMap const& settingsMap)
+HdCyclesRenderDelegate::HdCyclesRenderDelegate(HdRenderSettingsMap const& settingsMap)
     : HdRenderDelegate(settingsMap)
     , m_hasStarted(false)
 {
@@ -115,15 +117,10 @@ HdCyclesRenderDelegate::_Initialize(HdRenderSettingsMap const& settingsMap)
         return;
 
     // -- Initialize Render Delegate components
-
-    m_resourceRegistry.reset(new HdResourceRegistry());
+    m_resourceRegistry = std::make_shared<HdCyclesResourceRegistry>(this);
 }
 
-HdCyclesRenderDelegate::~HdCyclesRenderDelegate()
-{
-    m_renderParam->StopRender();
-    m_resourceRegistry.reset();
-}
+HdCyclesRenderDelegate::~HdCyclesRenderDelegate() { m_renderParam->StopRender(); }
 
 TfTokenVector const&
 HdCyclesRenderDelegate::GetSupportedRprimTypes() const
@@ -146,9 +143,8 @@ HdCyclesRenderDelegate::GetSupportedBprimTypes() const
 void
 HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 {
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
+    // static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
 
-#ifdef USE_USD_CYCLES_SCHEMA
     // TODO: Undecided how to approach these
     /* m_settingDescriptors.push_back({ std::string("Exposure"),
                                      usdCyclesTokens->cyclesFilmExposure,
@@ -158,13 +154,10 @@ HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
     m_settingDescriptors.push_back({ std::string("Samples"),
                                      usdCyclesTokens->cyclesSamples,
                                      VtValue(config.exposure.) });*/
-
-#endif
 }
 
 void
-HdCyclesRenderDelegate::SetRenderSetting(const TfToken& key,
-                                         const VtValue& value)
+HdCyclesRenderDelegate::SetRenderSetting(const TfToken& key, const VtValue& value)
 {
     HdRenderDelegate::SetRenderSetting(key, value);
     m_renderParam->SetRenderSetting(key, value);
@@ -191,19 +184,17 @@ HdCyclesRenderDelegate::GetResourceRegistry() const
 }
 
 HdRenderPassSharedPtr
-HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index,
-                                         HdRprimCollection const& collection)
+HdCyclesRenderDelegate::CreateRenderPass(HdRenderIndex* index, HdRprimCollection const& collection)
 {
-    HdRenderPassSharedPtr xx = HdRenderPassSharedPtr(
-        new HdCyclesRenderPass(this, index, collection));
-    m_renderPass = (HdCyclesRenderPass*)xx.get();
+    HdRenderPassSharedPtr xx = HdRenderPassSharedPtr(new HdCyclesRenderPass(this, index, collection));
+    m_renderPass = static_cast<HdCyclesRenderPass*>(xx.get());
     return xx;
 }
 
 void
 HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
 {
-    // TODO: This is very hacky, because tiled render doesnt get the 
+    // TODO: This is very hacky, because tiled render doesnt get the
     // proper width and height till render pass fires once, we need
     // this...
     if (!m_renderParam->IsTiledRender()) {
@@ -213,13 +204,18 @@ HdCyclesRenderDelegate::CommitResources(HdChangeTracker* tracker)
         }
     }
 
+    // commit resource to the scene
+    m_resourceRegistry->Commit();
     m_renderParam->CommitResources();
+
+    if (tracker->IsGarbageCollectionNeeded()) {
+        m_resourceRegistry->GarbageCollect();
+        tracker->ClearGarbageCollectionNeeded();
+    }
 }
 
 HdRprim*
-HdCyclesRenderDelegate::CreateRprim(TfToken const& typeId,
-                                    SdfPath const& rprimId,
-                                    SdfPath const& instancerId)
+HdCyclesRenderDelegate::CreateRprim(TfToken const& typeId, SdfPath const& rprimId, SdfPath const& instancerId)
 {
     if (typeId == HdPrimTypeTokens->mesh) {
         return new HdCyclesMesh(rprimId, instancerId, this);
@@ -230,8 +226,7 @@ HdCyclesRenderDelegate::CreateRprim(TfToken const& typeId,
     } else if (typeId == HdPrimTypeTokens->volume) {
         return new HdCyclesVolume(rprimId, instancerId, this);
     } else {
-        TF_CODING_ERROR("Unknown Rprim type=%s id=%s", typeId.GetText(),
-                        rprimId.GetText());
+        TF_CODING_ERROR("Unknown Rprim type=%s id=%s", typeId.GetText(), rprimId.GetText());
     }
     return nullptr;
 }
@@ -244,8 +239,7 @@ HdCyclesRenderDelegate::DestroyRprim(HdRprim* rPrim)
 }
 
 HdSprim*
-HdCyclesRenderDelegate::CreateSprim(TfToken const& typeId,
-                                    SdfPath const& sprimId)
+HdCyclesRenderDelegate::CreateSprim(TfToken const& typeId, SdfPath const& sprimId)
 {
     if (typeId == HdPrimTypeTokens->camera) {
         return new HdCyclesCamera(sprimId, this);
@@ -253,16 +247,16 @@ HdCyclesRenderDelegate::CreateSprim(TfToken const& typeId,
     if (typeId == HdPrimTypeTokens->material) {
         return new HdCyclesMaterial(sprimId, this);
     }
-    if (typeId == HdPrimTypeTokens->distantLight
-        || typeId == HdPrimTypeTokens->domeLight
-        || typeId == HdPrimTypeTokens->rectLight
-        || typeId == HdPrimTypeTokens->diskLight
-        || typeId == HdPrimTypeTokens->cylinderLight
-        || typeId == HdPrimTypeTokens->sphereLight) {
+    if (typeId == HdPrimTypeTokens->distantLight || typeId == HdPrimTypeTokens->domeLight
+        || typeId == HdPrimTypeTokens->rectLight || typeId == HdPrimTypeTokens->diskLight
+        || typeId == HdPrimTypeTokens->cylinderLight || typeId == HdPrimTypeTokens->sphereLight) {
         return new HdCyclesLight(sprimId, typeId, this);
     }
-    TF_CODING_ERROR("Unknown Sprim type=%s id=%s", typeId.GetText(),
-                    sprimId.GetText());
+    if (typeId == HdPrimTypeTokens->extComputation) {
+        return new HdExtComputation(sprimId);
+    }
+
+    TF_CODING_ERROR("Unknown Sprim type=%s id=%s", typeId.GetText(), sprimId.GetText());
     return nullptr;
 }
 
@@ -273,16 +267,15 @@ HdCyclesRenderDelegate::CreateFallbackSprim(TfToken const& typeId)
         return new HdCyclesCamera(SdfPath::EmptyPath(), this);
     } else if (typeId == HdPrimTypeTokens->material) {
         return new HdCyclesMaterial(SdfPath::EmptyPath(), this);
-    } else if (typeId == HdPrimTypeTokens->distantLight
-               || typeId == HdPrimTypeTokens->domeLight
-               || typeId == HdPrimTypeTokens->rectLight
-               || typeId == HdPrimTypeTokens->diskLight
-               || typeId == HdPrimTypeTokens->cylinderLight
-               || typeId == HdPrimTypeTokens->sphereLight) {
+    } else if (typeId == HdPrimTypeTokens->distantLight || typeId == HdPrimTypeTokens->domeLight
+               || typeId == HdPrimTypeTokens->rectLight || typeId == HdPrimTypeTokens->diskLight
+               || typeId == HdPrimTypeTokens->cylinderLight || typeId == HdPrimTypeTokens->sphereLight) {
         return new HdCyclesLight(SdfPath::EmptyPath(), typeId, this);
     }
-    TF_CODING_ERROR("Creating unknown fallback sprim type=%s",
-                    typeId.GetText());
+    if (typeId == HdPrimTypeTokens->extComputation) {
+        return new HdExtComputation(SdfPath::EmptyPath());
+    }
+    TF_CODING_ERROR("Creating unknown fallback sprim type=%s", typeId.GetText());
     return nullptr;
 }
 
@@ -294,8 +287,7 @@ HdCyclesRenderDelegate::DestroySprim(HdSprim* sPrim)
 }
 
 HdBprim*
-HdCyclesRenderDelegate::CreateBprim(TfToken const& typeId,
-                                    SdfPath const& bprimId)
+HdCyclesRenderDelegate::CreateBprim(TfToken const& typeId, SdfPath const& bprimId)
 {
     if (typeId == HdPrimTypeTokens->renderBuffer) {
         return new HdCyclesRenderBuffer(this, bprimId);
@@ -303,8 +295,7 @@ HdCyclesRenderDelegate::CreateBprim(TfToken const& typeId,
     if (typeId == _tokens->openvdbAsset) {
         return new HdCyclesOpenvdbAsset(this, bprimId);
     }
-    TF_CODING_ERROR("Unknown Bprim type=%s id=%s", typeId.GetText(),
-                    bprimId.GetText());
+    TF_CODING_ERROR("Unknown Bprim type=%s id=%s", typeId.GetText(), bprimId.GetText());
     return nullptr;
 }
 
@@ -317,8 +308,7 @@ HdCyclesRenderDelegate::CreateFallbackBprim(TfToken const& typeId)
     if (typeId == _tokens->openvdbAsset) {
         return new HdCyclesOpenvdbAsset(this, SdfPath());
     }
-    TF_CODING_ERROR("Creating unknown fallback bprim type=%s",
-                    typeId.GetText());
+    TF_CODING_ERROR("Creating unknown fallback bprim type=%s", typeId.GetText());
     return nullptr;
 }
 
@@ -330,9 +320,7 @@ HdCyclesRenderDelegate::DestroyBprim(HdBprim* bPrim)
 }
 
 HdInstancer*
-HdCyclesRenderDelegate::CreateInstancer(HdSceneDelegate* delegate,
-                                        SdfPath const& id,
-                                        SdfPath const& instancerId)
+HdCyclesRenderDelegate::CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& instancerId)
 {
     return new HdCyclesInstancer(delegate, id, instancerId);
 }
@@ -358,18 +346,15 @@ HdCyclesRenderDelegate::GetCyclesRenderParam() const
 HdAovDescriptor
 HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
 {
-    bool use_tiles  = GetCyclesRenderParam()->IsTiledRender();
-    bool use_linear = GetCyclesRenderParam()
-                          ->GetCyclesSession()
-                          ->params.display_buffer_linear;
+    bool use_tiles = GetCyclesRenderParam()->IsTiledRender();
+    bool use_linear = GetCyclesRenderParam()->GetCyclesSession()->params.display_buffer_linear;
 
-    HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4
-                                      : HdFormatUNorm8Vec4;
+    HdFormat colorFormat = use_linear ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;
     if (use_tiles) {
         colorFormat = HdFormatFloat32Vec4;
     }
 
-    if (name == HdAovTokens->color) {
+    if (name == HdAovTokens->color || name == HdCyclesAovTokens->DiffDir) {
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->normal) {
         if (use_tiles) {
@@ -378,8 +363,8 @@ HdCyclesRenderDelegate::GetDefaultAovDescriptor(TfToken const& name) const
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
     } else if (name == HdAovTokens->depth) {
         return HdAovDescriptor(HdFormatFloat32, false, VtValue(1.0f));
-    } else if (name == HdAovTokens->primId || name == HdAovTokens->instanceId
-               || name == HdAovTokens->elementId) {
+    } else if (name == HdAovTokens->primId || name == HdAovTokens->instanceId || name == HdAovTokens->elementId
+               || name == HdCyclesAovTokens->IndexMA) {
         return HdAovDescriptor(HdFormatInt32, false, VtValue(-1));
     } else if (name == HdCyclesAovTokens->DiffDir) {
         return HdAovDescriptor(colorFormat, false, VtValue(GfVec4f(0.0f)));
@@ -426,4 +411,56 @@ HdCyclesRenderDelegate::Resume()
     return true;
 }
 
-PXR_NAMESPACE_CLOSE_SCOPE
+HdRenderPassStateSharedPtr
+HdCyclesRenderDelegate::CreateRenderPassState() const
+{
+    return std::make_shared<HdCyclesRenderPassState>(this);
+}
+
+HdCyclesDiagnosticDelegate::HdCyclesDiagnosticDelegate(std::ostream& os)
+    : _os { os }
+{
+}
+
+void
+HdCyclesDiagnosticDelegate::IssueError(const TfError& err)
+{
+    IssueDiagnosticBase(err);
+}
+
+HdCyclesDiagnosticDelegate::~HdCyclesDiagnosticDelegate() {}
+
+void
+HdCyclesDiagnosticDelegate::IssueFatalError(const TfCallContext& context, const std::string& msg)
+{
+    std::string message = TfStringPrintf("[FATAL ERROR] %s -- in %s at line %zu of %s", msg.c_str(),
+                                         context.GetFunction(), context.GetLine(), context.GetFile());
+    IssueMessage(message);
+}
+
+void
+HdCyclesDiagnosticDelegate::IssueDiagnosticBase(const TfDiagnosticBase& d)
+{
+    std::string msg = TfStringPrintf("%s -- %s in %s at line %zu of %s", d.GetCommentary().c_str(),
+                                     TfDiagnosticMgr::GetCodeName(d.GetDiagnosticCode()).c_str(),
+                                     d.GetContext().GetFunction(), d.GetContext().GetLine(), d.GetContext().GetFile());
+    IssueMessage(msg);
+}
+
+HdCyclesRenderDelegate::HdCyclesDiagnosticDelegateHolder::HdCyclesDiagnosticDelegateHolder()
+{
+    // add extra output file etc, if required
+    std::string error_output = TfGetenv("HD_BLACKBIRD_DIAGNOSTIC_OUTPUT", "stdout");
+    if (error_output == "stdout") {
+        _delegate = std::make_unique<HdCyclesDiagnosticDelegate>(std::cout);
+        TfDiagnosticMgr::GetInstance().AddDelegate(_delegate.get());
+        return;
+    }
+}
+
+HdCyclesRenderDelegate::HdCyclesDiagnosticDelegateHolder::~HdCyclesDiagnosticDelegateHolder()
+{
+    if (_delegate) {
+        TfDiagnosticMgr::GetInstance().RemoveDelegate(_delegate.get());
+    }
+}

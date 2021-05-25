@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_MATERIAL_H
-#define HD_CYCLES_MATERIAL_H
+#ifndef HD_BLACKBIRD_MATERIAL_H
+#define HD_BLACKBIRD_MATERIAL_H
 
 #include "api.h"
 
@@ -28,6 +28,7 @@
 namespace ccl {
 class Object;
 class Shader;
+class ShaderNode;
 class ShaderGraph;
 }  // namespace ccl
 
@@ -36,7 +37,7 @@ PXR_NAMESPACE_OPEN_SCOPE
 // Terminal keys used in material networks.
 
 // clang-format off
-#define HD_CYCLES_MATERIAL_TERMINAL_TOKENS          \
+#define HD_BLACKBIRD_MATERIAL_TERMINAL_TOKENS          \
     ((surface, "surface"))                          \
     ((cyclesSurface, "cycles:surface"))             \
     ((displacement, "displacement"))                \
@@ -44,9 +45,8 @@ PXR_NAMESPACE_OPEN_SCOPE
     ((volume, "volume"))                            \
     ((cyclesVolume, "cycles:volume"))
 
-TF_DECLARE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens, 
-    HDCYCLES_API,
-    HD_CYCLES_MATERIAL_TERMINAL_TOKENS
+TF_DECLARE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens,
+    HD_BLACKBIRD_MATERIAL_TERMINAL_TOKENS
 );
 // clang-format on
 
@@ -64,9 +64,7 @@ public:
      * 
      * @param id Path to the Material
      */
-    HDCYCLES_API
-    HdCyclesMaterial(SdfPath const& id,
-                     HdCyclesRenderDelegate* a_renderDelegate);
+    HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_renderDelegate);
 
     /**
      * @brief Destroy the HdCycles Material 
@@ -84,9 +82,7 @@ public:
      * @param renderParam State
      * @param dirtyBits Which bits of scene data has changed
      */
-    HDCYCLES_API
-    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
-              HdDirtyBits* dirtyBits) override;
+    void Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits) override;
 
     /**
      * @brief Inform the scene graph which state needs to be downloaded in
@@ -94,15 +90,17 @@ public:
      * 
      * @return The initial dirty state this material wants to query
      */
-    HDCYCLES_API
     HdDirtyBits GetInitialDirtyBitsMask() const override;
 
     /**
      * @brief Causes the shader to be reloaded
      * 
      */
-    HDCYCLES_API
-    void Reload();
+    void Reload()
+#if PXR_MAJOR_VERSION > 19
+        override
+#endif
+        ;
 
     /**
      * @return Return true if this material is valid
@@ -120,7 +118,6 @@ public:
      * 
      * @return ccl::Shader* cycles shader 
      */
-    HDCYCLES_API
     ccl::Shader* GetCyclesShader() const;
 
 protected:
@@ -128,8 +125,10 @@ protected:
     ccl::ShaderGraph* m_shaderGraph;
 
     HdCyclesRenderDelegate* m_renderDelegate;
+
+    void _FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& preview_shaders);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_MATERIAL_H
+#endif  // HD_BLACKBIRD_MATERIAL_H

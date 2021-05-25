@@ -17,8 +17,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_RENDERER_PLUGIN_H
-#define HD_CYCLES_RENDERER_PLUGIN_H
+#ifndef HD_BLACKBIRD_RENDERER_PLUGIN_H
+#define HD_BLACKBIRD_RENDERER_PLUGIN_H
 
 #include "api.h"
 
@@ -39,38 +39,36 @@ public:
      * @brief Use default constructor
      * 
      */
-    HDCYCLES_API HdCyclesRendererPlugin() = default;
+    HdCyclesRendererPlugin();
 
     /**
      * @brief Use default destructor
      * 
      */
-    HDCYCLES_API ~HdCyclesRendererPlugin() override = default;
+    ~HdCyclesRendererPlugin() override;
 
     /**
      * @brief Construct a new render delegate of type HdCyclesRenderDelegate
      * 
      * @return Created Render Delegate
      */
-    HDCYCLES_API HdRenderDelegate* CreateRenderDelegate() override;
+    HdRenderDelegate* CreateRenderDelegate() override;
 
-    HDCYCLES_API HdRenderDelegate*
-    CreateRenderDelegate(HdRenderSettingsMap const& settingsMap) override;
+    HdRenderDelegate* CreateRenderDelegate(HdRenderSettingsMap const& settingsMap) override;
 
     /**
      * @brief Destroy a render delegate created by this class
      * 
      * @param renderDelegate The render delegate to delete
-     * @return HDCYCLES_API 
+     * @return 
      */
-    HDCYCLES_API
     void DeleteRenderDelegate(HdRenderDelegate* renderDelegate) override;
 
     /**
      * @brief Checks to see if the plugin is supported on the running system
      * 
      */
-    HDCYCLES_API bool IsSupported() const override;
+    bool IsSupported() const override;
 
 private:
     /**
@@ -83,4 +81,4 @@ private:
 
 PXR_NAMESPACE_CLOSE_SCOPE
 
-#endif  // HD_CYCLES_RENDERER_PLUGIN_H
+#endif  // HD_BLACKBIRD_RENDERER_PLUGIN_H
