@@ -1827,6 +1827,9 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     m_bufferParams.width = (int)(m_dataWindowNDC[2] * (float)m_width) - m_bufferParams.full_x;
     m_bufferParams.height = (int)(m_dataWindowNDC[3] * (float)m_height) - m_bufferParams.full_y;
 
+    m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
+    m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
+
     m_cyclesScene->camera->width = m_width;
     m_cyclesScene->camera->height = m_height;
     m_cyclesScene->camera->compute_auto_viewplane();
