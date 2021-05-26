@@ -249,9 +249,9 @@ private:
 
     float m_velocityScale;
 
-    bool m_useMotionBlur;
-    bool m_useDeformMotionBlur;
-    int m_motionSteps;
+    bool m_motionBlur;
+    int m_motionTransformSteps;
+    int m_motionDeformSteps;
 
     unsigned int m_visibilityFlags;
 

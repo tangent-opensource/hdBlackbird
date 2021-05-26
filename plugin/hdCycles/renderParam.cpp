@@ -112,6 +112,11 @@ std::array<HdCyclesAov, 3> CryptomatteAovs = { {
     { "CryptoAsset", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoAsset, HdFormatFloat32Vec4, true },
 } };
 
+std::array<HdCyclesAov, 2> DenoiseAovs = { {
+    { "DenoiseNormal", ccl::PASS_NONE, HdCyclesAovTokens->DenoiseNormal, HdFormatFloat32Vec3, true },
+    { "DenoiseAlbedo", ccl::PASS_NONE, HdCyclesAovTokens->DenoiseAlbedo, HdFormatFloat32Vec3, true },
+} };
+
 // Workaround for Houdini's default color buffer naming convention (not using HdAovTokens->color)
 const TfToken defaultHoudiniColor = TfToken("C.*");
 
@@ -162,8 +167,26 @@ GetCyclesAov(const HdRenderPassAovBinding& aov, HdCyclesAov& cyclesAov)
             return true;
         }
     }
+    for (HdCyclesAov& _cyclesAov : DenoiseAovs) {
+        if (sourceName == _cyclesAov.token) {
+            cyclesAov = _cyclesAov;
+            return true;
+        }
+    }
 
     return false;
+}
+
+int
+GetDenoisePass(const TfToken token)
+{
+    if (token == HdCyclesAovTokens->DenoiseNormal) {
+        return ccl::DENOISING_PASS_PREFILTERED_NORMAL;
+    } else if (token == HdCyclesAovTokens->DenoiseAlbedo) {
+        return ccl::DENOISING_PASS_PREFILTERED_ALBEDO;
+    } else {
+        return -1;
+    }
 }
 
 }  // namespace
@@ -529,8 +552,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
                                                                          &session_updated);
     }
 
-    //DenoiseParams denoising;
-
     TfToken shadingSystem;
     if (key == usdCyclesTokens->cyclesShading_system) {
         shadingSystem = _HdCyclesGetVtValue<TfToken>(value, shadingSystem, &session_updated);
@@ -552,19 +573,59 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     // Denoising
 
     bool denoising_updated = false;
-    ccl::DenoiseParams denoisingParams;
+    bool denoising_start_sample_updated = false;
+    ccl::DenoiseParams denoisingParams = sessionParams->denoising;
 
-    if (key == usdCyclesTokens->cyclesRun_denoising) {
-        denoisingParams.use = _HdCyclesGetVtValue<int>(value, denoisingParams.use, &denoising_updated);
+    if (key == usdCyclesTokens->cyclesDenoiseUse) {
+        denoisingParams.use = _HdCyclesGetVtValue<bool>(value, denoisingParams.use, &denoising_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesDenoising_start_sample) {
+    if (key == usdCyclesTokens->cyclesDenoiseStore_passes) {
+        denoisingParams.store_passes = _HdCyclesGetVtValue<bool>(value, denoisingParams.store_passes,
+                                                                 &denoising_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesDenoiseStart_sample) {
         sessionParams->denoising_start_sample = _HdCyclesGetVtValue<int>(value, sessionParams->denoising_start_sample,
-                                                                         &denoising_updated);
+                                                                         &denoising_start_sample_updated);
     }
 
-    if (denoising_updated) {
-        sessionParams->denoising = denoisingParams;
+    if (key == usdCyclesTokens->cyclesDenoiseType) {
+        TfToken type = usdCyclesTokens->none;
+        type = _HdCyclesGetVtValue<TfToken>(value, type, &denoising_updated);
+        if (type == usdCyclesTokens->none) {
+            denoisingParams.type = ccl::DENOISER_NONE;
+        } else if (type == usdCyclesTokens->openimagedenoise) {
+            denoisingParams.type = ccl::DENOISER_OPENIMAGEDENOISE;
+        } else if (type == usdCyclesTokens->optix) {
+            denoisingParams.type = ccl::DENOISER_OPTIX;
+        } else {
+            denoisingParams.type = ccl::DENOISER_NONE;
+        }
+    }
+
+    if (key == usdCyclesTokens->cyclesDenoiseInput_passes) {
+        TfToken inputPasses = usdCyclesTokens->rgb_albedo_normal;
+        inputPasses = _HdCyclesGetVtValue<TfToken>(value, inputPasses, &denoising_updated);
+
+        if (inputPasses == usdCyclesTokens->rgb) {
+            denoisingParams.input_passes = ccl::DENOISER_INPUT_RGB;
+        } else if (inputPasses == usdCyclesTokens->rgb_albedo) {
+            denoisingParams.input_passes = ccl::DENOISER_INPUT_RGB_ALBEDO;
+        } else if (inputPasses == usdCyclesTokens->rgb_albedo_normal) {
+            denoisingParams.input_passes = ccl::DENOISER_INPUT_RGB_ALBEDO_NORMAL;
+        }
+    }
+
+    if (denoising_updated || denoising_start_sample_updated) {
+        if (m_cyclesSession) {
+            m_cyclesSession->set_denoising(denoisingParams);
+            if (denoising_start_sample_updated) {
+                m_cyclesSession->set_denoising_start_sample(sessionParams->denoising_start_sample);
+            }
+        } else {
+            sessionParams->denoising = denoisingParams;
+        }
         session_updated = true;
     }
 
@@ -1426,11 +1487,15 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             }
 
             bool custom = false;
+            bool denoise = false;
             if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject)
                 || (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial)
                 || (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) || (cyclesAov.token == HdCyclesAovTokens->AOVC)
                 || (cyclesAov.token == HdCyclesAovTokens->AOVV)) {
                 custom = true;
+            } else if ((cyclesAov.token == HdCyclesAovTokens->DenoiseNormal)
+                       || (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo)) {
+                denoise = true;
             }
 
             // Pixels we will use to get from cycles.
@@ -1440,10 +1505,13 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             rb->SetConverged(IsConverged());
 
             bool read = false;
-            if (!custom) {
+            if (!custom && !denoise) {
                 read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents),
                                               &tileData[0]);
-            } else {
+            } else if (denoise) {
+                read = buffers->get_denoising_pass_rect(GetDenoisePass(cyclesAov.token), exposure, sample,
+                                                        static_cast<int>(numComponents), &tileData[0]);
+            } else if (custom) {
                 read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents),
                                               &tileData[0]);
             }
@@ -2092,6 +2160,12 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     std::string cryptoMaterialName;
     std::string cryptoAssetName;
 
+    film->denoising_flags = 0;
+    film->denoising_data_pass = false;
+    film->denoising_clean_pass = false;
+    bool denoiseNormal = false;
+    bool denoiseAlbedo = false;
+
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         TfToken sourceName = GetSourceName(aov);
 
@@ -2139,7 +2213,34 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
                 }
             }
         }
+
+        for (HdCyclesAov& cyclesAov : DenoiseAovs) {
+            if (sourceName == cyclesAov.token) {
+                if (cyclesAov.token == HdCyclesAovTokens->DenoiseNormal) {
+                    denoiseNormal = true;
+                    continue;
+                }
+                if (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo) {
+                    denoiseAlbedo = true;
+                }
+            }
+        }
     }
+
+    if (!denoiseNormal && !denoiseAlbedo) {
+        m_cyclesSession->params.denoising.store_passes = false;
+    }
+
+    film->denoising_data_pass = m_cyclesSession->params.denoising.use || m_cyclesSession->params.denoising.store_passes;
+    film->denoising_flags = ccl::DENOISING_PASS_PREFILTERED_COLOR | ccl::DENOISING_PASS_PREFILTERED_NORMAL
+                            | ccl::DENOISING_PASS_PREFILTERED_ALBEDO;
+    film->denoising_clean_pass = (film->denoising_flags & ccl::DENOISING_CLEAN_ALL_PASSES);
+    film->denoising_prefiltered_pass = m_cyclesSession->params.denoising.store_passes
+                                       && m_cyclesSession->params.denoising.type == ccl::DENOISER_NLM;
+
+    m_bufferParams.denoising_data_pass = film->denoising_data_pass;
+    m_bufferParams.denoising_clean_pass = film->denoising_clean_pass;
+    m_bufferParams.denoising_prefiltered_pass = film->denoising_prefiltered_pass;
 
     // Check for issues
 
