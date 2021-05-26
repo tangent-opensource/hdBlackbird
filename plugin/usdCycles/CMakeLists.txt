@@ -96,19 +96,36 @@ set(USD_CYCLES_SCHEMA_WRAP_OUTPUT
         wrapBakeSettingsAPI.cpp
         )
 
-add_custom_target(generatedSchema.usda
-        ${CMAKE_COMMAND} -E env "PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib/python" ${USD_SCHEMA_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
-        COMMAND COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
-        BYPRODUCTS
-        ${USD_CYCLES_SCHEMA_SOURCE_OUTPUT}
-        ${USD_CYCLES_SCHEMA_WRAP_OUTPUT}
-        plugInfo.json 
-        DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
-        ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
-        VERBATIM
-        )
-
+# ugly workaround, there has to be a cross platform way
+if(WIN32)
+        file(WRITE workaround.bat "set \"PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib/python\" \n ${USD_SCHEMA_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda")
+        file(WRITE workaround2.bat "\"${CMAKE_COMMAND}\" -P ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake")
+        add_custom_target(generatedSchema.usda
+                COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/workaround.bat
+                COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/workaround2.bat
+                BYPRODUCTS
+                ${USD_CYCLES_SCHEMA_SOURCE_OUTPUT}
+                ${USD_CYCLES_SCHEMA_WRAP_OUTPUT}
+                plugInfo.json
+                DEPENDS
+                ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
+                ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
+                VERBATIM
+                )
+else()
+        add_custom_target(generatedSchema.usda
+                ${CMAKE_COMMAND} -E env "PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib/python" ${USD_SCHEMA_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
+                COMMAND COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
+                BYPRODUCTS
+                ${USD_CYCLES_SCHEMA_SOURCE_OUTPUT}
+                ${USD_CYCLES_SCHEMA_WRAP_OUTPUT}
+                plugInfo.json
+                DEPENDS
+                ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
+                ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
+                VERBATIM
+                )
+endif()
 # usdCycles
 
 add_library(usdCycles SHARED ${USD_CYCLES_SCHEMA_SOURCE_OUTPUT})
