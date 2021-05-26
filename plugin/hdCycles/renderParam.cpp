@@ -219,6 +219,7 @@ HdCyclesRenderParam::_InitializeDefaults()
     m_useTiledRendering = config.use_tiled_rendering;
 
     m_dataWindowNDC = GfVec4f(0.f, 0.f, 1.f, 1.f);
+    m_resolutionAuthored = false;
 
     m_upAxis = UpAxis::Z;
     if (config.up_axis == "Z") {
@@ -1210,7 +1211,20 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
                                                                 false);
     }
 
-    if (key == "dataWindowNDC") {
+    // https://www.sidefx.com/docs/hdk/_h_d_k__u_s_d_hydra.html
+
+    if (key == UsdRenderTokens->resolution) {
+        GfVec2i resolutionDefault = m_resolutionImage;
+        if (value.IsHolding<GfVec2i>()) {
+            m_resolutionImage = _HdCyclesGetVtValue<GfVec2i>(value, resolutionDefault, &film_updated, false);
+            m_resolutionAuthored = true;
+            doResetBuffers = true;
+        } else {
+            TF_WARN("Unexpected type for resolution %s", value.GetTypeName().c_str());
+        }
+    }
+
+    if (key == UsdRenderTokens->dataWindowNDC) {
         GfVec4f dataWindowNDCDefault = { 0.f, 0.f, 1.f, 1.f };
         if (value.IsHolding<GfVec4f>()) {
             m_dataWindowNDC = _HdCyclesGetVtValue<GfVec4f>(value, dataWindowNDCDefault, &film_updated, false);
@@ -1285,7 +1299,7 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
         // todo: Should this live in another location?
         if (doResetBuffers) {
             film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
-            SetViewport(m_bufferParams.full_width, m_bufferParams.full_height);
+            SetViewport(m_resolutionDisplay[0], m_resolutionDisplay[1]);
 
             for (HdRenderPassAovBinding& aov : m_aovs) {
                 if (aov.renderBuffer) {
@@ -1573,20 +1587,20 @@ HdCyclesRenderParam::_CreateScene()
 
     m_cyclesScene = new ccl::Scene(m_sceneParams, m_cyclesSession->device);
 
-    m_width = config.render_width.value;
-    m_height = config.render_height.value;
+    m_resolutionImage = GfVec2i(0, 0);
+    m_resolutionDisplay = GfVec2i(config.render_width.value, config.render_height.value);
 
-    m_cyclesScene->camera->width = m_width;
-    m_cyclesScene->camera->height = m_height;
+    m_cyclesScene->camera->width = m_resolutionDisplay[0];
+    m_cyclesScene->camera->height = m_resolutionDisplay[1];
 
     m_cyclesScene->camera->compute_auto_viewplane();
 
     m_cyclesSession->scene = m_cyclesScene;
 
-    m_bufferParams.width = m_width;
-    m_bufferParams.height = m_height;
-    m_bufferParams.full_width = m_width;
-    m_bufferParams.full_height = m_height;
+    m_bufferParams.width = m_resolutionDisplay[0];
+    m_bufferParams.height = m_resolutionDisplay[1];
+    m_bufferParams.full_width = m_resolutionDisplay[0];
+    m_bufferParams.full_height = m_resolutionDisplay[1];
 
     default_attrib_display_color_surface = HdCyclesCreateAttribColorSurface();
     default_attrib_display_color_surface->tag_update(m_cyclesScene);
@@ -1817,21 +1831,25 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 void
 HdCyclesRenderParam::SetViewport(int w, int h)
 {
-    m_width = w;
-    m_height = h;
+    m_resolutionDisplay = GfVec2i(w, h);
 
-    m_bufferParams.full_width = m_width;
-    m_bufferParams.full_height = m_height;
-    m_bufferParams.full_x = (int)(m_dataWindowNDC[0] * (float)m_width);
-    m_bufferParams.full_y = (int)(m_dataWindowNDC[1] * (float)m_height);
-    m_bufferParams.width = (int)(m_dataWindowNDC[2] * (float)m_width) - m_bufferParams.full_x;
-    m_bufferParams.height = (int)(m_dataWindowNDC[3] * (float)m_height) - m_bufferParams.full_y;
+    // If no image resolution was specified, we use the display's
+    if (!m_resolutionAuthored) {
+        m_resolutionImage = m_resolutionDisplay;
+    }
+
+    m_bufferParams.full_width = m_resolutionImage[0];
+    m_bufferParams.full_height = m_resolutionImage[1];
+    m_bufferParams.full_x = (int)(m_dataWindowNDC[0] * (float)m_resolutionImage[0]);
+    m_bufferParams.full_y = (int)(m_dataWindowNDC[1] * (float)m_resolutionImage[1]);
+    m_bufferParams.width = (int)(m_dataWindowNDC[2] * (float)m_resolutionImage[0]) - m_bufferParams.full_x;
+    m_bufferParams.height = (int)(m_dataWindowNDC[3] * (float)m_resolutionImage[1]) - m_bufferParams.full_y;
 
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
     m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
 
-    m_cyclesScene->camera->width = m_width;
-    m_cyclesScene->camera->height = m_height;
+    m_cyclesScene->camera->width = m_resolutionImage[0];
+    m_cyclesScene->camera->height = m_resolutionImage[1];
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_update = true;
     m_cyclesScene->camera->need_device_update = true;
@@ -2381,6 +2399,7 @@ HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb)
 void
 HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples)
 {
+
     if (samples < 0) {
         return;
     }
@@ -2397,8 +2416,9 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     }
 
     // No point in blitting since the session will be reset
-    if (m_cyclesSession->buffers->params.full_width != rb->GetWidth()
-        || m_cyclesSession->buffers->params.full_height != rb->GetHeight()) {
+    const unsigned int dstWidth = rb->GetWidth();
+    const unsigned int dstHeight = rb->GetHeight();
+    if (m_resolutionDisplay[0] != dstWidth || m_resolutionDisplay[1] != dstHeight) {
         return;
     }
 
@@ -2435,7 +2455,9 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             const float exposure = m_cyclesScene->film->exposure;
             auto buffers = m_cyclesSession->buffers;
             buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
-                                      static_cast<uint8_t*>(data), pixels_type, w, h, stride);
+                                      static_cast<uint8_t*>(data), pixels_type, w, h, dstWidth, dstHeight, stride);
+
+
 
             if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
                 if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
