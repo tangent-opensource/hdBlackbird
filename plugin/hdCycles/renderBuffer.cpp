@@ -202,7 +202,7 @@ HdCyclesRenderBuffer::Clear()
     std::lock_guard<std::mutex> lock { m_mutex };
 
     size_t pixelSize = HdDataSizeOfFormat(m_format);
-    memset(&m_buffer[0], 0, m_buffer.size() * pixelSize);
+    memset(&m_buffer[0], 0, m_buffer.size());
 }
 
 void

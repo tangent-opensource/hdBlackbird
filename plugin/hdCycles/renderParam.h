@@ -308,6 +308,7 @@ private:
 
     int m_width;
     int m_height;
+    GfVec4f m_dataWindowNDC;
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;

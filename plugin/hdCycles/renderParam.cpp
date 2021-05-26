@@ -218,6 +218,8 @@ HdCyclesRenderParam::_InitializeDefaults()
     m_useSquareSamples = config.use_square_samples.value;
     m_useTiledRendering = config.use_tiled_rendering;
 
+    m_dataWindowNDC = GfVec4f(0.f, 0.f, 1.f, 1.f);
+
     m_upAxis = UpAxis::Z;
     if (config.up_axis == "Z") {
         m_upAxis = UpAxis::Z;
@@ -792,8 +794,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
             = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.use_custom_cache_path, &texture_updated);
     }
     if (key == usdCyclesTokens->cyclesTexture_max_size) {
-        sceneParams->texture_limit
-            = _HdCyclesGetVtValue<int>(value, sceneParams->texture_limit, &texture_updated);
+        sceneParams->texture_limit = _HdCyclesGetVtValue<int>(value, sceneParams->texture_limit, &texture_updated);
     }
 
     if (scene_updated || texture_updated) {
@@ -1198,6 +1199,7 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
 
     ccl::Film* film = m_cyclesScene->film;
     bool film_updated = false;
+    bool doResetBuffers = false;
 
     if (key == usdCyclesTokens->cyclesFilmExposure) {
         film->exposure = _HdCyclesGetVtValue<float>(value, film->exposure, &film_updated, false);
@@ -1206,6 +1208,24 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     if (key == usdCyclesTokens->cyclesFilmPass_alpha_threshold) {
         film->pass_alpha_threshold = _HdCyclesGetVtValue<float>(value, film->pass_alpha_threshold, &film_updated,
                                                                 false);
+    }
+
+    if (key == "dataWindowNDC") {
+        GfVec4f dataWindowNDCDefault = { 0.f, 0.f, 1.f, 1.f };
+        if (value.IsHolding<GfVec4f>()) {
+            m_dataWindowNDC = _HdCyclesGetVtValue<GfVec4f>(value, dataWindowNDCDefault, &film_updated, false);
+
+            // Rect has to be valid, otherwise reset to default
+            if (m_dataWindowNDC[0] > m_dataWindowNDC[2] || m_dataWindowNDC[1] > m_dataWindowNDC[3]) {
+                TF_WARN("Invalid dataWindowNDC rectangle %f %f %f %f", m_dataWindowNDC[0], m_dataWindowNDC[1],
+                        m_dataWindowNDC[2], m_dataWindowNDC[3]);
+                m_dataWindowNDC = dataWindowNDCDefault;
+            }
+
+            doResetBuffers = true;
+        } else {
+            TF_WARN("Unexpected type for ndcDataWindow %s", value.GetTypeName().c_str());
+        }
     }
 
     // Filter
@@ -1261,6 +1281,19 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
 
     if (film_updated) {
         film->tag_update(m_cyclesScene);
+
+        // todo: Should this live in another location?
+        if (doResetBuffers) {
+            film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
+            SetViewport(m_bufferParams.full_width, m_bufferParams.full_height);
+
+            for (HdRenderPassAovBinding& aov : m_aovs) {
+                if (aov.renderBuffer) {
+                    dynamic_cast<HdCyclesRenderBuffer*>(aov.renderBuffer)->Clear();
+                }
+            }
+        }
+
         return true;
     }
 
@@ -1787,10 +1820,13 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     m_width = w;
     m_height = h;
 
-    m_bufferParams.width = m_width;
-    m_bufferParams.height = m_height;
     m_bufferParams.full_width = m_width;
     m_bufferParams.full_height = m_height;
+    m_bufferParams.full_x = (int)(m_dataWindowNDC[0] * (float)m_width);
+    m_bufferParams.full_y = (int)(m_dataWindowNDC[1] * (float)m_height);
+    m_bufferParams.width = (int)(m_dataWindowNDC[2] * (float)m_width) - m_bufferParams.full_x;
+    m_bufferParams.height = (int)(m_dataWindowNDC[3] * (float)m_height) - m_bufferParams.full_y;
+
     m_cyclesScene->camera->width = m_width;
     m_cyclesScene->camera->height = m_height;
     m_cyclesScene->camera->compute_auto_viewplane();
@@ -2358,8 +2394,8 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     }
 
     // No point in blitting since the session will be reset
-    if (m_cyclesSession->buffers->params.width != rb->GetWidth()
-        || m_cyclesSession->buffers->params.height != rb->GetHeight()) {
+    if (m_cyclesSession->buffers->params.full_width != rb->GetWidth()
+        || m_cyclesSession->buffers->params.full_height != rb->GetHeight()) {
         return;
     }
 
