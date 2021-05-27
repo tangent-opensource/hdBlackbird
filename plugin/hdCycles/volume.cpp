@@ -290,12 +290,12 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     for (auto& primvarDescsEntry : pdpi) {
         for (auto& pv : primvarDescsEntry.second) {
             m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                            usdCyclesTokens->primvarsCyclesObjectMblur,
+                                                            usdCyclesTokens->primvarsBlackbirdObjectMblur,
                                                             m_useMotionBlur);
 
             m_cyclesObject->velocity_scale
                 = _HdCyclesGetVolumeParam<float>(pv, dirtyBits, id, this, sceneDelegate,
-                                                 usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
+                                                 usdCyclesTokens->primvarsBlackbirdObjectMblurVolume_vel_scale,
                                                  m_cyclesObject->velocity_scale);
 
             update_volumes = true;

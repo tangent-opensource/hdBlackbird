@@ -28,7 +28,7 @@ class "CyclesRendererSettingsAPI" (
 {
     string displayName = "Renderer"
 
-    uniform token cycles:device = "cpu" (
+    uniform token blackbird:device = "cpu" (
         allowedTokens = ["cpu", "gpu"]
         customData = {
             string apiName = "device"
@@ -38,7 +38,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Device to use for rendering"
     )
 
-    uniform token cycles:shading_system = "svm" (
+    uniform token blackbird:shading_system = "svm" (
         allowedTokens = ["svm", "osl"]
         customData = {
             string apiName = "shading_system"
@@ -51,7 +51,7 @@ class "CyclesRendererSettingsAPI" (
     # This is handled completely by HdCycles
     # If 100% required, this will require discussion
 
-    #uniform bool cycles:background = false (
+    #uniform bool blackbird:background = false (
     #    customData = {
     #        string apiName = "background"
     #    }
@@ -59,7 +59,7 @@ class "CyclesRendererSettingsAPI" (
     #    doc = "Should cycles render in the background"
     #)
 
-    uniform bool cycles:progressive = false (
+    uniform bool blackbird:progressive = false (
         customData = {
             string apiName = "progressive"
         }
@@ -68,7 +68,7 @@ class "CyclesRendererSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:progressive_refine = false (
+    uniform bool blackbird:progressive_refine = false (
         customData = {
             string apiName = "progressive_refine"
         }
@@ -77,7 +77,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Should cycles progressively refine the render"
     )
 
-    uniform float cycles:progressive_update_timeout = 1.0 (
+    uniform float blackbird:progressive_update_timeout = 1.0 (
         customData = {
             string apiName = "progressive_update_timeout"
         }
@@ -86,7 +86,7 @@ class "CyclesRendererSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:adaptive_sampling = false (
+    uniform bool blackbird:adaptive_sampling = false (
         customData = {
             string apiName = "adaptive_sampling"
         }
@@ -95,7 +95,7 @@ class "CyclesRendererSettingsAPI" (
         doc = ""
     )
 
-    uniform int cycles:start_resolution = 16 (
+    uniform int blackbird:start_resolution = 16 (
         customData = {
             string apiName = "start_resolution"
         }
@@ -104,7 +104,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Resolution of first rendered output of cycles"
     )
 
-    uniform int cycles:pixel_size = 1 (
+    uniform int blackbird:pixel_size = 1 (
         customData = {
             string apiName = "pixel_size"
         }
@@ -112,7 +112,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Size of a pixel in rendered image"
     )
 
-    uniform int cycles:samples = 128 (
+    uniform int blackbird:samples = 128 (
         customData = {
             string apiName = "samples"
         }
@@ -120,7 +120,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Cycles render samples"
     )
 
-    uniform int cycles:threads = 32 (
+    uniform int blackbird:threads = 32 (
         customData = {
             string apiName = "threads"
         }
@@ -128,7 +128,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Number of threads to render with"
     )
 
-    uniform int2 cycles:tile_size = (64, 64) (
+    uniform int2 blackbird:tile_size = (64, 64) (
         customData = {
             string apiName = "tile_size"
         }
@@ -137,7 +137,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Size of each tile"
     )
 
-    uniform token cycles:tile_order = "hilbert_spiral" (
+    uniform token blackbird:tile_order = "hilbert_spiral" (
         allowedTokens = [
             "hilbert_spiral",
             "center",
@@ -155,7 +155,7 @@ class "CyclesRendererSettingsAPI" (
     )
 
     # Discuss: Should this be a token labelled: feature_set
-    uniform bool cycles:experimental = false (
+    uniform bool blackbird:experimental = false (
         customData = {
             string apiName = "experimental"
         }
@@ -163,7 +163,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Use experimental cycles featureset"
     )
 
-    uniform bool cycles:use_square_samples = false (
+    uniform bool blackbird:use_square_samples = false (
         customData = {
             string apiName = "use_square_samples"
         }
@@ -174,8 +174,8 @@ class "CyclesRendererSettingsAPI" (
     # Switched to a string for initial functionality
     # Ideally this becomes a relationship to another UsdGeomCamera
     # in the current stage
-    # rel cycles:dicing_camera (
-    string cycles:dicing_camera (
+    # rel blackbird:dicing_camera (
+    string blackbird:dicing_camera (
         customData = {
             string apiName = "dicing_camera"
         }
@@ -184,7 +184,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Camera to use as reference point when subdividing geometry, useful to avoid crawling artifacts in animations when the scene camera is moving"
     )
 
-    uniform bool cycles:use_profiling = false (
+    uniform bool blackbird:use_profiling = false (
         customData = {
             string apiName = "use_profiling"
         }
@@ -192,7 +192,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Should cycles run in profiling mode"
     )
 
-    uniform token cycles:bvh_type = "bvh_dynamic" (
+    uniform token blackbird:bvh_type = "bvh_dynamic" (
         allowedTokens = ["bvh_dynamic", "bvh_static"]
         customData = {
             string apiName = "bvh_type"
@@ -202,7 +202,7 @@ class "CyclesRendererSettingsAPI" (
         doc = "Type of BVH for cycles to construct"
     )
 
-    uniform bool cycles:use_bvh_spatial_split = false (
+    uniform bool blackbird:use_bvh_spatial_split = false (
         customData = {
             string apiName = "use_bvh_spatial_split"
         }
@@ -211,7 +211,7 @@ class "CyclesRendererSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:use_bvh_unaligned_nodes = true (
+    uniform bool blackbird:use_bvh_unaligned_nodes = true (
         customData = {
             string apiName = "use_bvh_unaligned_nodes"
         }
@@ -220,7 +220,7 @@ class "CyclesRendererSettingsAPI" (
         doc = ""
     )
 
-    uniform int cycles:num_bvh_time_steps = 0 (
+    uniform int blackbird:num_bvh_time_steps = 0 (
         customData = {
             string apiName = "num_bvh_time_steps"
         }
@@ -229,7 +229,7 @@ class "CyclesRendererSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:display_buffer_linear = true (
+    uniform bool blackbird:display_buffer_linear = true (
         customData = {
             string apiName = "display_buffer_linear"
         }
@@ -239,7 +239,7 @@ class "CyclesRendererSettingsAPI" (
 
     # This has been removed in favour of per curve "curve_shape"
     # This involves a patch to the Cycles API to override the global curve shape
-    #uniform token cycles:global_curve_shape = "thick" (
+    #uniform token blackbird:global_curve_shape = "thick" (
     #    allowedTokens = ["ribbon", "thick"]
     #    customData = {
     #        string apiName = "global_curve_shape"
@@ -249,7 +249,7 @@ class "CyclesRendererSettingsAPI" (
     #    doc = "Global setting of how curves should be rendered. Ribbon, or thick."
     #)
 
-    uniform int cycles:curve_subdivisions = 2 (
+    uniform int blackbird:curve_subdivisions = 2 (
         customData = {
             string apiName = "curve_subdivisions"
         }
@@ -268,7 +268,7 @@ class "CyclesDenoiseSettingsAPI" (
 {
     string displayName = "Denoiser"
 
-    uniform bool cycles:denoise:use = false (
+    uniform bool blackbird:denoise:use = false (
         customData = {
             string apiName = "denoise_use"
         }
@@ -277,7 +277,7 @@ class "CyclesDenoiseSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:denoise:store_passes = false (
+    uniform bool blackbird:denoise:store_passes = false (
         customData = {
             string apiName = "denoise_store_passes"
         }
@@ -286,7 +286,7 @@ class "CyclesDenoiseSettingsAPI" (
         doc = ""
     )
 
-    uniform token cycles:denoise:type = "none" (
+    uniform token blackbird:denoise:type = "none" (
         allowedTokens = ["none", "optix", "openimagedenoise"]
         customData = {
             string apiName = "denoise_type"
@@ -296,7 +296,7 @@ class "CyclesDenoiseSettingsAPI" (
         doc = ""
     )
 
-    uniform int cycles:denoise:start_sample = 8 (
+    uniform int blackbird:denoise:start_sample = 8 (
         customData = {
             string apiName = "denoise_start_sample"
         }
@@ -305,7 +305,7 @@ class "CyclesDenoiseSettingsAPI" (
         doc = ""
     )
 
-    uniform token cycles:denoise:input_passes = "rgb_albedo_normal" (
+    uniform token blackbird:denoise:input_passes = "rgb_albedo_normal" (
         allowedTokens = ["rgb", "rgb_albedo", "rgb_albedo_normal"]
         customData = {
             string apiName = "denoise_input_passes"
@@ -325,7 +325,7 @@ class "CyclesIntegratorSettingsAPI" (
 {
     string displayName = "Integrator"
 
-    uniform token cycles:integrator:method = "branched_path" (
+    uniform token blackbird:integrator:method = "branched_path" (
         allowedTokens = ["path", "branched_path"]
         customData = {
             string apiName = "integrator_method"
@@ -335,7 +335,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles render device"
     )
 
-    uniform token cycles:integrator:sampling_method = "sobol" (
+    uniform token blackbird:integrator:sampling_method = "sobol" (
         allowedTokens = ["sobol", "cmj", "pmj"]
         customData = {
             string apiName = "integrator_sampling_method"
@@ -345,7 +345,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles render device"
     )
 
-    uniform int cycles:integrator:seed = 0 (
+    uniform int blackbird:integrator:seed = 0 (
         customData = {
             string apiName = "integrator_seed"
         }
@@ -353,7 +353,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles integrator seed"
     )
 
-    uniform int cycles:integrator:min_bounce = 0 (
+    uniform int blackbird:integrator:min_bounce = 0 (
         customData = {
             string apiName = "integrator_min_bounce"
         }
@@ -362,7 +362,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Minimum ray bounces"
     )
 
-    uniform int cycles:integrator:max_bounce = 7 (
+    uniform int blackbird:integrator:max_bounce = 7 (
         customData = {
             string apiName = "integrator_max_bounce"
         }
@@ -371,7 +371,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Maximum ray bounces"
     )
 
-    uniform int cycles:integrator:max_diffuse_bounce = 7 (
+    uniform int blackbird:integrator:max_diffuse_bounce = 7 (
         customData = {
             string apiName = "integrator_max_diffuse_bounce"
         }
@@ -380,7 +380,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Maximum diffuse bounces"
     )
 
-    uniform int cycles:integrator:max_glossy_bounce = 7 (
+    uniform int blackbird:integrator:max_glossy_bounce = 7 (
         customData = {
             string apiName = "integrator_max_glossy_bounce"
         }
@@ -389,7 +389,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Maximum glossy bounces"
     )
 
-    uniform int cycles:integrator:max_transmission_bounce = 7 (
+    uniform int blackbird:integrator:max_transmission_bounce = 7 (
         customData = {
             string apiName = "integrator_max_transmission_bounce"
         }
@@ -398,7 +398,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Maximum transmission bounces"
     )
 
-    uniform int cycles:integrator:max_volume_bounce = 7 (
+    uniform int blackbird:integrator:max_volume_bounce = 7 (
         customData = {
             string apiName = "integrator_max_volume_bounce"
         }
@@ -407,7 +407,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Maximum volume bounces"
     )
 
-    uniform int cycles:integrator:transparent_min_bounce = 0 (
+    uniform int blackbird:integrator:transparent_min_bounce = 0 (
         customData = {
             string apiName = "integrator_transparent_min_bounce"
         }
@@ -416,7 +416,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Minimum transparent bounces"
     )
 
-    uniform int cycles:integrator:transparent_max_bounce = 7 (
+    uniform int blackbird:integrator:transparent_max_bounce = 7 (
         customData = {
             string apiName = "integrator_transparent_max_bounce"
         }
@@ -425,7 +425,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Maximum transparent bounces"
     )
 
-    uniform int cycles:integrator:ao_bounces = 0 (
+    uniform int blackbird:integrator:ao_bounces = 0 (
         customData = {
             string apiName = "integrator_ao_bounces"
         }
@@ -434,7 +434,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Number of ambient occlusion bounces"
     )
 
-    uniform int cycles:integrator:volume_max_steps = 1024 (
+    uniform int blackbird:integrator:volume_max_steps = 1024 (
         customData = {
             string apiName = "integrator_volume_max_steps"
         }
@@ -443,7 +443,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Maximum number of volume steps"
     )
 
-    uniform float cycles:integrator:volume_step_size = 0.1 (
+    uniform float blackbird:integrator:volume_step_size = 0.1 (
         customData = {
             string apiName = "integrator_volume_step_size"
         }
@@ -452,7 +452,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Size of volume marching step"
     )
 
-    uniform int cycles:integrator:aa_samples = 0 (
+    uniform int blackbird:integrator:aa_samples = 0 (
         customData = {
             string apiName = "integrator_aa_samples"
         }
@@ -461,7 +461,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles anti aliasing samples"
     )
 
-    uniform int cycles:integrator:diffuse_samples = 1 (
+    uniform int blackbird:integrator:diffuse_samples = 1 (
         customData = {
             string apiName = "integrator_diffuse_samples"
         }
@@ -470,7 +470,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles diffuse samples"
     )
 
-    uniform int cycles:integrator:glossy_samples = 1 (
+    uniform int blackbird:integrator:glossy_samples = 1 (
         customData = {
             string apiName = "integrator_glossy_samples"
         }
@@ -479,7 +479,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles glossy samples"
     )
 
-    uniform int cycles:integrator:transmission_samples = 1 (
+    uniform int blackbird:integrator:transmission_samples = 1 (
         customData = {
             string apiName = "integrator_transmission_samples"
         }
@@ -488,7 +488,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles transmission samples"
     )
 
-    uniform int cycles:integrator:ao_samples = 1 (
+    uniform int blackbird:integrator:ao_samples = 1 (
         customData = {
             string apiName = "integrator_ao_samples"
         }
@@ -497,7 +497,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles ao samples"
     )
 
-    uniform int cycles:integrator:mesh_light_samples = 1 (
+    uniform int blackbird:integrator:mesh_light_samples = 1 (
         customData = {
             string apiName = "integrator_mesh_light_samples"
         }
@@ -506,7 +506,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles mesh_light samples"
     )
 
-    uniform int cycles:integrator:subsurface_samples = 1 (
+    uniform int blackbird:integrator:subsurface_samples = 1 (
         customData = {
             string apiName = "integrator_subsurface_samples"
         }
@@ -515,7 +515,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Cycles subsurface samples"
     )
 
-    uniform int cycles:integrator:volume_samples = 1 (
+    uniform int blackbird:integrator:volume_samples = 1 (
         customData = {
             string apiName = "integrator_volume_samples"
         }
@@ -526,7 +526,7 @@ class "CyclesIntegratorSettingsAPI" (
 
     # TODO: Is this needed anymore?
     # TODO: Add docstring
-    uniform int cycles:integrator:start_sample = 0 (
+    uniform int blackbird:integrator:start_sample = 0 (
         customData = {
             string apiName = "integrator_start_sample"
         }
@@ -535,7 +535,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:integrator:caustics_reflective = true (
+    uniform bool blackbird:integrator:caustics_reflective = true (
         customData = {
             string apiName = "integrator_caustics_reflective"
         }
@@ -544,7 +544,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Use reflective caustics, resulting in a brighter image (more noise but added realism)"
     )
 
-    uniform bool cycles:integrator:caustics_refractive = true (
+    uniform bool blackbird:integrator:caustics_refractive = true (
         customData = {
             string apiName = "integrator_caustics_refractive"
         }
@@ -553,7 +553,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Use refractive caustics, resulting in a brighter image (more noise but added realism)"
     )
 
-    uniform float cycles:integrator:filter_glossy = 1.0 (
+    uniform float blackbird:integrator:filter_glossy = 1.0 (
         customData = {
             string apiName = "integrator_filter_glossy"
         }
@@ -562,7 +562,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Adaptively blur glossy shaders after blurry bounces"
     )
 
-    uniform float cycles:integrator:sample_clamp_direct = 0 (
+    uniform float blackbird:integrator:sample_clamp_direct = 0 (
         customData = {
             string apiName = "integrator_sample_clamp_direct"
         }
@@ -571,7 +571,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "If non-zero, the maximum value for a direct sample, higher values will be scaled down to avoid too much noise and slow convergence at the cost of accuracy"
     )
 
-    uniform float cycles:integrator:sample_clamp_indirect = 0 (
+    uniform float blackbird:integrator:sample_clamp_indirect = 0 (
         customData = {
             string apiName = "integrator_sample_clamp_indirect"
         }
@@ -581,7 +581,7 @@ class "CyclesIntegratorSettingsAPI" (
     )
 
     # Discuss: Should this live under general render settings?
-    uniform bool cycles:integrator:motion_blur = false (
+    uniform bool blackbird:integrator:motion_blur = false (
         customData = {
             string apiName = "integrator_motion_blur"
         }
@@ -590,7 +590,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Should motion blur be applied for this render"
     )
 
-    uniform bool cycles:integrator:sample_all_lights_direct = true (
+    uniform bool blackbird:integrator:sample_all_lights_direct = true (
         customData = {
             string apiName = "integrator_sample_all_lights_direct"
         }
@@ -599,7 +599,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Sample all lights (for direct samples), rather than randomly picking one"
     )
 
-    uniform bool cycles:integrator:sample_all_lights_indirect = true (
+    uniform bool blackbird:integrator:sample_all_lights_indirect = true (
         customData = {
             string apiName = "integrator_sample_all_lights_indirect"
         }
@@ -608,7 +608,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Sample all lights (for indirect samples), rather than randomly picking one"
     )
 
-    uniform float cycles:integrator:light_sampling_threshold = 0.05 (
+    uniform float blackbird:integrator:light_sampling_threshold = 0.05 (
         customData = {
             string apiName = "integrator_light_sampling_threshold"
         }
@@ -617,7 +617,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Probabilistically terminate light samples when the light contribution is below this threshold (more noise but faster rendering). Zero disables the test and never ignores lights"
     )
 
-    uniform int cycles:integrator:adaptive_min_samples = 0 (
+    uniform int blackbird:integrator:adaptive_min_samples = 0 (
         customData = {
             string apiName = "integrator_adaptive_min_samples"
         }
@@ -626,7 +626,7 @@ class "CyclesIntegratorSettingsAPI" (
         doc = "Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling. Zero for automatic setting based on number of AA samples"
     )
 
-    uniform float cycles:integrator:adaptive_threshold = 0.0 (
+    uniform float blackbird:integrator:adaptive_threshold = 0.0 (
         customData = {
             string apiName = "integrator_adaptive_threshold"
         }
@@ -645,7 +645,7 @@ class "CyclesFilmSettingsAPI" (
 {
     string displayName = "Film"
 
-    float cycles:film:exposure = 1.0 (
+    float blackbird:film:exposure = 1.0 (
         customData = {
             string apiName = "film_exposure"
         }
@@ -655,7 +655,7 @@ class "CyclesFilmSettingsAPI" (
     )
 
     # TODO: Add docstring
-    uniform float cycles:film:pass_alpha_threshold = 0.0 (
+    uniform float blackbird:film:pass_alpha_threshold = 0.0 (
         customData = {
             string apiName = "film_pass_alpha_threshold"
         }
@@ -664,7 +664,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    uniform token cycles:film:filter_type = "box" (
+    uniform token blackbird:film:filter_type = "box" (
         allowedTokens = ["box", "gaussian", "blackman_harris"]
         customData = {
             string apiName = "film_filter_type"
@@ -674,7 +674,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    uniform float cycles:film:filter_width = 1.5 (
+    uniform float blackbird:film:filter_width = 1.5 (
         customData = {
             string apiName = "film_filter_width"
         }
@@ -683,7 +683,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    float cycles:film:mist_start = 0.0 (
+    float blackbird:film:mist_start = 0.0 (
         customData = {
             string apiName = "film_mist_start"
         }
@@ -692,7 +692,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    float cycles:film:mist_depth = 100.0 (
+    float blackbird:film:mist_depth = 100.0 (
         customData = {
             string apiName = "film_mist_depth"
         }
@@ -701,7 +701,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    float cycles:film:mist_falloff = 1.0 (
+    float blackbird:film:mist_falloff = 1.0 (
         customData = {
             string apiName = "film_mist_falloff"
         }
@@ -710,7 +710,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:film:use_light_visibility = false (
+    uniform bool blackbird:film:use_light_visibility = false (
         customData = {
             string apiName = "film_use_light_visibility"
         }
@@ -719,8 +719,8 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    # TODO: Is this actually used? Seems like all Cycles logic points to regular cycles:adaptive_sampling
-    uniform bool cycles:film:use_adaptive_sampling = false (
+    # TODO: Is this actually used? Seems like all Cycles logic points to regular blackbird:adaptive_sampling
+    uniform bool blackbird:film:use_adaptive_sampling = false (
         customData = {
             string apiName = "film_use_adaptive_sampling"
         }
@@ -731,7 +731,7 @@ class "CyclesFilmSettingsAPI" (
 
     # Denoising
 
-    uniform bool cycles:film:denoising_data_pass = false (
+    uniform bool blackbird:film:denoising_data_pass = false (
         customData = {
             string apiName = "film_denoising_data_pass"
         }
@@ -740,7 +740,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:film:denoising_clean_pass = false (
+    uniform bool blackbird:film:denoising_clean_pass = false (
         customData = {
             string apiName = "film_denoising_clean_pass"
         }
@@ -749,7 +749,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    uniform bool cycles:film:denoising_prefiltered_pass = false (
+    uniform bool blackbird:film:denoising_prefiltered_pass = false (
         customData = {
             string apiName = "film_denoising_prefiltered_pass"
         }
@@ -758,7 +758,7 @@ class "CyclesFilmSettingsAPI" (
         doc = ""
     )
 
-    uniform int cycles:film:denoising_flags = 0 (
+    uniform int blackbird:film:denoising_flags = 0 (
         customData = {
             string apiName = "film_denoising_flags"
         }
@@ -770,7 +770,7 @@ class "CyclesFilmSettingsAPI" (
     # Cryptomatte
 
     # TODO: Unsure if this is needed
-    uniform int cycles:film:cryptomatte_depth = 0 (
+    uniform int blackbird:film:cryptomatte_depth = 0 (
         customData = {
             string apiName = "film_cryptomatte_depth"
         }
@@ -789,7 +789,7 @@ class "CyclesTextureSettingsAPI" (
 {
     string displayName = "Texture"
 
-    bool cycles:texture_use_cache = false (
+    bool blackbird:texture_use_cache = false (
         customData = {
             string apiName = "texture_use_cache"
         }
@@ -799,7 +799,7 @@ class "CyclesTextureSettingsAPI" (
         out of core texturing."""
     )
 
-    int cycles:texture_cache_size = 4096 (
+    int blackbird:texture_cache_size = 4096 (
         customData = {
             string apiName = "texture_cache_size"
         }
@@ -808,7 +808,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Maximum size of the Texture Cache."""
     )
 
-    int cycles:texture_tile_size = 64 (
+    int blackbird:texture_tile_size = 64 (
         customData = {
             string apiName = "texture_tile_size"
         }
@@ -817,7 +817,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Tile size used for mip map generation."""
     )
 
-    float cycles:texture_diffuse_blur = 0.015625 (
+    float blackbird:texture_diffuse_blur = 0.015625 (
         customData = {
             string apiName = "texture_diffuse_blur"
         }
@@ -826,7 +826,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Blur texture lookups for diffuse bounces."""
     )
 
-    float cycles:texture_glossy_blur = 0 (
+    float blackbird:texture_glossy_blur = 0 (
         customData = {
             string apiName = "texture_glossy_blur"
         }
@@ -835,7 +835,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Blur texture lookups for glossy bounces."""
     )
 
-    bool cycles:texture_auto_convert = 0 (
+    bool blackbird:texture_auto_convert = 0 (
         customData = {
             string apiName = "texture_auto_convert"
         }
@@ -845,7 +845,7 @@ class "CyclesTextureSettingsAPI" (
         that contain tiled mip map representations."""
     )
 
-    bool cycles:texture_accept_unmipped = 0 (
+    bool blackbird:texture_accept_unmipped = 0 (
         customData = {
             string apiName = "texture_accept_unmipped"
         }
@@ -855,7 +855,7 @@ class "CyclesTextureSettingsAPI" (
         that are not in a mip mapped format."""
     )
 
-    bool cycles:texture_accept_untiled = 0 (
+    bool blackbird:texture_accept_untiled = 0 (
         customData = {
             string apiName = "texture_accept_untiled"
         }
@@ -865,7 +865,7 @@ class "CyclesTextureSettingsAPI" (
         that are not in a tiled format."""
     )
 
-    bool cycles:texture_auto_tile = 0 (
+    bool blackbird:texture_auto_tile = 0 (
         customData = {
             string apiName = "texture_auto_tile"
         }
@@ -874,7 +874,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Convert in memory textures to tiled layout."""
     )
 
-    bool cycles:texture_auto_mip = 0 (
+    bool blackbird:texture_auto_mip = 0 (
         customData = {
             string apiName = "texture_auto_mip"
         }
@@ -883,7 +883,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Generate in memory Mip Maps automatically."""
     )
 
-    bool cycles:texture_use_custom_path = 0 (
+    bool blackbird:texture_use_custom_path = 0 (
         customData = {
             string apiName = "texture_use_custom_path"
         }
@@ -893,7 +893,7 @@ class "CyclesTextureSettingsAPI" (
         instead of next to the original."""
     )
 
-    int cycles:texture_max_size = 0 (
+    int blackbird:texture_max_size = 0 (
         customData = {
             string apiName = "texture_max_size"
         }
@@ -914,7 +914,7 @@ class "CyclesLightSettingsAPI" (
 {
     string displayName = "Light"
 
-    bool cycles:light:use_mis = true (
+    bool blackbird:light:use_mis = true (
         customData = {
             string apiName = "light_use_mis"
         }
@@ -923,7 +923,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Use multiple importance scattering"
     )
 
-    bool cycles:light:use_diffuse = true (
+    bool blackbird:light:use_diffuse = true (
         customData = {
             string apiName = "light_use_diffuse"
         }
@@ -932,7 +932,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Use in diffuse light paths"
     )
 
-    bool cycles:light:use_glossy = true (
+    bool blackbird:light:use_glossy = true (
         customData = {
             string apiName = "light_use_glossy"
         }
@@ -941,7 +941,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Use in glossy light paths"
     )
 
-    bool cycles:light:use_transmission = true (
+    bool blackbird:light:use_transmission = true (
         customData = {
             string apiName = "light_use_transmission"
         }
@@ -950,7 +950,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Use in transmission light paths"
     )
 
-    bool cycles:light:use_scatter = true (
+    bool blackbird:light:use_scatter = true (
         customData = {
             string apiName = "light_use_scatter"
         }
@@ -959,7 +959,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Use in scatter light paths"
     )
 
-    bool cycles:light:is_portal = false (
+    bool blackbird:light:is_portal = false (
         customData = {
             string apiName = "light_is_portal"
         }
@@ -968,7 +968,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Should light act as a portal"
     )
 
-    uniform int cycles:light:samples = 1 (
+    uniform int blackbird:light:samples = 1 (
         customData = {
             string apiName = "light_samples"
         }
@@ -977,7 +977,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Number of samples"
     )
 
-    uniform int cycles:light:max_bounces = 1024 (
+    uniform int blackbird:light:max_bounces = 1024 (
         customData = {
             string apiName = "light_max_bounces"
         }
@@ -986,7 +986,7 @@ class "CyclesLightSettingsAPI" (
         doc = "Maximum bounces of light ray"
     )
 
-    uniform int cycles:light:map_resolution = 0 (
+    uniform int blackbird:light:map_resolution = 0 (
         customData = {
             string apiName = "map_resolution"
         }
@@ -1007,7 +1007,7 @@ class "CyclesCameraSettingsAPI" (
 
     # Discuss: Should this be object:motion_position
     # Discuss: Should this also be specified more weakly at render settings level?
-    token cycles:camera:motion_position = "center" (
+    token blackbird:camera:motion_position = "center" (
         allowedTokens = ["start", "center", "end"]
         customData = {
             string apiName = "camera_motion_position"
@@ -1018,7 +1018,7 @@ class "CyclesCameraSettingsAPI" (
     )
 
     # Is this needed?
-    float cycles:camera:shutter_time = 0.5 (
+    float blackbird:camera:shutter_time = 0.5 (
         customData = {
             string apiName = "camera_shutter_time"
         }
@@ -1027,7 +1027,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float[] cycles:camera:shutter_curve (
+    float[] blackbird:camera:shutter_curve (
         customData = {
             string apiName = "camera_shutter_curve"
         }
@@ -1036,7 +1036,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    token cycles:camera:rolling_shutter_type = "none" (
+    token blackbird:camera:rolling_shutter_type = "none" (
         allowedTokens = ["none", "top"]
         customData = {
             string apiName = "camera_rolling_shutter_type"
@@ -1046,7 +1046,7 @@ class "CyclesCameraSettingsAPI" (
         doc = "Type of rolling shutter for cycles to use"
     )
 
-    float cycles:camera:rolling_shutter_duration = 0.1 (
+    float blackbird:camera:rolling_shutter_duration = 0.1 (
         customData = {
             string apiName = "camera_rolling_shutter_duration"
         }
@@ -1055,7 +1055,7 @@ class "CyclesCameraSettingsAPI" (
         doc = "Duration of rolling shutter"
     )
 
-    token cycles:camera:stereo_eye = "none" (
+    token blackbird:camera:stereo_eye = "none" (
         allowedTokens = ["none", "left", "right"]
         customData = {
             string apiName = "camera_stereo_eye"
@@ -1067,7 +1067,7 @@ class "CyclesCameraSettingsAPI" (
 
     # TODO: Ideally we use extend the UsdGeomCamera projection tokens
     # to incorporate panoramic. For now, we use this...
-    bool cycles:camera:use_panoramic = false (
+    bool blackbird:camera:use_panoramic = false (
         customData = {
             string apiName = "camera_use_panoramic"
         }
@@ -1076,7 +1076,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    token cycles:camera:panorama_type = "equirectangular" (
+    token blackbird:camera:panorama_type = "equirectangular" (
         allowedTokens = ["equirectangular", "fisheye_equidistant", "fisheye_equisolid", "mirrorball"]
         customData = {
             string apiName = "camera_panorama_type"
@@ -1086,7 +1086,7 @@ class "CyclesCameraSettingsAPI" (
         doc = "Type of panorama algorithm"
     )
 
-    uint cycles:camera:blades = 0 (
+    uint blackbird:camera:blades = 0 (
         customData = {
             string apiName = "camera_blades"
         }
@@ -1095,7 +1095,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:blades_rotation = 0.0 (
+    float blackbird:camera:blades_rotation = 0.0 (
         customData = {
             string apiName = "camera_blades_rotation"
         }
@@ -1104,7 +1104,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:offscreen_dicing_scale = 1.0 (
+    float blackbird:camera:offscreen_dicing_scale = 1.0 (
         customData = {
             string apiName = "camera_offscreen_dicing_scale"
         }
@@ -1116,7 +1116,7 @@ class "CyclesCameraSettingsAPI" (
     # Panorama
 
     # TODO: Is this needed or can it be encoded with regular UsdGeomCamera attribs
-    float cycles:camera:fisheye_fov = 3.1415926535897932 (
+    float blackbird:camera:fisheye_fov = 3.1415926535897932 (
         customData = {
             string apiName = "camera_fisheye_fov"
         }
@@ -1125,7 +1125,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:fisheye_lens = 10.5 (
+    float blackbird:camera:fisheye_lens = 10.5 (
         customData = {
             string apiName = "camera_fisheye_lens"
             float max = 20.0
@@ -1135,7 +1135,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:latitude_min = -1.5707963267948966 (
+    float blackbird:camera:latitude_min = -1.5707963267948966 (
         customData = {
             string apiName = "camera_latitude_min"
         }
@@ -1144,7 +1144,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:latitude_max = 1.5707963267948966 (
+    float blackbird:camera:latitude_max = 1.5707963267948966 (
         customData = {
             string apiName = "camera_latitude_max"
         }
@@ -1153,7 +1153,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:longitude_min = -3.1415926535897932 (
+    float blackbird:camera:longitude_min = -3.1415926535897932 (
         customData = {
             string apiName = "camera_longitude_min"
         }
@@ -1162,7 +1162,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:longitude_max = 3.1415926535897932 (
+    float blackbird:camera:longitude_max = 3.1415926535897932 (
         customData = {
             string apiName = "camera_longitude_max"
         }
@@ -1173,7 +1173,7 @@ class "CyclesCameraSettingsAPI" (
 
     # Stereo
 
-    bool cycles:camera:use_spherical_stereo = false (
+    bool blackbird:camera:use_spherical_stereo = false (
         customData = {
             string apiName = "camera_use_spherical_stereo"
         }
@@ -1182,7 +1182,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:interocular_distance = 0.065 (
+    float blackbird:camera:interocular_distance = 0.065 (
         customData = {
             string apiName = "camera_interocular_distance"
         }
@@ -1191,7 +1191,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:convergence_distance = 1.95 (
+    float blackbird:camera:convergence_distance = 1.95 (
         customData = {
             string apiName = "camera_convergence_distance"
         }
@@ -1200,7 +1200,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    bool cycles:camera:use_pole_merge = false (
+    bool blackbird:camera:use_pole_merge = false (
         customData = {
             string apiName = "camera_use_pole_merge"
         }
@@ -1209,7 +1209,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:pole_merge_angle_from = 1.0471975512 (
+    float blackbird:camera:pole_merge_angle_from = 1.0471975512 (
         customData = {
             string apiName = "camera_pole_merge_angle_from"
         }
@@ -1218,7 +1218,7 @@ class "CyclesCameraSettingsAPI" (
         doc = ""
     )
 
-    float cycles:camera:pole_merge_angle_to = 1.308996939 (
+    float blackbird:camera:pole_merge_angle_to = 1.308996939 (
         customData = {
             string apiName = "camera_pole_merge_angle_to"
         }
@@ -1237,7 +1237,7 @@ class "CyclesObjectSettingsAPI" (
 {
     string displayName = "Object"
 
-    bool primvars:cycles:object:mblur = true (
+    bool primvars:blackbird:object:mblur = true (
         customData = {
             string apiName = "object_mblur"
         }
@@ -1246,7 +1246,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Object level override of if object should be subject to motion blur"
     )
 
-    uniform int primvars:cycles:object:transform:samples = 3 (
+    uniform int primvars:blackbird:object:transform:samples = 3 (
         customData = {
             string apiName = "object_transform_samples"
         }
@@ -1255,7 +1255,7 @@ class "CyclesObjectSettingsAPI" (
         doc = ""
     )
 
-    uniform int primvars:cycles:object:deform:samples = 3 (
+    uniform int primvars:blackbird:object:deform:samples = 3 (
         customData = {
             string apiName = "object_deform_samples"
         }
@@ -1264,7 +1264,7 @@ class "CyclesObjectSettingsAPI" (
         doc = ""
     )
 
-    uniform float primvars:cycles:object:mblur:volume_vel_scale = 1.0 (
+    uniform float primvars:blackbird:object:mblur:volume_vel_scale = 1.0 (
         customData = {
             string apiName = "object_mblur_volume_vel_scale"
         }
@@ -1273,7 +1273,7 @@ class "CyclesObjectSettingsAPI" (
         doc = ""
     )
 
-    float primvars:cycles:object:mblur:velocity_scale = 1.0 (
+    float primvars:blackbird:object:mblur:velocity_scale = 1.0 (
         customData = {
             string apiName = "object_mblur_velocity_scale"
         }
@@ -1282,7 +1282,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Arbitrary scale of object velocity attributes"
     )
 
-    int primvars:cycles:object:pass_id = 0 (
+    int primvars:blackbird:object:pass_id = 0 (
         customData = {
             string apiName = "object_pass_id"
         }
@@ -1291,7 +1291,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Index number of the 'Material Index' render pass"
     )
 
-    bool primvars:cycles:object:use_holdout = false (
+    bool primvars:blackbird:object:use_holdout = false (
         customData = {
             string apiName = "object_use_holdout"
         }
@@ -1300,7 +1300,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Render objects as a holdout or matte, creating a hole in the image with zero alpha, to fill out in compositing with real footage or another render"
     )
 
-    bool primvars:cycles:object:is_shadow_catcher = false (
+    bool primvars:blackbird:object:is_shadow_catcher = false (
         customData = {
             string apiName = "object_is_shadow_catcher"
         }
@@ -1309,7 +1309,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Only render shadows on this object, for compositing renders into real footage"
     )
 
-    bool primvars:cycles:object:visibility:camera = true (
+    bool primvars:blackbird:object:visibility:camera = true (
         customData = {
             string apiName = "object_visibility_camera"
         }
@@ -1318,7 +1318,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Should this object be visible by camera rays"
     )
 
-    bool primvars:cycles:object:visibility:diffuse = true (
+    bool primvars:blackbird:object:visibility:diffuse = true (
         customData = {
             string apiName = "object_visibility_diffuse"
         }
@@ -1327,7 +1327,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Should this object be visible by diffuse rays"
     )
 
-    bool primvars:cycles:object:visibility:glossy = true (
+    bool primvars:blackbird:object:visibility:glossy = true (
         customData = {
             string apiName = "object_visibility_glossy"
         }
@@ -1336,7 +1336,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Should this object be visible by glossy rays"
     )
 
-    bool primvars:cycles:object:visibility:transmission = true (
+    bool primvars:blackbird:object:visibility:transmission = true (
         customData = {
             string apiName = "object_visibility_transmission"
         }
@@ -1345,7 +1345,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Should this object be visible by transmission rays"
     )
 
-    bool primvars:cycles:object:visibility:shadow = true (
+    bool primvars:blackbird:object:visibility:shadow = true (
         customData = {
             string apiName = "object_visibility_shadow"
         }
@@ -1354,7 +1354,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Should this object be visible by shadow rays"
     )
 
-    bool primvars:cycles:object:visibility:scatter = true (
+    bool primvars:blackbird:object:visibility:scatter = true (
         customData = {
             string apiName = "object_visibility_scatter"
         }
@@ -1363,7 +1363,7 @@ class "CyclesObjectSettingsAPI" (
         doc = "Should this object be visible by scatter rays"
     )
 
-    string primvars:cycles:object:asset_name = "" (
+    string primvars:blackbird:object:asset_name = "" (
         customData = {
             string apiName = "object_asset_name"
         }
@@ -1382,7 +1382,7 @@ class "CyclesMeshSettingsAPI" (
 {
     string displayName = "Mesh"
 
-    uniform float primvars:cycles:mesh:dicing:rate = 1.0 (
+    uniform float primvars:blackbird:mesh:dicing:rate = 1.0 (
         customData = {
             string apiName = "mesh_dicing_rate"
         }
@@ -1391,7 +1391,7 @@ class "CyclesMeshSettingsAPI" (
         doc = "Size of a micropolygon in pixels"
     )
 
-    uniform int primvars:cycles:mesh:subdivision_max_level = 3 (
+    uniform int primvars:blackbird:mesh:subdivision_max_level = 3 (
         customData = {
             string apiName = "mesh_subdivision_max_level"
         }
@@ -1410,7 +1410,7 @@ class "CyclesMaterialSettingsAPI" (
 {
     string displayName = "Material"
 
-    uniform int cycles:material:pass_id = 0 (
+    uniform int blackbird:material:pass_id = 0 (
         customData = {
             string apiName = "material_pass_id"
         }
@@ -1419,7 +1419,7 @@ class "CyclesMaterialSettingsAPI" (
         doc = "Used for material id aov pass"
     )
 
-    uniform token cycles:material:displacement_method = "displacement_bump" (
+    uniform token blackbird:material:displacement_method = "displacement_bump" (
         allowedTokens = ["displacement_bump", "displacement_true", "displacement_both"]
         customData = {
             string apiName = "displacement_method"
@@ -1429,7 +1429,7 @@ class "CyclesMaterialSettingsAPI" (
         doc = "Method to use for the displacement"
     )
 
-    bool cycles:material:use_mis = true (
+    bool blackbird:material:use_mis = true (
         customData = {
             string apiName = "material_use_mis"
         }
@@ -1438,7 +1438,7 @@ class "CyclesMaterialSettingsAPI" (
         doc = ""
     )
 
-    bool cycles:material:use_transparent_shadow = true (
+    bool blackbird:material:use_transparent_shadow = true (
         customData = {
             string apiName = "material_use_transparent_shadow"
         }
@@ -1447,7 +1447,7 @@ class "CyclesMaterialSettingsAPI" (
         doc = "Use transparent shadows for this material if it contains a Transparent BSDF, disabling will render faster but not give accurate shadows"
     )
 
-    uniform bool cycles:material:heterogeneous_volume = true (
+    uniform bool blackbird:material:heterogeneous_volume = true (
         customData = {
             string apiName = "material_heterogeneous_volume"
         }
@@ -1456,7 +1456,7 @@ class "CyclesMaterialSettingsAPI" (
         doc = "Is this volume heterogeneous"
     )
 
-    uniform token cycles:material:volume_sampling_method = "volume_sampling_distance" (
+    uniform token blackbird:material:volume_sampling_method = "volume_sampling_distance" (
         allowedTokens = ["volume_sampling_distance", "volume_sampling_equiangular", "volume_sampling_multiple_importance"]
         customData = {
             string apiName = "volume_sampling_method"
@@ -1466,7 +1466,7 @@ class "CyclesMaterialSettingsAPI" (
         doc = "Method of sampling volumes"
     )
 
-    uniform token cycles:material:volume_interpolation_method = "volume_interpolation_linear" (
+    uniform token blackbird:material:volume_interpolation_method = "volume_interpolation_linear" (
         allowedTokens = ["volume_interpolation_linear", "volume_interpolation_cubic"]
         customData = {
             string apiName = "volume_interpolation_method"
@@ -1476,7 +1476,7 @@ class "CyclesMaterialSettingsAPI" (
         doc = "Method of interpolating volumes"
     )
 
-    uniform float cycles:material:volume_step_rate = 1.0 (
+    uniform float blackbird:material:volume_step_rate = 1.0 (
         customData = {
             string apiName = "material_volume_step_rate"
         }
@@ -1499,7 +1499,7 @@ class "CyclesBackgroundAPI" (
 {
     string displayName = "Background"
 
-    uniform float cycles:background:ao_factor = 1.0 (
+    uniform float blackbird:background:ao_factor = 1.0 (
         customData = {
             string apiName = "background_ao_factor"
         }
@@ -1508,7 +1508,7 @@ class "CyclesBackgroundAPI" (
         doc = "Amount to scale AO by"
     )
 
-    uniform float cycles:background:ao_distance = 1.0 (
+    uniform float blackbird:background:ao_distance = 1.0 (
         customData = {
             string apiName = "background_ao_distance"
         }
@@ -1517,7 +1517,7 @@ class "CyclesBackgroundAPI" (
         doc = ""
     )
 
-    uniform bool cycles:background:use_shader = true (
+    uniform bool blackbird:background:use_shader = true (
         customData = {
             string apiName = "background_use_shader"
         }
@@ -1526,7 +1526,7 @@ class "CyclesBackgroundAPI" (
         doc = "Should the background use a shader network"
     )
 
-    uniform bool cycles:background:use_ao = false (
+    uniform bool blackbird:background:use_ao = false (
         customData = {
             string apiName = "background_use_ao"
         }
@@ -1537,7 +1537,7 @@ class "CyclesBackgroundAPI" (
 
     # Transparency
 
-    uniform bool cycles:background:transparent = false (
+    uniform bool blackbird:background:transparent = false (
         customData = {
             string apiName = "background_transparent"
         }
@@ -1546,7 +1546,7 @@ class "CyclesBackgroundAPI" (
         doc = "Should the background render transparent"
     )
 
-    uniform bool cycles:background:transparent_glass = false (
+    uniform bool blackbird:background:transparent_glass = false (
         customData = {
             string apiName = "background_transparent_glass"
         }
@@ -1555,7 +1555,7 @@ class "CyclesBackgroundAPI" (
         doc = "Render transmissive surfaces as transparent, for compositing glass over another background"
     )
 
-    uniform float cycles:background:transparent_roughness_threshold = 0.1 (
+    uniform float blackbird:background:transparent_roughness_threshold = 0.1 (
         customData = {
             string apiName = "background_transparent_roughness_threshold"
         }
@@ -1566,7 +1566,7 @@ class "CyclesBackgroundAPI" (
 
     # Volume
 
-    uniform float cycles:background:volume_step_size = 0.1 (
+    uniform float blackbird:background:volume_step_size = 0.1 (
         customData = {
             string apiName = "background_volume_step_size"
         }
@@ -1577,7 +1577,7 @@ class "CyclesBackgroundAPI" (
 
     # Visibility
 
-    bool cycles:background:visibility:camera = true (
+    bool blackbird:background:visibility:camera = true (
         customData = {
             string apiName = "object_visibility_camera"
         }
@@ -1586,7 +1586,7 @@ class "CyclesBackgroundAPI" (
         doc = "Should the background be visible by camera rays"
     )
 
-    bool cycles:background:visibility:diffuse = true (
+    bool blackbird:background:visibility:diffuse = true (
         customData = {
             string apiName = "object_visibility_diffuse"
         }
@@ -1595,7 +1595,7 @@ class "CyclesBackgroundAPI" (
         doc = "Should the background be visible by diffuse rays"
     )
 
-    bool cycles:background:visibility:glossy = true (
+    bool blackbird:background:visibility:glossy = true (
         customData = {
             string apiName = "object_visibility_glossy"
         }
@@ -1604,7 +1604,7 @@ class "CyclesBackgroundAPI" (
         doc = "Should the background be visible by glossy rays"
     )
 
-    bool cycles:background:visibility:transmission = true (
+    bool blackbird:background:visibility:transmission = true (
         customData = {
             string apiName = "object_visibility_transmission"
         }
@@ -1613,7 +1613,7 @@ class "CyclesBackgroundAPI" (
         doc = "Should the background be visible by transmission rays"
     )
 
-    bool cycles:background:visibility:scatter = true (
+    bool blackbird:background:visibility:scatter = true (
         customData = {
             string apiName = "object_visibility_scatter"
         }
@@ -1632,7 +1632,7 @@ class "CyclesCurveSettingsAPI" (
 {
     string displayName = "Curve"
 
-    uniform token primvars:cycles:curve:shape = "ribbon" (
+    uniform token primvars:blackbird:curve:shape = "ribbon" (
         allowedTokens = ["ribbon", "thick"]
         customData = {
             string apiName = "curve_shape"
@@ -1652,7 +1652,7 @@ class "CyclesPointsSettingsAPI" (
 {
     string displayName = "Points"
 
-    uniform token cycles:object:point_style = "disc" (
+    uniform token blackbird:object:point_style = "disc" (
         allowedTokens = ["disc", "disc_oriented", "sphere"]
         customData = {
             string apiName = "object_point_style"
@@ -1662,7 +1662,7 @@ class "CyclesPointsSettingsAPI" (
         doc = "How should these points be rendered. Discs (ray oriented), normal oriented discs or spheres."
     )
 
-    uniform int cycles:object:point_resolution = 3 (
+    uniform int blackbird:object:point_resolution = 3 (
         customData = {
             string apiName = "object_point_resolution"
         }
@@ -1681,7 +1681,7 @@ class "CyclesBakeSettingsAPI" (
 {
     string displayName = "Bake"
 
-    uniform bool cycles:bake:enable = false (
+    uniform bool blackbird:bake:enable = false (
         customData = {
             string apiName = "bake_enable"
         }
@@ -1690,7 +1690,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Should Cycles run in bake mode"
     )
 
-    string cycles:bake:object (
+    string blackbird:bake:object (
         customData = {
             string apiName = "bake_object"
         }
@@ -1699,7 +1699,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Object to bake"
     )
 
-    token cycles:bake:bake_type = "combined" (
+    token blackbird:bake:bake_type = "combined" (
         allowedTokens = [
             "combined",
             "ambient_occlusion",
@@ -1724,7 +1724,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Pass to bake"
     )
 
-    uniform bool cycles:bake:direct = true (
+    uniform bool blackbird:bake:direct = true (
         customData = {
             string apiName = "bake_direct"
         }
@@ -1733,7 +1733,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add direct lighting contribution"
     )
 
-    uniform bool cycles:bake:indirect = true (
+    uniform bool blackbird:bake:indirect = true (
         customData = {
             string apiName = "bake_indirect"
         }
@@ -1742,7 +1742,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add indirect lighting contribution"
     )
 
-    uniform bool cycles:bake:filter:color = true (
+    uniform bool blackbird:bake:filter:color = true (
         customData = {
             string apiName = "bake_filter_color"
         }
@@ -1751,7 +1751,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add color contribution"
     )
 
-    uniform bool cycles:bake:filter:diffuse = true (
+    uniform bool blackbird:bake:filter:diffuse = true (
         customData = {
             string apiName = "bake_filter_diffuse"
         }
@@ -1760,7 +1760,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add diffuse contribution"
     )
 
-    uniform bool cycles:bake:filter:glossy = true (
+    uniform bool blackbird:bake:filter:glossy = true (
         customData = {
             string apiName = "bake_filter_glossy"
         }
@@ -1769,7 +1769,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add glossy contribution"
     )
 
-    uniform bool cycles:bake:filter:transmission = true (
+    uniform bool blackbird:bake:filter:transmission = true (
         customData = {
             string apiName = "bake_filter_transmission"
         }
@@ -1778,7 +1778,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add transmission contribution"
     )
 
-    uniform bool cycles:bake:filter:ambient_occlusion = true (
+    uniform bool blackbird:bake:filter:ambient_occlusion = true (
         customData = {
             string apiName = "bake_filter_ambient_occlusion"
         }
@@ -1787,7 +1787,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add ambient occlusion contribution"
     )
 
-    uniform bool cycles:bake:filter:emission = true (
+    uniform bool blackbird:bake:filter:emission = true (
         customData = {
             string apiName = "bake_filter_emission"
         }
@@ -1796,7 +1796,7 @@ class "CyclesBakeSettingsAPI" (
         doc = "Add emission contribution"
     )
 
-    uniform int cycles:bake:margin = 16 (
+    uniform int blackbird:bake:margin = 16 (
         customData = {
             string apiName = "bake_margin"
         }

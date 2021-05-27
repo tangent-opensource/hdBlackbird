@@ -75,7 +75,7 @@ HdBbHairAttributeSource::HdBbHairAttributeSource(TfToken name, const TfToken& ro
 // TODO: Remove this when we deprecate old curve support
 // clang-format off
 TF_DEFINE_PRIVATE_TOKENS(_tokens,
-    ((cyclesCurveResolution, "cycles:object:curve_resolution"))
+    ((cyclesCurveResolution, "blackbird:object:curve_resolution"))
 );
 // clang-format on
 
@@ -536,9 +536,9 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                 }
 
                 //
-                // arbitrary primvar - do not submit cycles: prefixed schema
+                // arbitrary primvar - do not submit blackbird: prefixed schema
                 //
-                if (!TfStringStartsWith(description.name.GetString(), "cycles:")) {
+                if (!TfStringStartsWith(description.name.GetString(), "blackbird:")) {
                     VtValue value = GetPrimvar(sceneDelegate, description.name);
                     primvars.emplace_back(HdBbPrimvar { description, value });
                     continue;
@@ -547,15 +547,15 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                 //
                 // cycles schema primvars
                 //
-                if (!TfStringStartsWith(description.name.GetString(), "cycles:")) {
+                if (!TfStringStartsWith(description.name.GetString(), "blackbird:")) {
                     continue;
                 }
 
                 //
                 const std::string primvar_name = std::string { "primvars:" } + description.name.GetString();
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesCurveShape) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesCurveShape);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdCurveShape) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdCurveShape);
                     if (value.IsHolding<TfToken>()) {
                         curveShape = value.UncheckedGet<TfToken>();
                         if (curveShape == usdCyclesTokens->ribbon) {
@@ -569,8 +569,8 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectAsset_name) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectAsset_name);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectAsset_name) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectAsset_name);
                     if (value.IsHolding<std::string>()) {
                         std::string assetName = value.Get<std::string>();
                         m_cyclesObject->asset_name = ccl::ustring(assetName);
@@ -578,40 +578,40 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectMblur) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectMblur);
                     m_motionBlur = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectTransformSamples) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectTransformSamples);
                     m_motionTransformSteps = value.Get<int>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectDeformSamples) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectDeformSamples);
                     m_motionDeformSteps = value.Get<int>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectIs_shadow_catcher) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectIs_shadow_catcher);
                     if (value.IsHolding<bool>())
                         m_cyclesObject->is_shadow_catcher = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectPass_id) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectPass_id);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectPass_id) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectPass_id);
                     if (value.IsHolding<bool>())
                         m_cyclesObject->pass_id = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectUse_holdout) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectUse_holdout);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectUse_holdout) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectUse_holdout);
                     if (value.IsHolding<bool>())
                         m_cyclesObject->use_holdout = value.Get<bool>();
                     continue;
@@ -620,44 +620,44 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                 //
                 // Visibility schema
                 //
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityCamera) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityCamera);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectVisibilityCamera) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectVisibilityCamera);
                     if (value.IsHolding<bool>())
                         m_visCamera = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectVisibilityDiffuse) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectVisibilityDiffuse);
                     if (value.IsHolding<bool>())
                         m_visDiffuse = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectVisibilityGlossy) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectVisibilityGlossy);
                     if (value.IsHolding<bool>())
                         m_visGlossy = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityScatter) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityScatter);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectVisibilityScatter) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectVisibilityScatter);
                     if (value.IsHolding<bool>())
                         m_visScatter = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityShadow) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityShadow);
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectVisibilityShadow) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectVisibilityShadow);
                     if (value.IsHolding<bool>())
                         m_visShadow = value.Get<bool>();
                     continue;
                 }
 
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission) {
+                if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectVisibilityTransmission) {
                     VtValue value = GetPrimvar(sceneDelegate,
-                                               usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission);
+                                               usdCyclesTokens->primvarsBlackbirdObjectVisibilityTransmission);
                     if (value.IsHolding<bool>())
                         m_visTransmission = value.Get<bool>();
                     continue;

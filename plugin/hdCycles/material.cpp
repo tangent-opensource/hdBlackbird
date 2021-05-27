@@ -99,11 +99,7 @@ std::map<TfToken, ccl::VolumeSampling> VOLUME_SAMPLING_CONVERSION = {
 bool
 IsValidCyclesIdentifier(const std::string& identifier)
 {
-    bool isvalid = identifier.rfind("cycles_") == 0;
-
-    // DEPRECATED:
-    // Only needed for retroactive support of pre 0.8.0 cycles shaders
-    isvalid += (identifier.rfind("cycles:") == 0);
+    bool isvalid = identifier.rfind("blackbird_") == 0;
 
     return isvalid;
 }
@@ -725,33 +721,33 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
     if (*dirtyBits & HdMaterial::DirtyResource) {
         TfToken displacementMethod = _HdCyclesGetParam<TfToken>(sceneDelegate, id,
-                                                                usdCyclesTokens->cyclesMaterialDisplacement_method,
+                                                                usdCyclesTokens->blackbirdMaterialDisplacement_method,
                                                                 usdCyclesTokens->displacement_bump);
 
         if (m_shader->displacement_method != DISPLACEMENT_CONVERSION[displacementMethod]) {
             m_shader->displacement_method = DISPLACEMENT_CONVERSION[displacementMethod];
         }
 
-        m_shader->pass_id = _HdCyclesGetParam<int>(sceneDelegate, id, usdCyclesTokens->cyclesMaterialPass_id,
+        m_shader->pass_id = _HdCyclesGetParam<int>(sceneDelegate, id, usdCyclesTokens->blackbirdMaterialPass_id,
                                                    m_shader->pass_id);
 
-        m_shader->use_mis = _HdCyclesGetParam<bool>(sceneDelegate, id, usdCyclesTokens->cyclesMaterialUse_mis,
+        m_shader->use_mis = _HdCyclesGetParam<bool>(sceneDelegate, id, usdCyclesTokens->blackbirdMaterialUse_mis,
                                                     m_shader->use_mis);
 
         m_shader->use_transparent_shadow
-            = _HdCyclesGetParam<bool>(sceneDelegate, id, usdCyclesTokens->cyclesMaterialUse_transparent_shadow,
+            = _HdCyclesGetParam<bool>(sceneDelegate, id, usdCyclesTokens->blackbirdMaterialUse_transparent_shadow,
                                       m_shader->use_transparent_shadow);
 
         m_shader->heterogeneous_volume = _HdCyclesGetParam<bool>(sceneDelegate, id,
-                                                                 usdCyclesTokens->cyclesMaterialHeterogeneous_volume,
+                                                                 usdCyclesTokens->blackbirdMaterialHeterogeneous_volume,
                                                                  m_shader->heterogeneous_volume);
 
         m_shader->volume_step_rate = _HdCyclesGetParam<float>(sceneDelegate, id,
-                                                              usdCyclesTokens->cyclesMaterialVolume_step_rate,
+                                                              usdCyclesTokens->blackbirdMaterialVolume_step_rate,
                                                               m_shader->volume_step_rate);
 
         TfToken volume_interpolation
-            = _HdCyclesGetParam<TfToken>(sceneDelegate, id, usdCyclesTokens->cyclesMaterialVolume_interpolation_method,
+            = _HdCyclesGetParam<TfToken>(sceneDelegate, id, usdCyclesTokens->blackbirdMaterialVolume_interpolation_method,
                                          usdCyclesTokens->volume_interpolation_linear);
 
         if (m_shader->volume_interpolation_method != VOLUME_INTERPOLATION_CONVERSION[volume_interpolation]) {
@@ -759,7 +755,7 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
         }
 
         TfToken volume_sampling = _HdCyclesGetParam<TfToken>(sceneDelegate, id,
-                                                             usdCyclesTokens->cyclesMaterialVolume_sampling_method,
+                                                             usdCyclesTokens->blackbirdMaterialVolume_sampling_method,
                                                              usdCyclesTokens->volume_sampling_multiple_importance);
 
         if (m_shader->volume_sampling_method != VOLUME_SAMPLING_CONVERSION[volume_sampling]) {

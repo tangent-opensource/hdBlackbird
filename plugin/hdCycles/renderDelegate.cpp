@@ -147,12 +147,12 @@ HdCyclesRenderDelegate::_InitializeCyclesRenderSettings()
 
     // TODO: Undecided how to approach these
     /* m_settingDescriptors.push_back({ std::string("Exposure"),
-                                     usdCyclesTokens->cyclesFilmExposure,
+                                     usdCyclesTokens->blackbirdFilmExposure,
                                      VtValue(config.exposure.value) });*/
     /*
 
     m_settingDescriptors.push_back({ std::string("Samples"),
-                                     usdCyclesTokens->cyclesSamples,
+                                     usdCyclesTokens->blackbirdSamples,
                                      VtValue(config.exposure.) });*/
 }
 

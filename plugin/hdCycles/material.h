@@ -39,11 +39,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 // clang-format off
 #define HD_CYCLES_MATERIAL_TERMINAL_TOKENS          \
     ((surface, "surface"))                          \
-    ((cyclesSurface, "cycles:surface"))             \
+    ((cyclesSurface, "blackbird:surface"))             \
     ((displacement, "displacement"))                \
-    ((cyclesDisplacement, "cycles:displacement"))   \
+    ((cyclesDisplacement, "blackbird:displacement"))   \
     ((volume, "volume"))                            \
-    ((cyclesVolume, "cycles:volume"))
+    ((cyclesVolume, "blackbird:volume"))
 
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens,
     HD_CYCLES_MATERIAL_TERMINAL_TOKENS

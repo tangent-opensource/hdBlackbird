@@ -566,37 +566,37 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
     }
 
     m_cyclesLight->use_diffuse = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
-                                                              usdCyclesTokens->cyclesLightUse_diffuse,
+                                                              usdCyclesTokens->blackbirdLightUse_diffuse,
                                                               m_cyclesLight->use_diffuse);
 
-    m_cyclesLight->use_glossy = _HdCyclesGetLightParam<bool>(id, sceneDelegate, usdCyclesTokens->cyclesLightUse_glossy,
+    m_cyclesLight->use_glossy = _HdCyclesGetLightParam<bool>(id, sceneDelegate, usdCyclesTokens->blackbirdLightUse_glossy,
                                                              m_cyclesLight->use_glossy);
 
     m_cyclesLight->use_transmission = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
-                                                                   usdCyclesTokens->cyclesLightUse_transmission,
+                                                                   usdCyclesTokens->blackbirdLightUse_transmission,
                                                                    m_cyclesLight->use_transmission);
 
     m_cyclesLight->use_scatter = _HdCyclesGetLightParam<bool>(id, sceneDelegate,
-                                                              usdCyclesTokens->cyclesLightUse_scatter,
+                                                              usdCyclesTokens->blackbirdLightUse_scatter,
                                                               m_cyclesLight->use_scatter);
 
-    m_cyclesLight->use_mis = _HdCyclesGetLightParam<bool>(id, sceneDelegate, usdCyclesTokens->cyclesLightUse_mis,
+    m_cyclesLight->use_mis = _HdCyclesGetLightParam<bool>(id, sceneDelegate, usdCyclesTokens->blackbirdLightUse_mis,
                                                           m_cyclesLight->use_mis);
 
-    m_cyclesLight->is_portal = _HdCyclesGetLightParam<bool>(id, sceneDelegate, usdCyclesTokens->cyclesLightIs_portal,
+    m_cyclesLight->is_portal = _HdCyclesGetLightParam<bool>(id, sceneDelegate, usdCyclesTokens->blackbirdLightIs_portal,
                                                             m_cyclesLight->is_portal);
 
-    m_cyclesLight->samples = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->cyclesLightSamples,
+    m_cyclesLight->samples = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->blackbirdLightSamples,
                                                          m_cyclesLight->samples);
 
     if (m_renderDelegate->GetCyclesRenderParam()->IsSquareSamples()) {
         m_cyclesLight->samples *= m_cyclesLight->samples;
     }
 
-    m_cyclesLight->max_bounces = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->cyclesLightMax_bounces,
+    m_cyclesLight->max_bounces = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->blackbirdLightMax_bounces,
                                                              m_cyclesLight->max_bounces);
 
-    m_cyclesLight->map_resolution = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->cyclesLightMap_resolution,
+    m_cyclesLight->map_resolution = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->blackbirdLightMap_resolution,
                                                              m_cyclesLight->map_resolution);
 
     // TODO: Light is_enabled doesn't seem to have any effect

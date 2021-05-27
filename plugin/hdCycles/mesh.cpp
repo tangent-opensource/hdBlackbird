@@ -864,8 +864,8 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                 continue;
             }
 
-            // do not commit primvars with cycles: prefix
-            if (m_cyclesMesh && !TfStringStartsWith(description.name.GetString(), "cycles:")) {
+            // do not commit primvars with blackbird: prefix
+            if (m_cyclesMesh && !TfStringStartsWith(description.name.GetString(), "blackbird:")) {
                 m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(description.name, description.role,
                                                                                 value, m_cyclesMesh,
                                                                                 description.interpolation, m_topology);
@@ -1039,7 +1039,7 @@ HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
 {
     // Usd controls subdivision level globally, passed through the topology. Change of custom max subdiv level primvar
     // must mark SubdivTags dirty.
-    if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level)) {
+    if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->primvarsBlackbirdMeshSubdivision_max_level)) {
         bits |= HdChangeTracker::DirtySubdivTags;
     }
 
@@ -1116,28 +1116,28 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
             const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
 
-            if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
+            if (primvar_name == usdCyclesTokens->primvarsBlackbirdMeshSubdivision_max_level) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdMeshSubdivision_max_level);
                 m_refineLevel = value.Get<int>();
                 continue;
             }
 
             // motion blur settings
 
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
+            if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectMblur) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectMblur);
                 m_motionBlur = value.Get<bool>();
                 continue;
             }
 
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+            if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectTransformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectTransformSamples);
                 m_motionTransformSteps = value.Get<int>();
                 continue;
             }
 
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
+            if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectDeformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectDeformSamples);
                 m_motionDeformSteps = value.Get<int>();
                 continue;
             }
@@ -1146,20 +1146,20 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
             m_cyclesObject->is_shadow_catcher
                 = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                              usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
+                                              usdCyclesTokens->primvarsBlackbirdObjectIs_shadow_catcher,
                                               m_cyclesObject->is_shadow_catcher);
 
             m_cyclesObject->pass_id = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                  usdCyclesTokens->primvarsCyclesObjectPass_id,
+                                                                  usdCyclesTokens->primvarsBlackbirdObjectPass_id,
                                                                   m_cyclesObject->pass_id);
 
             m_cyclesObject->use_holdout = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                      usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+                                                                      usdCyclesTokens->primvarsBlackbirdObjectUse_holdout,
                                                                       m_cyclesObject->use_holdout);
 
             std::string assetName = m_cyclesObject->asset_name.c_str();
             assetName = _HdCyclesGetMeshParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
-                                                           usdCyclesTokens->primvarsCyclesObjectAsset_name, assetName);
+                                                           usdCyclesTokens->primvarsBlackbirdObjectAsset_name, assetName);
             m_cyclesObject->asset_name = ccl::ustring(assetName);
 
             // Visibility
@@ -1167,27 +1167,27 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             m_visibilityFlags = 0;
 
             m_visCamera = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                      usdCyclesTokens->primvarsCyclesObjectVisibilityCamera,
+                                                      usdCyclesTokens->primvarsBlackbirdObjectVisibilityCamera,
                                                       m_visCamera);
 
             m_visDiffuse = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                       usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
+                                                       usdCyclesTokens->primvarsBlackbirdObjectVisibilityDiffuse,
                                                        m_visDiffuse);
 
             m_visGlossy = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                      usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy,
+                                                      usdCyclesTokens->primvarsBlackbirdObjectVisibilityGlossy,
                                                       m_visGlossy);
 
             m_visScatter = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                       usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
+                                                       usdCyclesTokens->primvarsBlackbirdObjectVisibilityScatter,
                                                        m_visScatter);
 
             m_visShadow = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                      usdCyclesTokens->primvarsCyclesObjectVisibilityShadow,
+                                                      usdCyclesTokens->primvarsBlackbirdObjectVisibilityShadow,
                                                       m_visShadow);
 
             m_visTransmission = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                            usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
+                                                            usdCyclesTokens->primvarsBlackbirdObjectVisibilityTransmission,
                                                             m_visTransmission);
 
             m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;

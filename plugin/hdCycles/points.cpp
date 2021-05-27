@@ -85,7 +85,7 @@ HdCyclesPoints::_PropagateDirtyBits(HdDirtyBits bits) const
         If the point style has changed, the internal bvh representation also
         needs to be changed, so we tag the points as dirty
     */
-    if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->cyclesObjectPoint_style)) {
+    if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->blackbirdObjectPoint_style)) {
         bits |= HdChangeTracker::DirtyPoints;
     }
     return bits;
@@ -148,20 +148,20 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
 
             // motion blur settings
 
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
+            if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectMblur) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectMblur);
                 m_motionBlur = value.Get<bool>();
                 continue;
             }
 
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+            if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectTransformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectTransformSamples);
                 m_motionTransformSteps = value.Get<int>();
                 continue;
             }
 
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
+            if (primvar_name == usdCyclesTokens->primvarsBlackbirdObjectDeformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsBlackbirdObjectDeformSamples);
                 m_motionDeformSteps = value.Get<int>();
                 continue;
             }
@@ -170,15 +170,15 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
 
             m_cyclesObject->is_shadow_catcher
                 = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
+                                                usdCyclesTokens->primvarsBlackbirdObjectIs_shadow_catcher,
                                                 m_cyclesObject->is_shadow_catcher);
 
             m_cyclesObject->pass_id = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                    usdCyclesTokens->primvarsCyclesObjectPass_id,
+                                                                    usdCyclesTokens->primvarsBlackbirdObjectPass_id,
                                                                     m_cyclesObject->pass_id);
 
             m_cyclesObject->use_holdout = _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                        usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+                                                                        usdCyclesTokens->primvarsBlackbirdObjectUse_holdout,
                                                                         m_cyclesObject->use_holdout);
 
             // Visibility
@@ -186,42 +186,42 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
 
             bool bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, bit);
+                                          usdCyclesTokens->primvarsBlackbirdObjectVisibilityCamera, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_CAMERA;
             }
 
             bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse, bit);
+                                          usdCyclesTokens->primvarsBlackbirdObjectVisibilityDiffuse, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_DIFFUSE;
             }
 
             bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, bit);
+                                          usdCyclesTokens->primvarsBlackbirdObjectVisibilityGlossy, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_GLOSSY;
             }
 
             bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityScatter, bit);
+                                          usdCyclesTokens->primvarsBlackbirdObjectVisibilityScatter, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_VOLUME_SCATTER;
             }
 
             bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, bit);
+                                          usdCyclesTokens->primvarsBlackbirdObjectVisibilityShadow, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_SHADOW;
             }
 
             bit = true;
             _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission, bit);
+                                          usdCyclesTokens->primvarsBlackbirdObjectVisibilityTransmission, bit);
             if (bit) {
                 m_visibilityFlags |= ccl::PATH_RAY_TRANSMIT;
             }
@@ -685,11 +685,11 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // -------------------------------------
     // -- Resolve Drawstyles
     // todo: what do we do with PointDPI exactly? check other render delegates
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->cyclesObjectPoint_resolution)) {
+    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, usdCyclesTokens->blackbirdObjectPoint_resolution)) {
         needsRebuildBVH = true;
 
         HdTimeSampleArray<VtValue, 1> xf;
-        sceneDelegate->SamplePrimvar(id, usdCyclesTokens->cyclesObjectPoint_resolution, &xf);
+        sceneDelegate->SamplePrimvar(id, usdCyclesTokens->blackbirdObjectPoint_resolution, &xf);
         if (xf.count > 0) {
             const int& resolutions = xf.values[0].Get<int>();
             m_pointResolution = std::max(resolutions, 10);
@@ -777,7 +777,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 continue;
             }
 
-            if (description.name == usdCyclesTokens->cyclesObjectPoint_style) {
+            if (description.name == usdCyclesTokens->blackbirdObjectPoint_style) {
                 if (value.IsEmpty()) {
                     TF_WARN("Point style primvar exists, but is empty for point cloud %s", id.GetText());
                 } else {

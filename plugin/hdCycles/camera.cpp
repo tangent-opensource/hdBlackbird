@@ -260,7 +260,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         // Motion Position
         TfToken motionPosition = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
-                                                                  usdCyclesTokens->cyclesCameraMotion_position,
+                                                                  usdCyclesTokens->blackbirdCameraMotion_position,
                                                                   usdCyclesTokens->center);
 
         if (m_motionPosition != MOTION_POSITION_CONVERSION[motionPosition]) {
@@ -269,7 +269,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         // rolling shutter type
         TfToken rollingShutterType = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
-                                                                      usdCyclesTokens->cyclesCameraRolling_shutter_type,
+                                                                      usdCyclesTokens->blackbirdCameraRolling_shutter_type,
                                                                       usdCyclesTokens->none);
 
         if (m_rollingShutterType != ROLLING_SHUTTER_TYPE_CONVERSION[rollingShutterType]) {
@@ -278,7 +278,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
         // panorama type
         TfToken panoramaType = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
-                                                                usdCyclesTokens->cyclesCameraPanorama_type,
+                                                                usdCyclesTokens->blackbirdCameraPanorama_type,
                                                                 usdCyclesTokens->equirectangular);
 
         if (m_panoramaType != PANORAMA_TYPE_CONVERSION[panoramaType]) {
@@ -286,7 +286,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
 
         // stereo eye
-        TfToken stereoEye = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id, usdCyclesTokens->cyclesCameraStereo_eye,
+        TfToken stereoEye = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraStereo_eye,
                                                              usdCyclesTokens->none);
 
         if (m_stereoEye != STEREO_EYE_CONVERSION[stereoEye]) {
@@ -298,7 +298,7 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         VtFloatArray shutterCurve;
 
         shutterCurve = _HdCyclesGetCameraParam<VtFloatArray>(sceneDelegate, id,
-                                                             usdCyclesTokens->cyclesCameraShutter_curve, shutterCurve);
+                                                             usdCyclesTokens->blackbirdCameraShutter_curve, shutterCurve);
 
         if (shutterCurve.size() > 0) {
             m_shutterCurve.resize(shutterCurve.size());
@@ -308,70 +308,70 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
             }
         }
 
-        m_shutterTime = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraShutter_time,
+        m_shutterTime = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraShutter_time,
                                                        m_shutterTime);
 
         m_rollingShutterTime = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-                                                              usdCyclesTokens->cyclesCameraRolling_shutter_duration,
+                                                              usdCyclesTokens->blackbirdCameraRolling_shutter_duration,
                                                               m_rollingShutterTime);
 
-        m_blades = _HdCyclesGetCameraParam<int>(sceneDelegate, id, usdCyclesTokens->cyclesCameraBlades, m_blades);
+        m_blades = _HdCyclesGetCameraParam<int>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraBlades, m_blades);
 
         m_bladesRotation = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-                                                          usdCyclesTokens->cyclesCameraBlades_rotation,
+                                                          usdCyclesTokens->blackbirdCameraBlades_rotation,
                                                           m_bladesRotation);
 
         m_offscreenDicingScale = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-                                                                usdCyclesTokens->cyclesCameraOffscreen_dicing_scale,
+                                                                usdCyclesTokens->blackbirdCameraOffscreen_dicing_scale,
                                                                 m_offscreenDicingScale);
 
         // Fisheye
 
-        m_fisheyeFov = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraFisheye_fov,
+        m_fisheyeFov = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraFisheye_fov,
                                                       m_fisheyeFov);
 
-        m_fisheyeLens = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraFisheye_lens,
+        m_fisheyeLens = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraFisheye_lens,
                                                        m_fisheyeLens);
 
         // Panorama
 
-        m_latMin = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLatitude_min,
+        m_latMin = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraLatitude_min,
                                                   m_latMin);
 
-        m_latMax = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLatitude_max,
+        m_latMax = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraLatitude_max,
                                                   m_latMax);
 
-        m_longMin = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLongitude_min,
+        m_longMin = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraLongitude_min,
                                                    m_longMin);
 
-        m_longMax = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->cyclesCameraLongitude_max,
+        m_longMax = _HdCyclesGetCameraParam<float>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraLongitude_max,
                                                    m_longMax);
 
         // Stereo
 
         m_useSphericalStereo = _HdCyclesGetCameraParam<bool>(sceneDelegate, id,
-                                                             usdCyclesTokens->cyclesCameraUse_spherical_stereo,
+                                                             usdCyclesTokens->blackbirdCameraUse_spherical_stereo,
                                                              m_useSphericalStereo);
 
         m_interocularDistance = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-                                                               usdCyclesTokens->cyclesCameraInterocular_distance,
+                                                               usdCyclesTokens->blackbirdCameraInterocular_distance,
                                                                m_interocularDistance);
 
         m_convergenceDistance = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-                                                               usdCyclesTokens->cyclesCameraConvergence_distance,
+                                                               usdCyclesTokens->blackbirdCameraConvergence_distance,
                                                                m_convergenceDistance);
 
         // Pole merge
 
-        m_usePoleMerge = _HdCyclesGetCameraParam<bool>(sceneDelegate, id, usdCyclesTokens->cyclesCameraUse_pole_merge,
+        m_usePoleMerge = _HdCyclesGetCameraParam<bool>(sceneDelegate, id, usdCyclesTokens->blackbirdCameraUse_pole_merge,
                                                        m_usePoleMerge);
 
         m_poleMergeAngleFrom = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-                                                              usdCyclesTokens->cyclesCameraPole_merge_angle_from,
+                                                              usdCyclesTokens->blackbirdCameraPole_merge_angle_from,
                                                               m_poleMergeAngleFrom);
 
         m_poleMergeAngleTo = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
-                                                            usdCyclesTokens->cyclesCameraPole_merge_angle_to,
+                                                            usdCyclesTokens->blackbirdCameraPole_merge_angle_to,
                                                             m_poleMergeAngleTo);
     }
 
