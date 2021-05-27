@@ -1567,7 +1567,19 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
                 memset(&tileData[0], 0, tileData.size() * sizeof(float));
             }
 
-            rb->BlitTile(cyclesAov.format, rtile.x, rtile.y, rtile.w, rtile.h, 0, rtile.w,
+            // Translate source subrect to the origin
+            const unsigned int x_src = rtile.x - m_cyclesSession->tile_manager.params.full_x;
+            const unsigned int y_src = rtile.y - m_cyclesSession->tile_manager.params.full_y;
+
+            // Passing the dimension as float to not lose the decimal points in the conversion to int
+            // We need to do this only for tiles becase we are scaling the source rect to calculate
+            // the region to write to in the destination rect
+            const float width_data_src = m_renderRect[2];
+            const float height_data_src = m_renderRect[3];
+
+            rb->BlitTile(cyclesAov.format, x_src, y_src, rtile.w, rtile.h,
+                         width_data_src, height_data_src,
+                         0, rtile.w,
                          reinterpret_cast<uint8_t*>(tileData.data()));
         }
     }
@@ -1589,6 +1601,10 @@ HdCyclesRenderParam::_CreateScene()
 
     m_resolutionImage = GfVec2i(0, 0);
     m_resolutionDisplay = GfVec2i(config.render_width.value, config.render_height.value);
+
+    m_renderRect = GfVec4f(0.f, 0.f,
+        static_cast<float>(config.render_width.value),
+        static_cast<float>(config.render_height.value));
 
     m_cyclesScene->camera->width = m_resolutionDisplay[0];
     m_cyclesScene->camera->height = m_resolutionDisplay[1];
@@ -1838,12 +1854,17 @@ HdCyclesRenderParam::SetViewport(int w, int h)
         m_resolutionImage = m_resolutionDisplay;
     }
 
+    m_renderRect[0] = m_dataWindowNDC[0] * (float)m_resolutionImage[0];
+    m_renderRect[1] = m_dataWindowNDC[1] * (float)m_resolutionImage[1];
+    m_renderRect[2] = m_dataWindowNDC[2] * (float)m_resolutionImage[0] - m_bufferParams.full_x;
+    m_renderRect[3] = m_dataWindowNDC[3] * (float)m_resolutionImage[1] - m_bufferParams.full_y;
+
     m_bufferParams.full_width = m_resolutionImage[0];
     m_bufferParams.full_height = m_resolutionImage[1];
-    m_bufferParams.full_x = (int)(m_dataWindowNDC[0] * (float)m_resolutionImage[0]);
-    m_bufferParams.full_y = (int)(m_dataWindowNDC[1] * (float)m_resolutionImage[1]);
-    m_bufferParams.width = (int)(m_dataWindowNDC[2] * (float)m_resolutionImage[0]) - m_bufferParams.full_x;
-    m_bufferParams.height = (int)(m_dataWindowNDC[3] * (float)m_resolutionImage[1]) - m_bufferParams.full_y;
+    m_bufferParams.full_x = static_cast<int>(m_renderRect[0]);
+    m_bufferParams.full_y = static_cast<int>(m_renderRect[1]);
+    m_bufferParams.width = static_cast<int>(m_renderRect[2]);
+    m_bufferParams.height = static_cast<int>(m_renderRect[3]);
 
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
     m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
@@ -2456,7 +2477,6 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             auto buffers = m_cyclesSession->buffers;
             buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
                                       static_cast<uint8_t*>(data), pixels_type, w, h, dstWidth, dstHeight, stride);
-
 
 
             if (cyclesAov.type == ccl::PASS_OBJECT_ID) {

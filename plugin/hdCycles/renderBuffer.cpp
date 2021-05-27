@@ -214,6 +214,7 @@ HdCyclesRenderBuffer::Finalize(HdRenderParam* renderParam)
 
 void
 HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, int unsigned width, unsigned int height,
+                               float width_data, float height_data,
                                int offset, int stride, uint8_t const* data)
 {
     // TODO: BlitTile shouldnt be called but it is...
@@ -229,30 +230,42 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
 
     size_t pixelSize = HdDataSizeOfFormat(format);
 
+    // printf("src tile %d %d - %d %d | %d %d\n", x, y, width, height, width_data, height_data);
+    const float x_scale_dst = (float)m_width / width_data;
+    const float y_scale_dst = (float)m_height / height_data;
+    const unsigned int x_dst = round(x_scale_dst * x);
+    const unsigned int y_dst = round(y_scale_dst * y);
+    const unsigned int width_dst = round(x_scale_dst * (x + width)) - x_dst;
+    const unsigned int height_dst = round(y_scale_dst * (y + height)) - y_dst;
+
+    const float x_scale_src = (float)width_data / (float)m_width;
+    const float y_scale_src = (float)height_data / (float)m_height;
+
     if (m_format == format) {
-        for (unsigned int j = 0; j < height; ++j) {
-            if ((x + width) <= m_width) {
-                if ((y + height) <= m_height) {
-                    int mem_start = static_cast<int>((((y + j) * m_width) * pixelSize) + (x * pixelSize));
+        for (unsigned int j = 0; j < height_dst; ++j) {
+            for (unsigned int i = 0; i < width_dst; ++i) {
+                size_t mem_start = (((y_dst + j) * m_width) * m_pixelSize) + ((x_dst + i) * m_pixelSize);
 
+                const unsigned int j_src = y_scale_src * j;
+                const unsigned int i_src = x_scale_src * i;
+                int tile_mem_start = static_cast<int>(((j_src * width) * pixelSize) + (i_src * pixelSize));
 
-                    unsigned int tile_mem_start = (j * width) * static_cast<unsigned int>(pixelSize);
-
-                    memcpy(&m_buffer[mem_start], &data[tile_mem_start], width * pixelSize);
-                }
+                memcpy(&m_buffer[mem_start], &data[tile_mem_start], pixelSize);
             }
         }
     } else {
-        // Convert pixel by pixel, with nearest point sampling.
         // If src and dst are both int-based, don't round trip to float.
         bool convertAsInt = (HdGetComponentFormat(format) == HdFormatInt32)
                             && (HdGetComponentFormat(m_format) == HdFormatInt32);
 
-        for (unsigned int j = 0; j < height; ++j) {
-            for (unsigned int i = 0; i < width; ++i) {
-                size_t mem_start = (((y + j) * m_width) * m_pixelSize) + ((x + i) * m_pixelSize);
 
-                int tile_mem_start = static_cast<int>(((j * width) * pixelSize) + (i * pixelSize));
+        for (unsigned int j = 0; j < height_dst; ++j) {
+            for (unsigned int i = 0; i < width_dst; ++i) {
+                size_t mem_start = (((y_dst + j) * m_width) * m_pixelSize) + ((x_dst + i) * m_pixelSize);
+
+                const unsigned int j_src = y_scale_src * j;
+                const unsigned int i_src = x_scale_src * i;
+                int tile_mem_start = static_cast<int>(((j_src * width) * pixelSize) + (i_src * pixelSize));
 
                 if (convertAsInt) {
                     _ConvertPixel<int32_t>(m_format, &m_buffer[mem_start], format, &data[tile_mem_start]);
