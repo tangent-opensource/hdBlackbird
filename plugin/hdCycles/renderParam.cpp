@@ -1577,9 +1577,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             const float width_data_src = m_renderRect[2];
             const float height_data_src = m_renderRect[3];
 
-            rb->BlitTile(cyclesAov.format, x_src, y_src, rtile.w, rtile.h,
-                         width_data_src, height_data_src,
-                         0, rtile.w,
+            rb->BlitTile(cyclesAov.format, x_src, y_src, rtile.w, rtile.h, width_data_src, height_data_src, 0, rtile.w,
                          reinterpret_cast<uint8_t*>(tileData.data()));
         }
     }
@@ -1602,9 +1600,8 @@ HdCyclesRenderParam::_CreateScene()
     m_resolutionImage = GfVec2i(0, 0);
     m_resolutionDisplay = GfVec2i(config.render_width.value, config.render_height.value);
 
-    m_renderRect = GfVec4f(0.f, 0.f,
-        static_cast<float>(config.render_width.value),
-        static_cast<float>(config.render_height.value));
+    m_renderRect = GfVec4f(0.f, 0.f, static_cast<float>(config.render_width.value),
+                           static_cast<float>(config.render_height.value));
 
     m_cyclesScene->camera->width = m_resolutionDisplay[0];
     m_cyclesScene->camera->height = m_resolutionDisplay[1];
@@ -2420,7 +2417,6 @@ HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb)
 void
 HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples)
 {
-
     if (samples < 0) {
         return;
     }

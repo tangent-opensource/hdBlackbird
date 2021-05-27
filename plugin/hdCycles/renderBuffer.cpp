@@ -214,8 +214,7 @@ HdCyclesRenderBuffer::Finalize(HdRenderParam* renderParam)
 
 void
 HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, int unsigned width, unsigned int height,
-                               float width_data, float height_data,
-                               int offset, int stride, uint8_t const* data)
+                               float width_data, float height_data, int offset, int stride, uint8_t const* data)
 {
     // TODO: BlitTile shouldnt be called but it is...
     if (m_width <= 0) {
@@ -230,7 +229,6 @@ HdCyclesRenderBuffer::BlitTile(HdFormat format, unsigned int x, unsigned int y, 
 
     size_t pixelSize = HdDataSizeOfFormat(format);
 
-    // printf("src tile %d %d - %d %d | %d %d\n", x, y, width, height, width_data, height_data);
     const float x_scale_dst = (float)m_width / width_data;
     const float y_scale_dst = (float)m_height / height_data;
     const unsigned int x_dst = round(x_scale_dst * x);

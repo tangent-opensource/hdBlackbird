@@ -139,8 +139,8 @@ public:
      * @param stride Stride of pixel
      * @param data Pointer to data
      */
-    void BlitTile(HdFormat format, unsigned int x, unsigned int y, unsigned int width, unsigned int height, float width_data, float height_data,
-        int offset, int stride, uint8_t const* data);
+    void BlitTile(HdFormat format, unsigned int x, unsigned int y, unsigned int width, unsigned int height,
+                  float width_data, float height_data, int offset, int stride, uint8_t const* data);
 
 protected:
     /**
