@@ -18,11 +18,15 @@
 #  limitations under the License.
 
 cmake_minimum_required(VERSION 3.18)
-project(hdCycles CXX C)
+project(HdBlackbird CXX C)
 
 # Options
 option(USE_HOUDINI_USD "" OFF)
 option(USE_CXX11_ABI "" ON)
+
+# Options debug
+option(USE_TESTS "" OFF)
+option(USE_ASAN "" OFF)
 
 # Global Settings
 set(CMAKE_CXX_STANDARD 14)
@@ -35,7 +39,7 @@ if (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
 endif()
 
-if(NOT MSVC AND DEFINED USE_CXX11_ABI)
+if(NOT MSVC AND ${USE_CXX11_ABI})
     add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 endif()
 
@@ -49,5 +53,16 @@ endif()
 find_package(Cycles REQUIRED)
 include(cmake/FindUsd.cmake)
 
+# Linux only
+if(${USE_TESTS} AND ${USE_ASAN})
+    add_compile_definitions(USE_ASAN)
+    add_compile_options(-fno-omit-frame-pointer -fsanitize=address)
+    add_link_options(-fno-omit-frame-pointer -fsanitize=address)
+endif()
+
 add_subdirectory(plugin)
-add_subdirectory(tools)
+
+if(${USE_TESTS})
+    message(STATUS "Building with tests")
+    add_subdirectory(tests)
+endif()

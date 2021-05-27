@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@
 
 #include "api.h"
 
+#include "attributeSource.h"
 #include "hdcycles.h"
+#include "objectSource.h"
 #include "renderDelegate.h"
 #include "utils.h"
 
@@ -138,7 +140,7 @@ protected:
      */
     void _AddUVS(TfToken name, VtValue uvs, HdInterpolation interpolation);
 
-    void _PopulateMotion();
+    void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
 
     /**
      * @brief Populate generated coordinates for basisCurves
@@ -154,13 +156,10 @@ protected:
     HdInterpolation m_widthsInterpolation;
     VtIntArray m_indices;
     GfMatrix4f m_transform;
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
-    HdCyclesSampledPrimvarType m_pointSamples;
-
-    int m_numTransformSamples;
-    bool m_useMotionBlur;
-    int m_motionSteps;
+    bool m_motionBlur;
+    int m_motionTransformSteps;
+    int m_motionDeformSteps;
 
     unsigned int m_visibilityFlags;
 
@@ -177,13 +176,6 @@ protected:
     ccl::vector<ccl::Shader*> m_usedShaders;
 
 private:
-    /**
-     * @brief Create the cycles curve mesh and object representation
-     * 
-     * @return New allocated pointer to ccl::Mesh
-     */
-    ccl::Object* _CreateObject();
-
     /**
      * @brief Populate the Cycles mesh representation from delegate's data
      */
@@ -214,7 +206,14 @@ private:
     ccl::Hair* m_cyclesHair;
     ccl::Geometry* m_cyclesGeometry;
 
+    HdCyclesObjectSourceSharedPtr m_object_source;
     HdCyclesRenderDelegate* m_renderDelegate;
+};
+
+class HdBbHairAttributeSource : public HdBbAttributeSource {
+public:
+    HdBbHairAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Hair* hair,
+                            const HdInterpolation& interpolation);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

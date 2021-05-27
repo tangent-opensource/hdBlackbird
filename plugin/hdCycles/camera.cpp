@@ -30,9 +30,7 @@
 
 #include <pxr/usd/usdGeom/tokens.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -65,8 +63,6 @@ EvalCameraParam(T* value, const TfToken& paramName, HdSceneDelegate* sceneDelega
 }
 }  // namespace
 
-#ifdef USE_USD_CYCLES_SCHEMA
-
 std::map<TfToken, ccl::MotionPosition> MOTION_POSITION_CONVERSION = {
     { usdCyclesTokens->start, ccl::MOTION_POSITION_START },
     { usdCyclesTokens->center, ccl::MOTION_POSITION_CENTER },
@@ -90,8 +86,6 @@ std::map<TfToken, ccl::Camera::StereoEye> STEREO_EYE_CONVERSION = {
     { usdCyclesTokens->left, ccl::Camera::STEREO_LEFT },
     { usdCyclesTokens->right, ccl::Camera::STEREO_RIGHT },
 };
-
-#endif
 
 HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_renderDelegate)
     : HdCamera(id)
@@ -141,7 +135,7 @@ HdCyclesCamera::HdCyclesCamera(SdfPath const& id, HdCyclesRenderDelegate* a_rend
 
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
     config.enable_dof.eval(m_useDof, true);
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
+    config.motion_blur.eval(m_useMotionBlur, true);
 
     bool use_motion_blur = m_renderDelegate->GetCyclesRenderParam()->GetCyclesScene()->integrator->motion_blur;
     if (use_motion_blur) {
@@ -253,18 +247,16 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     m_apertureSize = (m_focalLength * 1e-3f) / (2.0f * m_fStop);
             }
             // TODO: We will need custom usdCycles schema for these
-            m_apertureRatio  = 1.0f;
-            m_blades         = 0;
+            m_apertureRatio = 1.0f;
+            m_blades = 0;
             m_bladesRotation = 0.0f;
         } else {
-            m_apertureSize   = 0.0f;
-            m_blades         = 0;
+            m_apertureSize = 0.0f;
+            m_blades = 0;
             m_bladesRotation = 0.0f;
-            m_focusDistance  = 0.0f;
-            m_apertureRatio  = 1.0f;
+            m_focusDistance = 0.0f;
+            m_apertureRatio = 1.0f;
         }
-
-#ifdef USE_USD_CYCLES_SCHEMA
 
         // Motion Position
         TfToken motionPosition = _HdCyclesGetCameraParam<TfToken>(sceneDelegate, id,
@@ -381,7 +373,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_poleMergeAngleTo = _HdCyclesGetCameraParam<float>(sceneDelegate, id,
                                                             usdCyclesTokens->cyclesCameraPole_merge_angle_to,
                                                             m_poleMergeAngleTo);
-#endif
     }
 
     if (*dirtyBits & HdCamera::DirtyProjMatrix) {
@@ -415,23 +406,23 @@ bool
 HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 {
     a_camera->matrix = mat4d_to_transform(m_transform);
-    a_camera->fov    = m_fov;
+    a_camera->fov = m_fov;
 
-    a_camera->aperturesize   = m_apertureSize;
-    a_camera->blades         = m_blades;
+    a_camera->aperturesize = m_apertureSize;
+    a_camera->blades = m_blades;
     a_camera->bladesrotation = m_bladesRotation;
-    a_camera->focaldistance  = m_focusDistance;
+    a_camera->focaldistance = m_focusDistance;
     a_camera->aperture_ratio = m_apertureRatio;
 
     a_camera->shutter_curve = m_shutterCurve;
 
     a_camera->offscreen_dicing_scale = m_offscreenDicingScale;
 
-    a_camera->fisheye_fov  = m_fisheyeFov;
+    a_camera->fisheye_fov = m_fisheyeFov;
     a_camera->fisheye_lens = m_fisheyeLens;
 
-    a_camera->latitude_min  = m_latMin;
-    a_camera->latitude_max  = m_latMin;
+    a_camera->latitude_min = m_latMin;
+    a_camera->latitude_max = m_latMin;
     a_camera->longitude_min = m_latMax;
     a_camera->longitude_max = m_longMax;
 
@@ -439,24 +430,24 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
     a_camera->interocular_distance = m_interocularDistance;
     a_camera->convergence_distance = m_convergenceDistance;
-    a_camera->use_pole_merge       = m_usePoleMerge;
+    a_camera->use_pole_merge = m_usePoleMerge;
 
     a_camera->pole_merge_angle_from = m_poleMergeAngleFrom;
-    a_camera->pole_merge_angle_to   = m_poleMergeAngleTo;
+    a_camera->pole_merge_angle_to = m_poleMergeAngleTo;
 
     a_camera->nearclip = m_clippingRange.GetMin();
-    a_camera->farclip  = m_clippingRange.GetMax();
+    a_camera->farclip = m_clippingRange.GetMax();
 
-    a_camera->fps             = m_fps;
-    a_camera->shuttertime     = m_shutterTime;
+    a_camera->fps = m_fps;
+    a_camera->shuttertime = m_shutterTime;
     a_camera->motion_position = ccl::MotionPosition::MOTION_POSITION_CENTER;
 
     a_camera->rolling_shutter_duration = m_rollingShutterTime;
 
     a_camera->rolling_shutter_type = static_cast<ccl::Camera::RollingShutterType>(m_rollingShutterType);
-    a_camera->panorama_type        = static_cast<ccl::PanoramaType>(m_panoramaType);
-    a_camera->motion_position      = static_cast<ccl::MotionPosition>(m_motionPosition);
-    a_camera->stereo_eye           = static_cast<ccl::Camera::StereoEye>(m_stereoEye);
+    a_camera->panorama_type = static_cast<ccl::PanoramaType>(m_panoramaType);
+    a_camera->motion_position = static_cast<ccl::MotionPosition>(m_motionPosition);
+    a_camera->stereo_eye = static_cast<ccl::Camera::StereoEye>(m_stereoEye);
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
@@ -604,19 +595,19 @@ HdCyclesCamera::SetTransform(const GfMatrix4d a_projectionMatrix)
     GfMatrix4d viewToWorldCorrectionMatrix(1.0);
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
-        double left   = -(1 + a_projectionMatrix[3][0]) / a_projectionMatrix[0][0];
-        double right  = (1 - a_projectionMatrix[3][0]) / a_projectionMatrix[0][0];
+        double left = -(1 + a_projectionMatrix[3][0]) / a_projectionMatrix[0][0];
+        double right = (1 - a_projectionMatrix[3][0]) / a_projectionMatrix[0][0];
         double bottom = -(1 - a_projectionMatrix[3][1]) / a_projectionMatrix[1][1];
-        double top    = (1 + a_projectionMatrix[3][1]) / a_projectionMatrix[1][1];
-        double w      = (right - left) / 2;
-        double h      = (top - bottom) / 2;
+        double top = (1 + a_projectionMatrix[3][1]) / a_projectionMatrix[1][1];
+        double w = (right - left) / 2;
+        double h = (top - bottom) / 2;
         GfMatrix4d scaleMatrix;
         scaleMatrix.SetScale(GfVec3d(w, h, 1));
         viewToWorldCorrectionMatrix = scaleMatrix;
     }
 
     GfMatrix4d flipZ(1.0);
-    flipZ[2][2]                 = -1.0;
+    flipZ[2][2] = -1.0;
     viewToWorldCorrectionMatrix = flipZ * viewToWorldCorrectionMatrix;
 
     GfMatrix4d matrix = viewToWorldCorrectionMatrix * m_transformSamples.values.data()[0];

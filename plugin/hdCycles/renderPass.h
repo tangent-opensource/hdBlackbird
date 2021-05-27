@@ -75,7 +75,7 @@ protected:
     GfMatrix4d m_viewMtx;
 
 public:
-    int m_width  = 0;
+    int m_width = 0;
     int m_height = 0;
 
     bool m_isConverged = false;

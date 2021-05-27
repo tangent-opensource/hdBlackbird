@@ -63,67 +63,67 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
 {
     auto* renderParam = reinterpret_cast<HdCyclesRenderParam*>(m_delegate->GetRenderParam());
 
-    HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
+    // Update convergence status. Cycles will stop blitting once rendering has finished,
+    // but this is needed to let Hydra and the viewport know.
+    m_isConverged = renderParam->IsConverged();
 
-    if (renderParam->GetAovBindings() != aovBindings) {
+    // Update the Cycles render passes with the new aov bindings if they have changed
+    // Do not reset the session yet
+    HdRenderPassAovBindingVector aovBindings = renderPassState->GetAovBindings();
+    const bool aovBindingsHaveChanged = renderParam->GetAovBindings() != aovBindings;
+    if (aovBindingsHaveChanged) {
         renderParam->SetAovBindings(aovBindings);
-        if (!aovBindings.empty()) {
-            renderParam->SetDisplayAov(aovBindings[0]);
+    }
+
+    // TODO: Revisit this code and move it to HdCyclesRenderPassState
+    bool shouldUpdate = false;
+    auto hdCam = const_cast<HdCyclesCamera*>(dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
+    if (hdCam) {
+        GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
+        GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
+
+        ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
+
+        if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
+            m_projMtx = projMtx;
+            m_viewMtx = viewMtx;
+
+            const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
+            hdCam->SetFOV(fov_rad);
+
+            shouldUpdate = true;
+        }
+
+        if (!shouldUpdate) {
+            shouldUpdate = hdCam->IsDirty();
+        }
+
+        if (shouldUpdate) {
+            hdCam->ApplyCameraSettings(active_camera);
+
+            // Needed for now, as houdini looks through a generated camera
+            // and doesn't copy the projection type (as of 18.0.532)
+            bool is_ortho = round(m_projMtx[3][3]) == 1.0;
+
+            if (is_ortho) {
+                active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+            } else
+                active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+
+            active_camera->tag_update();
+
+            // DirectReset here instead of Interrupt for faster IPR camera orbits
+            renderParam->DirectReset();
         }
     }
 
-    const auto vp = renderPassState->GetViewport();
-
-    GfMatrix4d projMtx = renderPassState->GetProjectionMatrix();
-    GfMatrix4d viewMtx = renderPassState->GetWorldToViewMatrix();
-
-    m_isConverged = renderParam->IsConverged();
-
-    // XXX: Need to cast away constness to process updated camera params since
-    // the Hydra camera doesn't update the Cycles camera directly.
-    HdCyclesCamera* hdCam = const_cast<HdCyclesCamera*>(
-        dynamic_cast<HdCyclesCamera const*>(renderPassState->GetCamera()));
-
-    ccl::Camera* active_camera = renderParam->GetCyclesSession()->scene->camera;
-
-    bool shouldUpdate = false;
-
-    if (projMtx != m_projMtx || viewMtx != m_viewMtx) {
-        m_projMtx = projMtx;
-        m_viewMtx = viewMtx;
-
-        const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
-        hdCam->SetFOV(fov_rad);
-
-        shouldUpdate = true;
-    }
-
-    if (!shouldUpdate)
-        shouldUpdate = hdCam->IsDirty();
-
-    if (shouldUpdate) {
-        hdCam->ApplyCameraSettings(active_camera);
-
-        // Needed for now, as houdini looks through a generated camera
-        // and doesn't copy the projection type (as of 18.0.532)
-        bool is_ortho = round(m_projMtx[3][3]) == 1.0;
-
-        if (is_ortho) {
-            active_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
-        } else
-            active_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
-
-        active_camera->tag_update();
-
-        // DirectReset here instead of Interrupt for faster IPR camera orbits
-        renderParam->DirectReset();
-    }
-
-    const auto width  = static_cast<int>(vp[2]);
-    const auto height = static_cast<int>(vp[3]);
+    // Resetting the Cycles session if the viewport size or AOV bindings changed
+    const GfVec4f& viewport = renderPassState->GetViewport();
+    const auto width = static_cast<int>(viewport[2]);
+    const auto height = static_cast<int>(viewport[3]);
 
     if (width != m_width || height != m_height) {
-        m_width  = width;
+        m_width = width;
         m_height = height;
 
         // TODO: Due to the startup flow of Cycles, this gets called after a tiled render
@@ -138,61 +138,9 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
         }
 
         renderParam->Interrupt();
-    }
-
-    // Tiled renders early out because we do the blitting on render tile callback
-    if (renderParam->IsTiledRender())
-        return;
-
-    if (!renderParam->GetCyclesSession())
-        return;
-
-    if (!renderParam->GetCyclesScene())
-        return;
-
-    ccl::DisplayBuffer* display = renderParam->GetCyclesSession()->display;
-
-    if (!display)
-        return;
-
-    ccl::thread_scoped_lock display_lock = renderParam->GetCyclesSession()->acquire_display_lock();
-
-    HdFormat colorFormat = display->half_float ? HdFormatFloat16Vec4 : HdFormatUNorm8Vec4;
-
-    unsigned char* hpixels = (display->half_float) ? static_cast<unsigned char*>(display->rgba_half.host_pointer)
-                                                   : static_cast<unsigned char*>(display->rgba_byte.host_pointer);
-
-    if (!hpixels)
-        return;
-
-    int w = display->draw_width;
-    int h = display->draw_height;
-
-    if (w == 0 || h == 0)
-        return;
-
-    // Blit
-    if (!aovBindings.empty()) {
-        // Blit from the framebuffer to currently selected aovs...
-        for (auto& aov : aovBindings) {
-            if (!TF_VERIFY(aov.renderBuffer != nullptr)) {
-                continue;
-            }
-
-            auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
-            rb->SetConverged(m_isConverged);
-
-            // Needed as a stopgap, because Houdini dellocates renderBuffers
-            // when changing render settings. This causes the current blit to
-            // fail (Probably can be fixed with proper render thread management)
-            if (!rb->WasUpdated()) {
-                if (aov.aovName == renderParam->GetDisplayAovToken()) {
-                    rb->Blit(colorFormat, w, h, 0, w, hpixels);
-                }
-            } else {
-                rb->SetWasUpdated(false);
-            }
-        }
+    } else if (aovBindingsHaveChanged) {
+        renderParam->DirectReset();
+        renderParam->Interrupt();
     }
 }
 

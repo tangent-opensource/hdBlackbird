@@ -28,6 +28,7 @@
 namespace ccl {
 class Object;
 class Shader;
+class ShaderNode;
 class ShaderGraph;
 }  // namespace ccl
 
@@ -95,7 +96,11 @@ public:
      * @brief Causes the shader to be reloaded
      * 
      */
-    void Reload() override;
+    void Reload()
+#if PXR_MAJOR_VERSION > 19
+        override
+#endif
+        ;
 
     /**
      * @return Return true if this material is valid
@@ -120,6 +125,8 @@ protected:
     ccl::ShaderGraph* m_shaderGraph;
 
     HdCyclesRenderDelegate* m_renderDelegate;
+
+    void _FixPreviewShadersOutput(const std::vector<ccl::ShaderNode*>& preview_shaders);
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

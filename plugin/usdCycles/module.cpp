@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,10 +17,19 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_H
-#define HD_CYCLES_H
+#include <pxr/base/tf/pyModule.h>
 
-static constexpr int HD_CYCLES_MOTION_STEPS = 3;
-static constexpr int HD_CYCLES_MAX_PRIMVAR_SAMPLES = 3;
+PXR_NAMESPACE_USING_DIRECTIVE
 
-#endif  // HD_CYCLES_H
+TF_WRAP_MODULE
+{
+    TF_WRAP(usdCyclesCameraSettingsAPI);
+    TF_WRAP(usdCyclesCurveSettingsAPI);
+    TF_WRAP(usdCyclesFilmSettingsAPI);
+    //TF_WRAP(usdCyclesIntegratorSettingsAPI);
+    //TF_WRAP(usdCyclesLightSettingsAPI);
+    //TF_WRAP(usdCyclesMaterialSettingsAPI);
+    TF_WRAP(usdCyclesObjectSettingsAPI);
+    TF_WRAP(usdCyclesPointsSettingsAPI);
+    TF_WRAP(usdCyclesRendererSettingsAPI);
+}

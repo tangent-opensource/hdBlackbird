@@ -25,13 +25,14 @@ add_library(MikktSpace::MikktSpace ALIAS MikktSpace)
 
 add_library(hdCycles SHARED
         api.h
-        debug_codes.h
         basisCurves.cpp
         basisCurves.h
         camera.cpp
         camera.h
         config.cpp
         config.h
+        debug_codes.cpp
+        debug_codes.h
         hdcycles.h
         instancer.cpp
         instancer.h
@@ -61,6 +62,18 @@ add_library(hdCycles SHARED
         utils.h
         volume.cpp
         volume.h
+        resourceRegistry.cpp
+        resourceRegistry.h
+        objectSource.cpp
+        objectSource.h
+        attributeSource.cpp
+        attributeSource.h
+        renderPassState.cpp
+        renderPassState.h
+        transformSource.cpp
+        transformSource.h
+        meshSource.cpp
+        meshSource.h
         )
 
 target_include_directories(hdCycles
@@ -74,14 +87,20 @@ target_link_libraries(hdCycles
         PUBLIC
         Cycles::Cycles
         Usd::Usd
-        $<$<TARGET_EXISTS:usdCycles>:usdCycles>
+        usdCycles
         )
 
 target_compile_options(hdCycles
         PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /Zi /experimental:external /external:W0>
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /wd4273 /Zi /experimental:external /external:W0>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
         $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra -pedantic -Wno-deprecated -Wshadow -Wdouble-promotion -Wconversion -Wnull-dereference -Wold-style-cast -Wuseless-cast>
+        $<$<AND:$<CXX_COMPILER_ID:GNU>,$<CONFIG:Debug>>:-g3>
+        )
+
+target_link_options(hdCycles
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/ignore:4217 /ignore:4049>
         )
 
 target_compile_definitions(hdCycles
@@ -92,15 +111,16 @@ target_compile_definitions(hdCycles
 
 set_target_properties(hdCycles PROPERTIES
         PREFIX ""
+        INSTALL_RPATH "$ORIGIN"
         )
-install(TARGETS hdCycles DESTINATION plugin/usd/hdCycles)
+install(TARGETS hdCycles DESTINATION plugin/usd)
 
-if(MSVC)
-    install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd/hdCycles OPTIONAL)
-endif()    
+if (MSVC)
+    install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd OPTIONAL)
+endif ()
 
 # plugInfo.json
-set(PLUG_INFO_LIBRARY_PATH "hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(PLUG_INFO_LIBRARY_PATH "../hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
 set(PLUG_INFO_RESOURCE_PATH "resources")
 set(PLUG_INFO_ROOT "..")
 configure_file(plugInfo.json plugInfo.json @ONLY)

@@ -24,7 +24,9 @@
 #include "renderDelegate.h"
 #include "utils.h"
 
+#include <algorithm>
 #include <memory>
+#include <unordered_set>
 
 #include <device/device.h>
 #include <render/background.h>
@@ -37,19 +39,19 @@
 #include <render/mesh.h>
 #include <render/nodes.h>
 #include <render/object.h>
+#include <render/pointcloud.h>
 #include <render/scene.h>
 #include <render/session.h>
 #include <render/stats.h>
 #include <util/util_murmurhash.h>
+#include <util/util_task.h>
 
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
 #endif
 
 #include <pxr/usd/usdRender/tokens.h>
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -62,15 +64,16 @@ struct HdCyclesAov {
     bool filter;
 };
 
-std::array<HdCyclesAov, 26> DefaultAovs = { {
+std::array<HdCyclesAov, 27> DefaultAovs = { {
     { "Combined", ccl::PASS_COMBINED, HdAovTokens->color, HdFormatFloat32Vec4, true },
-    { "Depth", ccl::PASS_DEPTH, HdAovTokens->cameraDepth, HdFormatFloat32, false },
-    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, false },
+    { "Depth", ccl::PASS_DEPTH, HdAovTokens->depth, HdFormatFloat32, false },
+    { "Normal", ccl::PASS_NORMAL, HdAovTokens->normal, HdFormatFloat32Vec3, true },
     { "IndexOB", ccl::PASS_OBJECT_ID, HdAovTokens->primId, HdFormatFloat32, false },
     { "IndexMA", ccl::PASS_MATERIAL_ID, HdCyclesAovTokens->IndexMA, HdFormatFloat32, false },
-    { "Mist", ccl::PASS_MIST, HdAovTokens->depth, HdFormatFloat32, true },
+    { "Mist", ccl::PASS_MIST, HdCyclesAovTokens->Mist, HdFormatFloat32, true },
     { "Emission", ccl::PASS_EMISSION, HdCyclesAovTokens->Emit, HdFormatFloat32Vec3, true },
     { "Shadow", ccl::PASS_SHADOW, HdCyclesAovTokens->Shadow, HdFormatFloat32Vec3, true },
+    { "AO", ccl::PASS_AO, HdCyclesAovTokens->AO, HdFormatFloat32Vec3, true },
 
     { "UV", ccl::PASS_UV, HdCyclesAovTokens->UV, HdFormatFloat32Vec3, true },
     { "Vector", ccl::PASS_MOTION, HdCyclesAovTokens->Vector, HdFormatFloat32Vec4, true },
@@ -109,6 +112,11 @@ std::array<HdCyclesAov, 3> CryptomatteAovs = { {
     { "CryptoAsset", ccl::PASS_CRYPTOMATTE, HdCyclesAovTokens->CryptoAsset, HdFormatFloat32Vec4, true },
 } };
 
+std::array<HdCyclesAov, 2> DenoiseAovs = { {
+    { "DenoiseNormal", ccl::PASS_NONE, HdCyclesAovTokens->DenoiseNormal, HdFormatFloat32Vec3, true },
+    { "DenoiseAlbedo", ccl::PASS_NONE, HdCyclesAovTokens->DenoiseAlbedo, HdFormatFloat32Vec3, true },
+} };
+
 // Workaround for Houdini's default color buffer naming convention (not using HdAovTokens->color)
 const TfToken defaultHoudiniColor = TfToken("C.*");
 
@@ -121,13 +129,19 @@ GetSourceName(const HdRenderPassAovBinding& aov)
             TfToken token = TfToken(it->second.UncheckedGet<std::string>());
             if (token == defaultHoudiniColor) {
                 return HdAovTokens->color;
+            } else if (token == HdAovTokens->cameraDepth) {
+                // To be backwards-compatible with older scenes
+                return HdAovTokens->depth;
             } else {
                 return token;
             }
         }
     }
 
-    return TfToken();
+    // If a source name is not present, we attempt to use the name of the
+    // AOV for the same purpose. This picks up the default aovs in
+    // usdview and the Houdini Render Outputs pane
+    return aov.aovName;
 }
 
 bool
@@ -153,8 +167,26 @@ GetCyclesAov(const HdRenderPassAovBinding& aov, HdCyclesAov& cyclesAov)
             return true;
         }
     }
+    for (HdCyclesAov& _cyclesAov : DenoiseAovs) {
+        if (sourceName == _cyclesAov.token) {
+            cyclesAov = _cyclesAov;
+            return true;
+        }
+    }
 
     return false;
+}
+
+int
+GetDenoisePass(const TfToken token)
+{
+    if (token == HdCyclesAovTokens->DenoiseNormal) {
+        return ccl::DENOISING_PASS_PREFILTERED_NORMAL;
+    } else if (token == HdCyclesAovTokens->DenoiseAlbedo) {
+        return ccl::DENOISING_PASS_PREFILTERED_ALBEDO;
+    } else {
+        return -1;
+    }
 }
 
 }  // namespace
@@ -165,8 +197,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useTiledRendering(false)
     , m_objectsUpdated(false)
     , m_geometryUpdated(false)
-    , m_curveUpdated(false)
-    , m_meshUpdated(false)
     , m_lightsUpdated(false)
     , m_shadersUpdated(false)
     , m_shouldUpdate(false)
@@ -174,7 +204,6 @@ HdCyclesRenderParam::HdCyclesRenderParam()
     , m_useSquareSamples(false)
     , m_cyclesSession(nullptr)
     , m_cyclesScene(nullptr)
-    , m_displayAovToken(HdAovTokens->color)
 {
     _InitializeDefaults();
 }
@@ -185,9 +214,9 @@ HdCyclesRenderParam::_InitializeDefaults()
     // These aren't directly cycles settings, but inform the creation and behaviour
     // of a render. These should be will need to be set by schema too...
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    m_deviceName                        = config.device_name.value;
-    m_useSquareSamples                  = config.use_square_samples.value;
-    m_useTiledRendering                 = config.use_tiled_rendering;
+    m_deviceName = config.device_name.value;
+    m_useSquareSamples = config.use_square_samples.value;
+    m_useTiledRendering = config.use_tiled_rendering;
 
     m_upAxis = UpAxis::Z;
     if (config.up_axis == "Z") {
@@ -267,6 +296,9 @@ HdCyclesRenderParam::Initialize(HdRenderSettingsMap const& settingsMap)
     _UpdateSessionFromRenderSettings(settingsMap);
     _UpdateSessionFromConfig();
 
+    // Setting up number of threads, this is useful for applications(husk) that control task arena
+    m_sessionParams.threads = tbb::this_task_arena::max_concurrency();
+
     if (!_CreateSession()) {
         std::cout << "COULD NOT CREATE CYCLES SESSION\n";
         // Couldn't create session, big issue
@@ -318,7 +350,7 @@ void
 HdCyclesRenderParam::_UpdateDelegateFromRenderSettings(HdRenderSettingsMap const& settingsMap)
 {
     for (auto& entry : settingsMap) {
-        TfToken key   = entry.first;
+        TfToken key = entry.first;
         VtValue value = entry.second;
         _HandleDelegateRenderSetting(key, value);
     }
@@ -327,8 +359,6 @@ HdCyclesRenderParam::_UpdateDelegateFromRenderSettings(HdRenderSettingsMap const
 bool
 HdCyclesRenderParam::_HandleDelegateRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     bool delegate_updated = false;
 
     if (key == usdCyclesTokens->cyclesUse_square_samples) {
@@ -340,9 +370,6 @@ HdCyclesRenderParam::_HandleDelegateRenderSetting(const TfToken& key, const VtVa
         //Interrupt();
         return true;
     }
-
-#endif
-
     return false;
 }
 
@@ -370,8 +397,8 @@ HdCyclesRenderParam::_UpdateSessionFromConfig(bool a_forceInit)
 
     config.start_resolution.eval(sessionParams->start_resolution, a_forceInit);
 
-    sessionParams->progressive                = true;
-    sessionParams->progressive_refine         = false;
+    sessionParams->progressive = true;
+    sessionParams->progressive_refine = false;
     sessionParams->progressive_update_timeout = 0.1;
 
     config.pixel_size.eval(sessionParams->pixel_size, a_forceInit);
@@ -382,9 +409,9 @@ HdCyclesRenderParam::_UpdateSessionFromConfig(bool a_forceInit)
     // This requires some more thought and testing in regards
     // to the usdCycles schema...
     if (m_useTiledRendering) {
-        sessionParams->background         = true;
-        sessionParams->start_resolution   = INT_MAX;
-        sessionParams->progressive        = false;
+        sessionParams->background = true;
+        sessionParams->start_resolution = INT_MAX;
+        sessionParams->progressive = false;
         sessionParams->progressive_refine = false;
     }
 
@@ -395,7 +422,7 @@ void
 HdCyclesRenderParam::_UpdateSessionFromRenderSettings(HdRenderSettingsMap const& settingsMap)
 {
     for (auto& entry : settingsMap) {
-        TfToken key   = entry.first;
+        TfToken key = entry.first;
         VtValue value = entry.second;
         _HandleSessionRenderSetting(key, value);
     }
@@ -404,8 +431,6 @@ HdCyclesRenderParam::_UpdateSessionFromRenderSettings(HdRenderSettingsMap const&
 bool
 HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     ccl::SessionParams* sessionParams = &m_sessionParams;
 
     if (m_cyclesSession)
@@ -431,8 +456,9 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     }
 
     if (key == usdCyclesTokens->cyclesProgressive_update_timeout) {
-        sessionParams->progressive_update_timeout
-            = _HdCyclesGetVtValue<float>(value, sessionParams->progressive_update_timeout, &session_updated);
+        sessionParams->progressive_update_timeout = static_cast<double>(
+            _HdCyclesGetVtValue<float>(value, static_cast<float>(sessionParams->progressive_update_timeout),
+                                       &session_updated));
     }
 
     if (key == usdCyclesTokens->cyclesExperimental) {
@@ -460,8 +486,7 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         if (samples_updated) {
             session_updated = true;
 
-            if (m_cyclesScene && aa_samples && 
-                method == ccl::Integrator::BRANCHED_PATH) {
+            if (m_cyclesScene && aa_samples && method == ccl::Integrator::BRANCHED_PATH) {
                 sessionParams->samples = aa_samples;
             }
         }
@@ -470,8 +495,19 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     // Tiles
 
     if (key == usdCyclesTokens->cyclesTile_size) {
-        sessionParams->tile_size = vec2i_to_int2(
-            _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size), &session_updated));
+        if (value.IsHolding<GfVec2i>()) {
+            sessionParams->tile_size = vec2i_to_int2(
+                _HdCyclesGetVtValue<GfVec2i>(value, int2_to_vec2i(sessionParams->tile_size), &session_updated));
+        } else if (value.IsHolding<GfVec2f>()) {
+            // Adding this check for safety since the original implementation was using GfVec2i which
+            // might have been valid at some point but does not match the current schema.
+            sessionParams->tile_size = vec2f_to_int2(
+                _HdCyclesGetVtValue<GfVec2f>(value, int2_to_vec2f(sessionParams->tile_size), &session_updated));
+            TF_WARN(
+                "Tile size was specified as float, but the schema uses int. The value will be converted but you should update the schema version.");
+        } else {
+            TF_WARN("Tile size has unsupported type %s, expected GfVec2f", value.GetTypeName().c_str());
+        }
     }
 
     TfToken tileOrder;
@@ -502,10 +538,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         sessionParams->pixel_size = _HdCyclesGetVtValue<int>(value, sessionParams->pixel_size, &session_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesThreads) {
-        sessionParams->threads = _HdCyclesGetVtValue<int>(value, sessionParams->threads, &session_updated);
-    }
-
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
         sessionParams->adaptive_sampling = _HdCyclesGetVtValue<bool>(value, sessionParams->adaptive_sampling,
                                                                      &session_updated);
@@ -519,8 +551,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         sessionParams->display_buffer_linear = _HdCyclesGetVtValue<bool>(value, sessionParams->display_buffer_linear,
                                                                          &session_updated);
     }
-
-    //DenoiseParams denoising;
 
     TfToken shadingSystem;
     if (key == usdCyclesTokens->cyclesShading_system) {
@@ -543,20 +573,60 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     // Denoising
 
     bool denoising_updated = false;
-    ccl::DenoiseParams denoisingParams;
+    bool denoising_start_sample_updated = false;
+    ccl::DenoiseParams denoisingParams = sessionParams->denoising;
 
-    if (key == usdCyclesTokens->cyclesRun_denoising) {
-        denoisingParams.use = _HdCyclesGetVtValue<int>(value, denoisingParams.use, &denoising_updated);
+    if (key == usdCyclesTokens->cyclesDenoiseUse) {
+        denoisingParams.use = _HdCyclesGetVtValue<bool>(value, denoisingParams.use, &denoising_updated);
     }
 
-    if (key == usdCyclesTokens->cyclesDenoising_start_sample) {
+    if (key == usdCyclesTokens->cyclesDenoiseStore_passes) {
+        denoisingParams.store_passes = _HdCyclesGetVtValue<bool>(value, denoisingParams.store_passes,
+                                                                 &denoising_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesDenoiseStart_sample) {
         sessionParams->denoising_start_sample = _HdCyclesGetVtValue<int>(value, sessionParams->denoising_start_sample,
-                                                                         &denoising_updated);
+                                                                         &denoising_start_sample_updated);
     }
 
-    if (denoising_updated) {
-        sessionParams->denoising = denoisingParams;
-        session_updated          = true;
+    if (key == usdCyclesTokens->cyclesDenoiseType) {
+        TfToken type = usdCyclesTokens->none;
+        type = _HdCyclesGetVtValue<TfToken>(value, type, &denoising_updated);
+        if (type == usdCyclesTokens->none) {
+            denoisingParams.type = ccl::DENOISER_NONE;
+        } else if (type == usdCyclesTokens->openimagedenoise) {
+            denoisingParams.type = ccl::DENOISER_OPENIMAGEDENOISE;
+        } else if (type == usdCyclesTokens->optix) {
+            denoisingParams.type = ccl::DENOISER_OPTIX;
+        } else {
+            denoisingParams.type = ccl::DENOISER_NONE;
+        }
+    }
+
+    if (key == usdCyclesTokens->cyclesDenoiseInput_passes) {
+        TfToken inputPasses = usdCyclesTokens->rgb_albedo_normal;
+        inputPasses = _HdCyclesGetVtValue<TfToken>(value, inputPasses, &denoising_updated);
+
+        if (inputPasses == usdCyclesTokens->rgb) {
+            denoisingParams.input_passes = ccl::DENOISER_INPUT_RGB;
+        } else if (inputPasses == usdCyclesTokens->rgb_albedo) {
+            denoisingParams.input_passes = ccl::DENOISER_INPUT_RGB_ALBEDO;
+        } else if (inputPasses == usdCyclesTokens->rgb_albedo_normal) {
+            denoisingParams.input_passes = ccl::DENOISER_INPUT_RGB_ALBEDO_NORMAL;
+        }
+    }
+
+    if (denoising_updated || denoising_start_sample_updated) {
+        if (m_cyclesSession) {
+            m_cyclesSession->set_denoising(denoisingParams);
+            if (denoising_start_sample_updated) {
+                m_cyclesSession->set_denoising_start_sample(sessionParams->denoising_start_sample);
+            }
+        } else {
+            sessionParams->denoising = denoisingParams;
+        }
+        session_updated = true;
     }
 
     // Final
@@ -567,7 +637,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -597,7 +666,7 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
 
     sceneParams->bvh_layout = ccl::BVH_LAYOUT_EMBREE;
 
-    sceneParams->persistent_data = true;
+    sceneParams->persistent_data = false;
 
     config.curve_subdivisions.eval(sceneParams->hair_subdivisions, a_forceInit);
 }
@@ -606,7 +675,7 @@ void
 HdCyclesRenderParam::_UpdateSceneFromRenderSettings(HdRenderSettingsMap const& settingsMap)
 {
     for (auto& entry : settingsMap) {
-        TfToken key   = entry.first;
+        TfToken key = entry.first;
         VtValue value = entry.second;
         _HandleSceneRenderSetting(key, value);
     }
@@ -615,7 +684,6 @@ HdCyclesRenderParam::_UpdateSceneFromRenderSettings(HdRenderSettingsMap const& s
 bool
 HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // -- Scene
 
     ccl::SceneParams* sceneParams = &m_sceneParams;
@@ -624,6 +692,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
         sceneParams = &m_cyclesScene->params;
 
     bool scene_updated = false;
+    bool texture_updated = false;
 
     if (key == usdCyclesTokens->cyclesShading_system) {
         TfToken shading_system = _HdCyclesGetVtValue<TfToken>(value, usdCyclesTokens->svm, &scene_updated);
@@ -671,14 +740,74 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
                                                                    &scene_updated);
     }
 
-    if (scene_updated) {
+    if (key == usdCyclesTokens->cyclesTexture_use_cache) {
+        sceneParams->texture.use_cache = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.use_cache,
+                                                                   &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_cache_size) {
+        sceneParams->texture.cache_size = _HdCyclesGetVtValue<int>(value, sceneParams->texture.cache_size,
+                                                                   &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_tile_size) {
+        sceneParams->texture.tile_size = _HdCyclesGetVtValue<int>(value, sceneParams->texture.tile_size,
+                                                                  &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_diffuse_blur) {
+        sceneParams->texture.diffuse_blur = _HdCyclesGetVtValue<float>(value, sceneParams->texture.diffuse_blur,
+                                                                       &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_glossy_blur) {
+        sceneParams->texture.glossy_blur = _HdCyclesGetVtValue<float>(value, sceneParams->texture.glossy_blur,
+                                                                      &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_auto_convert) {
+        sceneParams->texture.auto_convert = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.auto_convert,
+                                                                      &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_accept_unmipped) {
+        sceneParams->texture.accept_unmipped = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.accept_unmipped,
+                                                                         &texture_updated);
+    }
+
+    if (key == usdCyclesTokens->cyclesTexture_accept_untiled) {
+        sceneParams->texture.accept_untiled = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.accept_untiled,
+                                                                        &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_auto_tile) {
+        sceneParams->texture.auto_tile = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.auto_tile,
+                                                                   &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_auto_mip) {
+        sceneParams->texture.auto_mip = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.auto_mip,
+                                                                  &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_use_custom_path) {
+        sceneParams->texture.use_custom_cache_path
+            = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.use_custom_cache_path, &texture_updated);
+    }
+    if (key == usdCyclesTokens->cyclesTexture_max_size) {
+        sceneParams->texture_limit
+            = _HdCyclesGetVtValue<int>(value, sceneParams->texture_limit, &texture_updated);
+    }
+
+    if (scene_updated || texture_updated) {
         // Although this is called, it does not correctly reset session in IPR
-        if (m_cyclesSession && m_cyclesScene)
+        if (m_cyclesSession && m_cyclesScene) {
             Interrupt(true);
+            if (texture_updated) {
+                m_cyclesScene->image_manager->need_update = true;
+                m_cyclesScene->shader_manager->need_update = true;
+            }
+        }
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -694,10 +823,12 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
 
     ccl::Integrator* integrator = m_cyclesScene->integrator;
 
-    if (config.integrator_method.value == "PATH") {
-        integrator->method = ccl::Integrator::PATH;
-    } else {
-        integrator->method = ccl::Integrator::BRANCHED_PATH;
+    if (a_forceInit) {
+        if (config.integrator_method.value == "PATH") {
+            integrator->method = ccl::Integrator::PATH;
+        } else {
+            integrator->method = ccl::Integrator::BRANCHED_PATH;
+        }
     }
 
     // Samples
@@ -731,7 +862,7 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
                        INT_MAX);
     }*/
 
-    config.enable_motion_blur.eval(integrator->motion_blur, a_forceInit);
+    integrator->motion_blur = config.motion_blur.value;
 
     integrator->tag_update(m_cyclesScene);
 }
@@ -740,7 +871,7 @@ void
 HdCyclesRenderParam::_UpdateIntegratorFromRenderSettings(HdRenderSettingsMap const& settingsMap)
 {
     for (auto& entry : settingsMap) {
-        TfToken key   = entry.first;
+        TfToken key = entry.first;
         VtValue value = entry.second;
 
         _HandleIntegratorRenderSetting(key, value);
@@ -750,13 +881,11 @@ HdCyclesRenderParam::_UpdateIntegratorFromRenderSettings(HdRenderSettingsMap con
 bool
 HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     // -- Integrator Settings
 
     ccl::Integrator* integrator = m_cyclesScene->integrator;
-    bool integrator_updated     = false;
-    bool method_updated         = false;
+    bool integrator_updated = false;
+    bool method_updated = false;
 
     if (key == usdCyclesTokens->cyclesIntegratorSeed) {
         integrator->seed = _HdCyclesGetVtValue<int>(value, integrator->seed, &integrator_updated);
@@ -780,8 +909,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
         if (method_updated) {
             integrator_updated = true;
-            if (integrator->aa_samples && 
-                integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples && integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
         }
@@ -806,7 +934,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
         // Adaptive sampling must use PMJ
         if (m_cyclesSession->params.adaptive_sampling && integrator->sampling_pattern != ccl::SAMPLING_PATTERN_PMJ) {
-            integrator_updated           = true;
+            integrator_updated = true;
             integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
         }
     }
@@ -861,15 +989,14 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     // Samples
 
     if (key == usdCyclesTokens->cyclesIntegratorAa_samples) {
-        bool sample_updated    = false;
+        bool sample_updated = false;
         integrator->aa_samples = _HdCyclesGetVtValue<int>(value, integrator->aa_samples, &sample_updated);
 
         if (sample_updated) {
             if (m_useSquareSamples) {
                 integrator->aa_samples = integrator->aa_samples * integrator->aa_samples;
             }
-            if (integrator->aa_samples &&
-                integrator->method == ccl::Integrator::BRANCHED_PATH) {
+            if (integrator->aa_samples && integrator->method == ccl::Integrator::BRANCHED_PATH) {
                 m_cyclesSession->params.samples = integrator->aa_samples;
             }
             integrator_updated = true;
@@ -877,7 +1004,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorAdaptive_min_samples) {
-        bool sample_updated              = false;
+        bool sample_updated = false;
         integrator->adaptive_min_samples = _HdCyclesGetVtValue<int>(value, integrator->adaptive_min_samples,
                                                                     &sample_updated);
 
@@ -891,7 +1018,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorDiffuse_samples) {
-        bool sample_updated         = false;
+        bool sample_updated = false;
         integrator->diffuse_samples = _HdCyclesGetVtValue<int>(value, integrator->diffuse_samples, &sample_updated);
 
         if (sample_updated) {
@@ -903,7 +1030,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorGlossy_samples) {
-        bool sample_updated        = false;
+        bool sample_updated = false;
         integrator->glossy_samples = _HdCyclesGetVtValue<int>(value, integrator->glossy_samples, &sample_updated);
 
         if (sample_updated) {
@@ -915,7 +1042,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorTransmission_samples) {
-        bool sample_updated              = false;
+        bool sample_updated = false;
         integrator->transmission_samples = _HdCyclesGetVtValue<int>(value, integrator->transmission_samples,
                                                                     &sample_updated);
 
@@ -928,7 +1055,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorAo_samples) {
-        bool sample_updated    = false;
+        bool sample_updated = false;
         integrator->ao_samples = _HdCyclesGetVtValue<int>(value, integrator->ao_samples, &sample_updated);
 
         if (sample_updated) {
@@ -940,7 +1067,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorMesh_light_samples) {
-        bool sample_updated            = false;
+        bool sample_updated = false;
         integrator->mesh_light_samples = _HdCyclesGetVtValue<int>(value, integrator->mesh_light_samples,
                                                                   &sample_updated);
 
@@ -953,7 +1080,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorSubsurface_samples) {
-        bool sample_updated            = false;
+        bool sample_updated = false;
         integrator->subsurface_samples = _HdCyclesGetVtValue<int>(value, integrator->subsurface_samples,
                                                                   &sample_updated);
 
@@ -966,7 +1093,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (key == usdCyclesTokens->cyclesIntegratorVolume_samples) {
-        bool sample_updated        = false;
+        bool sample_updated = false;
         integrator->volume_samples = _HdCyclesGetVtValue<int>(value, integrator->volume_samples, &sample_updated);
 
         if (sample_updated) {
@@ -1027,10 +1154,12 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
 
     if (integrator_updated) {
         integrator->tag_update(m_cyclesScene);
+        if (method_updated) {
+            DirectReset();
+        }
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1055,7 +1184,7 @@ void
 HdCyclesRenderParam::_UpdateFilmFromRenderSettings(HdRenderSettingsMap const& settingsMap)
 {
     for (auto& entry : settingsMap) {
-        TfToken key   = entry.first;
+        TfToken key = entry.first;
         VtValue value = entry.second;
 
         _HandleFilmRenderSetting(key, value);
@@ -1065,10 +1194,9 @@ HdCyclesRenderParam::_UpdateFilmFromRenderSettings(HdRenderSettingsMap const& se
 bool
 HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // -- Film Settings
 
-    ccl::Film* film   = m_cyclesScene->film;
+    ccl::Film* film = m_cyclesScene->film;
     bool film_updated = false;
 
     if (key == usdCyclesTokens->cyclesFilmExposure) {
@@ -1126,8 +1254,9 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     }
 
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
-        int cryptomatte_depth   = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
-        film->cryptomatte_depth = ccl::divide_up(ccl::min(16, cryptomatte_depth), 2);
+        auto cryptomatte_depth = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
+        film->cryptomatte_depth = static_cast<int>(
+            ccl::divide_up(static_cast<size_t>(ccl::min(16, cryptomatte_depth)), 2));
     }
 
     if (film_updated) {
@@ -1135,7 +1264,6 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1160,7 +1288,7 @@ void
 HdCyclesRenderParam::_UpdateBackgroundFromRenderSettings(HdRenderSettingsMap const& settingsMap)
 {
     for (auto& entry : settingsMap) {
-        TfToken key   = entry.first;
+        TfToken key = entry.first;
         VtValue value = entry.second;
         _HandleBackgroundRenderSetting(key, value);
     }
@@ -1169,12 +1297,10 @@ HdCyclesRenderParam::_UpdateBackgroundFromRenderSettings(HdRenderSettingsMap con
 bool
 HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const VtValue& value)
 {
-#ifdef USE_USD_CYCLES_SCHEMA
-
     // -- Background Settings
 
     ccl::Background* background = m_cyclesScene->background;
-    bool background_updated     = false;
+    bool background_updated = false;
 
     if (key == usdCyclesTokens->cyclesBackgroundAo_factor) {
         background->ao_factor = _HdCyclesGetVtValue<float>(value, background->ao_factor, &background_updated);
@@ -1253,7 +1379,6 @@ HdCyclesRenderParam::_HandleBackgroundRenderSetting(const TfToken& key, const Vt
         return true;
     }
 
-#endif
     return false;
 }
 
@@ -1273,13 +1398,11 @@ HdCyclesRenderParam::SetRenderSetting(const TfToken& key, const VtValue& value)
 {
     // This has some inherent performance overheads (runs multiple times, unecessary)
     // however for now, this works the most clearly due to Cycles restrictions
-#ifdef USE_USD_CYCLES_SCHEMA
     _HandleSessionRenderSetting(key, value);
     _HandleSceneRenderSetting(key, value);
     _HandleIntegratorRenderSetting(key, value);
     _HandleFilmRenderSetting(key, value);
     _HandleBackgroundRenderSetting(key, value);
-#endif
     return false;
 }
 
@@ -1293,7 +1416,14 @@ HdCyclesRenderParam::_CreateSession()
 
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
-    m_cyclesSession->write_render_tile_cb  = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
+    m_cyclesSession->display_copy_cb = [this](int samples) {
+        for (auto aov : m_aovs) {
+            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width,
+                               m_cyclesSession->tile_manager.state.buffer.height, samples);
+        }
+    };
+
+    m_cyclesSession->write_render_tile_cb = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
     m_cyclesSession->update_render_tile_cb = std::bind(&HdCyclesRenderParam::_UpdateRenderTile, this, ccl::_1, ccl::_2);
 
     m_cyclesSession->progress.set_update_callback(std::bind(&HdCyclesRenderParam::_SessionUpdateCallback, this));
@@ -1321,7 +1451,7 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
         return;
 
     // Adjust absolute sample number to the range.
-    int sample                   = rtile.sample;
+    int sample = rtile.sample;
     const int range_start_sample = m_cyclesSession->tile_manager.range_start_sample;
     if (range_start_sample != -1) {
         sample -= range_start_sample;
@@ -1357,24 +1487,33 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             }
 
             bool custom = false;
+            bool denoise = false;
             if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject)
                 || (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial)
                 || (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) || (cyclesAov.token == HdCyclesAovTokens->AOVC)
                 || (cyclesAov.token == HdCyclesAovTokens->AOVV)) {
                 custom = true;
+            } else if ((cyclesAov.token == HdCyclesAovTokens->DenoiseNormal)
+                       || (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo)) {
+                denoise = true;
             }
 
             // Pixels we will use to get from cycles.
-            int numComponents = HdGetComponentCount(cyclesAov.format);
+            size_t numComponents = HdGetComponentCount(cyclesAov.format);
             ccl::vector<float> tileData(w * h * numComponents);
 
             rb->SetConverged(IsConverged());
 
             bool read = false;
-            if (!custom) {
-                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, numComponents, &tileData[0]);
-            } else {
-                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, numComponents, &tileData[0]);
+            if (!custom && !denoise) {
+                read = buffers->get_pass_rect(cyclesAov.name.c_str(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
+            } else if (denoise) {
+                read = buffers->get_denoising_pass_rect(GetDenoisePass(cyclesAov.token), exposure, sample,
+                                                        static_cast<int>(numComponents), &tileData[0]);
+            } else if (custom) {
+                read = buffers->get_pass_rect(aov.aovName.GetText(), exposure, sample, static_cast<int>(numComponents),
+                                              &tileData[0]);
             }
 
             if (!read) {
@@ -1401,19 +1540,19 @@ HdCyclesRenderParam::_CreateScene()
 
     m_cyclesScene = new ccl::Scene(m_sceneParams, m_cyclesSession->device);
 
-    m_width  = config.render_width.value;
+    m_width = config.render_width.value;
     m_height = config.render_height.value;
 
-    m_cyclesScene->camera->width  = m_width;
+    m_cyclesScene->camera->width = m_width;
     m_cyclesScene->camera->height = m_height;
 
     m_cyclesScene->camera->compute_auto_viewplane();
 
     m_cyclesSession->scene = m_cyclesScene;
 
-    m_bufferParams.width       = m_width;
-    m_bufferParams.height      = m_height;
-    m_bufferParams.full_width  = m_width;
+    m_bufferParams.width = m_width;
+    m_bufferParams.height = m_height;
+    m_bufferParams.full_width = m_width;
     m_bufferParams.full_height = m_height;
 
     default_attrib_display_color_surface = HdCyclesCreateAttribColorSurface();
@@ -1423,6 +1562,10 @@ HdCyclesRenderParam::_CreateScene()
     default_object_display_color_surface = HdCyclesCreateObjectColorSurface();
     default_object_display_color_surface->tag_update(m_cyclesScene);
     m_cyclesScene->shaders.push_back(default_object_display_color_surface);
+
+    default_vcol_display_color_surface = HdCyclesCreateDefaultShader();
+    default_vcol_display_color_surface->tag_update(m_cyclesScene);
+    m_cyclesScene->shaders.push_back(default_vcol_display_color_surface);
 
     SetBackgroundShader(nullptr);
 
@@ -1477,7 +1620,7 @@ HdCyclesRenderParam::Interrupt(bool a_forceUpdate)
 void
 HdCyclesRenderParam::CommitResources()
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     if (m_shouldUpdate) {
         if (m_cyclesScene->lights.size() > 0) {
@@ -1502,12 +1645,12 @@ HdCyclesRenderParam::SetBackgroundShader(ccl::Shader* a_shader, bool a_emissive)
         // TODO: These aren't properly destroyed from memory
 
         // Create empty background shader
-        m_cyclesScene->default_background        = new ccl::Shader();
-        m_cyclesScene->default_background->name  = "default_background";
+        m_cyclesScene->default_background = new ccl::Shader();
+        m_cyclesScene->default_background->name = "default_background";
         m_cyclesScene->default_background->graph = new ccl::ShaderGraph();
         if (a_emissive) {
             ccl::BackgroundNode* bgNode = new ccl::BackgroundNode();
-            bgNode->color               = ccl::make_float3(0.6f, 0.6f, 0.6f);
+            bgNode->color = ccl::make_float3(0.6f, 0.6f, 0.6f);
 
             m_cyclesScene->default_background->graph->add(bgNode);
 
@@ -1565,7 +1708,7 @@ HdCyclesRenderParam::_SetDevice(const ccl::DeviceType& a_deviceType, ccl::Sessio
     bool device_available = false;
 
     if (!devices.empty()) {
-        params.device    = devices.front();
+        params.device = devices.front();
         device_available = true;
     }
 
@@ -1591,7 +1734,7 @@ HdCyclesRenderParam::_CyclesExit()
 {
     m_cyclesSession->set_pause(true);
 
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
 
     m_cyclesScene->shaders.clear();
     m_cyclesScene->geometry.clear();
@@ -1611,18 +1754,16 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 {
     m_cyclesSession->progress.reset();
 
-    if (m_curveUpdated || m_meshUpdated || m_geometryUpdated || m_shadersUpdated) {
+    if (m_geometryUpdated || m_shadersUpdated) {
         m_cyclesScene->geometry_manager->tag_update(m_cyclesScene);
         m_geometryUpdated = false;
-        m_meshUpdated     = false;
-    }
-
-    if (m_curveUpdated) {
-        m_curveUpdated = false;
     }
 
     if (m_objectsUpdated || m_shadersUpdated) {
         m_cyclesScene->object_manager->tag_update(m_cyclesScene);
+        if (m_shadersUpdated) {
+            m_cyclesScene->background->tag_update(m_cyclesScene);
+        }
         m_objectsUpdated = false;
         m_shadersUpdated = false;
     }
@@ -1643,22 +1784,22 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 void
 HdCyclesRenderParam::SetViewport(int w, int h)
 {
-    m_width  = w;
+    m_width = w;
     m_height = h;
 
-    m_bufferParams.width          = m_width;
-    m_bufferParams.height         = m_height;
-    m_bufferParams.full_width     = m_width;
-    m_bufferParams.full_height    = m_height;
-    m_cyclesScene->camera->width  = m_width;
+    m_bufferParams.width = m_width;
+    m_bufferParams.height = m_height;
+    m_bufferParams.full_width = m_width;
+    m_bufferParams.full_height = m_height;
+    m_cyclesScene->camera->width = m_width;
     m_cyclesScene->camera->height = m_height;
     m_cyclesScene->camera->compute_auto_viewplane();
-    m_cyclesScene->camera->need_update        = true;
+    m_cyclesScene->camera->need_update = true;
     m_cyclesScene->camera->need_device_update = true;
 
     m_aovBindingsNeedValidation = true;
 
-    m_cyclesSession->reset(m_bufferParams, m_cyclesSession->params.samples);
+    DirectReset();
 }
 
 void
@@ -1668,97 +1809,16 @@ HdCyclesRenderParam::DirectReset()
 }
 
 void
-HdCyclesRenderParam::AddLight(ccl::Light* a_light)
+HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add light to scene. Scene is null.");
-        return;
-    }
-
-    m_lightsUpdated = true;
-
-    m_cyclesScene->lights.push_back(a_light);
-
-    if (a_light->type == ccl::LIGHT_BACKGROUND) {
-        m_numDomeLights += 1;
+    for (auto& shader : shaders) {
+        shader->tag_update(m_cyclesScene);
     }
 }
 
 void
-HdCyclesRenderParam::AddObject(ccl::Object* a_object)
+HdCyclesRenderParam::AddShader(ccl::Shader* shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add object to scene. Scene is null.");
-        return;
-    }
-
-    m_objectsUpdated = true;
-
-    m_cyclesScene->objects.push_back(a_object);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddGeometry(ccl::Geometry* a_geometry)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_geometryUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_geometry);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_meshUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_mesh);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddCurve(ccl::Geometry* a_curve)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
-    if (!m_cyclesScene) {
-        TF_WARN("Couldn't add geometry to scene. Scene is null.");
-        return;
-    }
-
-    m_curveUpdated = true;
-
-    m_cyclesScene->geometry.push_back(a_curve);
-
-    Interrupt();
-}
-
-void
-HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
-{
-    lock_guard lock { m_cyclesScene->mutex };
-
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add geometry to scene. Scene is null.");
         return;
@@ -1766,40 +1826,85 @@ HdCyclesRenderParam::AddShader(ccl::Shader* a_shader)
 
     m_shadersUpdated = true;
 
-    m_cyclesScene->shaders.push_back(a_shader);
+    m_cyclesScene->shaders.push_back(shader);
+}
+
+
+void
+HdCyclesRenderParam::AddLight(ccl::Light* light)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add light to scene. Scene is null.");
+        return;
+    }
+
+    m_lightsUpdated = true;
+
+    m_cyclesScene->lights.push_back(light);
+
+    if (light->type == ccl::LIGHT_BACKGROUND) {
+        m_numDomeLights += 1;
+    }
 }
 
 void
-HdCyclesRenderParam::RemoveObject(ccl::Object* a_object)
+HdCyclesRenderParam::AddObject(ccl::Object* object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add object to scene. Scene is null.");
+        return;
+    }
 
-    for (ccl::vector<ccl::Object*>::iterator it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
-        if (a_object == *it) {
-            it = m_cyclesScene->objects.erase(it);
+    m_objectsUpdated = true;
 
-            m_objectsUpdated = true;
+    m_cyclesScene->objects.push_back(object);
+
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::AddGeometry(ccl::Geometry* geometry)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add geometry to scene. Scene is null.");
+        return;
+    }
+
+    m_geometryUpdated = true;
+
+    m_cyclesScene->geometry.push_back(geometry);
+
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemoveShader(ccl::Shader* shader)
+{
+    for (auto it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
+        if (shader == *it) {
+            it = m_cyclesScene->shaders.erase(it);
+
+            m_shadersUpdated = true;
+
             break;
         } else {
             ++it;
         }
     }
 
-    if (m_objectsUpdated)
+    if (m_shadersUpdated)
         Interrupt();
 }
 
 void
-HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
+HdCyclesRenderParam::RemoveLight(ccl::Light* light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Light*>::iterator it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
-        if (a_light == *it) {
+    for (auto it = m_cyclesScene->lights.begin(); it != m_cyclesScene->lights.end();) {
+        if (light == *it) {
             it = m_cyclesScene->lights.erase(it);
 
             // TODO: This doesnt respect multiple dome lights
-            if (a_light->type == ccl::LIGHT_BACKGROUND) {
+            if (light->type == ccl::LIGHT_BACKGROUND) {
                 m_numDomeLights = std::max(0, m_numDomeLights - 1);
             }
 
@@ -1816,17 +1921,33 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* a_light)
         Interrupt();
 }
 
-void
-HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
-{
-    lock_guard lock { m_cyclesScene->mutex };
 
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_mesh == *it) {
+void
+HdCyclesRenderParam::RemoveObject(ccl::Object* object)
+{
+    for (auto it = m_cyclesScene->objects.begin(); it != m_cyclesScene->objects.end();) {
+        if (object == *it) {
+            it = m_cyclesScene->objects.erase(it);
+
+            m_objectsUpdated = true;
+            break;
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_objectsUpdated)
+        Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
+{
+    for (auto it = m_cyclesScene->geometry.begin(); it != m_cyclesScene->geometry.end();) {
+        if (geometry == *it) {
             it = m_cyclesScene->geometry.erase(it);
 
-            m_meshUpdated = true;
+            m_geometryUpdated = true;
 
             break;
         } else {
@@ -1839,55 +1960,59 @@ HdCyclesRenderParam::RemoveMesh(ccl::Mesh* a_mesh)
 }
 
 void
-HdCyclesRenderParam::UpdateShadersTag(ccl::vector<ccl::Shader*>& shaders)
+HdCyclesRenderParam::AddShaderSafe(ccl::Shader* shader)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-    for (auto& shader : shaders) {
-        shader->tag_update(m_cyclesScene);
-    }
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddShader(shader);
 }
 
 void
-HdCyclesRenderParam::RemoveCurve(ccl::Hair* a_hair)
+HdCyclesRenderParam::AddLightSafe(ccl::Light* light)
 {
-    lock_guard lock { m_cyclesScene->mutex };
-
-    for (ccl::vector<ccl::Geometry*>::iterator it = m_cyclesScene->geometry.begin();
-         it != m_cyclesScene->geometry.end();) {
-        if (a_hair == *it) {
-            it = m_cyclesScene->geometry.erase(it);
-
-            m_curveUpdated = true;
-
-            break;
-        } else {
-            ++it;
-        }
-    }
-
-    if (m_geometryUpdated)
-        Interrupt();
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddLight(light);
 }
 
 void
-HdCyclesRenderParam::RemoveShader(ccl::Shader* a_shader)
+HdCyclesRenderParam::AddObjectSafe(ccl::Object* object)
 {
-    lock_guard lock { m_cyclesScene->mutex };
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddObject(object);
+}
 
-    for (ccl::vector<ccl::Shader*>::iterator it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
-        if (a_shader == *it) {
-            it = m_cyclesScene->shaders.erase(it);
+void
+HdCyclesRenderParam::AddGeometrySafe(ccl::Geometry* geometry)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddGeometry(geometry);
+}
 
-            m_shadersUpdated = true;
+void
+HdCyclesRenderParam::RemoveShaderSafe(ccl::Shader* shader)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveShader(shader);
+}
 
-            break;
-        } else {
-            ++it;
-        }
-    }
+void
+HdCyclesRenderParam::RemoveLightSafe(ccl::Light* light)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveLight(light);
+}
 
-    if (m_shadersUpdated)
-        Interrupt();
+void
+HdCyclesRenderParam::RemoveObjectSafe(ccl::Object* object)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveObject(object);
+}
+
+void
+HdCyclesRenderParam::RemoveGeometrySafe(ccl::Geometry* geometry)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveGeometry(geometry);
 }
 
 VtDictionary
@@ -1933,55 +2058,70 @@ HdCyclesRenderParam::GetRenderStats() const
 
     // We need to store the cryptomatte metadata here, based on if there's any Cryptomatte AOVs
 
-    bool cryptoAsset    = false;
-    bool cryptoObject   = false;
+    bool cryptoAsset = false;
+    bool cryptoObject = false;
     bool cryptoMaterial = false;
+    std::string cryptoAssetName;
+    std::string cryptoObjectName;
+    std::string cryptoMaterialName;
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         TfToken sourceName = GetSourceName(aov);
-        if (sourceName == HdCyclesAovTokens->CryptoAsset) {
-            cryptoAsset = true;
+        if (!cryptoAsset && sourceName == HdCyclesAovTokens->CryptoAsset) {
+            cryptoAssetName = aov.aovName.GetText();
+            if (cryptoAssetName.length() > 2) {
+                cryptoAsset = true;
+                cryptoAssetName.erase(cryptoAssetName.end() - 2, cryptoAssetName.end());
+            }
             continue;
         }
-        if (sourceName == HdCyclesAovTokens->CryptoObject) {
-            cryptoObject = true;
+        if (!cryptoObject && sourceName == HdCyclesAovTokens->CryptoObject) {
+            cryptoObjectName = aov.aovName.GetText();
+            if (cryptoObjectName.length() > 2) {
+                cryptoObject = true;
+                cryptoObjectName.erase(cryptoObjectName.end() - 2, cryptoObjectName.end());
+            }
             continue;
         }
-        if (sourceName == HdCyclesAovTokens->CryptoMaterial) {
-            cryptoMaterial = true;
+        if (!cryptoMaterial && sourceName == HdCyclesAovTokens->CryptoMaterial) {
+            cryptoMaterialName = aov.aovName.GetText();
+            if (cryptoMaterialName.length() > 2) {
+                cryptoMaterial = true;
+                cryptoMaterialName.erase(cryptoMaterialName.end() - 2, cryptoMaterialName.end());
+            }
             continue;
         }
     }
 
     if (cryptoAsset) {
-        std::string cryptoName        = HdCyclesAovTokens->CryptoAsset.GetText();
-        std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
-        std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"]       = VtValue(cryptoName);
-        result[prefix + "hash"]       = VtValue("MurmurHash3_32");
+        auto cryptoNameLength = static_cast<int>(cryptoAssetName.length());
+        std::string identifier
+            = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoAssetName.c_str(), cryptoNameLength, 0));
+        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"] = VtValue(cryptoAssetName);
+        result[prefix + "hash"] = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
-        result[prefix + "manifest"]   = VtValue(m_cyclesScene->object_manager->get_cryptomatte_assets(m_cyclesScene));
+        result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_assets(m_cyclesScene));
     }
 
     if (cryptoObject) {
-        std::string cryptoName        = HdCyclesAovTokens->CryptoObject.GetText();
-        std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
-        std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"]       = VtValue(cryptoName);
-        result[prefix + "hash"]       = VtValue("MurmurHash3_32");
+        auto cryptoNameLength = static_cast<int>(cryptoObjectName.length());
+        std::string identifier
+            = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoObjectName.c_str(), cryptoNameLength, 0));
+        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"] = VtValue(cryptoObjectName);
+        result[prefix + "hash"] = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
-        result[prefix + "manifest"]   = VtValue(m_cyclesScene->object_manager->get_cryptomatte_objects(m_cyclesScene));
+        result[prefix + "manifest"] = VtValue(m_cyclesScene->object_manager->get_cryptomatte_objects(m_cyclesScene));
     }
 
     if (cryptoMaterial) {
-        std::string cryptoName        = HdCyclesAovTokens->CryptoMaterial.GetText();
-        std::string identifier        = ccl::string_printf("%08x",
-                                                    ccl::util_murmur_hash3(cryptoName.c_str(), cryptoName.length(), 0));
-        std::string prefix            = "cryptomatte/" + identifier.substr(0, 7) + "/";
-        result[prefix + "name"]       = VtValue(cryptoName);
-        result[prefix + "hash"]       = VtValue("MurmurHash3_32");
+        auto cryptoNameLength = static_cast<int>(cryptoMaterialName.length());
+        std::string identifier
+            = ccl::string_printf("%08x", ccl::util_murmur_hash3(cryptoMaterialName.c_str(), cryptoNameLength, 0));
+        std::string prefix = "cryptomatte/" + identifier.substr(0, 7) + "/";
+        result[prefix + "name"] = VtValue(cryptoMaterialName);
+        result[prefix + "hash"] = VtValue("MurmurHash3_32");
         result[prefix + "conversion"] = VtValue("uint32_to_float32");
         result[prefix + "manifest"] = VtValue(m_cyclesScene->shader_manager->get_cryptomatte_materials(m_cyclesScene));
     }
@@ -1992,11 +2132,21 @@ HdCyclesRenderParam::GetRenderStats() const
 void
 HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
 {
+    // Synchronizes with the render buffers reset and blitting (display)
+    // Also mirror the locks used when in the display_copy_cb callback
+    ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
+    ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
+
+    // This is necessary as the scene film is edited
+    ccl::thread_scoped_lock scene_lock { m_cyclesScene->mutex };
+
     m_aovs = a_aovs;
+
     m_bufferParams.passes.clear();
-    bool has_combined     = false;
+    bool has_combined = false;
     bool has_sample_count = false;
-    ccl::Film* film       = m_cyclesScene->film;
+
+    ccl::Film* film = m_cyclesScene->film;
 
     ccl::CryptomatteType cryptomatte_passes = ccl::CRYPT_NONE;
     if (film->cryptomatte_passes & ccl::CRYPT_ACCURATE) {
@@ -2004,9 +2154,18 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     }
     film->cryptomatte_passes = cryptomatte_passes;
 
-    int cryptoObject   = 0;
+    int cryptoObject = 0;
     int cryptoMaterial = 0;
-    int cryptoAsset    = 0;
+    int cryptoAsset = 0;
+    std::string cryptoObjectName;
+    std::string cryptoMaterialName;
+    std::string cryptoAssetName;
+
+    film->denoising_flags = 0;
+    film->denoising_data_pass = false;
+    film->denoising_clean_pass = false;
+    bool denoiseNormal = false;
+    bool denoiseAlbedo = false;
 
     for (const HdRenderPassAovBinding& aov : m_aovs) {
         TfToken sourceName = GetSourceName(aov);
@@ -2033,29 +2192,89 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         for (HdCyclesAov& cyclesAov : CryptomatteAovs) {
             if (sourceName == cyclesAov.token) {
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoObject) {
+                    if (cryptoObject == 0) {
+                        cryptoObjectName = aov.aovName.GetText();
+                    }
                     cryptoObject += 1;
                     continue;
                 }
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial) {
+                    if (cryptoMaterial == 0) {
+                        cryptoMaterialName = aov.aovName.GetText();
+                    }
                     cryptoMaterial += 1;
                     continue;
                 }
                 if (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) {
+                    if (cryptoAsset == 0) {
+                        cryptoAssetName = aov.aovName.GetText();
+                    }
                     cryptoAsset += 1;
                     continue;
                 }
             }
         }
+
+        for (HdCyclesAov& cyclesAov : DenoiseAovs) {
+            if (sourceName == cyclesAov.token) {
+                if (cyclesAov.token == HdCyclesAovTokens->DenoiseNormal) {
+                    denoiseNormal = true;
+                    continue;
+                }
+                if (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo) {
+                    denoiseAlbedo = true;
+                }
+            }
+        }
     }
+
+    if (!denoiseNormal && !denoiseAlbedo) {
+        m_cyclesSession->params.denoising.store_passes = false;
+    }
+
+    film->denoising_data_pass = m_cyclesSession->params.denoising.use || m_cyclesSession->params.denoising.store_passes;
+    film->denoising_flags = ccl::DENOISING_PASS_PREFILTERED_COLOR | ccl::DENOISING_PASS_PREFILTERED_NORMAL
+                            | ccl::DENOISING_PASS_PREFILTERED_ALBEDO;
+    film->denoising_clean_pass = (film->denoising_flags & ccl::DENOISING_CLEAN_ALL_PASSES);
+    film->denoising_prefiltered_pass = m_cyclesSession->params.denoising.store_passes
+                                       && m_cyclesSession->params.denoising.type == ccl::DENOISER_NLM;
+
+    m_bufferParams.denoising_data_pass = film->denoising_data_pass;
+    m_bufferParams.denoising_clean_pass = film->denoising_clean_pass;
+    m_bufferParams.denoising_prefiltered_pass = film->denoising_prefiltered_pass;
+
+    // Check for issues
 
     if (cryptoObject != film->cryptomatte_depth) {
         TF_WARN("Cryptomatte Object AOV/depth mismatch");
+        cryptoObject = 0;
     }
     if (cryptoMaterial != film->cryptomatte_depth) {
         TF_WARN("Cryptomatte Material AOV/depth mismatch");
+        cryptoMaterial = 0;
     }
     if (cryptoAsset != film->cryptomatte_depth) {
         TF_WARN("Cryptomatte Asset AOV/depth mismatch");
+        cryptoAsset = 0;
+    }
+
+    if (cryptoObjectName.length() < 3) {
+        TF_WARN("Cryptomatte Object has an invalid layer name");
+        cryptoObject = 0;
+    } else {
+        cryptoObjectName.erase(cryptoObjectName.end() - 2, cryptoObjectName.end());
+    }
+    if (cryptoMaterialName.length() < 3) {
+        TF_WARN("Cryptomatte Material has an invalid layer name");
+        cryptoMaterial = 0;
+    } else {
+        cryptoMaterialName.erase(cryptoMaterialName.end() - 2, cryptoMaterialName.end());
+    }
+    if (cryptoAssetName.length() < 3) {
+        TF_WARN("Cryptomatte Asset has an invalid layer name");
+        cryptoAsset = 0;
+    } else {
+        cryptoAssetName.erase(cryptoAssetName.end() - 2, cryptoAssetName.end());
     }
 
     // Ordering matters
@@ -2063,21 +2282,21 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_OBJECT);
         for (int i = 0; i < cryptoObject; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
-                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoObject.GetText(), i).c_str());
+                           ccl::string_printf("%s%02i", cryptoObjectName.c_str(), i).c_str());
         }
     }
     if (cryptoMaterial) {
         film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_MATERIAL);
         for (int i = 0; i < cryptoMaterial; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
-                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoMaterial.GetText(), i).c_str());
+                           ccl::string_printf("%s%02i", cryptoMaterialName.c_str(), i).c_str());
         }
     }
     if (cryptoAsset) {
         film->cryptomatte_passes = static_cast<ccl::CryptomatteType>(film->cryptomatte_passes | ccl::CRYPT_ASSET);
         for (int i = 0; i < cryptoAsset; ++i) {
             ccl::Pass::add(ccl::PASS_CRYPTOMATTE, m_bufferParams.passes,
-                           ccl::string_printf("%s%02i", HdCyclesAovTokens->CryptoAsset.GetText(), i).c_str());
+                           ccl::string_printf("%s%02i", cryptoAssetName.c_str(), i).c_str());
         }
     }
 
@@ -2091,30 +2310,114 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     if (!has_combined) {
         ccl::Pass::add(DefaultAovs[0].type, m_bufferParams.passes, DefaultAovs[0].name.c_str(), DefaultAovs[0].filter);
     }
+
+
     film->display_pass = m_bufferParams.passes[0].type;
     film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
 
     film->tag_update(m_cyclesScene);
-    Interrupt();
 }
 
+// We need to remove the aov binding because the renderbuffer can be
+// deallocated before new aov bindings are set in the renderpass.
+//
+// clang-format off
 void
-HdCyclesRenderParam::SetDisplayAov(HdRenderPassAovBinding const& a_aov)
+HdCyclesRenderParam::RemoveAovBinding(HdRenderBuffer* rb)
 {
-    m_cyclesScene->film->display_pass = DefaultAovs[0].type;
-    m_displayAovToken                 = DefaultAovs[0].token;
-    if (!m_aovs.empty()) {
-        TfToken sourceName = GetSourceName(a_aov);
-        for (HdCyclesAov& cyclesAov : DefaultAovs) {
-            if (sourceName == cyclesAov.token) {
-                m_cyclesScene->film->display_pass = cyclesAov.type;
-                m_displayAovToken                 = a_aov.aovName;
-                break;
+    if (!rb) {
+        return;
+    }
+
+    // Aovs access is synchronized with the Cycles display lock
+    ccl::thread_scoped_lock display_lock = m_cyclesSession->acquire_display_lock();
+    ccl::thread_scoped_lock buffers_lock = m_cyclesSession->acquire_buffers_lock();
+
+    m_aovs.erase(std::remove_if(m_aovs.begin(), m_aovs.end(), [rb](HdRenderPassAovBinding& aov) { 
+        return aov.renderBuffer == rb; 
+    }), m_aovs.end());
+}
+// clang-format on
+
+void
+HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples)
+{
+    if (samples < 0) {
+        return;
+    }
+
+    HdCyclesAov cyclesAov;
+    if (!GetCyclesAov(aov, cyclesAov)) {
+        return;
+    }
+
+    // The RenderParam logic should guarantee that aov bindings always point to valid renderbuffer
+    auto* rb = static_cast<HdCyclesRenderBuffer*>(aov.renderBuffer);
+    if (!rb) {
+        return;
+    }
+
+    // No point in blitting since the session will be reset
+    if (m_cyclesSession->buffers->params.width != rb->GetWidth()
+        || m_cyclesSession->buffers->params.height != rb->GetHeight()) {
+        return;
+    }
+
+    // This acquires the whole object, not just the pixel buffer
+    // It needs to wrap any getters
+    void* data = rb->Map();
+
+    if (data) {
+        const int n_comps_cycles = static_cast<int>(HdGetComponentCount(cyclesAov.format));
+        const int n_comps_hd = static_cast<int>(HdGetComponentCount(rb->GetFormat()));
+
+        if (n_comps_cycles <= n_comps_hd) {
+            ccl::RenderBuffers::ComponentType pixels_type = ccl::RenderBuffers::ComponentType::None;
+            switch (rb->GetFormat()) {
+            case HdFormatFloat16: pixels_type = ccl::RenderBuffers::ComponentType::Float16; break;
+            case HdFormatFloat16Vec3: pixels_type = ccl::RenderBuffers::ComponentType::Float16x3; break;
+            case HdFormatFloat16Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float16x4; break;
+            case HdFormatFloat32: pixels_type = ccl::RenderBuffers::ComponentType::Float32; break;
+            case HdFormatFloat32Vec3: pixels_type = ccl::RenderBuffers::ComponentType::Float32x3; break;
+            case HdFormatFloat32Vec4: pixels_type = ccl::RenderBuffers::ComponentType::Float32x4; break;
+            case HdFormatInt32: pixels_type = ccl::RenderBuffers::ComponentType::Int32; break;
+            default: assert(false); break;
             }
+
+            // todo: Is there a utility to convert HdFormat to string?
+            if (pixels_type == ccl::RenderBuffers::ComponentType::None) {
+                TF_WARN("Unsupported component type %d for aov %s ", static_cast<int>(rb->GetFormat()),
+                        aov.aovName.GetText());
+                rb->Unmap();
+                return;
+            }
+
+            const int stride = static_cast<int>(HdDataSizeOfFormat(rb->GetFormat()));
+            const float exposure = m_cyclesScene->film->exposure;
+            auto buffers = m_cyclesSession->buffers;
+            buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
+                                      static_cast<uint8_t*>(data), pixels_type, w, h, stride);
+
+            if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
+                if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
+                    /* We bump the PrimId() before sending it to hydra, decrementing it here */
+                    int32_t* pixels = static_cast<int32_t*>(data);
+                    for (size_t i = 0; i < rb->GetWidth() * rb->GetHeight(); ++i) {
+                        pixels[i] -= 1;
+                    }
+                } else {
+                    TF_WARN("Object ID pass %s has unrecognized type", aov.aovName.GetText());
+                }
+            }
+        } else {
+            TF_WARN("Don't know how to narrow aov %s from %d components (cycles) to %d components (HdRenderBuffer)",
+                    aov.aovName.GetText(), n_comps_cycles, n_comps_hd);
         }
-        m_cyclesScene->film->tag_update(m_cyclesScene);
-        Interrupt();
+        rb->Unmap();
+    } else {
+        TF_WARN("Failed to map renderbuffer %s for writing on Cycles display callback", aov.aovName.GetText());
     }
 }
+
 
 PXR_NAMESPACE_CLOSE_SCOPE
