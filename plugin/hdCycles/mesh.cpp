@@ -55,8 +55,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
     , m_velocityScale(1.0f)
-    , m_useMotionBlur(false)
-    , m_useDeformMotionBlur(false)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
@@ -588,11 +586,6 @@ HdCyclesMesh::_CreateCyclesMesh()
 {
     ccl::Mesh* mesh = new ccl::Mesh();
     mesh->clear();
-
-    if (m_useMotionBlur && m_useDeformMotionBlur) {
-        mesh->use_motion_blur = true;
-    }
-
     mesh->subdivision_type = ccl::Mesh::SUBDIVISION_NONE;
     return mesh;
 }
@@ -615,30 +608,35 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     // todo: this needs to be check to see if it is time-varying
     // todo: this should be shared with the points for the center motion step
-    std::vector<float> times(HD_CYCLES_MOTION_STEPS);
-    std::vector<VtValue> values(HD_CYCLES_MOTION_STEPS);
-    const size_t numSamples = sceneDelegate->SamplePrimvar(id, HdTokens->points, HD_CYCLES_MOTION_STEPS, times.data(),
-                                                           values.data());
+    // TODO: implement resampling based on number of requested samples
+    HdCyclesValueTimeSampleArray motion_samples;
+    sceneDelegate->SamplePrimvar(id, HdTokens->points, &motion_samples);
 
-    if (numSamples <= 1) {
-        return;
-    }
+    const size_t numSamples = motion_samples.count;
+    auto& times = motion_samples.times;
+    auto& values = motion_samples.values;
 
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
-    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
+    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    if (attr_mP) {
+        attributes->remove(attr_mP);
+    }
+
+    if (numSamples <= 1) {
+        m_cyclesMesh->use_motion_blur = false;
+        m_cyclesMesh->motion_steps = 0;
+        return;
+    }
 
     m_cyclesMesh->use_motion_blur = true;
     m_cyclesMesh->motion_steps = static_cast<unsigned int>(numSamples + ((numSamples % 2) ? 0 : 1));
 
-    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-
-    if (attr_mP)
-        attributes->remove(attr_mP);
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     ccl::float3* mP = attr_mP->data_float3();
 
-    for (size_t i = 0; i < numSamples; ++i) {
+    for (unsigned int i = 0; i < numSamples; ++i) {
         if (times[i] == 0.0f)  // todo: more flexible check?
             continue;
 
@@ -1009,23 +1007,6 @@ HdCyclesMesh::_InitializeNewCyclesMesh()
 
     m_cyclesObject = _CreateCyclesObject();
     m_cyclesMesh = _CreateCyclesMesh();
-
-    if (m_useMotionBlur) {
-        // Motion steps are currently a static const compile time
-        // variable... This is likely an issue...
-        // TODO: Get this from usdCycles schema
-        //m_motionSteps = config.motion_steps;
-        m_motionSteps = HD_CYCLES_MOTION_STEPS;
-
-        // Hardcoded for now until schema PR
-        m_useDeformMotionBlur = true;
-
-        // TODO: Needed when we properly handle motion_verts
-        m_cyclesMesh->motion_steps = m_motionSteps;
-        m_cyclesMesh->use_motion_blur = m_useDeformMotionBlur;
-    }
-
-    m_cyclesObject->name = GetId().GetString();
     m_cyclesObject->geometry = m_cyclesMesh;
 
     m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);
@@ -1118,9 +1099,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // Set defaults, so that in a "do nothing" scenario it'll revert to defaults, or if you view
     // a different node context without any settings set.
     m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
-    m_useMotionBlur = false;
-    m_useDeformMotionBlur = false;
-    m_motionSteps = 3;
+    m_motionBlur = true;
+    m_motionTransformSteps = 3;
+    m_motionDeformSteps = 3;
     m_cyclesObject->is_shadow_catcher = false;
     m_cyclesObject->pass_id = 0;
     m_cyclesObject->use_holdout = false;
@@ -1141,16 +1122,25 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 continue;
             }
 
-            // Motion blur
-            m_useMotionBlur = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                          usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
+            // motion blur settings
 
-            m_useDeformMotionBlur = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                usdCyclesTokens->primvarsCyclesObjectMblurDeform,
-                                                                m_useDeformMotionBlur);
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
+                m_motionBlur = value.Get<bool>();
+                continue;
+            }
 
-            m_motionSteps = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                        usdCyclesTokens->primvarsCyclesObjectMblurSteps, m_motionSteps);
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+                m_motionTransformSteps = value.Get<int>();
+                continue;
+            }
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
+                m_motionDeformSteps = value.Get<int>();
+                continue;
+            }
 
             // Object Generic
 
@@ -1237,8 +1227,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         _PopulateVertices(sceneDelegate, id, dirtyBits);
     }
 
-    if (m_useMotionBlur && m_useDeformMotionBlur) {
+    if (m_motionBlur && m_motionDeformSteps > 0) {
         _PopulateMotion(sceneDelegate, id);
+    } else {
+        m_cyclesMesh->use_motion_blur = false;
+        m_cyclesMesh->motion_steps = 0;
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyNormals) {
@@ -1249,31 +1242,27 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         _PopulatePrimvars(sceneDelegate, scene, id, dirtyBits);
     }
 
-    if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
-        //         m_doubleSided = sceneDelegate->GetDoubleSided(id);
-    }
+    // Object transform needs to be applied to instances.
+    ccl::Transform obj_tfm = ccl::transform_identity();
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
         auto fallback = sceneDelegate->GetTransform(id);
         HdCyclesMatrix4dTimeSampleArray xf {};
 
         std::shared_ptr<HdCyclesTransformSource> transform_source;
-        if (!m_useMotionBlur) {
-            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
-        } else {
+        if (m_motionBlur && m_motionTransformSteps > 1) {
             sceneDelegate->SampleTransform(id, &xf);
-
-            VtValue ts_value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
-            if (!ts_value.IsEmpty()) {
-                auto num_new_samples = ts_value.Get<int>();
-                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
-                                                                             num_new_samples);
-            } else {
-                transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
-                                                                             3);
-            }
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
+                                                                         m_motionTransformSteps);
+        } else {
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
         }
+        if (transform_source->IsValid()) {
+            transform_source->Resolve();
+        }
+
         m_object_source->AddObjectPropertiesSource(std::move(transform_source));
+        obj_tfm = mat4d_to_transform(fallback);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
@@ -1331,13 +1320,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 for (size_t j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = _CreateCyclesObject();
 
-                    instanceObj->tfm = mat4d_to_transform(combinedTransforms[j].data()[0]);
+                    instanceObj->tfm = mat4d_to_transform(combinedTransforms[j].data()[0]) * obj_tfm;
                     instanceObj->geometry = m_cyclesMesh;
 
                     // TODO: Implement motion blur for point instanced objects
-                    /*if (m_useMotionBlur) {
+                    /*if (m_motionBlur) {
                         m_cyclesMesh->motion_steps    = m_motionSteps;
-                        m_cyclesMesh->use_motion_blur = m_useMotionBlur;
+                        m_cyclesMesh->use_motion_blur = m_motionBlur;
 
                         instanceObj->motion.clear();
                         instanceObj->motion.resize(m_motionSteps);

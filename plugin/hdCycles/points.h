@@ -198,12 +198,9 @@ private:
     HdCyclesObjectSourceSharedPtr m_objectSource;
     HdCyclesRenderDelegate* m_renderDelegate;
 
-    bool m_useMotionBlur;
-    int m_motionSteps;
-
-    // -- Currently unused
-
-    HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
+    bool m_motionBlur;
+    int m_motionTransformSteps;
+    int m_motionDeformSteps;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
