@@ -39,6 +39,7 @@ foreach(_houdini_lib ${_houdini_libs})
             PATHS
             ${HOUDINI_ROOT}/dsolib
             ${HOUDINI_ROOT}/custom/houdini/dsolib/
+            ${HOUDINI_ROOT}/Libraries
             REQUIRED
             )
 
@@ -71,6 +72,7 @@ find_library(_houdini_hboost_python
         PATHS
         ${HOUDINI_ROOT}/dsolib
         ${HOUDINI_ROOT}/custom/houdini/dsolib/
+        ${HOUDINI_ROOT}/Libraries
         REQUIRED
         )
 
@@ -86,6 +88,7 @@ foreach(_pxr_lib ${_houdini_pxr_libs})
             PATHS
             ${HOUDINI_ROOT}/dsolib
             ${HOUDINI_ROOT}/custom/houdini/dsolib/
+            ${HOUDINI_ROOT}/Libraries
             REQUIRED
             )
 
@@ -98,25 +101,20 @@ endforeach()
 
 # Find Usd Schema Generator
 
+if(APPLE)
+        set(HOUDINI_BIN ${HOUDINI_ROOT}/Resources/bin)
+else()
+        set(HOUDINI_BIN ${HOUDINI_ROOT}/bin)
+endif()
+
 find_program(USD_SCHEMA_GENERATOR
         NAMES
+        usdGenSchema.py
         usdGenSchema
         PATHS
-        ${HOUDINI_ROOT}/bin
+        ${HOUDINI_BIN}
+        REQUIRED
         NO_DEFAULT_PATH
         )
-
-# Fallback to py script, remove after 18.5.519 release and add REQUIORED to usdGenSchema find_program
-
-if(NOT USD_SCHEMA_GENERATOR)
-    find_program(USD_SCHEMA_GENERATOR
-            NAMES
-            usdGenSchema.py
-            PATHS
-            ${HOUDINI_ROOT}/bin
-            REQUIRED
-            NO_DEFAULT_PATH
-            )
-    list(PREPEND USD_SCHEMA_GENERATOR hython)
-    set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
-endif()
+list(PREPEND USD_SCHEMA_GENERATOR ${HOUDINI_BIN}/hython)
+set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)

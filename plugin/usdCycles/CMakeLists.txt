@@ -114,8 +114,8 @@ if(WIN32)
                 )
 else()
         add_custom_target(generatedSchema.usda
-                ${CMAKE_COMMAND} -E env "PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib/python" ${USD_SCHEMA_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
-                COMMAND COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
+                COMMAND ${CMAKE_COMMAND} -E env "PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib/python" ${USD_SCHEMA_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/schema.usda
+                COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/plugInfo.cmake
                 BYPRODUCTS
                 ${USD_CYCLES_SCHEMA_SOURCE_OUTPUT}
                 ${USD_CYCLES_SCHEMA_WRAP_OUTPUT}
