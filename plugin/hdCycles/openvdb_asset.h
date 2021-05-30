@@ -32,6 +32,9 @@
 #ifdef WITH_OPENVDB
 #    include <openvdb/openvdb.h>
 #    include <render/image_vdb.h>
+#   ifdef USE_HOUDINI_VDB_LOADER
+#       include "houdini/houdini_vdb_loader.h"
+#   endif
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -51,6 +54,27 @@ public:
     {
         if (TF_VERIFY(!m_file_path.empty())) {
             try {
+#    ifdef USE_HOUDINI_VDB_LOADER
+                if (grid) {
+                    grid.reset();
+                }
+
+                // Load vdb grid from memory if the filepath is pointing to a houdini sop
+                static std::string opPrefix("op:");
+                if (m_file_path.compare(0, opPrefix.size(), opPrefix) == 0) {
+                    this->grid = HoudiniVdbLoader::Instance().GetGrid(m_file_path.c_str(), grid_name.c_str());
+                } else {
+                    openvdb::io::File file(m_file_path);
+                    file.setCopyMaxBytes(0);
+                    file.open();
+
+                    this->grid = file.readGrid(grid_name);
+                }
+
+                if (!grid) {
+                    TF_WARN("Vdb grid is empty!");
+                }
+#    else
                 openvdb::io::File file(m_file_path);
                 file.setCopyMaxBytes(0);
                 file.open();
@@ -60,6 +84,7 @@ public:
                 }
 
                 this->grid = file.readGrid(grid_name);
+#    endif
             } catch (const openvdb::IoError& e) {
                 TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name.c_str(), m_file_path.c_str());
             } catch (const std::exception& e) {

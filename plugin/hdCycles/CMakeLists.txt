@@ -119,6 +119,23 @@ if (MSVC)
     install(FILES $<TARGET_PDB_FILE:hdCycles> DESTINATION plugin/usd OPTIONAL)
 endif ()
 
+if(DEFINED HOUDINI_ROOT)
+set(HOUDINI_VDB_SOURCES
+        houdini/houdini_vdb_loader.cpp
+        houdini/houdini_vdb_loader.h
+        )
+
+target_sources(hdCycles
+        PRIVATE
+        ${HOUDINI_VDB_SOURCES}
+        )
+		
+target_compile_definitions(hdCycles
+        PRIVATE
+        USE_HOUDINI_VDB_LOADER
+		)
+endif()
+
 # plugInfo.json
 set(PLUG_INFO_LIBRARY_PATH "../hdCycles${CMAKE_SHARED_LIBRARY_SUFFIX}")
 set(PLUG_INFO_RESOURCE_PATH "resources")
