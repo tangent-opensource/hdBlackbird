@@ -41,9 +41,9 @@ PXR_NAMESPACE_OPEN_SCOPE
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
     HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in);
-    
+
     ~HdCyclesVolumeLoader();
-    
+
     void UpdateGrid();
 
     void cleanup() override
@@ -55,11 +55,11 @@ public:
 
 private:
     std::string m_file_path;
-#ifdef Houdini_FOUND
+#    ifdef Houdini_FOUND
     void* m_sopVolLibHandle = nullptr;
     typedef void* (*houdiniVdbLoadFunc)(const char* filepath, const char* name);
     houdiniVdbLoadFunc m_houdiniVdbLoader = nullptr;
-#endif
+#    endif
 };
 #endif
 

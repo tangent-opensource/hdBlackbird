@@ -18,7 +18,7 @@
 //  limitations under the License.
 
 #ifdef Houdini_FOUND
-#   include <GT/GT_PrimVDB.h>
+#    include <GT/GT_PrimVDB.h>
 #endif
 
 #include "openvdb_asset.h"
@@ -35,12 +35,13 @@ HdCyclesVolumeLoader::HdCyclesVolumeLoader(const char* filepath, const char* gri
 {
 #ifdef Houdini_FOUND
     auto hfs = std::getenv("HFS");
-    if(hfs){
+    if (hfs) {
         auto lib_path = hfs + std::string("/houdini/dso/USD_SopVol") + ARCH_LIBRARY_SUFFIX;
         m_sopVolLibHandle = ArchLibraryOpen(lib_path, ARCH_LIBRARY_LAZY);
 
         if (m_sopVolLibHandle) {
-            m_houdiniVdbLoader = (houdiniVdbLoadFunc)ArchLibraryGetSymbolAddress(m_sopVolLibHandle, "SOPgetVDBVolumePrimitive");
+            m_houdiniVdbLoader = (houdiniVdbLoadFunc)ArchLibraryGetSymbolAddress(m_sopVolLibHandle,
+                                                                                 "SOPgetVDBVolumePrimitive");
             if (!m_houdiniVdbLoader) {
                 TF_RUNTIME_ERROR("USD_SopVol missing required symbol: SOPgetVDBVolumePrimitive");
             }
@@ -59,9 +60,11 @@ HdCyclesVolumeLoader::HdCyclesVolumeLoader(const char* filepath, const char* gri
 
 HdCyclesVolumeLoader::~HdCyclesVolumeLoader()
 {
+#ifdef Houdini_FOUND
     if (m_sopVolLibHandle) {
         ArchLibraryClose(m_sopVolLibHandle);
     }
+#endif
 }
 
 void
