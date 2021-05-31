@@ -98,25 +98,22 @@ endforeach()
 
 # Find Usd Schema Generator
 
-find_program(USD_SCHEMA_GENERATOR
-        NAMES
-        usdGenSchema
-        PATHS
-        ${HOUDINI_ROOT}/bin
-        NO_DEFAULT_PATH
-        )
+if(APPLE)
+        set(HOUDINI_BIN ${HOUDINI_ROOT}/Resources/bin)
+else()
+        set(HOUDINI_BIN ${HOUDINI_ROOT}/bin)
+endif()
 
-# Fallback to py script, remove after 18.5.519 release and add REQUIORED to usdGenSchema find_program
-
-if(NOT USD_SCHEMA_GENERATOR)
-    find_program(USD_SCHEMA_GENERATOR
-            NAMES
-            usdGenSchema.py
-            PATHS
-            ${HOUDINI_ROOT}/bin
-            REQUIRED
-            NO_DEFAULT_PATH
-            )
-    list(PREPEND USD_SCHEMA_GENERATOR hython)
-    set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
+if (NOT USD_SCHEMA_GENERATOR)
+        find_program(USD_SCHEMA_GENERATOR
+                NAMES
+                usdGenSchema.py
+                usdGenSchema
+                PATHS
+                ${HOUDINI_BIN}
+                REQUIRED
+                NO_DEFAULT_PATH
+                )
+        list(PREPEND USD_SCHEMA_GENERATOR ${HOUDINI_BIN}/hython)
+        set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
 endif()
