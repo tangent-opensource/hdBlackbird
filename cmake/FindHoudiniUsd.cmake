@@ -107,14 +107,16 @@ else()
         set(HOUDINI_BIN ${HOUDINI_ROOT}/bin)
 endif()
 
-find_program(USD_SCHEMA_GENERATOR
-        NAMES
-        usdGenSchema.py
-        usdGenSchema
-        PATHS
-        ${HOUDINI_BIN}
-        REQUIRED
-        NO_DEFAULT_PATH
-        )
-list(PREPEND USD_SCHEMA_GENERATOR ${HOUDINI_BIN}/hython)
-set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
+if (NOT USD_SCHEMA_GENERATOR)
+        find_program(USD_SCHEMA_GENERATOR
+                NAMES
+                usdGenSchema.py
+                usdGenSchema
+                PATHS
+                ${HOUDINI_BIN}
+                REQUIRED
+                NO_DEFAULT_PATH
+                )
+        list(PREPEND USD_SCHEMA_GENERATOR ${HOUDINI_BIN}/hython)
+        set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
+endif()
