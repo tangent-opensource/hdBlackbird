@@ -32,9 +32,6 @@
 #ifdef WITH_OPENVDB
 #    include <openvdb/openvdb.h>
 #    include <render/image_vdb.h>
-#   ifdef USE_HOUDINI_VDB_LOADER
-#       include "houdini/houdini_vdb_loader.h"
-#   endif
 #endif
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -43,57 +40,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 // Very temporary. Apparently Cycles has code to do this but it isnt in the head cycles standalone repo
 class HdCyclesVolumeLoader : public ccl::VDBImageLoader {
 public:
-    HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in)
-        : ccl::VDBImageLoader(grid_name_in)
-        , m_file_path(filepath)
-    {
-        UpdateGrid();
-    }
-
-    void UpdateGrid()
-    {
-        if (TF_VERIFY(!m_file_path.empty())) {
-            try {
-#    ifdef USE_HOUDINI_VDB_LOADER
-                if (grid) {
-                    grid.reset();
-                }
-
-                // Load vdb grid from memory if the filepath is pointing to a houdini sop
-                static std::string opPrefix("op:");
-                if (m_file_path.compare(0, opPrefix.size(), opPrefix) == 0) {
-                    this->grid = HoudiniVdbLoader::Instance().GetGrid(m_file_path.c_str(), grid_name.c_str());
-                } else {
-                    openvdb::io::File file(m_file_path);
-                    file.setCopyMaxBytes(0);
-                    file.open();
-
-                    this->grid = file.readGrid(grid_name);
-                }
-
-                if (!grid) {
-                    TF_WARN("Vdb grid is empty!");
-                }
-#    else
-                openvdb::io::File file(m_file_path);
-                file.setCopyMaxBytes(0);
-                file.open();
-
-                if (grid) {
-                    grid.reset();
-                }
-
-                this->grid = file.readGrid(grid_name);
-#    endif
-            } catch (const openvdb::IoError& e) {
-                TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name.c_str(), m_file_path.c_str());
-            } catch (const std::exception& e) {
-                TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
-            }
-        } else {
-            TF_WARN("Volume file path is empty!");
-        }
-    }
+    HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in);
+    
+    ~HdCyclesVolumeLoader();
+    
+    void UpdateGrid();
 
     void cleanup() override
     {
@@ -104,6 +55,11 @@ public:
 
 private:
     std::string m_file_path;
+#ifdef Houdini_FOUND
+    void* m_sopVolLibHandle = nullptr;
+    typedef void* (*houdiniVdbLoadFunc)(const char* filepath, const char* name);
+    houdiniVdbLoadFunc m_houdiniVdbLoader = nullptr;
+#endif
 };
 #endif
 
