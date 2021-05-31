@@ -206,6 +206,13 @@ private:
      */
 
     void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    bool _PopulateMotionAttributeVec3f(HdSceneDelegate* sceneDelegate, 
+                                  const SdfPath& id,
+                                  const TfToken& token,
+                                  const TfToken& role,
+                                  const HdInterpolation& interpolation,
+                                  int cycles_motion_attribute,
+                                  size_t n_expected_samples);
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);

@@ -405,6 +405,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     m_cyclesMesh->attributes.remove(ccl::ATTR_STD_VERTEX_NORMAL);
     m_cyclesMesh->attributes.remove(ccl::ATTR_STD_CORNER_NORMAL);
     m_cyclesMesh->attributes.remove(ccl::ATTR_STD_MOTION_VERTEX_NORMAL);
+    m_cyclesMesh->attributes.remove(ccl::ATTR_STD_MOTION_CORNER_NORMAL);
 
     //
     // Auto generated normals from limit surface
@@ -558,6 +559,16 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         for (size_t i = 0; i < num_vertices; ++i) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
+
+        if (m_motionBlur && m_motionDeformSteps > 0) {
+            _PopulateMotionAttributeVec3f(sceneDelegate, 
+                id,
+                HdTokens->normals, 
+                HdPrimvarRoleTokens->normal,
+                HdInterpolationVertex,
+                ccl::ATTR_STD_MOTION_VERTEX_NORMAL,
+                m_cyclesMesh->motion_steps);
+        }
     } else if (interpolation == HdInterpolationFaceVarying) {
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data = normal_attr->data_float3();
@@ -575,6 +586,16 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         VtVec3fArray refined_normals = refined_value.Get<VtVec3fArray>();
         for (size_t i = 0; i < num_triangles * 3; ++i) {
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
+        }
+
+        if (m_motionBlur && m_motionDeformSteps > 0) {
+            _PopulateMotionAttributeVec3f(sceneDelegate, 
+                id,
+                HdTokens->normals, 
+                HdPrimvarRoleTokens->normal,
+                HdInterpolationFaceVarying,
+                ccl::ATTR_STD_MOTION_CORNER_NORMAL,
+                m_cyclesMesh->motion_steps);
         }
     } else {
         TF_WARN("Invalid normal interpolation for: %s", id.GetText());
@@ -651,6 +672,80 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 
         for (size_t j = 0; j < refiner->GetTriangulatedTopology().GetNumPoints(); ++j, ++mP) {
             *mP = vec3f_to_float3(refined_points[j]);
+        }
+    }
+}
+
+bool
+HdCyclesMesh::_PopulateMotionAttributeVec3f(
+    HdSceneDelegate* sceneDelegate,
+    const SdfPath& id,
+    const TfToken& token,
+    const TfToken& role,
+    const HdInterpolation& interpolation,
+    int cycles_motion_attribute,
+    size_t n_expected_samples)
+{
+    // todo: this needs to be check to see if it is time-varying
+    // todo: this should be shared with the points for the center motion step
+    // TODO: implement resampling based on number of requested samples
+    HdCyclesValueTimeSampleArray motion_samples;
+    sceneDelegate->SamplePrimvar(id, token, &motion_samples);
+
+    const size_t numSamples = motion_samples.count;
+    auto& times = motion_samples.times;
+    auto& values = motion_samples.values;
+
+    // This should eventually be replaced with resampling
+    if (n_expected_samples != numSamples &&
+        n_expected_samples != numSamples - 1) {
+        return false;
+    }
+
+    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+    ccl::Attribute* attr_m = attributes->find((ccl::AttributeStandard)cycles_motion_attribute);
+    if (attr_m) {
+        attributes->remove(attr_m);
+    }
+
+    if (numSamples <= 1) {
+        return false;
+    }
+
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
+
+    attr_m = attributes->add((ccl::AttributeStandard)cycles_motion_attribute);
+    ccl::float3* m = attr_m->data_float3();
+
+    for (unsigned int i = 0; i < numSamples; ++i) {
+        if (times[i] == 0.0f)  // todo: more flexible check?
+            continue;
+
+        VtValue refined_value;
+        if (interpolation == HdInterpolationVertex) {
+            refined_value = refiner->RefineVertexData(token, role, values[i]);
+        } else if (interpolation == HdInterpolationFaceVarying) {
+            refined_value = refiner->RefineFaceVaryingData(token, role, values[i]);
+        } else {
+            TF_WARN("Trying to populate motion attribute %s with unsupported interpolation", token.GetText());
+            return false;
+        }
+
+        if (!refined_value.IsHolding<VtVec3fArray>()) {
+            TF_WARN("Cannot fill in motion step %d for: %s\n", static_cast<int>(i), id.GetText());
+            continue;
+        }
+
+        VtVec3fArray value = refined_value.UncheckedGet<VtVec3fArray>();
+
+        if (interpolation == HdInterpolationVertex) {
+            for (size_t j = 0; j < refiner->GetTriangulatedTopology().GetNumPoints(); ++j, ++m) {
+                *m = vec3f_to_float3(value[j]);
+            }
+        } else if (interpolation == HdInterpolationFaceVarying) {
+            for (size_t j = 0; j < refiner->GetTriangulatedTopology().GetNumFaces() * 3; ++j, ++m) {
+                *m = vec3f_to_float3(value[j]);
+            }
         }
     }
 }
@@ -1347,6 +1442,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             }
         }
     }
+
 
     _FinishMesh(scene);
     _UpdateObject(scene, param, dirtyBits, topologyIsDirty);
