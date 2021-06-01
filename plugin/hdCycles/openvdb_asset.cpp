@@ -17,6 +17,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+
 #ifdef Houdini_FOUND
 #    include <GT/GT_PrimVDB.h>
 #endif
@@ -29,43 +30,62 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-HdCyclesVolumeLoader::HdCyclesVolumeLoader(const char* filepath, const char* grid_name_in)
-    : ccl::VDBImageLoader(grid_name_in)
-    , m_file_path(filepath)
-{
 #ifdef Houdini_FOUND
-    auto hfs = std::getenv("HFS");
-    if (hfs) {
-        auto lib_path = hfs + std::string("/houdini/dso/USD_SopVol") + ARCH_LIBRARY_SUFFIX;
-        m_sopVolLibHandle = ArchLibraryOpen(lib_path, ARCH_LIBRARY_LAZY);
+namespace {
+struct HoudiniVdbLoader {
+    HoudiniVdbLoader()
+    {
+        auto hfs = std::getenv("HFS");
+        if (hfs) {
+            auto lib_path = hfs + std::string("/houdini/dso/USD_SopVol") + ARCH_LIBRARY_SUFFIX;
+            m_handle = ArchLibraryOpen(lib_path, ARCH_LIBRARY_LAZY);
 
-        if (m_sopVolLibHandle) {
-            m_houdiniVdbLoader = (houdiniVdbLoadFunc)ArchLibraryGetSymbolAddress(m_sopVolLibHandle,
-                                                                                 "SOPgetVDBVolumePrimitive");
-            if (!m_houdiniVdbLoader) {
-                TF_RUNTIME_ERROR("USD_SopVol missing required symbol: SOPgetVDBVolumePrimitive");
+            if (m_handle) {
+                m_houdiniVdbLoadFunc = (houdiniVdbLoadFunc)ArchLibraryGetSymbolAddress(m_handle,
+                                                                                       "SOPgetVDBVolumePrimitive");
+                if (!m_houdiniVdbLoadFunc) {
+                    TF_RUNTIME_ERROR("USD_SopVol missing required symbol: SOPgetVDBVolumePrimitive");
+                }
+            } else {
+                auto err = ArchLibraryError();
+                if (err.empty()) {
+                    err = "Unable to open USD_SopVol library! Unkown Error!";
+                }
+                TF_RUNTIME_ERROR("Failed to load USD_SopVol library: %s", err.c_str());
             }
-        } else {
-            auto err = ArchLibraryError();
-            if (err.empty()) {
-                err = "unknown reason";
-            }
-            TF_RUNTIME_ERROR("Failed to load USD_SopVol library: %s", err.c_str());
         }
     }
-#endif
 
-    UpdateGrid();
-}
+    openvdb::GridBase::ConstPtr getGrid(const char* file_path, const char* name) const
+    {
+        if (!m_houdiniVdbLoadFunc) {
+            return nullptr;
+        }
+        auto vdbPrim = reinterpret_cast<GT_PrimVDB*>((*m_houdiniVdbLoadFunc)(file_path, name));
+        if (!vdbPrim) {
+            return nullptr;
+        }
 
-HdCyclesVolumeLoader::~HdCyclesVolumeLoader()
-{
-#ifdef Houdini_FOUND
-    if (m_sopVolLibHandle) {
-        ArchLibraryClose(m_sopVolLibHandle);
+        const auto* grid_base = vdbPrim->getGrid();
+        return grid_base ? grid_base->copyGrid() : nullptr;
     }
+
+    ~HoudiniVdbLoader()
+    {
+        if (m_handle) {
+            ArchLibraryClose(m_handle);
+        }
+    }
+
+private:
+    void* m_handle = nullptr;
+    typedef void* (*houdiniVdbLoadFunc)(const char* filepath, const char* name);
+    houdiniVdbLoadFunc m_houdiniVdbLoadFunc = nullptr;
+};
+
+static HoudiniVdbLoader houdiniVdbLoader;
+}  // namespace
 #endif
-}
 
 void
 HdCyclesVolumeLoader::UpdateGrid()
@@ -80,9 +100,7 @@ HdCyclesVolumeLoader::UpdateGrid()
             // Load vdb grid from memory if the filepath is pointing to a houdini sop
             static std::string opPrefix("op:");
             if (m_file_path.compare(0, opPrefix.size(), opPrefix) == 0) {
-                auto vdbPrim = reinterpret_cast<GT_PrimVDB*>(
-                    (*m_houdiniVdbLoader)(m_file_path.c_str(), grid_name.c_str()));
-                this->grid = vdbPrim->getGrid()->copyGrid();
+                this->grid = houdiniVdbLoader.getGrid(m_file_path.c_str(), grid_name.c_str());
             } else {
                 openvdb::io::File file(m_file_path);
                 file.setCopyMaxBytes(0);
