@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2020 Tangent Animation & Advanced Micro Devices
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -32,6 +32,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 
 #ifdef Houdini_FOUND
 namespace {
+// This struct loads a vdb grid from Houdini memory by loading the USD_SopVol 
+// This code uses a modified version AMD Radeon ProRender USD Hydra delegate HoudiniOpenvdbLoader.
+// Modified by using the USD native "ArchLibraryGetSymbolAddress" and returning a ConstPtr
+// to the grid instead of a raw pointer to GridBase. Nested in an anonymous namespace and 
+// uses a struct instead of a singleton class. 
 struct HoudiniVdbLoader {
     HoudiniVdbLoader()
     {
