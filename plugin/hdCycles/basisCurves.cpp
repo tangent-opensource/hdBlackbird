@@ -200,7 +200,7 @@ HdCyclesBasisCurves::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPa
             continue;
 
         VtVec3fArray pp;
-        pp = values.data()[i].Get<VtVec3fArray>();
+        pp = motion_samples.values.data()[i].Get<VtVec3fArray>();
 
         for (size_t j = 0; j < m_points.size(); ++j, ++mP) {
             *mP = vec3f_to_float3(pp[j]);
