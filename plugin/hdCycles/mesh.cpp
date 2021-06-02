@@ -19,19 +19,20 @@
 
 #include "mesh.h"
 
+#include "attributeSource.h"
 #include "config.h"
 #include "debug_codes.h"
 #include "instancer.h"
 #include "material.h"
+#include "meshSource.h"
 #include "renderDelegate.h"
 #include "renderParam.h"
+#include "transformSource.h"
 #include "utils.h"
 
 #include <pxr/imaging/hd/extComputationUtils.h>
 
-#ifdef USE_USD_CYCLES_SCHEMA
-#    include <usdCycles/tokens.h>
-#endif
+#include <usdCycles/tokens.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -54,8 +55,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_cyclesMesh(nullptr)
     , m_cyclesObject(nullptr)
     , m_velocityScale(1.0f)
-    , m_useMotionBlur(false)
-    , m_useDeformMotionBlur(false)
     , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
@@ -65,32 +64,28 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_visTransmission(true)
     , m_renderDelegate(a_renderDelegate)
 {
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-    config.enable_motion_blur.eval(m_useMotionBlur, true);
-
     _InitializeNewCyclesMesh();
 }
 
 HdCyclesMesh::~HdCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
-    if (m_cyclesInstances.size() > 0) {
+
         for (auto instance : m_cyclesInstances) {
             if (instance) {
-                m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+            m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
                 delete instance;
             }
         }
-    }
 }
 
 void
@@ -122,16 +117,17 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     ccl::Attribute* uv_attr       = attributes->add(ccl::ATTR_STD_UV, uv_name);
     auto attrib_data              = uv_attr->data_float2();
 
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
+
     if (interpolation == HdInterpolationConstant) {
-        VtValue refined_value = m_refiner->RefineConstantData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        VtValue refined_value = refiner->RefineConstantData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
         if (refined_value.GetArraySize() != 1) {
             TF_WARN("Failed to refine constant texture coordinates!");
             return;
         }
 
         auto refined_uvs                    = refined_value.UncheckedGet<VtVec2fArray>();
-        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
-        for (size_t face = 0, offset = 0; face < refined_indices.size(); ++face) {
+        for (size_t face = 0, offset = 0; face < refiner->GetTriangulatedTopology().GetNumFaces(); ++face) {
             for (size_t i = 0; i < 3; ++i, ++offset) {
                 attrib_data[offset][0] = refined_uvs[0][0];
                 attrib_data[offset][1] = refined_uvs[0][1];
@@ -140,15 +136,14 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     }
 
     if (interpolation == HdInterpolationUniform) {
-        VtValue refined_value = m_refiner->RefineUniformData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        VtValue refined_value = refiner->RefineUniformData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
         if (refined_value.GetArraySize() != m_cyclesMesh->num_triangles()) {
             TF_WARN("Failed to refine uniform texture coordinates!");
             return;
         }
 
         auto refined_uvs                    = refined_value.UncheckedGet<VtVec2fArray>();
-        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
-        for (size_t face = 0, offset = 0; face < refined_indices.size(); ++face) {
+        for (size_t face = 0, offset = 0; face < refiner->GetTriangulatedTopology().GetNumFaces(); ++face) {
             for (size_t i = 0; i < 3; ++i, ++offset) {
                 attrib_data[offset][0] = refined_uvs[face][0];
                 attrib_data[offset][1] = refined_uvs[face][1];
@@ -161,18 +156,16 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
 
     auto add_vertex_or_varying_attrib = [&](const VtValue& refined_value) {
         auto refined_uvs                    = refined_value.UncheckedGet<VtVec2fArray>();
-        const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
-        for (size_t face = 0, offset = 0; face < refined_indices.size(); ++face) {
-            for (size_t i = 0; i < 3; ++i, ++offset) {
-                const int& vertex_index = refined_indices[face][i];
+        const VtIntArray& refined_indices = refiner->GetTriangulatedTopology().GetFaceVertexIndices();
+        for (size_t offset = 0; offset < refined_indices.size(); ++offset) {
+            const int& vertex_index = refined_indices[offset];
                 attrib_data[offset][0]  = refined_uvs[vertex_index][0];
                 attrib_data[offset][1]  = refined_uvs[vertex_index][1];
             }
-        }
     };
 
     if (interpolation == HdInterpolationVertex) {
-        VtValue refined_value = m_refiner->RefineVertexData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        VtValue refined_value = refiner->RefineVertexData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
         if (refined_value.GetArraySize() != m_cyclesMesh->get_verts().size()) {
             TF_WARN("Failed to refine vertex texture coordinates!");
             return;
@@ -183,7 +176,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     }
 
     if (interpolation == HdInterpolationVarying) {
-        VtValue refined_value = m_refiner->RefineVaryingData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        VtValue refined_value = refiner->RefineVaryingData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
         if (refined_value.GetArraySize() != m_cyclesMesh->get_verts().size()) {
             TF_WARN("Failed to refine varying texture coordinates!");
             return;
@@ -194,9 +187,8 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     }
 
     if (interpolation == HdInterpolationFaceVarying) {
-        VtValue refined_value = m_refiner->RefineFaceVaryingData(name, HdPrimvarRoleTokens->textureCoordinate,
-                                                                 uvs_value);
-        if (refined_value.GetArraySize() != m_refiner->GetNumRefinedTriangles() * 3) {
+        VtValue refined_value = refiner->RefineFaceVaryingData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
+        if (refined_value.GetArraySize() != refiner->GetTriangulatedTopology().GetNumFaces() * 3) {
             TF_WARN("Invalid number of refined vertices");
             return;
         }
@@ -218,6 +210,7 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
     // PopulateTangents
 
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     for (const ccl::ustring& name : m_texture_names) {
         ccl::ustring tangent_name = ccl::ustring(name.string() + ".tangent");
@@ -231,7 +224,7 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
         }
 
         // Take tangent from subdivision limit surface
-        if (m_refiner->IsSubdivided()) {
+        if (refiner->IsSubdivided()) {
             // subdivided tangents are per vertex
 
             if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT)) {
@@ -388,97 +381,8 @@ HdCyclesMesh::_PopulateColors(const TfToken& name, const TfToken& role, const Vt
     }
 
     // Primvar color attributes
-
-    ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
-
-    if (interpolation == HdInterpolationUniform) {
-        VtValue refined_value = m_refiner->RefineUniformData(name, role, data);
-        if (refined_value.GetArraySize() != m_cyclesMesh->num_triangles()) {
-            TF_WARN("Empty colors can not be assigned to an faces!");
-            return;
-        }
-
-        ccl::ustring attrib_name { name.GetString().c_str(), name.GetString().size() };
-        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_FACE);
-        ccl::float3* cycles_colors   = color_attrib->data_float3();
-
-        auto refined_colors = refined_value.UncheckedGet<VtVec3fArray>();
-        for (size_t i = 0; i < m_cyclesMesh->num_triangles(); ++i) {
-            cycles_colors[i][0] = refined_colors[i][0];
-            cycles_colors[i][1] = refined_colors[i][1];
-            cycles_colors[i][2] = refined_colors[i][2];
-        }
-
-        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
-        return;
-    }
-
-    auto add_vertex_or_varying_attrib = [&](const VtValue& refined_value) {
-        if (!refined_value.GetArraySize()) {
-            TF_WARN("Empty colors can not be assigned to an vertices!");
-            return;
-        }
-
-        ccl::ustring attrib_name { name.GetString().c_str(), name.GetString().size() };
-        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_VERTEX);
-        ccl::float3* cycles_colors   = color_attrib->data_float3();
-
-        auto refined_colors = refined_value.UncheckedGet<VtVec3fArray>();
-        for (size_t i = 0; i < m_cyclesMesh->get_verts().size(); ++i) {
-            cycles_colors[i][0] = refined_colors[i][0];
-            cycles_colors[i][1] = refined_colors[i][1];
-            cycles_colors[i][2] = refined_colors[i][2];
-        }
-
-        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
-    };
-
-    // varying/vertex is assigned to vertices
-    if (interpolation == HdInterpolationVertex) {
-        VtValue refined_value = m_refiner->RefineVertexData(name, role, data);
-        if (refined_value.GetArraySize() != m_refiner->GetNumRefinedVertices()) {
-            TF_WARN("Invalid number of refined vertices");
-            return;
-        }
-
-        add_vertex_or_varying_attrib(refined_value);
-        return;
-    }
-
-    if (interpolation == HdInterpolationVarying) {
-        VtValue refined_value = m_refiner->RefineVaryingData(name, role, data);
-        if (refined_value.GetArraySize() != m_refiner->GetNumRefinedVertices()) {
-            TF_WARN("Invalid number of refined vertices");
-            return;
-        }
-
-        add_vertex_or_varying_attrib(refined_value);
-        return;
-    }
-
-    if (interpolation == HdInterpolationFaceVarying) {
-        VtValue refined_value = m_refiner->RefineFaceVaryingData(name, role, data);
-        if (refined_value.GetArraySize() != m_refiner->GetNumRefinedTriangles() * 3) {
-            TF_WARN("Invalid number of refined vertices");
-            return;
-        }
-
-        ccl::ustring attrib_name { name.GetString().c_str(), name.GetString().size() };
-        ccl::Attribute* color_attrib = attributes->add(attrib_name, ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_CORNER);
-        ccl::float3* attrib_data     = color_attrib->data_float3();
-
-        auto refined_color = refined_value.UncheckedGet<VtVec3fArray>();
-        for (size_t i = 0; i < refined_color.size(); ++i) {
-            attrib_data[i][0] = refined_color[i][0];
-            attrib_data[i][1] = refined_color[i][1];
-            attrib_data[i][2] = refined_color[i][2];
-        }
-
-        override_default_shader(m_cyclesMesh, m_attrib_display_color_shader);
-        return;
-    }
-
-    TF_WARN("Unsupported displayColor interpolation for primitive: %s", id.GetText());
+    m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(name, role, data, m_cyclesMesh, interpolation,
+                                                                    m_topology);
 }
 
 void
@@ -503,7 +407,8 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     //
     // Auto generated normals from limit surface
     //
-    if (m_refiner->IsSubdivided()) {
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
+    if (refiner->IsSubdivided()) {
         assert(m_limit_us.size() == m_cyclesMesh->get_verts().size());
         assert(m_limit_vs.size() == m_cyclesMesh->get_verts().size());
 
@@ -565,10 +470,10 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
+        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
-        VtValue refined_value = m_refiner->RefineConstantData(HdTokens->normals, HdPrimvarRoleTokens->normal,
+        VtValue refined_value = refiner->RefineConstantData(HdTokens->normals, HdPrimvarRoleTokens->normal,
                                                               normals_value);
         if (refined_value.GetArraySize() != 1) {
             TF_WARN("Invalid uniform normals for: %s", id.GetText());
@@ -609,10 +514,10 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
+        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
-        VtValue refined_value = m_refiner->RefineUniformData(HdTokens->normals, HdPrimvarRoleTokens->normal,
+        VtValue refined_value = refiner->RefineUniformData(HdTokens->normals, HdPrimvarRoleTokens->normal,
                                                              normals_value);
         if (refined_value.GetArraySize() != num_triangles) {
             TF_WARN("Invalid uniform normals for: %s", id.GetText());
@@ -632,14 +537,14 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        const size_t num_vertices = m_refiner->GetNumRefinedVertices();
+        auto num_vertices = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumPoints());
         memset(normal_data, 0, num_vertices * sizeof(ccl::float3));
 
         VtValue refined_value;
         if (interpolation == HdInterpolationVertex) {
-            refined_value = m_refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+            refined_value = refiner->RefineVertexData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
         } else {
-            refined_value = m_refiner->RefineVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
+            refined_value = refiner->RefineVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal, normals_value);
         }
 
         if (refined_value.GetArraySize() != num_vertices) {
@@ -655,10 +560,10 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        const size_t num_triangles = m_refiner->GetNumRefinedTriangles();
+        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
-        VtValue refined_value = m_refiner->RefineFaceVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal,
+        VtValue refined_value = refiner->RefineFaceVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal,
                                                                  normals_value);
         if (refined_value.GetArraySize() != num_triangles * 3) {
             TF_WARN("Invalid facevarying normals for: %s", id.GetText());
@@ -679,11 +584,6 @@ HdCyclesMesh::_CreateCyclesMesh()
 {
     ccl::Mesh* mesh = new ccl::Mesh();
     mesh->clear();
-
-    if (m_useMotionBlur && m_useDeformMotionBlur) {
-        mesh->set_use_motion_blur(true);
-    }
-
     mesh->set_subdivision_type(ccl::Mesh::SUBDIVISION_NONE);
     return mesh;
 }
@@ -706,33 +606,39 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     // todo: this needs to be check to see if it is time-varying
     // todo: this should be shared with the points for the center motion step
-    std::vector<float> times(HD_CYCLES_MOTION_STEPS);
-    std::vector<VtValue> values(HD_CYCLES_MOTION_STEPS);
-    const size_t numSamples = sceneDelegate->SamplePrimvar(id, HdTokens->points, HD_CYCLES_MOTION_STEPS, times.data(),
-                                                           values.data());
+    // TODO: implement resampling based on number of requested samples
+    HdCyclesValueTimeSampleArray motion_samples;
+    sceneDelegate->SamplePrimvar(id, HdTokens->points, &motion_samples);
 
-    if (numSamples <= 1) {
-        return;
-    }
+    const size_t numSamples = motion_samples.count;
+    auto& times = motion_samples.times;
+    auto& values = motion_samples.values;
 
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
+    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
+    if (attr_mP) {
+        attributes->remove(attr_mP);
+    }
+
+    if (numSamples <= 1) {
+        m_cyclesMesh->set_use_motion_blur(false);
+        m_cyclesMesh->set_motion_steps(0);
+        return;
+    }
 
     m_cyclesMesh->set_use_motion_blur(true);
     m_cyclesMesh->set_motion_steps(numSamples + ((numSamples % 2) ? 0 : 1));
 
-    ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
-
-    if (attr_mP)
-        attributes->remove(attr_mP);
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     attr_mP         = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     ccl::float3* mP = attr_mP->data_float3();
 
-    for (size_t i = 0; i < numSamples; ++i) {
+    for (unsigned int i = 0; i < numSamples; ++i) {
         if (times[i] == 0.0f)  // todo: more flexible check?
             continue;
 
-        VtValue refined_points_value = m_refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
+        VtValue refined_points_value = refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
                                                                    values[i]);
         if (!refined_points_value.IsHolding<VtVec3fArray>()) {
             TF_WARN("Cannot fill in motion step %d for: %s\n", static_cast<int>(i), id.GetText());
@@ -741,7 +647,7 @@ HdCyclesMesh::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 
         VtVec3fArray refined_points = refined_points_value.UncheckedGet<VtVec3fArray>();
 
-        for (size_t j = 0; j < m_refiner->GetNumRefinedVertices(); ++j, ++mP) {
+        for (size_t j = 0; j < refiner->GetTriangulatedTopology().GetNumPoints(); ++j, ++mP) {
             *mP = vec3f_to_float3(refined_points[j]);
         }
     }
@@ -754,30 +660,29 @@ HdCyclesMesh::_PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& i
     topology.SetSubdivTags(GetSubdivTags(sceneDelegate));
 
     HdDisplayStyle display_style = sceneDelegate->GetDisplayStyle(id);
-#ifdef USE_USD_CYCLES_SCHEMA
-    auto refine_value         = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
-    int refine_level          = refine_value.IsEmpty() ? 0 : refine_value.Cast<int>().UncheckedGet<int>();
-    display_style.refineLevel = refine_level;
-#endif  // USE_USD_CYCLES_SCHEMA
+    display_style.refineLevel = m_refineLevel;
 
     // Refiner holds pointer to topology therefore refiner can't outlive the topology
-    m_topology = HdMeshTopology(topology, display_style.refineLevel);
-    m_refiner  = HdCyclesMeshRefiner::Create(m_topology, id);
+    m_topology = std::make_shared<HdBbMeshTopology>(id, topology, display_style.refineLevel);
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     // Mesh is independently updated in two stages, faces(topology) and vertices(data).
     // Because process of updating vertices can fail for unknown reason,
     // we can end up with an empty vertex array. Indices must point to a valid vertex array(resize).
     m_cyclesMesh->clear();
-    m_cyclesMesh->resize_mesh(m_refiner->GetNumRefinedVertices(), m_refiner->GetNumRefinedTriangles());
+    m_cyclesMesh->resize_mesh(refiner->GetTriangulatedTopology().GetNumPoints(),
+                              refiner->GetTriangulatedTopology().GetNumFaces());
 
-    const VtVec3iArray& refined_indices = m_refiner->GetRefinedVertexIndices();
+    const VtIntArray& refined_indices = refiner->GetTriangulatedTopology().GetFaceVertexIndices();
     for (size_t i = 0; i < refined_indices.size(); ++i) {
-        const GfVec3i& triangle_indices = refined_indices[i];
+        m_cyclesMesh->get_triangles()[i] = refined_indices[i];
+    }
 
-        m_cyclesMesh->get_triangles()[i * 3 + 0] = triangle_indices[0];
-        m_cyclesMesh->get_triangles()[i * 3 + 1] = triangle_indices[1];
-        m_cyclesMesh->get_triangles()[i * 3 + 2] = triangle_indices[2];
+    for (size_t i = 0; i < m_cyclesMesh->get_verts().size(); ++i) {
+        m_cyclesMesh->get_verts()[i] = ccl::float3 { 0.f, 0.f, 0.f, 0.f };
+    }
 
+    for (size_t i {}; i < refiner->GetTriangulatedTopology().GetNumFaces(); ++i) {
         m_cyclesMesh->get_smooth()[i] = true;  // TODO: move to Populate normals?
     }
 }
@@ -841,18 +746,18 @@ void
 HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const SdfPath& id)
 {
     // optimization to avoid unnecessary allocations
-    if (m_topology.GetGeomSubsets().empty()) {
+    if (m_topology->GetGeomSubsets().empty()) {
         return;
     }
 
     HdRenderIndex& render_index = sceneDelegate->GetRenderIndex();
 
     // collect unrefined material ids for each face
-    VtIntArray face_materials(m_topology.GetNumFaces(), 0);
+    VtIntArray face_materials(m_topology->GetNumFaces(), 0);
 
     auto& used_shaders = m_cyclesMesh->get_used_shaders();
     TfHashMap<SdfPath, int, SdfPath::Hash> material_map;
-    for (auto& subset : m_topology.GetGeomSubsets()) {
+    for (auto& subset : m_topology->GetGeomSubsets()) {
         int subset_material_id = 0;
 
         if (!subset.materialId.IsEmpty()) {
@@ -867,15 +772,15 @@ HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const Sd
             auto search_it = material_map.find(subset.materialId);
             if (search_it == material_map.end()) {
                 used_shaders.push_back_slow(sub_mat->GetCyclesShader());
-                material_map[subset.materialId] = used_shaders.size();
-                subset_material_id              = used_shaders.size();
+                material_map[subset.materialId] = static_cast<int>(used_shaders.size());
+                subset_material_id = static_cast<int>(used_shaders.size());
             } else {
                 subset_material_id = search_it->second;
             }
         }
 
         for (int i : subset.indices) {
-            face_materials[i] = std::max(subset_material_id - 1, 0);
+            face_materials[static_cast<size_t>(i)] = std::max(subset_material_id - 1, 0);
         }
     }
 
@@ -885,7 +790,8 @@ HdCyclesMesh::_PopulateSubSetsMaterials(HdSceneDelegate* sceneDelegate, const Sd
     }
 
     // refine material ids and assign them to refined geometry
-    VtValue refined_value = m_refiner->RefineUniformData(HdTokens->materialParams, HdPrimvarRoleTokens->none,
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
+    VtValue refined_value = refiner->RefineUniformData(HdTokens->materialParams, HdPrimvarRoleTokens->none,
                                                          VtValue { face_materials });
 
     if (refined_value.GetArraySize() != m_cyclesMesh->get_shader().size()) {
@@ -957,6 +863,13 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
                 continue;
             }
 
+            // do not commit primvars with cycles: prefix
+            if (m_cyclesMesh && !TfStringStartsWith(description.name.GetString(), "cycles:")) {
+                m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(description.name, description.role,
+                                                                                value, m_cyclesMesh,
+                                                                                description.interpolation, m_topology);
+            }
+
             // TODO: Add arbitrary primvar support when AOVs are working
         }
     }
@@ -1015,8 +928,10 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
         points_value = points_value.Cast<VtVec3fArray>();
     }
 
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
+
     VtVec3fArray points;
-    VtValue refined_points_value = m_refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
+    VtValue refined_points_value = refiner->RefineVertexData(HdTokens->points, HdPrimvarRoleTokens->point,
                                                                points_value);
     if (refined_points_value.IsHolding<VtVec3fArray>()) {
         points = refined_points_value.Get<VtVec3fArray>();
@@ -1033,7 +948,7 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
     //
     // Compute limit attributes once, then in the FinishMesh clean up the data
     //
-    if (m_refiner->IsSubdivided()) {
+    if (refiner->IsSubdivided()) {
         Vt_ArrayForeignDataSource foreign_data_source {};
         VtFloat3Array refined_vertices { &foreign_data_source, m_cyclesMesh->get_verts().data(),
                                          m_cyclesMesh->get_verts().size(), false };
@@ -1041,7 +956,7 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
         VtFloat3Array limit_ps(refined_vertices.size());
         m_limit_us.resize(refined_vertices.size());
         m_limit_vs.resize(refined_vertices.size());
-        m_refiner->EvaluateLimit(refined_vertices, limit_ps, m_limit_us, m_limit_vs);
+        refiner->EvaluateLimit(refined_vertices, limit_ps, m_limit_us, m_limit_vs);
 
         // snap to limit surface
         std::memcpy(m_cyclesMesh->get_verts().data(), limit_ps.data(), limit_ps.size() * sizeof(ccl::float3));
@@ -1080,39 +995,28 @@ void
 HdCyclesMesh::_InitializeNewCyclesMesh()
 {
     if (m_cyclesMesh) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveMesh(m_cyclesMesh);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesMesh);
         delete m_cyclesMesh;
     }
 
     if (m_cyclesObject) {
-        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(m_cyclesObject);
         delete m_cyclesObject;
     }
 
     m_cyclesObject        = _CreateCyclesObject();
     m_cyclesMesh          = _CreateCyclesMesh();
-    m_numTransformSamples = HD_CYCLES_MOTION_STEPS;
-
-    if (m_useMotionBlur) {
-        // Motion steps are currently a static const compile time
-        // variable... This is likely an issue...
-        // TODO: Get this from usdCycles schema
-        //m_motionSteps = config.motion_steps;
-        m_motionSteps = m_numTransformSamples;
-
-        // Hardcoded for now until schema PR
-        m_useDeformMotionBlur = true;
-
-        // TODO: Needed when we properly handle motion_verts
-        m_cyclesMesh->set_motion_steps(m_motionSteps);
-        m_cyclesMesh->set_use_motion_blur(m_useDeformMotionBlur);
-    }
-
-    m_cyclesObject->name = GetId().GetString();
     m_cyclesObject->set_geometry(m_cyclesMesh);
 
-    m_renderDelegate->GetCyclesRenderParam()->AddGeometry(m_cyclesMesh);
-    m_renderDelegate->GetCyclesRenderParam()->AddObject(m_cyclesObject);
+    m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesMesh);
+    m_renderDelegate->GetCyclesRenderParam()->AddObjectSafe(m_cyclesObject);
+
+    // when time comes to switch object management to resource registry we need to switch off reference
+    const SdfPath& id = GetId();
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id, true));
+    m_object_source = object_instance.GetValue();
 }
 
 void
@@ -1132,13 +1036,11 @@ HdCyclesMesh::GetInitialDirtyBitsMask() const
 HdDirtyBits
 HdCyclesMesh::_PropagateDirtyBits(HdDirtyBits bits) const
 {
-#ifdef USE_USD_CYCLES_SCHEMA
     // Usd controls subdivision level globally, passed through the topology. Change of custom max subdiv level primvar
     // must mark SubdivTags dirty.
     if (HdChangeTracker::IsPrimvarDirty(bits, GetId(), usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level)) {
         bits |= HdChangeTracker::DirtySubdivTags;
     }
-#endif  // USE_USD_CYCLES_SCHEMA
 
     // subdivision request requires full topology update
     if (bits & HdChangeTracker::DirtySubdivTags) {
@@ -1180,11 +1082,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     ccl::Scene* scene = param->GetCyclesScene();
     const SdfPath& id = GetId();
 
-    std::lock_guard<std::mutex>(scene->mutex);
+    ccl::thread_scoped_lock lock { scene->mutex };
 
     // -------------------------------------
     // -- Resolve Drawstyles
-#ifdef USE_USD_CYCLES_SCHEMA
 
     std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
         { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
@@ -1194,19 +1095,51 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     };
 
+    // Set defaults, so that in a "do nothing" scenario it'll revert to defaults, or if you view
+    // a different node context without any settings set.
+    m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
+    m_motionBlur = true;
+    m_motionTransformSteps = 3;
+    m_motionDeformSteps = 3;
+    m_cyclesObject->set_is_shadow_catcher(false);
+    m_cyclesObject->set_pass_id(0);
+    m_cyclesObject->set_use_holdout(false);
+    m_cyclesObject->set_asset_name(ccl::ustring(""));
+    m_refineLevel = 0;
+
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
-            // Mesh Specific
+            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                continue;
+            }
 
-            m_useMotionBlur = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                          usdCyclesTokens->primvarsCyclesObjectMblur, m_useMotionBlur);
+            const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
 
-            m_useDeformMotionBlur = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                usdCyclesTokens->primvarsCyclesObjectMblurDeform,
-                                                                m_useDeformMotionBlur);
+            if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
+                m_refineLevel = value.Get<int>();
+                continue;
+            }
 
-            m_motionSteps = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                        usdCyclesTokens->primvarsCyclesObjectMblurSteps, m_motionSteps);
+            // motion blur settings
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
+                m_motionBlur = value.Get<bool>();
+                continue;
+            }
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
+                m_motionTransformSteps = value.Get<int>();
+                continue;
+            }
+
+            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
+                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
+                m_motionDeformSteps = value.Get<int>();
+                continue;
+            }
 
             // Object Generic
 
@@ -1223,6 +1156,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                             usdCyclesTokens->primvarsCyclesObjectUse_holdout,
                                             m_cyclesObject->get_use_holdout()));
+
+            std::string assetName = m_cyclesObject->get_asset_name().c_str();
+            assetName = _HdCyclesGetMeshParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
+                                                           usdCyclesTokens->primvarsCyclesObjectAsset_name, assetName);
+            m_cyclesObject->set_asset_name(ccl::ustring(assetName));
 
             // Visibility
 
@@ -1260,7 +1198,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
         }
     }
-#endif
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         _sharedData.visible = sceneDelegate->GetVisible(id);
@@ -1290,8 +1227,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         _PopulateVertices(sceneDelegate, id, dirtyBits);
     }
 
-    if (m_useMotionBlur && m_useDeformMotionBlur) {
+    if (m_motionBlur && m_motionDeformSteps > 0) {
         _PopulateMotion(sceneDelegate, id);
+    } else {
+        m_cyclesMesh->set_use_motion_blur(false);
+        m_cyclesMesh->set_motion_steps(0);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyNormals) {
@@ -1302,12 +1242,27 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         _PopulatePrimvars(sceneDelegate, scene, id, dirtyBits);
     }
 
-    if (*dirtyBits & HdChangeTracker::DirtyDoubleSided) {
-        //         m_doubleSided = sceneDelegate->GetDoubleSided(id);
-    }
+    // Object transform needs to be applied to instances.
+    ccl::Transform obj_tfm = ccl::transform_identity();
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
-        m_transformSamples = HdCyclesSetTransform(m_cyclesObject, scene, sceneDelegate, id, m_useMotionBlur);
+        auto fallback = sceneDelegate->GetTransform(id);
+        HdCyclesMatrix4dTimeSampleArray xf {};
+
+        std::shared_ptr<HdCyclesTransformSource> transform_source;
+        if (m_motionBlur && m_motionTransformSteps > 1) {
+            sceneDelegate->SampleTransform(id, &xf);
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback,
+                                                                         m_motionTransformSteps);
+        } else {
+            transform_source = std::make_shared<HdCyclesTransformSource>(m_object_source->GetObject(), xf, fallback);
+        }
+        if (transform_source->IsValid()) {
+            transform_source->Resolve();
+        }
+
+        m_object_source->AddObjectPropertiesSource(std::move(transform_source));
+        obj_tfm = mat4d_to_transform(fallback);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
@@ -1321,14 +1276,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     // -------------------------------------
     // -- Handle point instances
+    // -------------------------------------
     if (*dirtyBits & HdChangeTracker::DirtyInstancer) {
-        if (auto instancer = static_cast<HdCyclesInstancer*>(
-                sceneDelegate->GetRenderIndex().GetInstancer(GetInstancerId()))) {
-            auto instanceTransforms = instancer->SampleInstanceTransforms(id);
-            auto newNumInstances    = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
-
+        const SdfPath& instancer_id = GetInstancerId();
+        auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
+        if (instancer) {
             // Clear all instances...
-            if (m_cyclesInstances.size() > 0) {
                 for (auto instance : m_cyclesInstances) {
                     if (instance) {
                         m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
@@ -1336,9 +1289,14 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                     }
                 }
                 m_cyclesInstances.clear();
-            }
+
+            // create new instances
+            auto instanceTransforms = instancer->SampleInstanceTransforms(id);
+            auto newNumInstances = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
 
             if (newNumInstances != 0) {
+                using size_type = typename decltype(m_transformSamples.values)::size_type;
+
                 std::vector<TfSmallVector<GfMatrix4d, 1>> combinedTransforms;
                 combinedTransforms.reserve(newNumInstances);
                 for (size_t i = 0; i < newNumInstances; ++i) {
@@ -1348,11 +1306,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
                     if (m_transformSamples.count == 0
                         || (m_transformSamples.count == 1 && (m_transformSamples.values[0] == GfMatrix4d(1)))) {
-                        for (size_t j = 0; j < instanceTransforms.count; ++j) {
+                        for (size_type j = 0; j < instanceTransforms.count; ++j) {
                             instanceTransform[j] = instanceTransforms.values[j][i];
                         }
                     } else {
-                        for (size_t j = 0; j < instanceTransforms.count; ++j) {
+                        for (size_type j = 0; j < instanceTransforms.count; ++j) {
                             GfMatrix4d xf_j      = m_transformSamples.Resample(instanceTransforms.times[j]);
                             instanceTransform[j] = xf_j * instanceTransforms.values[j][i];
                         }
@@ -1362,13 +1320,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 for (size_t j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = _CreateCyclesObject();
 
-                    instanceObj->set_tfm(mat4d_to_transform(combinedTransforms[j].data()[0]));
+                    instanceObj->set_tfm(mat4d_to_transform(combinedTransforms[j].data()[0]) * obj_tfm);
                     instanceObj->set_geometry(m_cyclesMesh);
 
                     // TODO: Implement motion blur for point instanced objects
-                    /*if (m_useMotionBlur) {
+                    /*if (m_motionBlur) {
                         m_cyclesMesh->motion_steps    = m_motionSteps;
-                        m_cyclesMesh->use_motion_blur = m_useMotionBlur;
+                        m_cyclesMesh->use_motion_blur = m_motionBlur;
 
                         instanceObj->motion.clear();
                         instanceObj->motion.resize(m_motionSteps);
@@ -1410,58 +1368,6 @@ HdCyclesMesh::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDir
     }
 
     param->Interrupt();
-}
-
-namespace {
-template<typename From>
-VtValue
-value_to_vec3f_cast(const VtValue& input)
-{
-    auto& array = input.UncheckedGet<VtArray<From>>();
-    VtArray<GfVec3f> output(array.size());
-    std::transform(array.begin(), array.end(), output.begin(), [](const From& val) -> GfVec3f {
-        return { static_cast<float>(val), static_cast<float>(val), static_cast<float>(val) };
-    });
-    return VtValue { output };
-}
-
-template<typename From>
-VtValue
-vec2T_to_vec3f_cast(const VtValue& input)
-{
-    auto& array = input.UncheckedGet<VtArray<From>>();
-
-    VtArray<GfVec3f> output(array.size());
-    std::transform(array.begin(), array.end(), output.begin(), [](const From& val) -> GfVec3f {
-        return { static_cast<float>(val[0]), static_cast<float>(val[1]), 0.0 };
-    });
-    return VtValue { output };
-}
-
-template<typename From>
-VtValue
-vec3T_to_vec3f_cast(const VtValue& input)
-{
-    auto& array = input.UncheckedGet<VtArray<From>>();
-
-    VtArray<GfVec3f> output(array.size());
-    std::transform(array.begin(), array.end(), output.begin(), [](const From& val) -> GfVec3f {
-        return { static_cast<float>(val[0]), static_cast<float>(val[1]), static_cast<float>(val[2]) };
-    });
-    return VtValue { output };
-}
-
-}  // namespace
-
-TF_REGISTRY_FUNCTION_WITH_TAG(VtValue, HdCyclesMesh)
-{
-    VtValue::RegisterCast<VtArray<int>, VtArray<GfVec3f>>(&value_to_vec3f_cast<int>);
-    VtValue::RegisterCast<VtArray<bool>, VtArray<GfVec3f>>(&value_to_vec3f_cast<bool>);
-    VtValue::RegisterCast<VtArray<float>, VtArray<GfVec3f>>(&value_to_vec3f_cast<float>);
-
-    VtValue::RegisterCast<VtArray<GfVec2i>, VtArray<GfVec3f>>(&vec2T_to_vec3f_cast<GfVec2i>);
-    VtValue::RegisterCast<VtArray<GfVec3i>, VtArray<GfVec3f>>(&vec3T_to_vec3f_cast<GfVec3i>);
-    VtValue::RegisterCast<VtArray<GfVec4i>, VtArray<GfVec3f>>(&vec3T_to_vec3f_cast<GfVec4i>);
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

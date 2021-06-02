@@ -2,15 +2,14 @@
 
 name = 'hdcycles'
 
-version = '0.9.4'
+version = '0.13.0'
 
 authors = [
     'benjamin.skinner',
 ]
 
 requires = [
-    'usdcycles',
-    'cycles-1.13.0-ta.1.9.3',
+    'cycles-1.13.0-ta.1.11.0',
 ]
 
 variants = [
@@ -37,7 +36,7 @@ with scope("config") as c:
 def private_build_requires():
     import sys
     if 'win' in str(sys.platform):
-        return ['cmake-3.18<3.20', 'visual_studio',]
+        return ['cmake-3.18<3.20', 'visual_studio', 'Jinja2']
     else:
         return ['cmake-3.18<3.20', 'gcc-6']
 
@@ -55,7 +54,14 @@ def commands():
     env.HDCYCLES_PLUGIN_ROOT.set('{root}/plugin')
     env.HDCYCLES_TOOLS_ROOT.set('{root}/tools')
 
-    env.PXR_PLUGINPATH_NAME.append('{0}/usd/ndrCycles/resources'.format(env.HDCYCLES_PLUGIN_ROOT))
-    env.PXR_PLUGINPATH_NAME.append('{0}/usd/hdCycles/resources'.format(env.HDCYCLES_PLUGIN_ROOT))
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/ndrCycles/resources')
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/usdCycles/resources')
+    env.PXR_PLUGINPATH_NAME.append('{root}/plugin/usd/hdCycles/resources')
 
-    env.PATH.append("{0}".format(env.HDCYCLES_TOOLS_ROOT))
+    env.PYTHONPATH.prepend('{root}/plugin/python')
+
+    # required on windows
+    env.PATH.append('{root}/plugin/usd')
+
+    # For houdini_cycles to locate the schema
+    env.USD_CYCLES_GENERATED_SCHEMA.set('{root}/plugin/usd/usdCycles/resources/generatedSchema.usda')

@@ -68,19 +68,35 @@ HdCyclesParseUDIMS(const ccl::string& a_filepath, ccl::array<int>& a_tiles)
     std::string baseFileName = filepath.stem().string().substr(0, offset);
 
     std::vector<std::string> files;
-
+    try {
     BOOST_NS::filesystem::path path(ccl::path_dirname(a_filepath));
-    for (BOOST_NS::filesystem::directory_iterator it(path); it != BOOST_NS::filesystem::directory_iterator(); ++it) {
-        if (BOOST_NS::filesystem::is_regular_file(it->status()) || BOOST_NS::filesystem::is_symlink(it->status())) {
+        if (BOOST_NS::filesystem::is_directory(path)) {
+            for (BOOST_NS::filesystem::directory_iterator it(path); it != BOOST_NS::filesystem::directory_iterator();
+                 ++it) {
+                try {
+                    if (BOOST_NS::filesystem::is_regular_file(it->status())
+                        || BOOST_NS::filesystem::is_symlink(it->status())) {
             std::string foundFile = BOOST_NS::filesystem::basename(it->path().filename());
 
             if (baseFileName == (foundFile.substr(0, offset))) {
                 files.push_back(foundFile);
             }
         }
+                } catch (BOOST_NS::exception& e) {
+                    TF_WARN("Filesystem error in HdCyclesParseUDIMS() when parsing file %s",it->path().filename().c_str());
+                }
+            }
+        }
+    } catch (BOOST_NS::exception& e) {
+        TF_WARN("Filesystem error in HdCyclesParseUDIMS() when parsing directory %s", a_filepath.c_str());
     }
 
     a_tiles.clear();
+
+    if (files.empty()) {
+        TF_WARN("Could not find any tiles for UDIM texture %s", a_filepath.c_str());
+        return;
+    }
 
     for (std::string file : files) {
         a_tiles.push_back_slow(atoi(file.substr(offset, offset + 3).c_str()));
@@ -123,6 +139,7 @@ HdCyclesCreateDefaultShader()
 
     ccl::ShaderNode* out = shader->graph->output();
     shader->graph->connect(vc->output("Color"), bsdf->input("Base Color"));
+    shader->graph->connect(vc->output("Alpha"), bsdf->input("Alpha"));
     shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
 
     return shader;
@@ -166,6 +183,22 @@ HdCyclesCreateAttribColorSurface()
     shader->graph->connect(bsdf->output("BSDF"), out->input("Surface"));
 
     return shader;
+}
+
+
+// They should be mappable to usd geom tokens, but not sure
+// if it's available in an hydra delegate
+const char*
+_HdInterpolationStr(const HdInterpolation& i)
+{
+    switch (i) {
+    case HdInterpolationConstant: return "Constant";
+    case HdInterpolationUniform: return "Uniform";
+    case HdInterpolationVarying: return "Varying";
+    case HdInterpolationFaceVarying: return "FaceVarying";
+    case HdInterpolationVertex: return "Vertex";
+    default: return "Unknown";
+    }
 }
 
 bool
@@ -237,15 +270,15 @@ HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* de
         }
 
         // Rounding to odd number of samples to have one in the center
-        const int sampleOffset     = (sampleCount % 2) ? 0 : 1;
-        const int numMotionSteps   = sampleCount + sampleOffset;
+        const size_t sampleOffset = (sampleCount % 2) ? 0 : 1;
+        const size_t numMotionSteps = sampleCount + static_cast<size_t>(sampleOffset);
         const float motionStepSize = (xf.times.back() - xf.times.front()) / static_cast<float>((numMotionSteps - 1));
         object->get_motion().resize(numMotionSteps, ccl::transform_empty());
 
         // For each step, we use the available data from the neighbors
         // to calculate the transforms at uniform steps
         for (size_t i = 0; i < numMotionSteps; ++i) {
-            const float stepTime = xf.times.front() + motionStepSize * i;
+            const float stepTime = xf.times.front() + motionStepSize * static_cast<float>(i);
 
             // We always have the transforms at the boundaries
             if (i == 0 || i == numMotionSteps - 1) {
@@ -256,7 +289,7 @@ HdCyclesSetTransform(ccl::Object* object, ccl::Scene* scene, HdSceneDelegate* de
             // Find closest left/right neighbors
             float prevTimeDiff = -INFINITY, nextTimeDiff = INFINITY;
             int iXfPrev = -1, iXfNext = -1;
-            for (size_t j = 0; j < sampleCount; ++j) {
+            for (int j = 0; j < sampleCount; ++j) {
                 // If we only have three samples, we prefer to recalculate
                 // the intermediate one as the left/right are calculated
                 // using linear interpolation, leading to artifacts
@@ -393,10 +426,22 @@ int2_to_vec2i(const ccl::int2& a_int)
     return GfVec2i(a_int.x, a_int.y);
 }
 
+GfVec2f
+int2_to_vec2f(const ccl::int2& a_int)
+{
+    return GfVec2f(static_cast<float>(a_int.x), static_cast<float>(a_int.y));
+}
+
 ccl::float2
 vec2f_to_float2(const GfVec2f& a_vec)
 {
     return ccl::make_float2(a_vec[0], a_vec[1]);
+}
+
+ccl::int2
+vec2f_to_int2(const GfVec2f& a_vec)
+{
+    return ccl::make_int2(static_cast<int>(a_vec[0]), static_cast<int>(a_vec[1]));
 }
 
 ccl::float2
@@ -760,7 +805,7 @@ mikk_get_num_faces(const SMikkTSpaceContext* context)
     if (userdata->mesh->get_num_subd_faces()) {
         return userdata->mesh->get_num_subd_faces();
     } else {
-        return userdata->mesh->num_triangles();
+        return static_cast<int>(userdata->mesh->num_triangles());
     }
 }
 

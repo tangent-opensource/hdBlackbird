@@ -31,5 +31,29 @@ target_compile_definitions(UsdInterface
 
 target_link_libraries(UsdInterface
     INTERFACE
-    hd usdHydra usdImaging usdRender
+    hd usdHydra usdImaging usdRender usdSkel
     )
+# Find Usd Schema Generator
+
+find_program(USD_SCHEMA_GENERATOR
+        NAMES
+        usdGenSchema
+        PATHS
+        ${USD_ROOT}/bin
+        NO_DEFAULT_PATH
+        )
+
+# Fallback to py script, remove after 18.5.519 release and add REQUIORED to usdGenSchema find_program
+
+if(NOT USD_SCHEMA_GENERATOR)
+    find_program(USD_SCHEMA_GENERATOR
+            NAMES
+            usdGenSchema.py
+            PATHS
+            ${USD_ROOT}/bin
+            REQUIRED
+            NO_DEFAULT_PATH
+            )
+    list(PREPEND USD_SCHEMA_GENERATOR python)
+    set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
+endif()

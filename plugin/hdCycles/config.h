@@ -51,7 +51,11 @@ PXR_NAMESPACE_OPEN_SCOPE
 template<typename T> struct HdCyclesEnvValue {
     HdCyclesEnvValue() = default;
 
-    HdCyclesEnvValue(const char* a_envName, T a_default) {}
+    HdCyclesEnvValue(const char* a_envName, T a_default)
+        : value { a_default }
+        , envName { a_envName }
+    {
+    }
 
     T value;
     bool hasOverride;
@@ -151,13 +155,7 @@ public:
      * @brief If enabled, HdCycles will populate object's motion and enable motion blur
      *
      */
-    HdCyclesEnvValue<bool> enable_motion_blur;
-
-    /**
-     * @brief Number of frames to populate motion for
-     *
-     */
-    HdCyclesEnvValue<int> motion_steps;
+    HdCyclesEnvValue<bool> motion_blur;
 
     /**
      * @brief If enabled, subdiv meshes will be subdivided
@@ -266,12 +264,6 @@ public:
     HdCyclesEnvValue<int> max_samples;
 
     /**
-     * @brief Number of threads to use for cycles render
-     *
-     */
-    HdCyclesEnvValue<int> num_threads;
-
-    /**
      * @brief Size of pixel
      *
      */
@@ -373,6 +365,84 @@ public:
      *
      */
     HdCyclesEnvValue<int> adaptive_min_samples;
+
+    /**
+     * @brief Use OpenImageIO texture cache
+     *
+     */
+    HdCyclesEnvValue<bool> texture_use_cache;
+
+    /**
+     * @brief Texture cache size
+     *
+     */
+    HdCyclesEnvValue<int> texture_cache_size;
+
+    /**
+     * @brief Texture cache tile size
+     *
+     */
+    HdCyclesEnvValue<int> texture_tile_size;
+
+    /**
+     * @brief Texture cache diffuse blur
+     *
+     */
+    HdCyclesEnvValue<float> texture_diffuse_blur;
+
+    /**
+     * @brief Texture cache glossy blur
+     *
+     */
+    HdCyclesEnvValue<float> texture_glossy_blur;
+
+    /**
+     * @brief Create tiled mip maps automatically
+     *
+     */
+    HdCyclesEnvValue<bool> texture_auto_convert;
+
+    /**
+     * @brief Accept textures without mip maps
+     *
+     */
+    HdCyclesEnvValue<bool> texture_accept_unmipped;
+
+    /**
+     * @brief Accept textures that are not tiled
+     *
+     */
+    HdCyclesEnvValue<bool> texture_accept_untiled;
+
+    /**
+     * @brief Automatically tile textures
+     *
+     */
+    HdCyclesEnvValue<bool> texture_auto_tile;
+
+    /**
+     * @brief Automatically create mip maps
+     *
+     */
+    HdCyclesEnvValue<bool> texture_auto_mip;
+
+    /**
+     * @brief Use custom texture cache path
+     *
+     */
+    HdCyclesEnvValue<bool> texture_use_custom_path;
+
+    /**
+     * @brief The custom texture cache path
+     *
+     */
+    HdCyclesEnvValue<std::string>  texture_custom_path;
+
+    /**
+     * @brief Max Texture Size
+     *
+     */
+    HdCyclesEnvValue<int> texture_max_size;
 
 private:
     /**

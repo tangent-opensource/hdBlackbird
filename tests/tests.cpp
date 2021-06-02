@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2021 Tangent Animation
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,10 +17,5 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef HD_CYCLES_H
-#define HD_CYCLES_H
-
-static constexpr int HD_CYCLES_MOTION_STEPS = 3;
-static constexpr int HD_CYCLES_MAX_PRIMVAR_SAMPLES = 3;
-
-#endif  // HD_CYCLES_H
+#define DOCTEST_CONFIG_IMPLEMENT
+#include <doctest/doctest.h>
