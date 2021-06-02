@@ -97,20 +97,14 @@ foreach(_pxr_lib ${_houdini_pxr_libs})
 endforeach()
 
 # Find Usd Schema Generator
-
-if(APPLE)
-        set(HOUDINI_BIN ${HOUDINI_ROOT}/Resources/bin)
-else()
-        set(HOUDINI_BIN ${HOUDINI_ROOT}/bin)
-endif()
-
 if (NOT USD_SCHEMA_GENERATOR)
         find_program(USD_SCHEMA_GENERATOR
                 NAMES
                 usdGenSchema.py
                 usdGenSchema
                 PATHS
-                ${HOUDINI_BIN}
+                ${HOUDINI_BIN}/bin
+                ${HOUDINI_ROOT}/Resources/bin
                 REQUIRED
                 NO_DEFAULT_PATH
                 )
