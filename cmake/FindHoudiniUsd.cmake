@@ -29,6 +29,7 @@ target_compile_definitions(UsdInterface
     INTERFACE
     USE_HBOOST
     BOOST_NS=hboost
+    Houdini_FOUND=TRUE
 )
 
 set(_houdini_libs OpenImageIO_sidefx;hboost_filesystem-mt-x64;hboost_iostreams-mt-x64;hboost_system-mt-x64;hboost_regex-mt-x64)
