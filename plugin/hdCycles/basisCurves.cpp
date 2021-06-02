@@ -176,7 +176,6 @@ HdCyclesBasisCurves::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPa
 
     const size_t numSamples = motion_samples.count;
     auto& times = motion_samples.times;
-    auto& values = motion_samples.values;
 
     ccl::AttributeSet* attributes = &m_cyclesHair->attributes;
     ccl::Attribute* attr_mP = attributes->find(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
@@ -196,12 +195,12 @@ HdCyclesBasisCurves::_PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPa
     attr_mP = attributes->add(ccl::ATTR_STD_MOTION_VERTEX_POSITION);
     ccl::float3* mP = attr_mP->data_float3();
 
-    for (size_t i = 0; i < motion_samples.count; ++i) {
+    for (unsigned i = 0; i < motion_samples.count; ++i) {
         if (times[i] == 0.0f)  // todo: more flexible check?
             continue;
 
         VtVec3fArray pp;
-        pp = motion_samples.values.data()[i].Get<VtVec3fArray>();
+        pp = values.data()[i].Get<VtVec3fArray>();
 
         for (size_t j = 0; j < m_points.size(); ++j, ++mP) {
             *mP = vec3f_to_float3(pp[j]);
