@@ -712,18 +712,7 @@ HdCyclesMesh::_PopulateMotionAttributeVec3f(HdSceneDelegate* sceneDelegate, cons
         if (times[i] == 0.0f)  // todo: more flexible check?
             continue;
 
-        VtValue refined_value;
-        if (interpolation_refine == HdInterpolationVertex) {
-            refined_value = refiner->RefineVertexData(token, role, values[i]);
-        } else if (interpolation_refine == HdInterpolationFaceVarying) {
-            refined_value = refiner->RefineFaceVaryingData(token, role, values[i]);
-        } else if (interpolation_refine == HdInterpolationUniform) {
-            refined_value = refiner->RefineUniformData(token, role, values[i]);
-        } else {
-            TF_WARN("Trying to populate motion attribute %s with unsupported interpolation", token.GetText());
-            return;
-        }
-
+        VtValue refined_value = refiner->Refine(token, role, values[i], interpolation_refine);
         if (!refined_value.IsHolding<VtVec3fArray>()) {
             TF_WARN("Cannot fill in motion step %d for: %s\n", static_cast<int>(i), id.GetText());
             continue;
