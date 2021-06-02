@@ -512,7 +512,6 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
             normal_data[i] = vec3f_to_float3(refined_normals[i]);
         }
 #else
-
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data = normal_attr->data_float3();
 
@@ -1456,7 +1455,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             }
         }
     }
-
 
     _FinishMesh(scene);
     _UpdateObject(scene, param, dirtyBits, topologyIsDirty);
