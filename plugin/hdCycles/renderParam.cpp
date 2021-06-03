@@ -1869,17 +1869,24 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     } else {
         // Since the sensor is scaled uniformly, we also scale all the corners
         // of the image rect by the maximum amount of overscan
+        // But only allocate and render a subrect
         const float overscan = MaxOverscan();
+
+        // Full rect
         const unsigned int full_width = (1.f + overscan * 2.f) * m_resolutionImage[0];
         const unsigned int full_height = (1.f + overscan * 2.f) * m_resolutionImage[1];
 
-        // But only allocate and render a subrect, which could be partly cropped
+        // Translate to the origin of the full rect
+        const float x_ndc = m_dataWindowNDC[0] - overscan;
+        const float y_ndc = m_dataWindowNDC[1] - overscan;
+        const float width_ndc = m_dataWindowNDC[2] - m_dataWindowNDC[0];
+
         m_bufferParams.full_width = full_width;
         m_bufferParams.full_height = full_height;
-        m_bufferParams.full_x = 0;
-        m_bufferParams.full_y = 0;
-        m_bufferParams.width = full_width;
-        m_bufferParams.height = full_height;
+        m_bufferParams.full_x = (m_dataWindowNDC[0] - (-overscan)) * m_resolutionImage[0];
+        m_bufferParams.full_y = (m_dataWindowNDC[1] - (-overscan)) * m_resolutionImage[1];
+        m_bufferParams.width = (m_dataWindowNDC[2] - m_dataWindowNDC[0]) * m_resolutionImage[0];
+        m_bufferParams.height = (m_dataWindowNDC[3] - m_dataWindowNDC[1]) * m_resolutionImage[1];
 
         m_cyclesScene->camera->width = full_width;
         m_cyclesScene->camera->height = full_height;
