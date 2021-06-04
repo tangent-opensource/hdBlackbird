@@ -1866,6 +1866,7 @@ HdCyclesRenderParam::SetViewport(int w, int h)
 
         m_cyclesScene->camera->width = m_resolutionImage[0];
         m_cyclesScene->camera->height = m_resolutionImage[1];
+        m_cyclesScene->camera->overscan = 0.f;
     } else {
         // Since the sensor is scaled uniformly, we also scale all the corners
         // of the image rect by the maximum amount of overscan
@@ -1890,6 +1891,7 @@ HdCyclesRenderParam::SetViewport(int w, int h)
 
         m_cyclesScene->camera->width = full_width;
         m_cyclesScene->camera->height = full_height;
+        m_cyclesScene->camera->overscan = overscan;
     }
 
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
