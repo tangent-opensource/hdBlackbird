@@ -669,8 +669,6 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
 
     sceneParams->bvh_layout = ccl::BVH_LAYOUT_EMBREE;
 
-    sceneParams->persistent_data = false;
-
     config.curve_subdivisions.eval(sceneParams->hair_subdivisions, a_forceInit);
 }
 
@@ -803,8 +801,8 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
         if (m_cyclesSession && m_cyclesScene) {
             Interrupt(true);
             if (texture_updated) {
-                m_cyclesScene->image_manager->need_update = true;
-                m_cyclesScene->shader_manager->need_update = true;
+                m_cyclesScene->image_manager->tag_update();
+                m_cyclesScene->shader_manager->tag_update(m_cyclesScene, ccl::ShaderManager::UPDATE_ALL);
             }
         }
         return true;
@@ -873,7 +871,7 @@ HdCyclesRenderParam::_UpdateIntegratorFromConfig(bool a_forceInit)
 
     integrator->set_motion_blur(config.motion_blur.value);
 
-    integrator->tag_update(m_cyclesScene);
+    integrator->tag_update(m_cyclesScene, ccl::Integrator::UPDATE_ALL);
 }
 
 void
@@ -1173,7 +1171,7 @@ HdCyclesRenderParam::_HandleIntegratorRenderSetting(const TfToken& key, const Vt
     }
 
     if (integrator_updated) {
-        integrator->tag_update(m_cyclesScene);
+        integrator->tag_update(m_cyclesScene, ccl::Integrator::UPDATE_ALL);
         if (method_updated) {
             DirectReset();
         }
@@ -1836,12 +1834,12 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
     m_cyclesSession->progress.reset();
 
     if (m_geometryUpdated || m_shadersUpdated) {
-        m_cyclesScene->geometry_manager->tag_update(m_cyclesScene);
+        m_cyclesScene->geometry_manager->tag_update(m_cyclesScene, ccl::GeometryManager::UPDATE_ALL);
         m_geometryUpdated = false;
     }
 
     if (m_objectsUpdated || m_shadersUpdated) {
-        m_cyclesScene->object_manager->tag_update(m_cyclesScene);
+        m_cyclesScene->object_manager->tag_update(m_cyclesScene, ccl::ObjectManager::UPDATE_ALL);
         if (m_shadersUpdated) {
             m_cyclesScene->background->tag_update(m_cyclesScene);
         }
@@ -1849,12 +1847,12 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
         m_shadersUpdated = false;
     }
     if (m_lightsUpdated) {
-        m_cyclesScene->light_manager->tag_update(m_cyclesScene);
+        m_cyclesScene->light_manager->tag_update(m_cyclesScene, ccl::LightManager::UPDATE_ALL);
         m_lightsUpdated = false;
     }
 
     if (a_forceUpdate) {
-        m_cyclesScene->integrator->tag_update(m_cyclesScene);
+        m_cyclesScene->integrator->tag_update(m_cyclesScene, ccl::Integrator::UPDATE_ALL);
         m_cyclesScene->background->tag_update(m_cyclesScene);
         m_cyclesScene->film->tag_modified();
         m_cyclesScene->film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
