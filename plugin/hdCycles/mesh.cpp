@@ -470,7 +470,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_FACE_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
+        const size_t num_triangles = refiner->GetTriangulatedTopology().GetNumFaces();
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineConstantData(HdTokens->normals, HdPrimvarRoleTokens->normal,
@@ -514,7 +514,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
+        const size_t num_triangles = refiner->GetTriangulatedTopology().GetNumFaces();
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineUniformData(HdTokens->normals, HdPrimvarRoleTokens->normal,
@@ -537,7 +537,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        auto num_vertices = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumPoints());
+        const size_t num_vertices = refiner->GetTriangulatedTopology().GetNumPoints();
         memset(normal_data, 0, num_vertices * sizeof(ccl::float3));
 
         VtValue refined_value;
@@ -560,7 +560,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_CORNER_NORMAL);
         ccl::float3* normal_data    = normal_attr->data_float3();
 
-        auto num_triangles = static_cast<const size_t>(refiner->GetTriangulatedTopology().GetNumFaces());
+        const size_t num_triangles = refiner->GetTriangulatedTopology().GetNumFaces();
         memset(normal_data, 0, num_triangles * sizeof(ccl::float3));
 
         VtValue refined_value = refiner->RefineFaceVaryingData(HdTokens->normals, HdPrimvarRoleTokens->normal,
