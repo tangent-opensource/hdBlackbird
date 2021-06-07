@@ -1850,49 +1850,33 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     if (!m_resolutionAuthored) {
         m_resolutionImage = m_resolutionDisplay;
     }
-    
-    if (!HasOverscan()) {
-        m_renderRect[0] = m_dataWindowNDC[0] * (float)m_resolutionImage[0];
-        m_renderRect[1] = m_dataWindowNDC[1] * (float)m_resolutionImage[1];
-        m_renderRect[2] = m_dataWindowNDC[2] * (float)m_resolutionImage[0] - m_bufferParams.full_x;
-        m_renderRect[3] = m_dataWindowNDC[3] * (float)m_resolutionImage[1] - m_bufferParams.full_y;
 
-        m_bufferParams.full_width = m_resolutionImage[0];
-        m_bufferParams.full_height = m_resolutionImage[1];
-        m_bufferParams.full_x = static_cast<int>(m_renderRect[0]);
-        m_bufferParams.full_y = static_cast<int>(m_renderRect[1]);
-        m_bufferParams.width = static_cast<int>(m_renderRect[2]);
-        m_bufferParams.height = static_cast<int>(m_renderRect[3]);
+    // Since the sensor is scaled uniformly, we also scale all the corners
+    // of the image rect by the maximum amount of overscan
+    // But only allocate and render a subrect
+    const float overscan = MaxOverscan();
 
-        m_cyclesScene->camera->width = m_resolutionImage[0];
-        m_cyclesScene->camera->height = m_resolutionImage[1];
-        m_cyclesScene->camera->overscan = 0.f;
-    } else {
-        // Since the sensor is scaled uniformly, we also scale all the corners
-        // of the image rect by the maximum amount of overscan
-        // But only allocate and render a subrect
-        const float overscan = MaxOverscan();
+    // Full rect
+    const unsigned int full_width = (1.f + overscan * 2.f) * m_resolutionImage[0];
+    const unsigned int full_height = (1.f + overscan * 2.f) * m_resolutionImage[1];
 
-        // Full rect
-        const unsigned int full_width = (1.f + overscan * 2.f) * m_resolutionImage[0];
-        const unsigned int full_height = (1.f + overscan * 2.f) * m_resolutionImage[1];
+    // Translate to the origin of the full rect
+    const float x_ndc = m_dataWindowNDC[0] - overscan;
+    const float y_ndc = m_dataWindowNDC[1] - overscan;
+    const float width_ndc = m_dataWindowNDC[2] - m_dataWindowNDC[0];
 
-        // Translate to the origin of the full rect
-        const float x_ndc = m_dataWindowNDC[0] - overscan;
-        const float y_ndc = m_dataWindowNDC[1] - overscan;
-        const float width_ndc = m_dataWindowNDC[2] - m_dataWindowNDC[0];
+    m_bufferParams.full_width = full_width;
+    m_bufferParams.full_height = full_height;
+    m_bufferParams.full_x = (m_dataWindowNDC[0] - (-overscan)) * m_resolutionImage[0];
+    m_bufferParams.full_y = (m_dataWindowNDC[1] - (-overscan)) * m_resolutionImage[1];
 
-        m_bufferParams.full_width = full_width;
-        m_bufferParams.full_height = full_height;
-        m_bufferParams.full_x = (m_dataWindowNDC[0] - (-overscan)) * m_resolutionImage[0];
-        m_bufferParams.full_y = (m_dataWindowNDC[1] - (-overscan)) * m_resolutionImage[1];
-        m_bufferParams.width = (m_dataWindowNDC[2] - m_dataWindowNDC[0]) * m_resolutionImage[0];
-        m_bufferParams.height = (m_dataWindowNDC[3] - m_dataWindowNDC[1]) * m_resolutionImage[1];
+    // Only allocate this
+    m_bufferParams.width = (m_dataWindowNDC[2] - m_dataWindowNDC[0]) * m_resolutionImage[0];
+    m_bufferParams.height = (m_dataWindowNDC[3] - m_dataWindowNDC[1]) * m_resolutionImage[1];
 
-        m_cyclesScene->camera->width = full_width;
-        m_cyclesScene->camera->height = full_height;
-        m_cyclesScene->camera->overscan = overscan;
-    }
+    m_cyclesScene->camera->width = full_width;
+    m_cyclesScene->camera->height = full_height;
+    m_cyclesScene->camera->overscan = overscan;
 
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
     m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
@@ -2526,27 +2510,20 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
 }
 
 bool
-HdCyclesRenderParam::HasOverscan() const {
-    return m_dataWindowNDC[0] < -1e-7f ||
-           m_dataWindowNDC[1] < -1e-7f ||
-           m_dataWindowNDC[2] > (1.f + 1e-7f) ||
-           m_dataWindowNDC[3] > (1.f + 1e-7f);
+HdCyclesRenderParam::HasOverscan() const
+{
+    return m_dataWindowNDC[0] < -1e-7f || m_dataWindowNDC[1] < -1e-7f || m_dataWindowNDC[2] > (1.f + 1e-7f)
+           || m_dataWindowNDC[3] > (1.f + 1e-7f);
 }
 
-float 
-HdCyclesRenderParam::MaxOverscan() const {
+float
+HdCyclesRenderParam::MaxOverscan() const
+{
     float overscan = ::std::max(-m_dataWindowNDC[0], 0.f);
     overscan = ::std::max(overscan, ::std::max(-m_dataWindowNDC[1], 0.f));
     overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[2] - 1, 0.f));
     overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[3] - 1, 0.f));
     return overscan;
-}
-
-float
-HdCyclesRenderParam::ComputeFovWithOverscan(const GfMatrix4d& proj) const {
-    const float aspectRatioImage = (float)m_resolutionImage[0] / m_resolutionImage[1];
-    float fov_scale = HasOverscan() ? (MaxOverscan() * aspectRatioImage) : 0.f;
-    return atanf((1.f + fov_scale) / static_cast<float>(proj[1][1])) * 2.0f;
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

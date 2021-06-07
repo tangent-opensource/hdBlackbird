@@ -88,10 +88,8 @@ HdCyclesRenderPass::_Execute(HdRenderPassStateSharedPtr const& renderPassState, 
             m_projMtx = projMtx;
             m_viewMtx = viewMtx;
 
-            // const float fov_rad = atanf(1.5f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
-            // hdCam->SetFOV(fov_rad);
-
-            hdCam->SetFOV(renderParam->ComputeFovWithOverscan(m_projMtx));
+            const float fov_rad = atanf(1.0f / static_cast<float>(m_projMtx[1][1])) * 2.0f;
+            hdCam->SetFOV(fov_rad);
 
             shouldUpdate = true;
         }
