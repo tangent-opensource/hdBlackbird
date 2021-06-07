@@ -64,8 +64,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_visTransmission(true)
     , m_renderDelegate(a_renderDelegate)
 {
-    static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
-
     _InitializeNewCyclesMesh();
 }
 
