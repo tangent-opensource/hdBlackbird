@@ -1854,23 +1854,17 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     const float overscan = MaxOverscan();
 
     // Full rect
-    const unsigned int full_width = (1.f + overscan * 2.f) * m_resolutionImage[0];
-    const unsigned int full_height = (1.f + overscan * 2.f) * m_resolutionImage[1];
+    m_bufferParams.full_width = (1.f + overscan * 2.f) * m_resolutionImage[0];
+    m_bufferParams.full_height = (1.f + overscan * 2.f) * m_resolutionImage[1];
 
     // Translate to the origin of the full rect
-    const float x_ndc = m_dataWindowNDC[0] - overscan;
-    const float y_ndc = m_dataWindowNDC[1] - overscan;
-    const float width_ndc = m_dataWindowNDC[2] - m_dataWindowNDC[0];
-
-    m_bufferParams.full_width = full_width;
-    m_bufferParams.full_height = full_height;
     m_bufferParams.full_x = (m_dataWindowNDC[0] - (-overscan)) * m_resolutionImage[0];
     m_bufferParams.full_y = (m_dataWindowNDC[1] - (-overscan)) * m_resolutionImage[1];
     m_bufferParams.width = (m_dataWindowNDC[2] - m_dataWindowNDC[0]) * m_resolutionImage[0];
     m_bufferParams.height = (m_dataWindowNDC[3] - m_dataWindowNDC[1]) * m_resolutionImage[1];
 
-    m_cyclesScene->camera->width = full_width;
-    m_cyclesScene->camera->height = full_height;
+    m_cyclesScene->camera->width = m_bufferParams.full_width;
+    m_cyclesScene->camera->height = m_bufferParams.full_height;
     m_cyclesScene->camera->overscan = overscan;
 
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
