@@ -131,6 +131,7 @@ public:
     GfVec4f GetDataWindowNDC() const { return m_dataWindowNDC; }
     bool HasOverscan() const;
     float MaxOverscan() const;
+    float ComputeFovWithOverscan(const GfMatrix4d& proj) const;
 
 protected:
     /**
@@ -314,7 +315,6 @@ private:
     GfVec2i m_resolutionImage;
     GfVec2i m_resolutionDisplay;
     bool m_resolutionAuthored;
-    GfVec4f m_renderRect;
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;
