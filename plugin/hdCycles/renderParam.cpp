@@ -2504,14 +2504,6 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     }
 }
 
-bool
-HdCyclesRenderParam::HasOverscan() const {
-    return m_dataWindowNDC[0] < -1e-7f ||
-           m_dataWindowNDC[1] < -1e-7f ||
-           m_dataWindowNDC[2] > (1.f + 1e-7f) ||
-           m_dataWindowNDC[3] > (1.f + 1e-7f);
-}
-
 float 
 HdCyclesRenderParam::MaxOverscan() const {
     float overscan = ::std::max(-m_dataWindowNDC[0], 0.f);
@@ -2519,13 +2511,6 @@ HdCyclesRenderParam::MaxOverscan() const {
     overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[2] - 1, 0.f));
     overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[3] - 1, 0.f));
     return overscan;
-}
-
-float
-HdCyclesRenderParam::ComputeFovWithOverscan(const GfMatrix4d& proj) const {
-    const float aspectRatioImage = (float)m_resolutionImage[0] / m_resolutionImage[1];
-    float fov_scale = HasOverscan() ? (MaxOverscan() * aspectRatioImage) : 0.f;
-    return atanf((1.f + fov_scale) / static_cast<float>(proj[1][1])) * 2.0f;
 }
 
 PXR_NAMESPACE_CLOSE_SCOPE

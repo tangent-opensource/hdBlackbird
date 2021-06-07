@@ -129,9 +129,7 @@ public:
     void BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples);
 
     GfVec4f GetDataWindowNDC() const { return m_dataWindowNDC; }
-    bool HasOverscan() const;
     float MaxOverscan() const;
-    float ComputeFovWithOverscan(const GfMatrix4d& proj) const;
 
 protected:
     /**
