@@ -121,7 +121,7 @@ HdCyclesConfig::HdCyclesConfig()
     shading_system = HdCyclesEnvValue<std::string>("HD_CYCLES_SHADING_SYSTEM", "SVM");
     display_buffer_linear = HdCyclesEnvValue<bool>("HD_CYCLES_DISPLAY_BUFFER_LINEAR", true);
 
-    max_samples = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SAMPLES", 16);
+    max_samples = HdCyclesEnvValue<int>("HD_CYCLES_MAX_SAMPLES", 512);
 
     pixel_size = HdCyclesEnvValue<int>("HD_CYCLES_PIXEL_SIZE", 1);
     tile_size_x = HdCyclesEnvValue<int>("HD_CYCLES_TILE_SIZE_X", 64);
