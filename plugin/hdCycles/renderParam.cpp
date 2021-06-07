@@ -1623,7 +1623,8 @@ HdCyclesRenderParam::_CreateScene()
     m_renderRect = GfVec4f(0.f, 0.f, static_cast<float>(config.render_width.value),
                            static_cast<float>(config.render_height.value));
 
-    m_cyclesScene->camera->set_screen_size_and_resolution(m_resolutionDisplay[0], m_resolutionDisplay[1], 1);
+    m_cyclesScene->camera->set_full_width(m_resolutionDisplay[0]);
+    m_cyclesScene->camera->set_full_height(m_resolutionDisplay[1]);
 
     m_cyclesScene->camera->compute_auto_viewplane();
 
@@ -1886,7 +1887,8 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
     m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
 
-    m_cyclesScene->camera->set_screen_size_and_resolution(m_resolutionImage[0], m_resolutionImage[1], 1);
+    m_cyclesScene->camera->set_full_width(m_resolutionImage[0]);
+    m_cyclesScene->camera->set_full_height(m_resolutionImage[1]);
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_device_update = true;
 
