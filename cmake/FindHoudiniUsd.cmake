@@ -29,6 +29,7 @@ target_compile_definitions(UsdInterface
     INTERFACE
     USE_HBOOST
     BOOST_NS=hboost
+    Houdini_FOUND=TRUE
 )
 
 set(_houdini_libs OpenImageIO_sidefx;hboost_filesystem-mt-x64;hboost_iostreams-mt-x64;hboost_system-mt-x64;hboost_regex-mt-x64)
@@ -97,26 +98,17 @@ foreach(_pxr_lib ${_houdini_pxr_libs})
 endforeach()
 
 # Find Usd Schema Generator
-
-find_program(USD_SCHEMA_GENERATOR
-        NAMES
-        usdGenSchema
-        PATHS
-        ${HOUDINI_ROOT}/bin
-        NO_DEFAULT_PATH
-        )
-
-# Fallback to py script, remove after 18.5.519 release and add REQUIORED to usdGenSchema find_program
-
-if(NOT USD_SCHEMA_GENERATOR)
-    find_program(USD_SCHEMA_GENERATOR
-            NAMES
-            usdGenSchema.py
-            PATHS
-            ${HOUDINI_ROOT}/bin
-            REQUIRED
-            NO_DEFAULT_PATH
-            )
-    list(PREPEND USD_SCHEMA_GENERATOR hython)
-    set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
+if (NOT USD_SCHEMA_GENERATOR)
+        find_program(USD_SCHEMA_GENERATOR
+                NAMES
+                usdGenSchema.py
+                usdGenSchema
+                PATHS
+                ${HOUDINI_BIN}/bin
+                ${HOUDINI_ROOT}/Resources/bin
+                REQUIRED
+                NO_DEFAULT_PATH
+                )
+        list(PREPEND USD_SCHEMA_GENERATOR ${HOUDINI_BIN}/hython)
+        set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
 endif()

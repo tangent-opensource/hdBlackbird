@@ -127,6 +127,7 @@ target_compile_options(usdCycles
         PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/wd4273 /Zi>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
+        $<$<CXX_COMPILER_ID:GNU>:-Wno-unused-variable>
         )
 
 target_link_options(usdCycles

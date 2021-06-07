@@ -103,7 +103,7 @@ IsValidCyclesIdentifier(const std::string& identifier)
 
     // DEPRECATED:
     // Only needed for retroactive support of pre 0.8.0 cycles shaders
-    isvalid += (identifier.rfind("cycles:") == 0);
+    isvalid |= (identifier.rfind("cycles:") == 0);
 
     return isvalid;
 }
