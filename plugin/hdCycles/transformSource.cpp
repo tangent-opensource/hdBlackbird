@@ -293,7 +293,7 @@ HdCyclesTransformSource::Resolve()
     }
 
     // Commit samples
-    object->set_tfm(ccl::transform_identity());
+    object->set_tfm(motion_transforms.values[motion_transforms.count / 2 + 1]);
     object->get_motion().resize(motion_transforms.count);
     for (unsigned int i {}; i < motion_transforms.count; ++i) {
         object->get_motion()[i] = motion_transforms.values[i];
