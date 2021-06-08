@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "material.h"
+#include "instancer.h"
 #include "renderParam.h"
 #include "utils.h"
 
@@ -87,6 +88,13 @@ HdCyclesVolume::~HdCyclesVolume()
         m_renderDelegate->GetCyclesRenderParam()->RemoveGeometrySafe(m_cyclesVolume);
         delete m_cyclesVolume;
     }
+
+    for (auto instance : m_cyclesInstances) {
+        if (instance) {
+            m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
+            delete instance;
+        }
+    }
 }
 
 void
@@ -133,8 +141,7 @@ void
 HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, ccl::Scene* scene)
 {
 #ifdef WITH_OPENVDB
-    std::unordered_map<std::string, std::vector<TfToken>> openvdbs;
-    std::unordered_map<std::string, std::vector<TfToken>> houVdbs;
+    std::unordered_map<std::string, std::vector<TfToken>> field_map;
 
     const auto fieldDescriptors = delegate->GetVolumeFieldDescriptors(id);
     for (const auto& field : fieldDescriptors) {
@@ -154,7 +161,7 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, cc
                 path = assetPath.GetAssetPath();
             }
 
-            auto& fields = openvdbs[path];
+            auto& fields = field_map[path];
             if (std::find(fields.begin(), fields.end(), field.fieldName) == fields.end()) {
                 fields.push_back(field.fieldName);
 
@@ -259,9 +266,15 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
+    // Object transform needs to be applied to instances.
+    ccl::Transform obj_tfm = ccl::transform_identity();
+
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
         m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
-
+      
+        obj_tfm = mat4d_to_transform(sceneDelegate->GetTransform(id));
+        *dirtyBits |= HdChangeTracker::DirtyInstancer;
+        
         update_volumes = true;
     }
 
@@ -299,6 +312,70 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                                                  m_cyclesObject->velocity_scale);
 
             update_volumes = true;
+        }
+    }
+
+    // -------------------------------------
+    // -- Handle point instances
+    // -------------------------------------
+    if(*dirtyBits & HdChangeTracker::DirtyInstancer){
+        const SdfPath& instancer_id = GetInstancerId();
+        auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
+        if (instancer) {
+            // Clear all instances...
+            for (auto instance : m_cyclesInstances) {
+                if (instance) {
+                    m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
+                    delete instance;
+                }
+            }
+            m_cyclesInstances.clear();
+
+            // create new instances
+            auto instanceTransforms = instancer->SampleInstanceTransforms(id);
+            auto newNumInstances = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
+
+            if (newNumInstances != 0) {
+                using size_type = typename decltype(m_transformSamples.values)::size_type;
+
+                std::vector<TfSmallVector<GfMatrix4d, 1>> combinedTransforms;
+                combinedTransforms.reserve(newNumInstances);
+                for (size_t i = 0; i < newNumInstances; ++i) {
+                    // Apply prototype transform (m_transformSamples) to all the instances
+                    combinedTransforms.emplace_back(instanceTransforms.count);
+                    auto& instanceTransform = combinedTransforms.back();
+
+                    if (m_transformSamples.count == 0
+                        || (m_transformSamples.count == 1 && (m_transformSamples.values[0] == GfMatrix4d(1)))) {
+                        for (size_type j = 0; j < instanceTransforms.count; ++j) {
+                            instanceTransform[j] = instanceTransforms.values[j][i];
+                        }
+                    } else {
+                        for (size_type j = 0; j < instanceTransforms.count; ++j) {
+                            GfMatrix4d xf_j = m_transformSamples.Resample(instanceTransforms.times[j]);
+                            instanceTransform[j] = xf_j * instanceTransforms.values[j][i];
+                        }
+                    }
+                }
+
+                for (size_t j = 0; j < newNumInstances; ++j) {
+                    ccl::Object* instanceObj = _CreateObject();
+
+                    instanceObj->tfm = mat4d_to_transform(combinedTransforms[j].data()[0]) * obj_tfm;
+                    instanceObj->geometry = m_cyclesVolume;
+
+                    m_cyclesInstances.push_back(instanceObj);
+
+                    m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
+                }
+
+                // Hide prototype
+                if (m_cyclesObject) {
+                    m_cyclesObject->visibility &= ~ccl::PATH_RAY_ALL_VISIBILITY;
+                }
+
+                update_volumes = true;
+            }
         }
     }
 
