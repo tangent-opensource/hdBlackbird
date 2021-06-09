@@ -22,8 +22,8 @@
 #include "openvdb_asset.h"
 
 #include "config.h"
-#include "material.h"
 #include "instancer.h"
+#include "material.h"
 #include "renderParam.h"
 #include "utils.h"
 
@@ -271,10 +271,10 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
         m_transformSamples = HdCyclesSetTransform(m_cyclesObject, sceneDelegate, id, m_useMotionBlur);
-      
+
         obj_tfm = mat4d_to_transform(sceneDelegate->GetTransform(id));
         *dirtyBits |= HdChangeTracker::DirtyInstancer;
-        
+
         update_volumes = true;
     }
 
@@ -318,7 +318,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // -------------------------------------
     // -- Handle point instances
     // -------------------------------------
-    if(*dirtyBits & HdChangeTracker::DirtyInstancer){
+    if (*dirtyBits & HdChangeTracker::DirtyInstancer) {
         const SdfPath& instancer_id = GetInstancerId();
         auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
         if (instancer) {
