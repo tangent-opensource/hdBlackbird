@@ -151,13 +151,13 @@ private:
 
     ccl::Mesh* m_cyclesVolume;
 
+    std::vector<ccl::Object*> m_cyclesInstances;
+
     HdCyclesRenderDelegate* m_renderDelegate;
 
     HdTimeSampleArray<GfMatrix4d, HD_CYCLES_MOTION_STEPS> m_transformSamples;
 
     ccl::vector<ccl::Shader*> m_usedShaders;
-
-    //openvdb::VolumeGridVector* grids;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE
