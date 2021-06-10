@@ -543,37 +543,41 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
                 cycles_node = convertCyclesNode(node, graph);
             }
 
+            assert(cycles_node);
             if (cycles_node != nullptr) {
                 conversionMap.insert(std::pair<SdfPath, std::pair<HdMaterialNode*, ccl::ShaderNode*>>(
                     node.path, std::make_pair(&node, cycles_node)));
-            }
 
-            for (const SdfPath& tPath : networkMap.terminals) {
-                if (node.path == tPath) {
-                    output_node = cycles_node;
+                for (const SdfPath& tPath : networkMap.terminals) {
+                    if (node.path == tPath) {
+                        output_node = cycles_node;
 
-                    if (terminal == HdCyclesMaterialTerminalTokens->surface) {
-                        if (cycles_node->output("BSDF") != NULL) {
-                            graph->connect(cycles_node->output("BSDF"), graph->output()->input("Surface"));
+                        if (terminal == HdCyclesMaterialTerminalTokens->surface) {
+                            if (cycles_node->output("BSDF") != NULL) {
+                                graph->connect(cycles_node->output("BSDF"), graph->output()->input("Surface"));
 
-                        } else if (cycles_node->output("Closure") != NULL) {
-                            graph->connect(cycles_node->output("Closure"), graph->output()->input("Surface"));
+                            } else if (cycles_node->output("Closure") != NULL) {
+                                graph->connect(cycles_node->output("Closure"), graph->output()->input("Surface"));
 
-                        } else if (cycles_node->output("Emission") != NULL) {
-                            graph->connect(cycles_node->output("Emission"), graph->output()->input("Surface"));
+                            } else if (cycles_node->output("Emission") != NULL) {
+                                graph->connect(cycles_node->output("Emission"), graph->output()->input("Surface"));
+                            }
                         }
-                    }
-                    if (terminal == HdCyclesMaterialTerminalTokens->displacement) {
-                        if (cycles_node->output("Displacement") != NULL) {
-                            graph->connect(cycles_node->output("Displacement"), graph->output()->input("Displacement"));
+                        if (terminal == HdCyclesMaterialTerminalTokens->displacement) {
+                            if (cycles_node->output("Displacement") != NULL) {
+                                graph->connect(cycles_node->output("Displacement"),
+                                               graph->output()->input("Displacement"));
+                            }
                         }
-                    }
-                    if (terminal == HdCyclesMaterialTerminalTokens->volume) {
-                        if (cycles_node->output("Volume") != NULL) {
-                            graph->connect(cycles_node->output("Volume"), graph->output()->input("Volume"));
+                        if (terminal == HdCyclesMaterialTerminalTokens->volume) {
+                            if (cycles_node->output("Volume") != NULL) {
+                                graph->connect(cycles_node->output("Volume"), graph->output()->input("Volume"));
+                            }
                         }
                     }
                 }
+            } else {
+                TF_WARN("Could not convert shader node %s.", node.identifier.GetText());
             }
         }
 
