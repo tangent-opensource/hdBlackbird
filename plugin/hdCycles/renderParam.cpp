@@ -1996,6 +1996,25 @@ HdCyclesRenderParam::RemoveLight(ccl::Light* light)
         Interrupt();
 }
 
+void
+HdCyclesRenderParam::RemoveInstancesOf(const ccl::Geometry* geometry)
+{
+    size_t num = m_cyclesScene->objects.size();
+
+    for (size_t i = 0; i < num; i++) {
+        if (geometry == m_cyclesScene->objects[i]->geometry) {
+            num--;
+            m_cyclesScene->objects[i] = m_cyclesScene->objects[num];
+            i--;
+        }
+    }
+
+    if (num != m_cyclesScene->objects.size()) {
+        m_cyclesScene->objects.resize(num);
+        m_objectsUpdated = true;
+        Interrupt();
+    }
+}
 
 void
 HdCyclesRenderParam::RemoveObject(ccl::Object* object)
@@ -2015,7 +2034,7 @@ HdCyclesRenderParam::RemoveObject(ccl::Object* object)
 }
 
 void
-HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
+HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry, bool removeObjects)
 {
     for (auto it = m_cyclesScene->geometry.begin(); it != m_cyclesScene->geometry.end();) {
         if (geometry == *it) {
@@ -2027,6 +2046,10 @@ HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
         } else {
             ++it;
         }
+    }
+
+    if (removeObjects) {
+        RemoveInstancesOf(geometry);
     }
 
     if (m_geometryUpdated)

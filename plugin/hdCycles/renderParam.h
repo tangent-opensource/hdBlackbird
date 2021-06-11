@@ -225,7 +225,8 @@ public:
     void RemoveShader(ccl::Shader* shader);
     void RemoveLight(ccl::Light* light);
     void RemoveObject(ccl::Object* object);
-    void RemoveGeometry(ccl::Geometry* geometry);
+    void RemoveGeometry(ccl::Geometry* geometry, bool removeInstances = false);
+    void RemoveInstancesOf(const ccl::Geometry* geometry);
 
     /* ====== Thread safe operations ====== */
 
