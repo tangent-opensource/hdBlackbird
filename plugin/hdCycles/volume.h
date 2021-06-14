@@ -147,11 +147,25 @@ private:
      */
     void _UpdateGrids();
 
+    /**
+     * @brief Update the Cycles Object   
+     */
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBvh);
+
     ccl::Object* m_cyclesObject;
 
     ccl::Mesh* m_cyclesVolume;
 
     std::vector<ccl::Object*> m_cyclesInstances;
+
+    unsigned int m_visibilityFlags;
+
+    bool m_visCamera;
+    bool m_visDiffuse;
+    bool m_visGlossy;
+    bool m_visScatter;
+    bool m_visShadow;
+    bool m_visTransmission;
 
     HdCyclesRenderDelegate* m_renderDelegate;
 
