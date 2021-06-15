@@ -1938,7 +1938,7 @@ HdCyclesRenderParam::AddObject(ccl::Object* object)
 }
 
 void
-HdCyclesRenderParam::AddObjectArray(std::vector<ccl::Object> &objects)
+HdCyclesRenderParam::AddObjectArray(std::vector<ccl::Object>& objects)
 {
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add object to scene. Scene is null.");
@@ -1948,8 +1948,8 @@ HdCyclesRenderParam::AddObjectArray(std::vector<ccl::Object> &objects)
     const size_t numObjects = objects.size();
     const size_t startIndex = m_cyclesScene->objects.size();
     m_cyclesScene->objects.resize(startIndex + numObjects);
-    for(size_t i = 0; i < numObjects; i++) {
-      m_cyclesScene->objects[startIndex+ i] = &objects[i];
+    for (size_t i = 0; i < numObjects; i++) {
+        m_cyclesScene->objects[startIndex + i] = &objects[i];
     }
 
     m_objectsUpdated = true;
@@ -1957,7 +1957,7 @@ HdCyclesRenderParam::AddObjectArray(std::vector<ccl::Object> &objects)
 }
 
 void
-HdCyclesRenderParam::RemoveObjectArray(const std::vector<ccl::Object> &objects)
+HdCyclesRenderParam::RemoveObjectArray(const std::vector<ccl::Object>& objects)
 {
     if (!m_cyclesScene) {
         TF_WARN("Couldn't add object to scene. Scene is null.");
@@ -1969,7 +1969,8 @@ HdCyclesRenderParam::RemoveObjectArray(const std::vector<ccl::Object> &objects)
     // Find the first object
     for (size_t i = 0; i < numSceneObjects; i++) {
         if (m_cyclesScene->objects[i] == &objects[0]) {
-            m_cyclesScene->objects.erase(m_cyclesScene->objects.begin() + i, m_cyclesScene->objects.begin() + i + numObjectsToRemove);
+            m_cyclesScene->objects.erase(m_cyclesScene->objects.begin() + i,
+                                         m_cyclesScene->objects.begin() + i + numObjectsToRemove);
             break;
         }
     }

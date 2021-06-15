@@ -1280,12 +1280,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             bool reallocate_array = false;
             // Clear number of instances only if they have changed.
             if (m_cyclesInstances.size() != newNumInstances) {
-              reallocate_array = true;
-              if (m_cyclesInstances.size()) {
-                  m_renderDelegate->GetCyclesRenderParam()->RemoveObjectArray(m_cyclesInstances);
-                  std::vector<ccl::Object> empty = {};
-                  m_cyclesInstances.swap(empty);
-              }
+                reallocate_array = true;
+                if (m_cyclesInstances.size()) {
+                    m_renderDelegate->GetCyclesRenderParam()->RemoveObjectArray(m_cyclesInstances);
+                    std::vector<ccl::Object> empty = {};
+                    m_cyclesInstances.swap(empty);
+                }
             }
 
             // create new instances
@@ -1333,7 +1333,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                                 combinedTransforms[j].data()[j]);
                         }
                     }*/
-
                 }
 
                 if (reallocate_array) {
@@ -1341,9 +1340,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 }
 
                 // Hide prototype
-              if (m_cyclesObject) {
+                if (m_cyclesObject) {
                     m_visibilityFlags = 0;
-              }
+                }
             }
         }
     }
