@@ -218,6 +218,9 @@ HdCyclesRenderParam::_InitializeDefaults()
     m_useSquareSamples = config.use_square_samples.value;
     m_useTiledRendering = config.use_tiled_rendering;
 
+    m_dataWindowNDC = GfVec4f(0.f, 0.f, 1.f, 1.f);
+    m_resolutionAuthored = false;
+
     m_upAxis = UpAxis::Z;
     if (config.up_axis == "Z") {
         m_upAxis = UpAxis::Z;
@@ -792,8 +795,7 @@ HdCyclesRenderParam::_HandleSceneRenderSetting(const TfToken& key, const VtValue
             = _HdCyclesGetVtValue<bool>(value, sceneParams->texture.use_custom_cache_path, &texture_updated);
     }
     if (key == usdCyclesTokens->cyclesTexture_max_size) {
-        sceneParams->texture_limit
-            = _HdCyclesGetVtValue<int>(value, sceneParams->texture_limit, &texture_updated);
+        sceneParams->texture_limit = _HdCyclesGetVtValue<int>(value, sceneParams->texture_limit, &texture_updated);
     }
 
     if (scene_updated || texture_updated) {
@@ -1198,6 +1200,7 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
 
     ccl::Film* film = m_cyclesScene->film;
     bool film_updated = false;
+    bool doResetBuffers = false;
 
     if (key == usdCyclesTokens->cyclesFilmExposure) {
         film->exposure = _HdCyclesGetVtValue<float>(value, film->exposure, &film_updated, false);
@@ -1206,6 +1209,37 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
     if (key == usdCyclesTokens->cyclesFilmPass_alpha_threshold) {
         film->pass_alpha_threshold = _HdCyclesGetVtValue<float>(value, film->pass_alpha_threshold, &film_updated,
                                                                 false);
+    }
+
+    // https://www.sidefx.com/docs/hdk/_h_d_k__u_s_d_hydra.html
+
+    if (key == UsdRenderTokens->resolution) {
+        GfVec2i resolutionDefault = m_resolutionImage;
+        if (value.IsHolding<GfVec2i>()) {
+            m_resolutionImage = _HdCyclesGetVtValue<GfVec2i>(value, resolutionDefault, &film_updated, false);
+            m_resolutionAuthored = true;
+            doResetBuffers = true;
+        } else {
+            TF_WARN("Unexpected type for resolution %s", value.GetTypeName().c_str());
+        }
+    }
+
+    if (key == UsdRenderTokens->dataWindowNDC) {
+        GfVec4f dataWindowNDCDefault = { 0.f, 0.f, 1.f, 1.f };
+        if (value.IsHolding<GfVec4f>()) {
+            m_dataWindowNDC = _HdCyclesGetVtValue<GfVec4f>(value, dataWindowNDCDefault, &film_updated, false);
+
+            // Rect has to be valid, otherwise reset to default
+            if (m_dataWindowNDC[0] > m_dataWindowNDC[2] || m_dataWindowNDC[1] > m_dataWindowNDC[3]) {
+                TF_WARN("Invalid dataWindowNDC rectangle %f %f %f %f", m_dataWindowNDC[0], m_dataWindowNDC[1],
+                        m_dataWindowNDC[2], m_dataWindowNDC[3]);
+                m_dataWindowNDC = dataWindowNDCDefault;
+            }
+
+            doResetBuffers = true;
+        } else {
+            TF_WARN("Unexpected type for ndcDataWindow %s", value.GetTypeName().c_str());
+        }
     }
 
     // Filter
@@ -1261,6 +1295,19 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
 
     if (film_updated) {
         film->tag_update(m_cyclesScene);
+
+        // todo: Should this live in another location?
+        if (doResetBuffers) {
+            film->tag_passes_update(m_cyclesScene, m_bufferParams.passes);
+            SetViewport(m_resolutionDisplay[0], m_resolutionDisplay[1]);
+
+            for (HdRenderPassAovBinding& aov : m_aovs) {
+                if (aov.renderBuffer) {
+                    dynamic_cast<HdCyclesRenderBuffer*>(aov.renderBuffer)->Clear();
+                }
+            }
+        }
+
         return true;
     }
 
@@ -1520,7 +1567,17 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
                 memset(&tileData[0], 0, tileData.size() * sizeof(float));
             }
 
-            rb->BlitTile(cyclesAov.format, rtile.x, rtile.y, rtile.w, rtile.h, 0, rtile.w,
+            // Translate source subrect to the origin
+            const unsigned int x_src = rtile.x - m_cyclesSession->tile_manager.params.full_x;
+            const unsigned int y_src = rtile.y - m_cyclesSession->tile_manager.params.full_y;
+
+            // Passing the dimension as float to not lose the decimal points in the conversion to int
+            // We need to do this only for tiles becase we are scaling the source rect to calculate
+            // the region to write to in the destination rect
+            const float width_data_src = m_renderRect[2];
+            const float height_data_src = m_renderRect[3];
+
+            rb->BlitTile(cyclesAov.format, x_src, y_src, rtile.w, rtile.h, width_data_src, height_data_src, 0, rtile.w,
                          reinterpret_cast<uint8_t*>(tileData.data()));
         }
     }
@@ -1540,20 +1597,23 @@ HdCyclesRenderParam::_CreateScene()
 
     m_cyclesScene = new ccl::Scene(m_sceneParams, m_cyclesSession->device);
 
-    m_width = config.render_width.value;
-    m_height = config.render_height.value;
+    m_resolutionImage = GfVec2i(0, 0);
+    m_resolutionDisplay = GfVec2i(config.render_width.value, config.render_height.value);
 
-    m_cyclesScene->camera->width = m_width;
-    m_cyclesScene->camera->height = m_height;
+    m_renderRect = GfVec4f(0.f, 0.f, static_cast<float>(config.render_width.value),
+                           static_cast<float>(config.render_height.value));
+
+    m_cyclesScene->camera->width = m_resolutionDisplay[0];
+    m_cyclesScene->camera->height = m_resolutionDisplay[1];
 
     m_cyclesScene->camera->compute_auto_viewplane();
 
     m_cyclesSession->scene = m_cyclesScene;
 
-    m_bufferParams.width = m_width;
-    m_bufferParams.height = m_height;
-    m_bufferParams.full_width = m_width;
-    m_bufferParams.full_height = m_height;
+    m_bufferParams.width = m_resolutionDisplay[0];
+    m_bufferParams.height = m_resolutionDisplay[1];
+    m_bufferParams.full_width = m_resolutionDisplay[0];
+    m_bufferParams.full_height = m_resolutionDisplay[1];
 
     default_attrib_display_color_surface = HdCyclesCreateAttribColorSurface();
     default_attrib_display_color_surface->tag_update(m_cyclesScene);
@@ -1784,15 +1844,30 @@ HdCyclesRenderParam::CyclesReset(bool a_forceUpdate)
 void
 HdCyclesRenderParam::SetViewport(int w, int h)
 {
-    m_width = w;
-    m_height = h;
+    m_resolutionDisplay = GfVec2i(w, h);
 
-    m_bufferParams.width = m_width;
-    m_bufferParams.height = m_height;
-    m_bufferParams.full_width = m_width;
-    m_bufferParams.full_height = m_height;
-    m_cyclesScene->camera->width = m_width;
-    m_cyclesScene->camera->height = m_height;
+    // If no image resolution was specified, we use the display's
+    if (!m_resolutionAuthored) {
+        m_resolutionImage = m_resolutionDisplay;
+    }
+
+    m_renderRect[0] = m_dataWindowNDC[0] * (float)m_resolutionImage[0];
+    m_renderRect[1] = m_dataWindowNDC[1] * (float)m_resolutionImage[1];
+    m_renderRect[2] = m_dataWindowNDC[2] * (float)m_resolutionImage[0] - m_bufferParams.full_x;
+    m_renderRect[3] = m_dataWindowNDC[3] * (float)m_resolutionImage[1] - m_bufferParams.full_y;
+
+    m_bufferParams.full_width = m_resolutionImage[0];
+    m_bufferParams.full_height = m_resolutionImage[1];
+    m_bufferParams.full_x = static_cast<int>(m_renderRect[0]);
+    m_bufferParams.full_y = static_cast<int>(m_renderRect[1]);
+    m_bufferParams.width = static_cast<int>(m_renderRect[2]);
+    m_bufferParams.height = static_cast<int>(m_renderRect[3]);
+
+    m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
+    m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
+
+    m_cyclesScene->camera->width = m_resolutionImage[0];
+    m_cyclesScene->camera->height = m_resolutionImage[1];
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_update = true;
     m_cyclesScene->camera->need_device_update = true;
@@ -1859,6 +1934,47 @@ HdCyclesRenderParam::AddObject(ccl::Object* object)
 
     m_cyclesScene->objects.push_back(object);
 
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::AddObjectArray(std::vector<ccl::Object>& objects)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add object to scene. Scene is null.");
+        return;
+    }
+
+    const size_t numObjects = objects.size();
+    const size_t startIndex = m_cyclesScene->objects.size();
+    m_cyclesScene->objects.resize(startIndex + numObjects);
+    for (size_t i = 0; i < numObjects; i++) {
+        m_cyclesScene->objects[startIndex + i] = &objects[i];
+    }
+
+    m_objectsUpdated = true;
+    Interrupt();
+}
+
+void
+HdCyclesRenderParam::RemoveObjectArray(const std::vector<ccl::Object>& objects)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add object to scene. Scene is null.");
+        return;
+    }
+
+    size_t numObjectsToRemove = objects.size();
+    const size_t numSceneObjects = m_cyclesScene->objects.size();
+    // Find the first object
+    for (size_t i = 0; i < numSceneObjects; i++) {
+        if (m_cyclesScene->objects[i] == &objects[0]) {
+            m_cyclesScene->objects.erase(m_cyclesScene->objects.begin() + i,
+                                         m_cyclesScene->objects.begin() + i + numObjectsToRemove);
+            break;
+        }
+    }
+    m_objectsUpdated = true;
     Interrupt();
 }
 
@@ -2358,8 +2474,9 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     }
 
     // No point in blitting since the session will be reset
-    if (m_cyclesSession->buffers->params.width != rb->GetWidth()
-        || m_cyclesSession->buffers->params.height != rb->GetHeight()) {
+    const unsigned int dstWidth = rb->GetWidth();
+    const unsigned int dstHeight = rb->GetHeight();
+    if (m_resolutionDisplay[0] != dstWidth || m_resolutionDisplay[1] != dstHeight) {
         return;
     }
 
@@ -2396,7 +2513,8 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
             const float exposure = m_cyclesScene->film->exposure;
             auto buffers = m_cyclesSession->buffers;
             buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
-                                      static_cast<uint8_t*>(data), pixels_type, w, h, stride);
+                                      static_cast<uint8_t*>(data), pixels_type, w, h, dstWidth, dstHeight, stride);
+
 
             if (cyclesAov.type == ccl::PASS_OBJECT_ID) {
                 if (n_comps_hd == 1 && rb->GetFormat() == HdFormatInt32) {
