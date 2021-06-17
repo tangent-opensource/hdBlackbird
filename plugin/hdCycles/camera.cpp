@@ -159,6 +159,10 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
+    if (*dirtyBits & HdCamera::AllDirty) {
+        m_needsUpdate = true;
+    }
+
     if (*dirtyBits & HdCamera::DirtyClipPlanes) {
         bool has_clippingRange = EvalCameraParam(&m_clippingRange, HdCameraTokens->clippingRange, sceneDelegate, id,
                                                  GfRange1f(0.1f, 100000.0f));
@@ -168,7 +172,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdCamera::DirtyParams) {
-        m_needsUpdate = true;
 
         // Aperture
         EvalCameraParam(&m_horizontalApertureOffset, HdCameraTokens->horizontalApertureOffset, sceneDelegate, id);
