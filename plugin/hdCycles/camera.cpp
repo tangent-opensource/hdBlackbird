@@ -381,7 +381,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // flipping the Z axis.
 
         sceneDelegate->SampleTransform(id, &m_transformSamples);
-        SetTransform(m_projMtx);
     }
 
     if (m_needsUpdate) {
@@ -461,8 +460,19 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     // TODO:
     // We likely need to ensure motion_position is respected when
     // populating the camera->motion array.
-    if (m_useMotionBlur) {
-        a_camera->motion.clear();
+
+    // There are always transform samples, right?
+    assert(m_transformSamples.count);
+
+    a_camera->motion.clear();
+    bool has_motion = false;
+    for (size_t i = 1; i < m_transformSamples.count; i++) {
+        if (m_transformSamples.values.data()[i] != m_transformSamples.values.data()[0]) {
+            has_motion = true;
+            break;
+        }
+    }
+    if (m_useMotionBlur && has_motion) {
         a_camera->motion.resize(m_transformSamples.count, ccl::transform_identity());
 
         for (size_t i = 0; i < m_transformSamples.count; i++) {
@@ -472,6 +482,8 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
             a_camera->motion[i] = mat4d_to_transform(ConvertCameraTransform(m_transformSamples.values.data()[i]));
         }
+    } else if (m_transformSamples.count){
+      a_camera->matrix = mat4d_to_transform(ConvertCameraTransform(m_transformSamples.values.data()[0]));
     }
 
     return shouldUpdate;
@@ -587,6 +599,7 @@ HdCyclesCamera::SetFOV(const float& a_value)
     m_fov = a_value;
 }
 
+// TODO (Stefan) I think this is unecessary. We only need the transform samples, don't we?
 void
 HdCyclesCamera::SetTransform(const GfMatrix4d a_projectionMatrix)
 {
