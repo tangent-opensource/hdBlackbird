@@ -1868,7 +1868,8 @@ HdCyclesRenderParam::SetViewport(int w, int h)
 
     m_cyclesScene->camera->width = m_resolutionImage[0];
     m_cyclesScene->camera->height = m_resolutionImage[1];
-    m_cyclesScene->camera->compute_auto_viewplane();
+    m_cyclesScene->camera->full_width = m_resolutionImage[0];
+    m_cyclesScene->camera->full_height = m_resolutionImage[1];
     m_cyclesScene->camera->need_update = true;
     m_cyclesScene->camera->need_device_update = true;
 

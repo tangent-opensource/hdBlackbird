@@ -170,11 +170,12 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdCamera::DirtyParams) {
         m_needsUpdate = true;
 
-        // TODO:
-        // Offset (requires viewplane work)
-
+        // Aperture
         EvalCameraParam(&m_horizontalApertureOffset, HdCameraTokens->horizontalApertureOffset, sceneDelegate, id);
         EvalCameraParam(&m_verticalApertureOffset, HdCameraTokens->verticalApertureOffset, sceneDelegate, id);
+
+        bool has_horizontalAp = EvalCameraParam(&m_horizontalAperture, HdCameraTokens->horizontalAperture, sceneDelegate, id);
+        bool has_verticalAp = EvalCameraParam(&m_verticalAperture, HdCameraTokens->verticalAperture, sceneDelegate, id);
 
         // TODO:
         // Shutter
@@ -194,17 +195,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool has_projection = EvalCameraParam(&m_projectionType, UsdGeomTokens->projection, sceneDelegate, id);
         // TODO: has_projection
         (void)has_projection;
-
-        // Aperture
-
-        float horizontalAp, verticalAp;
-        bool has_horizontalAp = EvalCameraParam(&horizontalAp, HdCameraTokens->horizontalAperture, sceneDelegate, id);
-        if (has_horizontalAp)
-            m_horizontalAperture = horizontalAp * 10.0f;
-
-        bool has_verticalAp = EvalCameraParam(&verticalAp, HdCameraTokens->verticalAperture, sceneDelegate, id);
-        if (has_verticalAp)
-            m_verticalAperture = verticalAp * 10.0f;
 
         // Focal Length
 
@@ -451,8 +441,13 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+        a_camera->viewplane.left = (-m_horizontalAperture + m_horizontalApertureOffset) * 0.5f;
+        a_camera->viewplane.right = (m_horizontalAperture + m_horizontalApertureOffset) * 0.5f;
+        a_camera->viewplane.top = (m_verticalAperture + m_verticalApertureOffset) * 0.5f;
+        a_camera->viewplane.bottom = (-m_verticalAperture + m_verticalApertureOffset) * 0.5f;
     } else {
         a_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+        a_camera->compute_auto_viewplane();
     }
 
     bool shouldUpdate = m_needsUpdate;
