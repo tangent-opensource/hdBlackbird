@@ -220,11 +220,13 @@ public:
     void AddShader(ccl::Shader* shader);
     void AddLight(ccl::Light* light);
     void AddObject(ccl::Object* object);
+    void AddObjectArray(std::vector<ccl::Object>& objects);
     void AddGeometry(ccl::Geometry* geometry);
 
     void RemoveShader(ccl::Shader* shader);
     void RemoveLight(ccl::Light* light);
     void RemoveObject(ccl::Object* object);
+    void RemoveObjectArray(const std::vector<ccl::Object>& objects);
     void RemoveGeometry(ccl::Geometry* geometry);
 
     /* ====== Thread safe operations ====== */
