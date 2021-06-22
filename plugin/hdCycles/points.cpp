@@ -824,6 +824,9 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     _CheckIntegrity(param);
 
+    printf("POINT CLOUD MOTION BLUR %d transform steps %d deform steps %d \n", 
+        m_motionBlur, m_motionTransformSteps, m_motionDeformSteps);
+
     _PopulateGenerated(scene, id);
 
     _UpdateObject(scene, param, dirtyBits, needsRebuildBVH);

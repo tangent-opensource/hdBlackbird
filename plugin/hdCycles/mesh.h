@@ -237,7 +237,7 @@ private:
 
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
-    std::vector<ccl::Object*> m_cyclesInstances;
+    std::vector<ccl::Object> m_cyclesInstances;
 
     ccl::Shader* m_object_display_color_shader;
     ccl::Shader* m_attrib_display_color_shader;

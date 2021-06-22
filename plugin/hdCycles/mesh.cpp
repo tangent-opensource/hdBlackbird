@@ -79,13 +79,11 @@ HdCyclesMesh::~HdCyclesMesh()
         delete m_cyclesObject;
     }
 
-
-        for (auto instance : m_cyclesInstances) {
-            if (instance) {
-            m_renderDelegate->GetCyclesRenderParam()->RemoveObjectSafe(instance);
-                delete instance;
-            }
-        }
+    if (m_cyclesInstances.size()) {
+        m_renderDelegate->GetCyclesRenderParam()->RemoveObjectArray(m_cyclesInstances);
+        std::vector<ccl::Object> empty = {};
+        m_cyclesInstances.swap(empty);
+    }
 }
 
 void
@@ -1242,9 +1240,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         _PopulatePrimvars(sceneDelegate, scene, id, dirtyBits);
     }
 
-    // Object transform needs to be applied to instances.
-    ccl::Transform obj_tfm = ccl::transform_identity();
-
+    const ccl::Transform obj_tfm = mat4d_to_transform(sceneDelegate->GetTransform(id));
     if (*dirtyBits & HdChangeTracker::DirtyTransform) {
         auto fallback = sceneDelegate->GetTransform(id);
         HdCyclesMatrix4dTimeSampleArray xf {};
@@ -1262,7 +1258,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         }
 
         m_object_source->AddObjectPropertiesSource(std::move(transform_source));
-        obj_tfm = mat4d_to_transform(fallback);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimID) {
@@ -1281,19 +1276,21 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         const SdfPath& instancer_id = GetInstancerId();
         auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
         if (instancer) {
-            // Clear all instances...
-                for (auto instance : m_cyclesInstances) {
-                    if (instance) {
-                        m_renderDelegate->GetCyclesRenderParam()->RemoveObject(instance);
-                        delete instance;
-                    }
-                }
-                m_cyclesInstances.clear();
-
-            // create new instances
             auto instanceTransforms = instancer->SampleInstanceTransforms(id);
             auto newNumInstances = (instanceTransforms.count > 0) ? instanceTransforms.values[0].size() : 0;
 
+            bool reallocate_array = false;
+            // Clear number of instances only if they have changed.
+            if (m_cyclesInstances.size() != newNumInstances) {
+                reallocate_array = true;
+                if (m_cyclesInstances.size()) {
+                    m_renderDelegate->GetCyclesRenderParam()->RemoveObjectArray(m_cyclesInstances);
+                    std::vector<ccl::Object> empty = {};
+                    m_cyclesInstances.swap(empty);
+                }
+            }
+
+            // create new instances
             if (newNumInstances != 0) {
                 using size_type = typename decltype(m_transformSamples.values)::size_type;
 
@@ -1317,11 +1314,14 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                     }
                 }
 
+                m_cyclesInstances.resize(newNumInstances);
                 for (size_t j = 0; j < newNumInstances; ++j) {
-                    ccl::Object* instanceObj = _CreateCyclesObject();
+                    ccl::Object* instanceObj = &m_cyclesInstances[j];
 
                     instanceObj->set_tfm(mat4d_to_transform(combinedTransforms[j].data()[0]) * obj_tfm);
-                    instanceObj->set_geometry(m_cyclesMesh);
+                    instanceObj->set_geometry(m_cyclesMesh);;
+                    instanceObj->set_pass_id(-1);
+                    instanceObj->set_visibility(ccl::PATH_RAY_ALL_VISIBILITY);
 
                     // TODO: Implement motion blur for point instanced objects
                     /*if (m_motionBlur) {
@@ -1335,15 +1335,16 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                                 combinedTransforms[j].data()[j]);
                         }
                     }*/
+                }
 
-                    m_cyclesInstances.push_back(instanceObj);
-
-                    m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
+                if (reallocate_array) {
+                    m_renderDelegate->GetCyclesRenderParam()->AddObjectArray(m_cyclesInstances);
                 }
 
                 // Hide prototype
-                if (m_cyclesObject)
+                if (m_cyclesObject) {
                     m_visibilityFlags = 0;
+                }
             }
         }
     }

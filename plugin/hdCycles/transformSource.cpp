@@ -232,20 +232,21 @@ HdCyclesTransformSource::Resolve()
     // Hd outputs duplicated time samples, remove all duplicates and keep time samples in ascending order
     m_samples = HdCyclesTimeSamplesRemoveOverlaps(m_samples);
 
-    // No motion samples, no motion blur use fallback value
-    if (m_samples.count == 0) {
-        object->get_motion().resize(0);
-        object->set_tfm(mat4d_to_transform(m_fallback));
-
-        // Marked as finished
-        _SetResolved();
-        return true;
+    // Only one or no motion sample - no motion blur
+    bool no_motion = m_samples.count <= 1;
+    // All keys the same - no motion blur
+    if (!no_motion) {
+      no_motion = true;
+      for (auto tfm : m_samples.values) {
+        if (tfm != m_samples.values[0]) {
+          no_motion = false;
+          break;
+        }
+      }
     }
-
-    // Only one motion sample - no motion blur
-    if (m_samples.count == 1) {
+    if (no_motion) {
         object->get_motion().resize(0);
-        object->set_tfm(mat4d_to_transform(m_samples.values[0]));
+        object->set_tfm(mat4d_to_transform(m_samples.count ? m_samples.values[0] : m_fallback));
 
         // Marked as finished
         _SetResolved();
@@ -271,9 +272,6 @@ HdCyclesTransformSource::Resolve()
     //
     auto num_inp_samples = static_cast<unsigned int>(m_samples.count);
     auto num_req_samples = m_new_num_samples > 0 ? m_new_num_samples : num_inp_samples;
-
-    // Check if requested samples are odd samples
-    num_req_samples = num_req_samples % 2 == 1 ? num_req_samples : num_req_samples + 1;
 
     // Check if resampling is required
     bool requires_resampling = false;
