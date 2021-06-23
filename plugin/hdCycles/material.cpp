@@ -553,10 +553,33 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
                                 graph->connect(cycles_node->output("BSDF"), graph->output()->input("Surface"));
 
                             } else if (cycles_node->output("Closure") != NULL) {
-                                graph->connect(cycles_node->output("Closure"), graph->output()->input("Surface"));
+                                bool has_volume_connection = false;
+
+                                for (const HdMaterialRelationship& matRel : net.second.relationships) {
+                                    ccl::ShaderNode* tonode = conversionMap[matRel.outputId].second;
+                                    ccl::ShaderNode* fromnode = conversionMap[matRel.inputId].second;
+
+                                    // Skip invalid connections.
+                                    if (fromnode == nullptr || tonode == nullptr) {
+                                        continue;
+                                    }
+
+                                    if (tonode->output("Volume") != NULL || fromnode->output("Volume") != NULL) {
+                                        has_volume_connection = true;
+                                        break;
+                                    }
+                                }
+
+                                if (has_volume_connection) {
+                                    graph->connect(cycles_node->output("Closure"), graph->output()->input("Volume"));
+                                } else {
+                                    graph->connect(cycles_node->output("Closure"), graph->output()->input("Surface"));
+                                }
 
                             } else if (cycles_node->output("Emission") != NULL) {
                                 graph->connect(cycles_node->output("Emission"), graph->output()->input("Surface"));
+                            } else if (cycles_node->output("Volume") != NULL) {
+                                graph->connect(cycles_node->output("Volume"), graph->output()->input("Volume"));
                             }
                         }
                         if (terminal == HdCyclesMaterialTerminalTokens->displacement) {
