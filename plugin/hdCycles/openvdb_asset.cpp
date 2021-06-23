@@ -1,4 +1,4 @@
-//  Copyright 2020 Tangent Animation
+//  Copyright 2020 Tangent Animation & Advanced Micro Devices
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,12 +17,126 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+
+#ifdef Houdini_FOUND
+#    include <GT/GT_PrimVDB.h>
+#endif
+
 #include "openvdb_asset.h"
 
+#include <pxr/base/arch/library.h>
 #include <pxr/imaging/hd/renderIndex.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
 PXR_NAMESPACE_OPEN_SCOPE
+
+#ifdef Houdini_FOUND
+namespace {
+// This struct loads a vdb grid from Houdini memory by loading the USD_SopVol 
+// This code uses a modified version AMD Radeon ProRender USD Hydra delegate HoudiniOpenvdbLoader.
+// Modified by using the USD native "ArchLibraryGetSymbolAddress" and returning a ConstPtr
+// to the grid instead of a raw pointer to GridBase. Nested in an anonymous namespace and 
+// uses a struct instead of a singleton class. 
+struct HoudiniVdbLoader {
+    HoudiniVdbLoader()
+    {
+        auto hfs = std::getenv("HFS");
+        if (hfs) {
+            auto lib_path = hfs + std::string("/houdini/dso/USD_SopVol") + ARCH_LIBRARY_SUFFIX;
+            m_handle = ArchLibraryOpen(lib_path, ARCH_LIBRARY_LAZY);
+
+            if (m_handle) {
+                m_houdiniVdbLoadFunc = (houdiniVdbLoadFunc)ArchLibraryGetSymbolAddress(m_handle,
+                                                                                       "SOPgetVDBVolumePrimitive");
+                if (!m_houdiniVdbLoadFunc) {
+                    TF_RUNTIME_ERROR("USD_SopVol missing required symbol: SOPgetVDBVolumePrimitive");
+                }
+            } else {
+                auto err = ArchLibraryError();
+                if (err.empty()) {
+                    err = "Unable to open USD_SopVol library! Unkown Error!";
+                }
+                TF_RUNTIME_ERROR("Failed to load USD_SopVol library: %s", err.c_str());
+            }
+        }
+    }
+
+    openvdb::GridBase::ConstPtr getGrid(const char* file_path, const char* name) const
+    {
+        if (!m_houdiniVdbLoadFunc) {
+            return nullptr;
+        }
+        auto vdbPrim = reinterpret_cast<GT_PrimVDB*>((*m_houdiniVdbLoadFunc)(file_path, name));
+        if (!vdbPrim) {
+            return nullptr;
+        }
+
+        const auto* grid_base = vdbPrim->getGrid();
+        return grid_base ? grid_base->copyGrid() : nullptr;
+    }
+
+    ~HoudiniVdbLoader()
+    {
+        if (m_handle) {
+            ArchLibraryClose(m_handle);
+        }
+    }
+
+private:
+    void* m_handle = nullptr;
+    typedef void* (*houdiniVdbLoadFunc)(const char* filepath, const char* name);
+    houdiniVdbLoadFunc m_houdiniVdbLoadFunc = nullptr;
+};
+
+static HoudiniVdbLoader houdiniVdbLoader;
+}  // namespace
+#endif
+
+void
+HdCyclesVolumeLoader::UpdateGrid()
+{
+    if (TF_VERIFY(!m_file_path.empty())) {
+        try {
+#ifdef Houdini_FOUND
+            if (grid) {
+                grid.reset();
+            }
+
+            // Load vdb grid from memory if the filepath is pointing to a houdini sop
+            static std::string opPrefix("op:");
+            if (m_file_path.compare(0, opPrefix.size(), opPrefix) == 0) {
+                this->grid = houdiniVdbLoader.getGrid(m_file_path.c_str(), grid_name.c_str());
+            } else {
+                openvdb::io::File file(m_file_path);
+                file.setCopyMaxBytes(0);
+                file.open();
+
+                this->grid = file.readGrid(grid_name);
+            }
+
+            if (!grid) {
+                TF_WARN("Vdb grid is empty!");
+            }
+#else
+            openvdb::io::File file(m_file_path);
+            file.setCopyMaxBytes(0);
+            file.open();
+
+            if (grid) {
+                grid.reset();
+            }
+
+            this->grid = file.readGrid(grid_name);
+#endif
+        } catch (const openvdb::IoError& e) {
+            TF_RUNTIME_ERROR("Unable to load grid %s from file %s", grid_name.c_str(), m_file_path.c_str());
+        } catch (const std::exception& e) {
+            TF_RUNTIME_ERROR("Error updating grid: %s", e.what());
+        }
+    } else {
+        TF_WARN("Volume file path is empty!");
+    }
+}
 
 HdCyclesOpenvdbAsset::HdCyclesOpenvdbAsset(HdCyclesRenderDelegate* a_delegate, const SdfPath& id)
     : HdField(id)

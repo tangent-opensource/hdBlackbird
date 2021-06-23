@@ -206,6 +206,10 @@ private:
      */
 
     void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateMotionAttributeVec3f(HdSceneDelegate* sceneDelegate, const SdfPath& id, const TfToken& token,
+                                       const TfToken& role, const HdInterpolation& interpolation_refine,
+                                       const HdInterpolation& interpolation, int cycles_motion_attribute,
+                                       size_t n_expected_samples);
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
@@ -237,7 +241,7 @@ private:
 
     ccl::Mesh* m_cyclesMesh;
     ccl::Object* m_cyclesObject;
-    std::vector<ccl::Object*> m_cyclesInstances;
+    std::vector<ccl::Object> m_cyclesInstances;
 
     ccl::Shader* m_object_display_color_shader;
     ccl::Shader* m_attrib_display_color_shader;

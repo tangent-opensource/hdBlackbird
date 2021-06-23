@@ -220,11 +220,13 @@ public:
     void AddShader(ccl::Shader* shader);
     void AddLight(ccl::Light* light);
     void AddObject(ccl::Object* object);
+    void AddObjectArray(std::vector<ccl::Object>& objects);
     void AddGeometry(ccl::Geometry* geometry);
 
     void RemoveShader(ccl::Shader* shader);
     void RemoveLight(ccl::Light* light);
     void RemoveObject(ccl::Object* object);
+    void RemoveObjectArray(const std::vector<ccl::Object>& objects);
     void RemoveGeometry(ccl::Geometry* geometry);
 
     /* ====== Thread safe operations ====== */
@@ -306,8 +308,11 @@ private:
 
     bool m_aovBindingsNeedValidation;
 
-    int m_width;
-    int m_height;
+    GfVec4f m_dataWindowNDC;
+    GfVec2i m_resolutionImage;
+    GfVec2i m_resolutionDisplay;
+    bool m_resolutionAuthored;
+    GfVec4f m_renderRect;  // In pixels
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;
