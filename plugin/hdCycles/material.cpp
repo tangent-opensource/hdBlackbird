@@ -77,7 +77,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 
 TF_DEFINE_PUBLIC_TOKENS(HdCyclesMaterialTerminalTokens, HD_CYCLES_MATERIAL_TERMINAL_TOKENS);
 
-TF_MAKE_STATIC_DATA(NdrTokenVec, _sourceTypes) { *_sourceTypes = { TfToken("OSL"), TfToken("cycles") }; }
+TF_MAKE_STATIC_DATA(NdrTokenVec, _sourceTypes) { *_sourceTypes = { TfToken("OSL"), TfToken("blackbird") }; }
 
 std::map<TfToken, ccl::DisplacementMethod> DISPLACEMENT_CONVERSION = {
     { usdCyclesTokens->displacement_bump, ccl::DISPLACE_BUMP },

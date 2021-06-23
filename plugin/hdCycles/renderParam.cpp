@@ -2160,7 +2160,7 @@ HdCyclesRenderParam::GetRenderStats() const
                             // Currently these don't update properly. It is unclear if we need to tag renderstats as
                             // dynamic. Maybe our VtValues need to live longer?
 
-                            { "rendererName", VtValue("Cycles") },
+                            { "rendererName", VtValue("Blackbird") },
                             { "rendererVersion", VtValue(HD_CYCLES_VERSION) },
                             { "percentDone", VtValue(m_renderPercent) },
                             { "fractionDone", VtValue(m_renderProgress) },

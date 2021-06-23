@@ -8,8 +8,8 @@
                             "prims"
                         ],
                         "default": "<built-in>",
-                        "displayGroup": "Cycles",
-                        "documentation": "Cycles plugin location for a node.",
+                        "displayGroup": "Blackbird",
+                        "documentation": "Blackbird plugin location for a node.",
                         "type": "token"
                     }
                 },
@@ -18,13 +18,13 @@
                         "bases": [
                             "NdrParserPlugin"
                         ],
-                        "displayName": "Cycles Node Parser"
+                        "displayName": "Blackbird Node Parser"
                     },
                     "NdrCyclesDiscoveryPlugin": {
                         "bases": [
                             "NdrDiscoveryPlugin"
                         ],
-                        "displayName": "Cycles Node Discovery"
+                        "displayName": "Blackbird Node Discovery"
                     }
                 }
             },

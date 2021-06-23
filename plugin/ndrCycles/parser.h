@@ -53,14 +53,14 @@ public:
     /**
      * @brief Returns all the supported discovery types.
      * 
-     * @return Returns "cycles" as the only supported discovery type.
+     * @return Returns "blackbird" as the only supported discovery type.
      */
     const NdrTokenVec& GetDiscoveryTypes() const override;
 
     /**
      * @brief Returns all the supported source types.
      * 
-     * @return Returns "cycles" as the only supported source type.
+     * @return Returns "blackbird" as the only supported source type.
      */
     const TfToken& GetSourceType() const override;
 };

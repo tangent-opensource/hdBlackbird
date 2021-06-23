@@ -117,7 +117,7 @@ class "CyclesRendererSettingsAPI" (
             string apiName = "samples"
         }
         displayName = "Samples"
-        doc = "Cycles render samples"
+        doc = "Blackbird render samples"
     )
 
     uniform int blackbird:threads = 32 (
@@ -332,7 +332,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Integrator"
         displayName = "Method"
-        doc = "Cycles render device"
+        doc = "Blackbird render device"
     )
 
     uniform token blackbird:integrator:sampling_method = "sobol" (
@@ -342,7 +342,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Integrator"
         displayName = "Sampling Method"
-        doc = "Cycles render device"
+        doc = "Blackbird render device"
     )
 
     uniform int blackbird:integrator:seed = 0 (
@@ -350,7 +350,7 @@ class "CyclesIntegratorSettingsAPI" (
             string apiName = "integrator_seed"
         }
         displayName = "Seed"
-        doc = "Cycles integrator seed"
+        doc = "Blackbird integrator seed"
     )
 
     uniform int blackbird:integrator:min_bounce = 0 (
@@ -458,7 +458,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "AA Samples"
-        doc = "Cycles anti aliasing samples"
+        doc = "Blackbird anti aliasing samples"
     )
 
     uniform int blackbird:integrator:diffuse_samples = 1 (
@@ -467,7 +467,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "Diffuse Samples"
-        doc = "Cycles diffuse samples"
+        doc = "Blackbird diffuse samples"
     )
 
     uniform int blackbird:integrator:glossy_samples = 1 (
@@ -476,7 +476,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "Glossy Samples"
-        doc = "Cycles glossy samples"
+        doc = "Blackbird glossy samples"
     )
 
     uniform int blackbird:integrator:transmission_samples = 1 (
@@ -485,7 +485,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "Transmission Samples"
-        doc = "Cycles transmission samples"
+        doc = "Blackbird transmission samples"
     )
 
     uniform int blackbird:integrator:ao_samples = 1 (
@@ -494,7 +494,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "AO Samples"
-        doc = "Cycles ao samples"
+        doc = "Blackbird ao samples"
     )
 
     uniform int blackbird:integrator:mesh_light_samples = 1 (
@@ -503,7 +503,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "Mesh Light Samples"
-        doc = "Cycles mesh_light samples"
+        doc = "Blackbird mesh_light samples"
     )
 
     uniform int blackbird:integrator:subsurface_samples = 1 (
@@ -512,7 +512,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "Subsurface Samples"
-        doc = "Cycles subsurface samples"
+        doc = "Blackbird subsurface samples"
     )
 
     uniform int blackbird:integrator:volume_samples = 1 (
@@ -521,7 +521,7 @@ class "CyclesIntegratorSettingsAPI" (
         }
         displayGroup = "Samples"
         displayName = "Volume Samples"
-        doc = "Cycles volume samples"
+        doc = "Blackbird volume samples"
     )
 
     # TODO: Is this needed anymore?
