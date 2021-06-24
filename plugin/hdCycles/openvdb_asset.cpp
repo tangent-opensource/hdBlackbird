@@ -17,7 +17,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#ifndef APPLE
+#ifndef __APPLE__
 #ifdef Houdini_FOUND
 #define HOUDINI_VDB
 #endif
