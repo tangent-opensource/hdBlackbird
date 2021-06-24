@@ -327,10 +327,8 @@ HdCyclesPoints::_PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& i
     ccl::AttributeSet* attributes = &m_cyclesPointCloud->attributes;
     ccl::ustring attrib_name("displayColor");
     ccl::Attribute* attr_C = attributes->find(attrib_name);
-    bool reset_opacity = false;
     if (!attr_C) {
         attr_C = attributes->add(attrib_name, ccl::TypeRGBA, ccl::ATTR_ELEMENT_VERTEX);
-        reset_opacity = true;
     }
 
     if (!value_.IsHolding<VtVec3fArray>()) {
@@ -350,6 +348,7 @@ HdCyclesPoints::_PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& i
             C[i].x = v0.x;
             C[i].y = v0.y;
             C[i].z = v0.z;
+            C[i].w = 1.f;
         }
     } else if (interpolation == HdInterpolationVertex) {
         assert(value.size() == m_cyclesPointCloud->points.size());
@@ -357,15 +356,10 @@ HdCyclesPoints::_PopulateColors(HdSceneDelegate* sceneDelegate, const SdfPath& i
             C[i].x = value[i][0];
             C[i].y = value[i][1];
             C[i].z = value[i][2];
+            C[i].w = 1.f;
         }
     } else {
         assert(false);
-    }
-
-    if (reset_opacity) {
-        for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
-            C[i].w = 1.f;
-        }
     }
 }
 
@@ -400,23 +394,17 @@ HdCyclesPoints::_PopulateOpacities(HdSceneDelegate* sceneDelegate, const SdfPath
 
     auto value = value_.Cast<VtFloatArray>().UncheckedGet<VtFloatArray>();
 
-    ccl::AttributeSet* attributes = &m_cyclesPointCloud->attributes;
-    ccl::ustring attrib_name("displayColor");
-    ccl::Attribute* attr_C = attributes->find(attrib_name);
-    if (!attr_C) {
-        attr_C = attributes->add(attrib_name, ccl::TypeRGBA, ccl::ATTR_ELEMENT_VERTEX);
-    }
+    m_cyclesPointCloud->opacity.resize(m_cyclesPointCloud->num_points());
 
-    ccl::float4* C = attr_C->data_float4();
     if (interpolation == HdInterpolationConstant) {
         assert(value.size() == 1);
         for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
-            C[i].w = value[0];
+            m_cyclesPointCloud->opacity[i] = value[0];
         }
     } else if (interpolation == HdInterpolationVertex) {
         assert(value.size() == m_cyclesPointCloud->points.size());
         for (size_t i = 0; i < m_cyclesPointCloud->points.size(); ++i) {
-            C[i].w = value[i];
+            m_cyclesPointCloud->opacity[i] = value[i];
         }
     } else {
         assert(false);
@@ -742,7 +730,7 @@ HdCyclesPoints::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
-        _PopulateMaterial(sceneDelegate, param, scene->default_surface, id);
+        _PopulateMaterial(sceneDelegate, param, param->default_vcol_display_color_surface, id);
     }
 
     // Loop through all the other primvars
