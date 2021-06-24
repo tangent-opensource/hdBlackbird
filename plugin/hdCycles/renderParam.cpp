@@ -46,6 +46,8 @@
 #include <util/util_murmurhash.h>
 #include <util/util_task.h>
 
+#include <tbb/parallel_for.h>
+
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
 #endif
@@ -1464,10 +1466,14 @@ HdCyclesRenderParam::_CreateSession()
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
     m_cyclesSession->display_copy_cb = [this](int samples) {
-        for (auto aov : m_aovs) {
-            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width,
-                               m_cyclesSession->tile_manager.state.buffer.height, samples);
-        }
+        const int width = m_cyclesSession->tile_manager.state.buffer.width;
+        const int height = m_cyclesSession->tile_manager.state.buffer.height;
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_aovs.size(), 1),
+                          [this, width, height, samples](const tbb::blocked_range<size_t>& r) {
+                              for (size_t i = r.begin(); i < r.end(); ++i) {
+                                  BlitFromCyclesPass(m_aovs[i], width, height, samples);
+                              }
+                          });
     };
 
     m_cyclesSession->write_render_tile_cb = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
