@@ -21,7 +21,11 @@ if(NOT DEFINED HOUDINI_ROOT)
     message(FATAL_ERROR "HOUDINI_ROOT not defined")
 endif()
 
-find_package(Houdini REQUIRED PATHS ${HOUDINI_ROOT}/toolkit/cmake)
+if(APPLE)
+  find_package(Houdini REQUIRED PATHS ${HOUDINI_ROOT}/Resources/toolkit/cmake)
+else()
+  find_package(Houdini REQUIRED PATHS ${HOUDINI_ROOT}/toolkit/cmake)
+endif()
 target_link_libraries(UsdInterface INTERFACE Houdini)
 
 # DSO
@@ -40,6 +44,7 @@ foreach(_houdini_lib ${_houdini_libs})
             PATHS
             ${HOUDINI_ROOT}/dsolib
             ${HOUDINI_ROOT}/custom/houdini/dsolib/
+            ${HOUDINI_ROOT}/Libraries
             REQUIRED
             )
 
@@ -72,6 +77,7 @@ find_library(_houdini_hboost_python
         PATHS
         ${HOUDINI_ROOT}/dsolib
         ${HOUDINI_ROOT}/custom/houdini/dsolib/
+        ${HOUDINI_ROOT}/Libraries
         REQUIRED
         )
 
@@ -87,6 +93,7 @@ foreach(_pxr_lib ${_houdini_pxr_libs})
             PATHS
             ${HOUDINI_ROOT}/dsolib
             ${HOUDINI_ROOT}/custom/houdini/dsolib/
+            ${HOUDINI_ROOT}/Libraries
             REQUIRED
             )
 

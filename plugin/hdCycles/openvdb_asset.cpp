@@ -17,8 +17,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-
+#ifndef APPLE
 #ifdef Houdini_FOUND
+#define HOUDINI_VDB
+#endif
+#endif
+
+#ifdef HOUDINI_VDB
 #    include <GT/GT_PrimVDB.h>
 #endif
 
@@ -30,7 +35,7 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
-#ifdef Houdini_FOUND
+#ifdef HOUDINI_VDB
 namespace {
 // This struct loads a vdb grid from Houdini memory by loading the USD_SopVol 
 // This code uses a modified version AMD Radeon ProRender USD Hydra delegate HoudiniOpenvdbLoader.
@@ -97,7 +102,7 @@ HdCyclesVolumeLoader::UpdateGrid()
 {
     if (TF_VERIFY(!m_file_path.empty())) {
         try {
-#ifdef Houdini_FOUND
+#ifdef HOUDINI_VDB
             if (grid) {
                 grid.reset();
             }
