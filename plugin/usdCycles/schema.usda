@@ -789,7 +789,7 @@ class "CyclesTextureSettingsAPI" (
 {
     string displayName = "Texture"
 
-    bool cycles:texture_use_cache = false (
+    bool cycles:texture_use_cache = true (
         customData = {
             string apiName = "texture_use_cache"
         }
@@ -799,7 +799,7 @@ class "CyclesTextureSettingsAPI" (
         out of core texturing."""
     )
 
-    int cycles:texture_cache_size = 4096 (
+    int cycles:texture_cache_size = 20480 (
         customData = {
             string apiName = "texture_cache_size"
         }
@@ -835,7 +835,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Blur texture lookups for glossy bounces."""
     )
 
-    bool cycles:texture_auto_convert = 0 (
+    bool cycles:texture_auto_convert = false (
         customData = {
             string apiName = "texture_auto_convert"
         }
@@ -845,7 +845,7 @@ class "CyclesTextureSettingsAPI" (
         that contain tiled mip map representations."""
     )
 
-    bool cycles:texture_accept_unmipped = 0 (
+    bool cycles:texture_accept_unmipped = true (
         customData = {
             string apiName = "texture_accept_unmipped"
         }
@@ -855,7 +855,7 @@ class "CyclesTextureSettingsAPI" (
         that are not in a mip mapped format."""
     )
 
-    bool cycles:texture_accept_untiled = 0 (
+    bool cycles:texture_accept_untiled = true (
         customData = {
             string apiName = "texture_accept_untiled"
         }
@@ -865,7 +865,7 @@ class "CyclesTextureSettingsAPI" (
         that are not in a tiled format."""
     )
 
-    bool cycles:texture_auto_tile = 0 (
+    bool cycles:texture_auto_tile = false (
         customData = {
             string apiName = "texture_auto_tile"
         }
@@ -874,7 +874,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Convert in memory textures to tiled layout."""
     )
 
-    bool cycles:texture_auto_mip = 0 (
+    bool cycles:texture_auto_mip = false (
         customData = {
             string apiName = "texture_auto_mip"
         }
@@ -883,7 +883,7 @@ class "CyclesTextureSettingsAPI" (
         doc = """Generate in memory Mip Maps automatically."""
     )
 
-    bool cycles:texture_use_custom_path = 0 (
+    bool cycles:texture_use_custom_path = false (
         customData = {
             string apiName = "texture_use_custom_path"
         }
