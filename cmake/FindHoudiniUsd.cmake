@@ -67,7 +67,9 @@ find_library(_houdini_python_lib
     ${HOUDINI_ROOT}/python27/libs
     ${HOUDINI_ROOT}/python/libs
     ${HOUDINI_ROOT}/python/lib
+    ${HOUDINI_ROOT}/../../../
     REQUIRED
+    NO_DEFAULT_PATH
     )
 
 find_library(_houdini_hboost_python
