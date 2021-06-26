@@ -101,9 +101,10 @@ std::array<HdCyclesAov, 27> DefaultAovs = { {
     { "Ngn", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Ngn, HdFormatFloat32Vec3, false },
 } };
 
-std::array<HdCyclesAov, 2> CustomAovs = { {
+std::array<HdCyclesAov, 3> CustomAovs = { {
     { "AOVC", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->AOVC, HdFormatFloat32Vec3, true },
     { "AOVV", ccl::PASS_AOV_VALUE, HdCyclesAovTokens->AOVV, HdFormatFloat32, true },
+    { "LightGroup", ccl::PASS_LIGHTGROUP, HdCyclesAovTokens->LightGroup, HdFormatFloat32Vec3, true },
 } };
 
 std::array<HdCyclesAov, 3> CryptomatteAovs = { {
@@ -196,7 +197,7 @@ GetAovFlags(const HdCyclesAov& cyclesAov, bool& custom, bool& denoise)
     denoise = false;
     if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject) || (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial)
         || (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) || (cyclesAov.token == HdCyclesAovTokens->AOVC)
-        || (cyclesAov.token == HdCyclesAovTokens->AOVV)) {
+        || (cyclesAov.token == HdCyclesAovTokens->AOVV) || (cyclesAov.token == HdCyclesAovTokens->LightGroup)) {
         custom = true;
     } else if ((cyclesAov.token == HdCyclesAovTokens->DenoiseNormal)
                || (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo)) {
