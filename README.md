@@ -1,30 +1,28 @@
-# HdCycles
+# HdBlackbird
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.txt)
 
-A USD/Hydra RenderDelegate plugin that adds support for the 
-Cycles renderer (Blender's physically based path tracer) to any client.
+A USD/Hydra RenderDelegate plugin that adds support for the
+Blackbird renderer (based on Blender's Cycles path tracer) to any client.
 
-Its goal is to render a one-to-one representation of a USD scene with Cycles. 
+Its goal is to render a one-to-one representation of a USD scene with Blackbird. 
 
 This requires three components:
-* hdCycles (Cycles Hydra Delegate)
-* ndrCycles (Cycles Node Definition Registry)
-* usdCycles (Cycles USD Schema)
-
-The first two of which are implemented in this repository.
+* hdCycles (Blackbird Hydra Delegate)
+* ndrCycles (Blackbird Node Definition Registry)
+* usdCycles (Blackbird USD Schema)
 
 ## Building
 
 ### Requirements
 
-* Cycles standalone libraries and headers [Source](https://git.blender.org/gitweb/gitweb.cgi/cycles.git)
+* coreBlackbird standalone libraries and headers [Source](https://github.com/tangent-opensource/coreBlackbird)
 * USD 19.xx+
   * Most of the USD requirements need to be available (OpenSubdiv, PNG, OpenImageIO, OpenVDB ...)
 
 ### Linux
 
-Make sure to build cycles with `-DCMAKE_POSITION_INDEPENDENT_CODE=ON`
+Make sure to build coreBlackbird with `-DCMAKE_POSITION_INDEPENDENT_CODE=ON`
 
 ```shell
 mkdir build
@@ -117,8 +115,8 @@ Currently supported features:
 |                 | Point Instances       | ✅    |                                                   |
 |                 | usdCycles Schema Support| ✅  |                                                   |
 |                 | Motion Blur (Transform) | ✅  |                                                   |
-|                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
-|                 | Motion Blur (Velocity)  | ❌  |                                                   |
+|                 | Motion Blur (Deforming) | ✅  |                                                   |
+|                 | Motion Blur (Velocity)  | ✅  |                                                   |
 |                 | Motion Blur (Instances) | ❌  |                                                   |
 | **Materials**   | Cycles Material Graph | ✅    | Ongoing support                                   |
 |                 | Displacement          | ✅    |                                                   |
@@ -132,7 +130,7 @@ Currently supported features:
 |                 | Motion Blur           | ✅    |                                                   |
 |                 | usdCycles Schema Support | ✅  |                                                   |
 | **Curves**      | BasisCurves           | ✅    |                                                   |
-|                 | NURBs                 | ❌    |                                                   |
+|                 | NURBS                 | ❌    |                                                   |
 |                 | Point Instancing      | ❌    |                                                   |
 |                 | Motion Blur (Transform) | ✅  |                                                   |
 |                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
@@ -156,7 +154,7 @@ Currently supported features:
 | **Rendering**   | Combined AOV          | ✅    |                                                   |
 |                 | Tiled Rendering       | ✅    |                                                   |
 |                 | Full AOV Support      | ❌    |                                                   |
-|                 | Cryptomatte           | ❌    |                                                   |
+|                 | Cryptomatte           | ✅    |                                                   |
 |                 | OCIO Support          | ✅    |                                                   |
 |                 | CUDA/GPU Support      | ❌    | Should just require adjustments to build scripts  |
 
