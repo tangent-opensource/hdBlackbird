@@ -137,7 +137,9 @@ TF_DECLARE_PUBLIC_TOKENS(HdCyclesIntegratorTokens,
     (SampleCount)           \
                             \
     (DenoiseNormal)         \
-    (DenoiseAlbedo)
+    (DenoiseAlbedo)         \
+                            \
+    (LightGroup)
 
 TF_DECLARE_PUBLIC_TOKENS(HdCyclesAovTokens,
     HDCYCLES_AOV_TOKENS

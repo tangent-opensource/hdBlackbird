@@ -200,6 +200,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
     m_cyclesLight->set_samples(1);
     m_cyclesLight->set_max_bounces(1024);
     m_cyclesLight->set_map_resolution(0);
+    m_cyclesLight->set_lightgroup(ccl::ustring(""));
 
     // Always rebuild dome lights on transform change, the transform texture co-ordinate gets
     // optimised/folded out and we can't get it back to tweak...
@@ -601,6 +602,10 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
 
     m_cyclesLight->set_map_resolution(_HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->cyclesLightMap_resolution,
                                                              m_cyclesLight->get_map_resolution()));
+    std::string lightGroup = m_cyclesLight->get_lightgroup().c_str();
+    lightGroup = _HdCyclesGetLightParam<std::string>(id, sceneDelegate, usdCyclesTokens->cyclesLightLightgroup,
+                                                     lightGroup);
+    m_cyclesLight->set_lightgroup(ccl::ustring(lightGroup));
 
     // TODO: Light is_enabled doesn't seem to have any effect
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {

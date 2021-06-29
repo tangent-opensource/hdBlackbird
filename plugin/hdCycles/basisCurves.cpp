@@ -447,6 +447,7 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     m_cyclesObject->set_pass_id(0);
     m_cyclesObject->set_use_holdout(false);
     m_cyclesObject->set_asset_name(ccl::ustring(""));
+    m_cyclesObject->set_lightgroup(ccl::ustring(""));
 
     // initial values
     TfToken curveShape = usdCyclesTokens->ribbon;
@@ -569,6 +570,15 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                     if (value.IsHolding<std::string>()) {
                         std::string assetName = value.Get<std::string>();
                         m_cyclesObject->set_asset_name(ccl::ustring(assetName));
+                    }
+                    continue;
+                }
+
+                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectLightgroup) {
+                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectLightgroup);
+                    if (value.IsHolding<std::string>()) {
+                        std::string lightGroup = value.Get<std::string>();
+                        m_cyclesObject->set_lightgroup(ccl::ustring(lightGroup.c_str()));
                     }
                     continue;
                 }

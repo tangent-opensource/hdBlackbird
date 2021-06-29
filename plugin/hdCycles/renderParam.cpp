@@ -46,6 +46,8 @@
 #include <util/util_murmurhash.h>
 #include <util/util_task.h>
 
+#include <tbb/parallel_for.h>
+
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
 #endif
@@ -101,9 +103,10 @@ std::array<HdCyclesAov, 27> DefaultAovs = { {
     { "Ngn", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Ngn, HdFormatFloat32Vec3, false },
 } };
 
-std::array<HdCyclesAov, 2> CustomAovs = { {
+std::array<HdCyclesAov, 3> CustomAovs = { {
     { "AOVC", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->AOVC, HdFormatFloat32Vec3, true },
     { "AOVV", ccl::PASS_AOV_VALUE, HdCyclesAovTokens->AOVV, HdFormatFloat32, true },
+    { "LightGroup", ccl::PASS_LIGHTGROUP, HdCyclesAovTokens->LightGroup, HdFormatFloat32Vec3, true },
 } };
 
 std::array<HdCyclesAov, 3> CryptomatteAovs = { {
@@ -186,6 +189,21 @@ GetDenoisePass(const TfToken token)
         return ccl::DENOISING_PASS_PREFILTERED_ALBEDO;
     } else {
         return -1;
+    }
+}
+
+void
+GetAovFlags(const HdCyclesAov& cyclesAov, bool& custom, bool& denoise)
+{
+    custom = false;
+    denoise = false;
+    if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject) || (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial)
+        || (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) || (cyclesAov.token == HdCyclesAovTokens->AOVC)
+        || (cyclesAov.token == HdCyclesAovTokens->AOVV) || (cyclesAov.token == HdCyclesAovTokens->LightGroup)) {
+        custom = true;
+    } else if ((cyclesAov.token == HdCyclesAovTokens->DenoiseNormal)
+               || (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo)) {
+        denoise = true;
     }
 }
 
@@ -1484,10 +1502,14 @@ HdCyclesRenderParam::_CreateSession()
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
     m_cyclesSession->display_copy_cb = [this](int samples) {
-        for (auto aov : m_aovs) {
-            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width,
-                               m_cyclesSession->tile_manager.state.buffer.height, samples);
-        }
+        const int width = m_cyclesSession->tile_manager.state.buffer.width;
+        const int height = m_cyclesSession->tile_manager.state.buffer.height;
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_aovs.size(), 1),
+                          [this, width, height, samples](const tbb::blocked_range<size_t>& r) {
+                              for (size_t i = r.begin(); i < r.end(); ++i) {
+                                  BlitFromCyclesPass(m_aovs[i], width, height, samples);
+                              }
+                          });
     };
 
     m_cyclesSession->write_render_tile_cb  = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
@@ -1553,17 +1575,8 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
                 continue;
             }
 
-            bool custom = false;
-            bool denoise = false;
-            if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject)
-                || (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial)
-                || (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) || (cyclesAov.token == HdCyclesAovTokens->AOVC)
-                || (cyclesAov.token == HdCyclesAovTokens->AOVV)) {
-                custom = true;
-            } else if ((cyclesAov.token == HdCyclesAovTokens->DenoiseNormal)
-                       || (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo)) {
-                denoise = true;
-            }
+            bool custom, denoise;
+            GetAovFlags(cyclesAov, custom, denoise);
 
             // Pixels we will use to get from cycles.
             size_t numComponents = HdGetComponentCount(cyclesAov.format);
@@ -2493,6 +2506,10 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
         return;
     }
 
+    if (rb->GetFormat() == HdFormatInvalid) {
+        return;
+    }
+
     // No point in blitting since the session will be reset
     const unsigned int dstWidth = rb->GetWidth();
     const unsigned int dstHeight = rb->GetHeight();
@@ -2529,11 +2546,19 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
                 return;
             }
 
+            bool custom, denoise;
+            GetAovFlags(cyclesAov, custom, denoise);
+
             const int stride = static_cast<int>(HdDataSizeOfFormat(rb->GetFormat()));
             const float exposure = m_cyclesScene->film->get_exposure();
             auto buffers = m_cyclesSession->buffers;
-            buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
-                                      static_cast<uint8_t*>(data), pixels_type, w, h, dstWidth, dstHeight, stride);
+            if (!custom && !denoise) {
+                buffers->get_pass_rect_as(cyclesAov.name.c_str(), exposure, samples + 1, n_comps_cycles,
+                                          static_cast<uint8_t*>(data), pixels_type, w, h, dstWidth, dstHeight, stride);
+            } else if (custom) {
+                buffers->get_pass_rect_as(aov.aovName.GetText(), exposure, samples + 1, n_comps_cycles,
+                                          static_cast<uint8_t*>(data), pixels_type, w, h, dstWidth, dstHeight, stride);
+            }
 
 
             if (cyclesAov.type == ccl::PASS_OBJECT_ID) {

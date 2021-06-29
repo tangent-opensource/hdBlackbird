@@ -219,6 +219,28 @@ HdCyclesVolume::_UpdateGrids()
 #endif
 }
 
+void
+HdCyclesVolume::_UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBvh)
+{
+    if (m_cyclesInstances.empty()) {
+        m_cyclesObject->set_visibility(_sharedData.visible ? m_visibilityFlags : 0);
+    } else {
+        m_cyclesObject->set_visibility(0);
+    }
+
+    m_cyclesVolume->tag_update(scene, rebuildBvh);
+    m_cyclesObject->tag_update(scene);
+
+    // Mark visibility clean. When sync method is called object might be invisible. At that point we do not
+    // need to trigger the topology and data generation. It can be postponed until visibility becomes on.
+    // We need to manually mark visibility clean, but other flags remain dirty.
+    if (!_sharedData.visible) {
+        *dirtyBits &= ~HdChangeTracker::DirtyVisibility;
+    }
+
+    param->Interrupt();
+}
+
 /* If the voxel attributes change, we need to rebuild the bounding mesh. */
 static ccl::vector<int>
 get_voxel_image_slots(ccl::Mesh* mesh)
@@ -251,6 +273,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     // Defaults
     m_useMotionBlur = false;
     m_cyclesObject->set_velocity_scale(1.0f);
+    m_cyclesObject->set_lightgroup(ccl::ustring(""));
 
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
         m_cyclesVolume->clear();
@@ -303,6 +326,13 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     for (auto& primvarDescsEntry : pdpi) {
         for (auto& pv : primvarDescsEntry.second) {
+
+            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                continue;
+            }
+
+            // Object Generic
+
             m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
                                                             usdCyclesTokens->primvarsCyclesObjectMblur,
                                                             m_useMotionBlur);
@@ -311,6 +341,56 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 _HdCyclesGetVolumeParam<float>(pv, dirtyBits, id, this, sceneDelegate,
                                                usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
                                                m_cyclesObject->get_velocity_scale()));
+
+            m_cyclesObject->set_pass_id(_HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                                    usdCyclesTokens->primvarsCyclesObjectPass_id,
+                                                                    m_cyclesObject->get_pass_id()));
+
+            m_cyclesObject->set_use_holdout(_HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                                        usdCyclesTokens->primvarsCyclesObjectUse_holdout,
+                                                                        m_cyclesObject->get_use_holdout()));
+
+            std::string lightGroup = m_cyclesObject->get_lightgroup().c_str();
+            lightGroup = _HdCyclesGetVolumeParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
+                                                              usdCyclesTokens->primvarsCyclesObjectLightgroup,
+                                                              lightGroup);
+            m_cyclesObject->set_lightgroup(ccl::ustring(lightGroup));
+
+            // Visibility
+
+            m_visibilityFlags = 0;
+
+            m_visCamera = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                        usdCyclesTokens->primvarsCyclesObjectVisibilityCamera,
+                                                        m_visCamera);
+
+            m_visDiffuse = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                         usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
+                                                         m_visDiffuse);
+
+            m_visGlossy = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                        usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy,
+                                                        m_visGlossy);
+
+            m_visScatter = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                         usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
+                                                         m_visScatter);
+
+            m_visShadow = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                        usdCyclesTokens->primvarsCyclesObjectVisibilityShadow,
+                                                        m_visShadow);
+
+            m_visTransmission
+                = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
+                                                usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
+                                                m_visTransmission);
+
+            m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
+            m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
+            m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
+            m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
+            m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
+            m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
 
             update_volumes = true;
         }
@@ -362,17 +442,13 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                 for (size_t j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = _CreateObject();
 
+                    instanceObj->set_visibility(_sharedData.visible ? m_visibilityFlags : 0);
                     instanceObj->set_tfm(mat4d_to_transform(combinedTransforms[j].data()[0]) * obj_tfm);
                     instanceObj->set_geometry(m_cyclesVolume);
 
                     m_cyclesInstances.push_back(instanceObj);
 
                     m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
-                }
-
-                // Hide prototype
-                if (m_cyclesObject) {
-                    m_cyclesObject->set_visibility(m_cyclesObject->get_visibility() & (~ccl::PATH_RAY_ALL_VISIBILITY));
                 }
 
                 update_volumes = true;
@@ -385,11 +461,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         m_cyclesVolume->set_use_motion_blur(m_useMotionBlur);
 
         bool rebuild = (old_voxel_slots != get_voxel_image_slots(m_cyclesVolume));
-
-        m_cyclesVolume->tag_update(scene, rebuild);
-        m_cyclesObject->tag_update(scene);
-
-        param->Interrupt();
+        _UpdateObject(scene, param, dirtyBits, rebuild);
     }
 
     *dirtyBits = HdChangeTracker::Clean;
