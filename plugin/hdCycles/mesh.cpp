@@ -51,11 +51,9 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 // clang-format on
 
 HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
-    : HdMesh(id, instancerId)
+    : HdBbRPrim<HdMesh>(id, instancerId)
     , m_cyclesMesh(nullptr)
-    , m_cyclesObject(nullptr)
     , m_velocityScale(1.0f)
-    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_visCamera(true)
     , m_visDiffuse(true)
     , m_visGlossy(true)
@@ -926,31 +924,35 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
             }
 
             auto interpolation = interpolation_description.first;
-            auto value = GetPrimvar(sceneDelegate, description.name);
 
             if (description.name == HdTokens->displayColor || description.role == HdPrimvarRoleTokens->color) {
+                auto value = GetPrimvar(sceneDelegate, description.name);
                 _PopulateColors(description.name, description.role, value, scene, interpolation, id);
                 continue;
             }
 
             if (description.role == HdPrimvarRoleTokens->textureCoordinate) {
+                auto value = GetPrimvar(sceneDelegate, description.name);
                 _AddUVSet(description.name, value, scene, interpolation);
                 *dirtyBits |= DirtyBits::DirtyTangents;
                 continue;
             }
 
             if (description.name == HdTokens->velocities) {
+                auto value = GetPrimvar(sceneDelegate, description.name);
                 _AddVelocities(id, value, interpolation);
                 continue;
             }
 
             if (description.name == HdTokens->accelerations) {
+                auto value = GetPrimvar(sceneDelegate, description.name);
                 _AddAccelerations(id, value, interpolation);
                 continue;
             }
 
             // do not commit primvars with cycles: prefix
             if (m_cyclesMesh && !TfStringStartsWith(description.name.GetString(), "cycles:")) {
+                auto value = GetPrimvar(sceneDelegate, description.name);
                 m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(description.name, description.role,
                                                                                 value, m_cyclesMesh,
                                                                                 description.interpolation, m_topology);
@@ -1183,26 +1185,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // -------------------------------------
     // -- Resolve Drawstyles
 
-    std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
-        { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
-        { HdInterpolationVertex, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
-        { HdInterpolationConstant, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationConstant) },
-        { HdInterpolationUniform, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
-
-    };
-
-    // Set defaults, so that in a "do nothing" scenario it'll revert to defaults, or if you view
-    // a different node context without any settings set.
-    m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
-    m_motionBlur = true;
-    m_motionTransformSteps = 3;
-    m_motionDeformSteps = 3;
-    m_cyclesObject->is_shadow_catcher = false;
-    m_cyclesObject->pass_id = 0;
-    m_cyclesObject->use_holdout = false;
-    m_cyclesObject->asset_name = "";
-    m_cyclesObject->lightgroup = "";
-    m_refineLevel = 0;
+    HdPrimvarDescriptorMap primvarDescsPerInterpolation = GetPrimvarDescriptorMap(sceneDelegate);
+    GetObjectPrimvars(primvarDescsPerInterpolation, sceneDelegate, dirtyBits);
 
     for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
         for (auto& pv : primvarDescsEntry.second) {
@@ -1213,91 +1197,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
 
             if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level);
+                VtValue value = GetPrimvar(sceneDelegate, pv.name);
                 m_refineLevel = value.Get<int>();
                 continue;
             }
-
-            // motion blur settings
-
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
-                m_motionBlur = value.Get<bool>();
-                continue;
-            }
-
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
-                m_motionTransformSteps = value.Get<int>();
-                continue;
-            }
-
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
-                m_motionDeformSteps = value.Get<int>();
-                continue;
-            }
-
-            // Object Generic
-
-            m_cyclesObject->is_shadow_catcher
-                = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                              usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
-                                              m_cyclesObject->is_shadow_catcher);
-
-            m_cyclesObject->pass_id = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                  usdCyclesTokens->primvarsCyclesObjectPass_id,
-                                                                  m_cyclesObject->pass_id);
-
-            m_cyclesObject->use_holdout = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                      usdCyclesTokens->primvarsCyclesObjectUse_holdout,
-                                                                      m_cyclesObject->use_holdout);
-
-            std::string assetName = m_cyclesObject->asset_name.c_str();
-            assetName = _HdCyclesGetMeshParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
-                                                           usdCyclesTokens->primvarsCyclesObjectAsset_name, assetName);
-            m_cyclesObject->asset_name = ccl::ustring(assetName);
-
-            std::string lightGroup = m_cyclesObject->lightgroup.c_str();
-            lightGroup = _HdCyclesGetMeshParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
-                                                            usdCyclesTokens->primvarsCyclesObjectLightgroup,
-                                                            lightGroup);
-            m_cyclesObject->lightgroup = ccl::ustring(lightGroup);
-
-            // Visibility
-
-            m_visibilityFlags = 0;
-
-            m_visCamera = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                      usdCyclesTokens->primvarsCyclesObjectVisibilityCamera,
-                                                      m_visCamera);
-
-            m_visDiffuse = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                       usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
-                                                       m_visDiffuse);
-
-            m_visGlossy = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                      usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy,
-                                                      m_visGlossy);
-
-            m_visScatter = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                       usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
-                                                       m_visScatter);
-
-            m_visShadow = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                      usdCyclesTokens->primvarsCyclesObjectVisibilityShadow,
-                                                      m_visShadow);
-
-            m_visTransmission = _HdCyclesGetMeshParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                            usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
-                                                            m_visTransmission);
-
-            m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
-            m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
-            m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
-            m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
-            m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
-            m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
         }
     }
 

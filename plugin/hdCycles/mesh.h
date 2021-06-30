@@ -25,6 +25,7 @@
 #include "hdcycles.h"
 #include "meshRefiner.h"
 #include "objectSource.h"
+#include "rprim.h"
 
 #include <util/util_transform.h>
 
@@ -55,7 +56,7 @@ class HdCyclesRenderParam;
  * @brief HdCycles Mesh Rprim mapped to Cycles mesh
  * 
  */
-class HdCyclesMesh final : public HdMesh {
+class HdCyclesMesh final : public HdBbRPrim<HdMesh> {
 public:
     HF_MALLOC_TAG_NEW("new HdCyclesMesh")
 
@@ -240,7 +241,6 @@ private:
     HdCyclesObjectSourceSharedPtr m_object_source;
 
     ccl::Mesh* m_cyclesMesh;
-    ccl::Object* m_cyclesObject;
     std::vector<ccl::Object> m_cyclesInstances;
 
     ccl::Shader* m_object_display_color_shader;
@@ -252,12 +252,6 @@ private:
     std::shared_ptr<HdBbMeshTopology> m_topology;
 
     float m_velocityScale;
-
-    bool m_motionBlur;
-    int m_motionTransformSteps;
-    int m_motionDeformSteps;
-
-    unsigned int m_visibilityFlags;
 
     bool m_visCamera;
     bool m_visDiffuse;
