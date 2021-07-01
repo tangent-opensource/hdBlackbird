@@ -253,13 +253,6 @@ private:
 
     float m_velocityScale;
 
-    bool m_visCamera;
-    bool m_visDiffuse;
-    bool m_visGlossy;
-    bool m_visScatter;
-    bool m_visShadow;
-    bool m_visTransmission;
-
     std::vector<ccl::ustring> m_texture_names;
     VtFloat3Array m_limit_us;
     VtFloat3Array m_limit_vs;

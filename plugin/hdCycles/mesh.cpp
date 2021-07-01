@@ -54,12 +54,6 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     : HdBbRPrim<HdMesh>(id, instancerId)
     , m_cyclesMesh(nullptr)
     , m_velocityScale(1.0f)
-    , m_visCamera(true)
-    , m_visDiffuse(true)
-    , m_visGlossy(true)
-    , m_visScatter(true)
-    , m_visShadow(true)
-    , m_visTransmission(true)
     , m_renderDelegate(a_renderDelegate)
 {
     _InitializeNewCyclesMesh();
