@@ -197,6 +197,24 @@ protected:
         m_visibilityFlags |= visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
     }
 
+    void UpdateObject(ccl::Scene* scene, HdDirtyBits* dirtyBits, bool rebuildBvh)
+    {
+        assert(m_cyclesObject != nullptr);
+
+        if (m_cyclesObject->geometry) {
+            m_cyclesObject->geometry->tag_update(scene, rebuildBvh);
+        }
+        m_cyclesObject->visibility = T::IsVisible() ? m_visibilityFlags : 0;
+        m_cyclesObject->tag_update(scene);
+
+        // Mark visibility clean. When sync method is called object might be invisible. At that point we do not
+        // need to trigger the topology and data generation. It can be postponed until visibility becomes on.
+        // We need to manually mark visibility clean, but other flags remain dirty.
+        if (!T::IsVisible()) {
+            *dirtyBits &= ~HdChangeTracker::DirtyVisibility;
+        }
+    }
+
     ccl::Object* m_cyclesObject;
 
     unsigned int m_visibilityFlags;
