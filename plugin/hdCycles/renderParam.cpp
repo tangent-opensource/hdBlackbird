@@ -690,6 +690,21 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
     sceneParams->persistent_data = false;
 
     config.curve_subdivisions.eval(sceneParams->hair_subdivisions, a_forceInit);
+
+    // Texture
+    sceneParams->texture.use_cache = config.texture_use_cache.value;
+    sceneParams->texture.cache_size = config.texture_cache_size.value;
+    sceneParams->texture.tile_size = config.texture_tile_size.value;
+    sceneParams->texture.diffuse_blur = config.texture_diffuse_blur.value;
+    sceneParams->texture.glossy_blur = config.texture_glossy_blur.value;
+    sceneParams->texture.auto_convert = config.texture_auto_convert.value;
+    sceneParams->texture.accept_unmipped = config.texture_accept_unmipped.value;
+    sceneParams->texture.accept_untiled = config.texture_accept_untiled.value;
+    sceneParams->texture.auto_tile = config.texture_auto_tile.value;
+    sceneParams->texture.auto_mip = config.texture_auto_mip.value;
+    sceneParams->texture.use_custom_cache_path = config.texture_use_custom_path.value;
+    sceneParams->texture.custom_cache_path = config.texture_custom_path.value;
+    sceneParams->texture_limit = config.texture_max_size.value;
 }
 
 void
