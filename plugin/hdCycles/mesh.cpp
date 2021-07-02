@@ -1179,30 +1179,32 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // -------------------------------------
     // -- Resolve Drawstyles
 
-    HdPrimvarDescriptorMap primvarDescsPerInterpolation = GetPrimvarDescriptorMap(sceneDelegate);
-    GetObjectPrimvars(primvarDescsPerInterpolation, sceneDelegate, dirtyBits);
-
-    for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
-        for (auto& pv : primvarDescsEntry.second) {
-            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
-                continue;
-            }
-
-            const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
-
-            if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level) {
-                VtValue value = GetPrimvar(sceneDelegate, pv.name);
-                m_refineLevel = value.Get<int>();
-                continue;
-            }
-        }
-    }
-
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         _sharedData.visible = sceneDelegate->GetVisible(id);
         _UpdateObject(scene, param, dirtyBits, false);
         if (!_sharedData.visible) {
             return;
+        }
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
+        HdPrimvarDescriptorMap primvarDescsPerInterpolation = GetPrimvarDescriptorMap(sceneDelegate);
+        GetObjectPrimvars(primvarDescsPerInterpolation, sceneDelegate, dirtyBits);
+
+        for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
+            for (auto& pv : primvarDescsEntry.second) {
+                if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                    continue;
+                }
+
+                const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
+
+                if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level) {
+                    VtValue value = GetPrimvar(sceneDelegate, pv.name);
+                    m_refineLevel = value.Get<int>();
+                    continue;
+                }
+            }
         }
     }
 
@@ -1322,7 +1324,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                     instanceObj->tfm = mat4d_to_transform(combinedTransforms[j].data()[0]) * obj_tfm;
                     instanceObj->geometry = m_cyclesMesh;
                     instanceObj->pass_id = -1;
-                    instanceObj->visibility = ccl::PATH_RAY_ALL_VISIBILITY;
+                    instanceObj->visibility = m_visibilityFlags;
 
                     // TODO: Implement motion blur for point instanced objects
                     /*if (m_motionBlur) {
@@ -1341,13 +1343,18 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 if (reallocate_array) {
                     m_renderDelegate->GetCyclesRenderParam()->AddObjectArray(m_cyclesInstances);
                 }
-
-                // Hide prototype
-                if (m_cyclesObject) {
-                    m_visibilityFlags = 0;
-                }
             }
         }
+    }
+
+    if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
+        // get visibility flags from the prototype
+        for(ccl::Object& object : m_cyclesInstances) {
+            object.visibility = m_visibilityFlags;
+        }
+
+        // hide prototype
+        m_visibilityFlags = 0;
     }
 
     _FinishMesh(scene);
