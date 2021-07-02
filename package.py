@@ -2,14 +2,14 @@
 
 name = 'hdcycles'
 
-version = '0.14.1'
+version = '0.14.2'
 
 authors = [
     'benjamin.skinner',
 ]
 
 requires = [
-    'cycles-1.13.0-ta.1.14.1',
+    'cycles-1.13.0-ta.1.14.2',
 ]
 
 variants = [
