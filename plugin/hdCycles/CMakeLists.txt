@@ -25,6 +25,7 @@ add_library(MikktSpace::MikktSpace ALIAS MikktSpace)
 
 add_library(hdCycles SHARED
         api.h
+        rprim.h
         basisCurves.cpp
         basisCurves.h
         camera.cpp
