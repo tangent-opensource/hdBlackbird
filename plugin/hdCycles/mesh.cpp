@@ -1343,20 +1343,17 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 if (reallocate_array) {
                     m_renderDelegate->GetCyclesRenderParam()->AddObjectArray(m_cyclesInstances);
                 }
+
+                // remove prototype from list of objects to render
+                m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
             }
         }
     }
 
-    // instancing: steal visibility flags from the prototype and hide the prototype
+    // update instances: steal visibility flags from the prototype
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
-        // get visibility flags from the prototype
         for(ccl::Object& object : m_cyclesInstances) {
             object.visibility = m_visibilityFlags;
-        }
-
-        // hide prototype
-        if(!m_cyclesInstances.empty()) {
-            m_visibilityFlags = 0;
         }
     }
 
