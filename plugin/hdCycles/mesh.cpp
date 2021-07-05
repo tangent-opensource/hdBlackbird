@@ -1345,10 +1345,10 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 if (reallocate_array) {
                     m_renderDelegate->GetCyclesRenderParam()->AddObjectArray(m_cyclesInstances);
                 }
-
-                // remove prototype from list of objects to render
-                m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
             }
+
+            // remove prototype from list of objects to render
+            m_renderDelegate->GetCyclesRenderParam()->RemoveObject(m_cyclesObject);
         }
     }
 
