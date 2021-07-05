@@ -1179,6 +1179,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // -------------------------------------
     // -- Resolve Drawstyles
 
+    m_refineLevel = 0;
+
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         _sharedData.visible = sceneDelegate->GetVisible(id);
         _UpdateObject(scene, param, dirtyBits, false);
