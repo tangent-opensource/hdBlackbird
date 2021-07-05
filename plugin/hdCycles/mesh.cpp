@@ -1347,6 +1347,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         }
     }
 
+    // instancing: steal visibility flags from the prototype and hide the prototype
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         // get visibility flags from the prototype
         for(ccl::Object& object : m_cyclesInstances) {
@@ -1354,7 +1355,9 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
         }
 
         // hide prototype
-        m_visibilityFlags = 0;
+        if(!m_cyclesInstances.empty()) {
+            m_visibilityFlags = 0;
+        }
     }
 
     _FinishMesh(scene);
