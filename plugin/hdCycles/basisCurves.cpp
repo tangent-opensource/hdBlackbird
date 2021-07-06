@@ -441,7 +441,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     m_widths = VtFloatArray(1, 0.1f);
     m_widthsInterpolation = HdInterpolationConstant;
     m_normals.clear();
-    m_visibilityFlags = 0;
     m_curveResolution = 5;
 
     if (*dirtyBits & HdChangeTracker::DirtyTopology) {
@@ -652,16 +651,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     if (generate_new_curve || update_curve) {
         m_cyclesHair->curve_shape = m_curveShape;
-
-        m_cyclesObject->visibility = m_visibilityFlags;
-        if (!_sharedData.visible)
-            m_cyclesObject->visibility = 0;
-
-        m_cyclesGeometry->tag_update(scene, true);
-        m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
 
+    UpdateObject(scene, dirtyBits, generate_new_curve);
     *dirtyBits = HdChangeTracker::Clean;
 }
 
