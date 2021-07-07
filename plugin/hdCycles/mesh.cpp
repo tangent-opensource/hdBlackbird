@@ -257,6 +257,10 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
 void
 HdCyclesMesh::_AddVelocities(const SdfPath& id, const VtValue& value, HdInterpolation interpolation)
 {
+    if (!m_motionBlur || m_motionDeformSteps <= 1) {
+        return;
+    }
+
     if (!value.IsHolding<VtVec3fArray>()) {
         TF_WARN("Unexpected type for velocities for: %s", id.GetText());
         return;
@@ -270,10 +274,6 @@ HdCyclesMesh::_AddVelocities(const SdfPath& id, const VtValue& value, HdInterpol
         TF_WARN("Velocities will be ignored since motion positions exist for: %s", id.GetText());
         return;
     }
-
-    // Turning on motion blur (todo: dynamic number of steps)
-    m_cyclesMesh->use_motion_blur = true;
-    m_cyclesMesh->motion_steps = 3;
 
     ccl::Attribute* attr_V = attributes->find(ccl::ATTR_STD_VERTEX_VELOCITY);
     if (!attr_V) {
@@ -299,6 +299,10 @@ HdCyclesMesh::_AddVelocities(const SdfPath& id, const VtValue& value, HdInterpol
 void
 HdCyclesMesh::_AddAccelerations(const SdfPath& id, const VtValue& value, HdInterpolation interpolation)
 {
+    if (!m_motionBlur || m_motionDeformSteps <= 1) {
+        return;
+    }
+
     if (!value.IsHolding<VtVec3fArray>()) {
         TF_WARN("Unexpected type for accelerations for: %s", id.GetText());
         return;
