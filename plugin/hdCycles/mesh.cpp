@@ -1355,6 +1355,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // update instances: steal visibility flags from the prototype
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         // copy settings from the prototype
+        const SdfPath& instancer_id = GetInstancerId();
         for (size_t i = 0; i < m_cyclesInstances.size(); ++i) {
             ccl::Object& instance = m_cyclesInstances[i];
 
@@ -1362,12 +1363,11 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
             instance.lightgroup = m_cyclesObject->lightgroup;
             instance.color = m_cyclesObject->color;
 
-            std::string asset_name = m_cyclesObject->asset_name.string() + "/" + std::to_string(i);
+            std::string asset_name = instancer_id.GetString() + "/" + std::to_string(i);
             instance.asset_name = asset_name;
         }
 
         // basic primvars from the instances
-        const SdfPath& instancer_id = GetInstancerId();
         auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
         if (instancer) {
             std::vector<HdPrimvarDescriptor> descriptors
