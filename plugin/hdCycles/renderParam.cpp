@@ -564,9 +564,11 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
                                                                      &session_updated);
 
         if (sessionParams->adaptive_sampling) {
+            /* Integrator settings are applied after the scene is created  */
             if (m_cyclesScene) {
                 m_cyclesScene->integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
                 m_cyclesScene->integrator->tag_update(m_cyclesScene);
+                session_updated = true;
             }
         }
     }
@@ -594,9 +596,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesUse_profiling) {
         sessionParams->use_profiling = _HdCyclesGetVtValue<bool>(value, sessionParams->use_profiling, &session_updated);
     }
-
-    // Session BVH
-
 
     // Denoising
 
