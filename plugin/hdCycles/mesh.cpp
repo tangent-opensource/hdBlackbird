@@ -1354,8 +1354,43 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
     // update instances: steal visibility flags from the prototype
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
-        for(ccl::Object& object : m_cyclesInstances) {
-            object.visibility = m_visibilityFlags;
+        // copy settings from the prototype
+        for (size_t i = 0; i < m_cyclesInstances.size(); ++i) {
+            ccl::Object& instance = m_cyclesInstances[i];
+
+            instance.visibility = m_visibilityFlags;
+            instance.lightgroup = m_cyclesObject->lightgroup;
+            instance.color = m_cyclesObject->color;
+
+            std::string asset_name = m_cyclesObject->asset_name.string() + "/" + std::to_string(i);
+            instance.asset_name = asset_name;
+        }
+
+        // basic primvars from the instances
+        const SdfPath& instancer_id = GetInstancerId();
+        auto instancer = dynamic_cast<HdCyclesInstancer*>(sceneDelegate->GetRenderIndex().GetInstancer(instancer_id));
+        if (instancer) {
+            std::vector<HdPrimvarDescriptor> descriptors
+                = sceneDelegate->GetPrimvarDescriptors(instancer_id, HdInterpolationInstance);
+            for (auto& desc : descriptors) {
+                if (desc.name == HdTokens->displayColor) {
+                    VtValue displayColor = sceneDelegate->Get(instancer_id, HdTokens->displayColor);
+                    if (displayColor.GetArraySize() != m_cyclesInstances.size()
+                        || !displayColor.IsHolding<VtVec3fArray>()) {
+                        continue;
+                    }
+
+                    const auto& colorValues = displayColor.Get<VtVec3fArray>();
+                    for (size_t i = 0; i < m_cyclesInstances.size(); ++i) {
+                        ccl::Object& instance = m_cyclesInstances[i];
+                        const GfVec3f& value = colorValues[i];
+                        instance.color[0] = value[0];
+                        instance.color[1] = value[1];
+                        instance.color[2] = value[2];
+                    }
+                    continue;
+                }
+            }
         }
     }
 
