@@ -61,8 +61,7 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 // clang-format on
 
 HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
-    : HdVolume(id, instancerId)
-    , m_cyclesObject(nullptr)
+    : HdBbRPrim<HdVolume>(id, instancerId)
     , m_cyclesVolume(nullptr)
     , m_renderDelegate(a_renderDelegate)
 {
@@ -265,7 +264,7 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     ccl::Scene* scene = param->GetCyclesScene();
 
-    HdCyclesPDPIMap pdpi;
+    HdPrimvarDescriptorMap primvar_descriptor_map;
     bool update_volumes = false;
 
     ccl::vector<int> old_voxel_slots = get_voxel_image_slots(m_cyclesVolume);
@@ -303,7 +302,8 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
-        HdCyclesPopulatePrimvarDescsPerInterpolation(sceneDelegate, id, &pdpi);
+        primvar_descriptor_map = GetPrimvarDescriptorMap(sceneDelegate);
+        GetObjectPrimvars(primvar_descriptor_map, sceneDelegate, dirtyBits);
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
@@ -324,73 +324,17 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         }
     }
 
-    for (auto& primvarDescsEntry : pdpi) {
+    for (auto& primvarDescsEntry : primvar_descriptor_map) {
         for (auto& pv : primvarDescsEntry.second) {
 
             if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                 continue;
             }
 
-            // Object Generic
-
-            m_useMotionBlur = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                            usdCyclesTokens->primvarsCyclesObjectMblur,
-                                                            m_useMotionBlur);
-
             m_cyclesObject->set_velocity_scale(
                 _HdCyclesGetVolumeParam<float>(pv, dirtyBits, id, this, sceneDelegate,
                                                usdCyclesTokens->primvarsCyclesObjectMblurVolume_vel_scale,
                                                m_cyclesObject->get_velocity_scale()));
-
-            m_cyclesObject->set_pass_id(_HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                    usdCyclesTokens->primvarsCyclesObjectPass_id,
-                                                                    m_cyclesObject->get_pass_id()));
-
-            m_cyclesObject->set_use_holdout(_HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                        usdCyclesTokens->primvarsCyclesObjectUse_holdout,
-                                                                        m_cyclesObject->get_use_holdout()));
-
-            std::string lightGroup = m_cyclesObject->get_lightgroup().c_str();
-            lightGroup = _HdCyclesGetVolumeParam<std::string>(pv, dirtyBits, id, this, sceneDelegate,
-                                                              usdCyclesTokens->primvarsCyclesObjectLightgroup,
-                                                              lightGroup);
-            m_cyclesObject->set_lightgroup(ccl::ustring(lightGroup));
-
-            // Visibility
-
-            m_visibilityFlags = 0;
-
-            m_visCamera = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                        usdCyclesTokens->primvarsCyclesObjectVisibilityCamera,
-                                                        m_visCamera);
-
-            m_visDiffuse = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                         usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse,
-                                                         m_visDiffuse);
-
-            m_visGlossy = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                        usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy,
-                                                        m_visGlossy);
-
-            m_visScatter = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                         usdCyclesTokens->primvarsCyclesObjectVisibilityScatter,
-                                                         m_visScatter);
-
-            m_visShadow = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                        usdCyclesTokens->primvarsCyclesObjectVisibilityShadow,
-                                                        m_visShadow);
-
-            m_visTransmission
-                = _HdCyclesGetVolumeParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission,
-                                                m_visTransmission);
-
-            m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
-            m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
-            m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
-            m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
-            m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
-            m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
 
             update_volumes = true;
         }

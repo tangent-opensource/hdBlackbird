@@ -44,12 +44,9 @@
 PXR_NAMESPACE_OPEN_SCOPE
 
 HdCyclesPoints::HdCyclesPoints(SdfPath const& id, SdfPath const& instancerId, HdCyclesRenderDelegate* a_renderDelegate)
-    : HdPoints(id, instancerId)
+    : HdBbRPrim(id, instancerId)
     , m_cyclesPointCloud(nullptr)
-    , m_cyclesObject(nullptr)
-    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
     , m_point_display_color_shader(nullptr)
-    , m_motionBlur(false)
     , m_renderDelegate(a_renderDelegate)
 {
     static const HdCyclesConfig& config = HdCyclesConfig::GetInstance();
@@ -127,106 +124,8 @@ HdCyclesPoints::_ReadObjectFlags(HdSceneDelegate* sceneDelegate, const SdfPath& 
 {
     assert(m_cyclesObject);
 
-    m_motionBlur = true;
-    m_motionTransformSteps = 3;
-    m_motionDeformSteps = 3;
-
-    std::map<HdInterpolation, HdPrimvarDescriptorVector> primvarDescsPerInterpolation = {
-        { HdInterpolationFaceVarying, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationFaceVarying) },
-        { HdInterpolationVertex, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationVertex) },
-        { HdInterpolationConstant, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationConstant) },
-        { HdInterpolationUniform, sceneDelegate->GetPrimvarDescriptors(id, HdInterpolationUniform) },
-    };
-
-    for (auto& primvarDescsEntry : primvarDescsPerInterpolation) {
-        for (auto& pv : primvarDescsEntry.second) {
-            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
-                continue;
-            }
-
-            const std::string primvar_name = std::string { "primvars:" } + pv.name.GetString();
-
-            // motion blur settings
-
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
-                m_motionBlur = value.Get<bool>();
-                continue;
-            }
-
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
-                m_motionTransformSteps = value.Get<int>();
-                continue;
-        }
-
-            if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
-                VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
-                m_motionDeformSteps = value.Get<int>();
-                continue;
-    }
-
-            // Object Generic
-
-            m_cyclesObject->set_is_shadow_catcher(
-                _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher,
-                                                m_cyclesObject->get_is_shadow_catcher()));
-
-            m_cyclesObject->set_pass_id(_HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                    usdCyclesTokens->primvarsCyclesObjectPass_id,
-                                                                    m_cyclesObject->get_pass_id()));
-
-            m_cyclesObject->set_use_holdout(_HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                                                        usdCyclesTokens->primvarsCyclesObjectUse_holdout,
-                                                                        m_cyclesObject->get_use_holdout()));
-
-            // Visibility
-            m_visibilityFlags = 0;
-
-            bool bit = true;
-            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityCamera, bit);
-            if (bit) {
-                m_visibilityFlags |= ccl::PATH_RAY_CAMERA;
-        }
-
-            bit = true;
-            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse, bit);
-            if (bit) {
-                m_visibilityFlags |= ccl::PATH_RAY_DIFFUSE;
-    }
-
-            bit = true;
-            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy, bit);
-            if (bit) {
-                m_visibilityFlags |= ccl::PATH_RAY_GLOSSY;
-            }
-
-            bit = true;
-            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityScatter, bit);
-            if (bit) {
-                m_visibilityFlags |= ccl::PATH_RAY_VOLUME_SCATTER;
-            }
-
-            bit = true;
-            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityShadow, bit);
-            if (bit) {
-                m_visibilityFlags |= ccl::PATH_RAY_SHADOW;
-            }
-
-            bit = true;
-            _HdCyclesGetPointsParam<bool>(pv, dirtyBits, id, this, sceneDelegate,
-                                          usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission, bit);
-            if (bit) {
-                m_visibilityFlags |= ccl::PATH_RAY_TRANSMIT;
-            }
-        }
-    }
+    HdPrimvarDescriptorMap primvarDescsPerInterpolation = GetPrimvarDescriptorMap(sceneDelegate);
+    GetObjectPrimvars(primvarDescsPerInterpolation, sceneDelegate, dirtyBits);
 }
 
 void
@@ -848,7 +747,7 @@ void
 HdCyclesPoints::_CheckIntegrity(HdCyclesRenderParam* param)
 {
     assert(m_cyclesPointCloud);
-    assert(m_cyclesPointCloud->get_points.size() == m_cyclesPointCloud->get_radius.size());
+    assert(m_cyclesPointCloud->get_points().size() == m_cyclesPointCloud->get_radius().size());
 
     // Oriented point style requires normals
     if (m_cyclesPointCloud->get_point_style() == ccl::POINT_CLOUD_POINT_DISC_ORIENTED) {

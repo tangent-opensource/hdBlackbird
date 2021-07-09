@@ -24,6 +24,7 @@
 
 #include "hdcycles.h"
 #include "renderDelegate.h"
+#include "rprim.h"
 
 #include <util/util_transform.h>
 
@@ -47,7 +48,7 @@ class HdCyclesRenderDelegate;
  * @brief HdCycles Points Rprim mapped to Cycles point cloud or mesh instances
  * 
  */
-class HdCyclesPoints final : public HdPoints {
+class HdCyclesPoints final : public HdBbRPrim<HdPoints> {
 public:
     /**
      * @brief Construct a new HdCycles Point object
@@ -187,20 +188,13 @@ private:
     void _CheckIntegrity(HdCyclesRenderParam* param);
 
     ccl::PointCloud* m_cyclesPointCloud;
-    ccl::Object* m_cyclesObject;
 
     ccl::Shader* m_point_display_color_shader;
 
     int m_pointResolution;  // ?
 
-    unsigned int m_visibilityFlags;
-
     HdCyclesObjectSourceSharedPtr m_objectSource;
     HdCyclesRenderDelegate* m_renderDelegate;
-
-    bool m_motionBlur;
-    int m_motionTransformSteps;
-    int m_motionDeformSteps;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

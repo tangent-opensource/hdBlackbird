@@ -27,6 +27,7 @@
 #include "objectSource.h"
 #include "renderDelegate.h"
 #include "utils.h"
+#include "rprim.h"
 
 #include <util/util_transform.h>
 
@@ -53,7 +54,7 @@ class HdCyclesRenderDelegate;
  * @brief Cycles Basis Curve Rprim mapped to Cycles Basis Curve
  * 
  */
-class HdCyclesBasisCurves final : public HdBasisCurves {
+class HdCyclesBasisCurves final : public HdBbRPrim<HdBasisCurves> {
 public:
     /**
      * @brief Construct a new HdCycles Basis Curve object
@@ -157,18 +158,7 @@ protected:
     VtIntArray m_indices;
     GfMatrix4f m_transform;
 
-    bool m_motionBlur;
-    int m_motionTransformSteps;
-    int m_motionDeformSteps;
-
     unsigned int m_visibilityFlags;
-
-    bool m_visCamera;
-    bool m_visDiffuse;
-    bool m_visGlossy;
-    bool m_visScatter;
-    bool m_visShadow;
-    bool m_visTransmission;
 
     ccl::CurveShapeType m_curveShape;
     int m_curveResolution;
@@ -201,7 +191,6 @@ private:
      */
     void _CreateCurves(ccl::Scene* a_scene);
 
-    ccl::Object* m_cyclesObject;
     ccl::Mesh* m_cyclesMesh;
     ccl::Hair* m_cyclesHair;
     ccl::Geometry* m_cyclesGeometry;
