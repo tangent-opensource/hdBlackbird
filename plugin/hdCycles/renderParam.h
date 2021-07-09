@@ -128,6 +128,9 @@ public:
 
     void BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w, int h, int samples);
 
+    GfVec4f GetDataWindowNDC() const { return m_dataWindowNDC; }
+    float MaxOverscan() const;
+
 protected:
     /**
      * @brief Start a cycles render
@@ -312,7 +315,6 @@ private:
     GfVec2i m_resolutionImage;
     GfVec2i m_resolutionDisplay;
     bool m_resolutionAuthored;
-    GfVec4f m_renderRect;  // In pixels
 
     bool m_objectsUpdated;
     bool m_geometryUpdated;

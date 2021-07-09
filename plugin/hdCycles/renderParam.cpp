@@ -1601,8 +1601,8 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             // Passing the dimension as float to not lose the decimal points in the conversion to int
             // We need to do this only for tiles becase we are scaling the source rect to calculate
             // the region to write to in the destination rect
-            const float width_data_src = m_renderRect[2];
-            const float height_data_src = m_renderRect[3];
+            const float width_data_src = m_bufferParams.width;
+            const float height_data_src = m_bufferParams.height;
 
             rb->BlitTile(cyclesAov.format, x_src, y_src, rtile.w, rtile.h, width_data_src, height_data_src, 0, rtile.w,
                          reinterpret_cast<uint8_t*>(tileData.data()));
@@ -1626,9 +1626,6 @@ HdCyclesRenderParam::_CreateScene()
 
     m_resolutionImage = GfVec2i(0, 0);
     m_resolutionDisplay = GfVec2i(config.render_width.value, config.render_height.value);
-
-    m_renderRect = GfVec4f(0.f, 0.f, static_cast<float>(config.render_width.value),
-                           static_cast<float>(config.render_height.value));
 
     m_cyclesScene->camera->width = m_resolutionDisplay[0];
     m_cyclesScene->camera->height = m_resolutionDisplay[1];
@@ -1877,24 +1874,29 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     if (!m_resolutionAuthored) {
         m_resolutionImage = m_resolutionDisplay;
     }
+    
+    // Since the sensor is scaled uniformly, we also scale all the corners
+    // of the image rect by the maximum amount of overscan
+    // But only allocate and render a subrect
+    const float overscan = MaxOverscan();
 
-    m_renderRect[0] = m_dataWindowNDC[0] * (float)m_resolutionImage[0];
-    m_renderRect[1] = m_dataWindowNDC[1] * (float)m_resolutionImage[1];
-    m_renderRect[2] = m_dataWindowNDC[2] * (float)m_resolutionImage[0] - m_bufferParams.full_x;
-    m_renderRect[3] = m_dataWindowNDC[3] * (float)m_resolutionImage[1] - m_bufferParams.full_y;
+    // Full rect
+    m_bufferParams.full_width = (1.f + overscan * 2.f) * m_resolutionImage[0];
+    m_bufferParams.full_height = (1.f + overscan * 2.f) * m_resolutionImage[1];
 
-    m_bufferParams.full_width = m_resolutionImage[0];
-    m_bufferParams.full_height = m_resolutionImage[1];
-    m_bufferParams.full_x = static_cast<int>(m_renderRect[0]);
-    m_bufferParams.full_y = static_cast<int>(m_renderRect[1]);
-    m_bufferParams.width = static_cast<int>(m_renderRect[2]);
-    m_bufferParams.height = static_cast<int>(m_renderRect[3]);
+    // Translate to the origin of the full rect
+    m_bufferParams.full_x = (m_dataWindowNDC[0] - (-overscan)) * m_resolutionImage[0];
+    m_bufferParams.full_y = (m_dataWindowNDC[1] - (-overscan)) * m_resolutionImage[1];
+    m_bufferParams.width = (m_dataWindowNDC[2] - m_dataWindowNDC[0]) * m_resolutionImage[0];
+    m_bufferParams.height = (m_dataWindowNDC[3] - m_dataWindowNDC[1]) * m_resolutionImage[1];
+
+    m_cyclesScene->camera->width = m_bufferParams.full_width;
+    m_cyclesScene->camera->height = m_bufferParams.full_height;
+    m_cyclesScene->camera->overscan = overscan;
 
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
     m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
 
-    m_cyclesScene->camera->width = m_resolutionImage[0];
-    m_cyclesScene->camera->height = m_resolutionImage[1];
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_update = true;
     m_cyclesScene->camera->need_device_update = true;
@@ -2579,5 +2581,13 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     }
 }
 
+float 
+HdCyclesRenderParam::MaxOverscan() const {
+    float overscan = ::std::max(-m_dataWindowNDC[0], 0.f);
+    overscan = ::std::max(overscan, ::std::max(-m_dataWindowNDC[1], 0.f));
+    overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[2] - 1, 0.f));
+    overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[3] - 1, 0.f));
+    return overscan;
+}
 
 PXR_NAMESPACE_CLOSE_SCOPE
