@@ -562,6 +562,15 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
         sessionParams->adaptive_sampling = _HdCyclesGetVtValue<bool>(value, sessionParams->adaptive_sampling,
                                                                      &session_updated);
+
+        if (sessionParams->adaptive_sampling) {
+            /* Integrator settings are applied after the scene is created  */
+            if (m_cyclesScene) {
+                m_cyclesScene->integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
+                m_cyclesScene->integrator->tag_update(m_cyclesScene);
+                session_updated = true;
+            }
+        }
     }
 
     if (key == usdCyclesTokens->cyclesUse_profiling) {
@@ -587,9 +596,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesUse_profiling) {
         sessionParams->use_profiling = _HdCyclesGetVtValue<bool>(value, sessionParams->use_profiling, &session_updated);
     }
-
-    // Session BVH
-
 
     // Denoising
 
@@ -1312,13 +1318,6 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
         film->use_light_visibility = _HdCyclesGetVtValue<bool>(value, film->use_light_visibility, &film_updated, false);
     }
 
-    // Sampling
-
-    // TODO: Check if cycles actually uses this, doesnt appear to...
-    if (key == usdCyclesTokens->cyclesFilmUse_adaptive_sampling) {
-        film->use_adaptive_sampling = _HdCyclesGetVtValue<bool>(value, film->use_adaptive_sampling, &film_updated,
-                                                                false);
-    }
 
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
         auto cryptomatte_depth = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
@@ -2444,7 +2443,10 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         }
     }
 
-    if (m_sessionParams.adaptive_sampling) {
+    /* Reading the latest version of the settings. In viewport mode the session
+     * has already been started typically. */
+    const bool use_adaptive_sampling = m_cyclesSession ? m_cyclesSession->params.adaptive_sampling : m_sessionParams.adaptive_sampling;
+    if (use_adaptive_sampling) {
         ccl::Pass::add(ccl::PASS_ADAPTIVE_AUX_BUFFER, m_bufferParams.passes);
         if (!has_sample_count) {
             ccl::Pass::add(ccl::PASS_SAMPLE_COUNT, m_bufferParams.passes);
