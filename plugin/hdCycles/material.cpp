@@ -96,6 +96,68 @@ std::map<TfToken, ccl::VolumeSampling> VOLUME_SAMPLING_CONVERSION = {
     { usdCyclesTokens->volume_sampling_multiple_importance, ccl::VOLUME_SAMPLING_MULTIPLE_IMPORTANCE },
 };
 
+namespace {
+
+// Nodes which need updating for Cycles 2.93 (type params are prefixed for these nodes)
+const ccl::ustring sky_texture = ccl::ustring("sky_texture");
+const ccl::ustring gradient_texture = ccl::ustring("gradient_texture");
+const ccl::ustring musgrave_texture = ccl::ustring("musgrave_texture");
+const ccl::ustring wave_texture = ccl::ustring("wave_texture");
+const ccl::ustring mapping = ccl::ustring("mapping");
+const ccl::ustring mix = ccl::ustring("mix");
+const ccl::ustring map_range = ccl::ustring("map_range");
+const ccl::ustring clamp = ccl::ustring("clamp");
+const ccl::ustring math = ccl::ustring("math");
+const ccl::ustring vector_math = ccl::ustring("vector_math");
+const ccl::ustring vector_rotate = ccl::ustring("vector_rotate");
+const ccl::ustring vector_transform = ccl::ustring("vector_transform");
+
+void
+UpdateOldParamName(const ccl::ustring& nodename, std::string& param)
+{
+    if (param == "type") {
+        if (nodename == sky_texture) {
+            param = "sky_type";
+            return;
+        } else if (nodename == gradient_texture) {
+            param = "gradient_type";
+            return;
+        } else if (nodename == musgrave_texture) {
+            param = "musgrave_type";
+            return;
+        } else if (nodename == wave_texture) {
+            param = "wave_type";
+            return;
+        } else if (nodename == mapping) {
+            param = "mapping_type";
+            return;
+        } else if (nodename == mix) {
+            param = "mix_type";
+            return;
+        } else if (nodename == map_range) {
+            param = "range_type";
+            return;
+        } else if (nodename == clamp) {
+            param = "clamp_type";
+            return;
+        } else if (nodename == math) {
+            param = "math_type";
+            return;
+        } else if (nodename == vector_math) {
+            param = "math_type";
+            return;
+        } else if (nodename == vector_rotate) {
+            param = "rotate_type";
+            return;
+        } else if (nodename == vector_transform) {
+            param = "transform_type";
+            return;
+        }
+    }
+}
+
+}  // namespace
+
 bool
 IsValidCyclesIdentifier(const std::string& identifier)
 {
@@ -155,9 +217,9 @@ HdCyclesMaterial::HdCyclesMaterial(SdfPath const& id, HdCyclesRenderDelegate* a_
     , m_shaderGraph(nullptr)
     , m_renderDelegate(a_renderDelegate)
 {
-    m_shader        = new ccl::Shader();
-    m_shader->name  = id.GetString();
-    m_shaderGraph   = new ccl::ShaderGraph();
+    m_shader = new ccl::Shader();
+    m_shader->name = id.GetString();
+    m_shaderGraph = new ccl::ShaderGraph();
     m_shader->graph = m_shaderGraph;
 
     if (m_renderDelegate)
@@ -334,8 +396,13 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
         // Loop through all cycles inputs for matching usd shade param
         for (const ccl::SocketType& socket : cyclesNode->type->inputs) {
+            std::string param = params.first.GetText();
+
+            // Fix any 'type' parameters to the updated prefixed name in Cycles 2.93
+            UpdateOldParamName(cycles_node_name, param);
+
             // Early out if usd shade param doesn't match input name
-            if (!ccl::string_iequals(params.first.GetText(), socket.name.string()))
+            if (!ccl::string_iequals(param, socket.name.string()))
                 continue;
 
             // Ensure param has value
@@ -605,10 +672,10 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 
         // Link material nodes
         for (const HdMaterialRelationship& matRel : net.second.relationships) {
-            ccl::ShaderNode* tonode   = conversionMap[matRel.outputId].second;
+            ccl::ShaderNode* tonode = conversionMap[matRel.outputId].second;
             ccl::ShaderNode* fromnode = conversionMap[matRel.inputId].second;
 
-            HdMaterialNode* hd_tonode   = conversionMap[matRel.outputId].first;
+            HdMaterialNode* hd_tonode = conversionMap[matRel.outputId].first;
             HdMaterialNode* hd_fromnode = conversionMap[matRel.inputId].first;
 
             // Skip invalid connections. I don't know where they come from, but they exist.
@@ -616,13 +683,13 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
                 continue;
             }
 
-            std::string to_identifier   = hd_tonode->identifier.GetString();
+            std::string to_identifier = hd_tonode->identifier.GetString();
             std::string from_identifier = hd_fromnode->identifier.GetString();
 
             ccl::ShaderOutput* output = nullptr;
             ccl::ShaderInput* input = nullptr;
 
-            bool to_has_valid_prefix   = IsValidCyclesIdentifier(to_identifier);
+            bool to_has_valid_prefix = IsValidCyclesIdentifier(to_identifier);
             bool from_has_valid_prefix = IsValidCyclesIdentifier(from_identifier);
 
             // Converts Preview surface connections
@@ -699,7 +766,7 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
 void
 HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits)
 {
-    auto cyclesRenderParam     = static_cast<HdCyclesRenderParam*>(renderParam);
+    auto cyclesRenderParam = static_cast<HdCyclesRenderParam*>(renderParam);
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
     const SdfPath& id = GetId();
@@ -717,9 +784,9 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
 
             auto& networkMap = vtMat.UncheckedGet<HdMaterialNetworkMap>();
 
-            HdMaterialNetwork const* surface      = nullptr;
+            HdMaterialNetwork const* surface = nullptr;
             HdMaterialNetwork const* displacement = nullptr;
-            HdMaterialNetwork const* volume       = nullptr;
+            HdMaterialNetwork const* volume = nullptr;
 
             // Keeping track of preview node to clean the output nodes
             std::vector<ccl::ShaderNode*> preview_shaders;
