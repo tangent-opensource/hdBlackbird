@@ -115,7 +115,7 @@ const ccl::ustring vector_transform = ccl::ustring("vector_transform");
 void
 UpdateOldParamName(const ccl::ustring& nodename, std::string& param)
 {
-    if (param == "type") {
+    if (param == "Type") {
         if (nodename == sky_texture) {
             param = "sky_type";
             return;
