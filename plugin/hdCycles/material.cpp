@@ -394,15 +394,15 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
 
     // Convert cycles params
     for (std::pair<TfToken, VtValue> params : usd_node.parameters) {
+        std::string param = params.first.GetText();
+        // Fix any 'type' parameters to the updated prefixed name in Cycles 2.93
+        UpdateOldParamName(cycles_node_name, param);
         // Loop through all cycles inputs for matching usd shade param
         for (const ccl::SocketType& socket : cyclesNode->type->inputs) {
-            std::string param = params.first.GetText();
-
-            // Fix any 'type' parameters to the updated prefixed name in Cycles 2.93
-            UpdateOldParamName(cycles_node_name, param);
-
-            // Early out if usd shade param doesn't match input name
-            if (!ccl::string_iequals(param, socket.name.string()))
+            // Early out for invalid cycles types and flags
+            if (socket.type == ccl::SocketType::CLOSURE || socket.type == ccl::SocketType::UNDEFINED)
+                continue;
+            if (socket.flags & ccl::SocketType::INTERNAL)
                 continue;
 
             // Ensure param has value
@@ -410,10 +410,8 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
                 continue;
             }
 
-            // Early out for invalid cycles types and flags
-            if (socket.type == ccl::SocketType::CLOSURE || socket.type == ccl::SocketType::UNDEFINED)
-                continue;
-            if (socket.flags & ccl::SocketType::INTERNAL)
+            // Early out if usd shade param doesn't match input name
+            if (!ccl::string_iequals(param, socket.name.string()))
                 continue;
 
             // TODO: Why do we do this?
