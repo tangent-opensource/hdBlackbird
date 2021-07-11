@@ -1,0 +1,52 @@
+name: CMake
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    container: aswf/ci-vfxall:2020
+    runs-on: aswf/ci-vfxall:2020
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Compiler Setup
+      run: |
+        echo "/opt/rh/devtoolset-6/root/usr/bin/" >> $GITHUB_PATH
+
+    - name: Build Embree
+      run: |
+        git clone https://github.com/embree/embree.git --depth 1 --branch v3.8.0
+        mkdir -p embree-build && cd embree-build
+        cmake -G Ninja ../embree -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc \
+          -DEMBREE_TUTORIALS=OFF -DEMBREE_ISPC_SUPPORT=OFF
+        cmake --build . --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Build Core Blackbird
+      run: |
+        git clone https://github.com/tangent-opensource/coreBlackbird.git --depth 1
+        mkdir -p coreBlackbird-build && cd coreBlackbird-build
+        cmake -G Ninja ../coreBlackbird \
+          -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc \
+          -DBUILD_WITH_REZ=OFF \
+          -DWITH_CYCLES_OPENIMAGEDENOISE=OFF \
+          -DWITH_CYCLES_OSL=OFF \
+          -DWITH_CYCLES_STANDALONE_GUI=OFF \
+          -DWITH_CYCLES_LOGGING=ON \
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+          -DWITH_CYCLES_LOGGING=OFF -DCMAKE_CXX_STANDARD=14 -DBUILD_SHARED_LIBS=OFF -DBoost_NO_BOOST_CMAKE=ON
+        cmake --build . --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Configure CMake
+      run: cmake -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSD_ROOT=/usr/local/
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
