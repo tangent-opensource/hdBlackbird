@@ -13,7 +13,7 @@ env:
 jobs:
   build:
     container: piotrbarejko/blackbird
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -36,7 +36,13 @@ jobs:
       run: cmake --build coreBlackbird-build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Configure HdBlackbird CMake
-      run: cmake -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSD_ROOT=/usr/local/
+      run: cmake -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSD_ROOT=/usr/local/ -DCMAKE_INSTALL_PREFIX=installdir
 
     - name: Build HdBlackbird
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target install
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: hdBlackbird
+        path: installdir
+
