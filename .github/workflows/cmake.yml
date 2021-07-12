@@ -48,6 +48,7 @@ jobs:
         path: installdir
 
   tests:
+    needs: build
     runs-on: ubuntu-latest
     container: piotrbarejko/blackbird
 
