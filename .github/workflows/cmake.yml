@@ -37,5 +37,5 @@ jobs:
     - name: Configure CMake
       run: cmake -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSD_ROOT=/usr/local/
 
-    - name: Build
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+    - name: Build and Install
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target install
