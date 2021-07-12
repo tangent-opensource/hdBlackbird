@@ -18,11 +18,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Build Environment Setup
-      run: |
-        echo "/opt/rh/devtoolset-6/root/usr/bin/" >> $GITHUB_PATH
+    - name: Environment Setup
+      run: echo "/opt/rh/devtoolset-6/root/usr/bin/" >> $GITHUB_PATH
 
-    - name: Build Core Blackbird
+    - name: Configure CoreBlackbird CMake
       run: |
         git clone https://github.com/tangent-opensource/coreBlackbird.git --depth 1
         cmake coreBlackbird -G Ninja -B coreBlackbird-build \
@@ -32,10 +31,12 @@ jobs:
           -DWITH_CYCLES_STANDALONE_GUI=OFF \
           -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
           -DWITH_CYCLES_LOGGING=OFF -DCMAKE_CXX_STANDARD=14 -DBUILD_SHARED_LIBS=OFF -DBoost_NO_BOOST_CMAKE=ON
-        cmake --build coreBlackbird-build --config ${{env.BUILD_TYPE}} --target install
 
-    - name: Configure CMake
+    - name: Build CoreBlackbird
+      run: cmake --build coreBlackbird-build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Configure HdBlackbird CMake
       run: cmake -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSD_ROOT=/usr/local/
 
-    - name: Build and Install
+    - name: Build HdBlackbird
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target install
