@@ -12,8 +12,8 @@ env:
 
 jobs:
   build:
-    container: piotrbarejko/blackbird
     runs-on: ubuntu-latest
+    container: piotrbarejko/blackbird
 
     steps:
     - uses: actions/checkout@v2
@@ -41,8 +41,19 @@ jobs:
     - name: Build HdBlackbird
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target install
 
-    - uses: actions/upload-artifact@v2
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
       with:
         name: hdBlackbird
         path: installdir
+
+  tests:
+    runs-on: ubuntu-latest
+    container: piotrbarejko/blackbird
+
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: hdBlackbird
 
