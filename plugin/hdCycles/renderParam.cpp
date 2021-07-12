@@ -2411,9 +2411,9 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
     film->set_denoising_prefiltered_pass(m_cyclesSession->params.denoising.store_passes
                                        && m_cyclesSession->params.denoising.type == ccl::DENOISER_NLM);
 
- //   m_bufferParams.set_denoising_data_pass(film->get_denoising_data_pass());
- //   m_bufferParams.set_denoising_clean_pass(film->get_denoising_clean_pass());
- //   m_bufferParams.set_denoising_prefiltered_pass(film->get_denoising_prefiltered_pass());
+    m_bufferParams.denoising_data_pass = film->get_denoising_data_pass();
+    m_bufferParams.denoising_clean_pass = film->get_denoising_clean_pass();
+    m_bufferParams.denoising_prefiltered_pass = film->get_denoising_prefiltered_pass();
 
     // Check for issues
 
