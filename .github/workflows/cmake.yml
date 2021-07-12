@@ -13,7 +13,7 @@ env:
 jobs:
   build:
     container: aswf/ci-vfxall:2020
-    runs-on: aswf/ci-vfxall:2020
+    runs-on: [self-hosted, Linux]
 
     steps:
     - uses: actions/checkout@v2
