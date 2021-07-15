@@ -23,6 +23,7 @@ project(HdBlackbird CXX C)
 # Options
 option(USE_HOUDINI_USD "" OFF)
 option(USE_CXX11_ABI "" ON)
+option(USE_IMAGING_ENGINE OFF)
 
 # Options debug
 option(USE_TESTS "" OFF)
