@@ -25,6 +25,8 @@
 #include <pxr/base/gf/rotation.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
+#include <iostream>
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 // TODO: Use HdInstancerTokens when Houdini updates USD to 20.02
@@ -61,7 +63,9 @@ HdCyclesInstancer::Sync()
     }
 
     auto primvarDescs = GetDelegate()->GetPrimvarDescriptors(instancerId, HdInterpolationInstance);
+    std::cout << "Instancer2 " << instancerId << std::endl;
     for (auto& desc : primvarDescs) {
+        std::cout << "Instancer primvar " << desc.name << std::endl;
         if (!HdChangeTracker::IsPrimvarDirty(dirtyBits, instancerId, desc.name)) {
             continue;
         }

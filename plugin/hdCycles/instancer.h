@@ -51,6 +51,8 @@ public:
 
     HdTimeSampleArray<VtMatrix4dArray, HD_CYCLES_MOTION_STEPS> SampleInstanceTransforms(SdfPath const& prototypeId);
 
+    void SyncPublic() { Sync(); }
+
 private:
     void Sync();
 

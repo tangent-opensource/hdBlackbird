@@ -788,9 +788,11 @@ HdCyclesMaterial::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderPara
                                                              usdCyclesTokens->cyclesMaterialVolume_sampling_method,
                                                              usdCyclesTokens->volume_sampling_multiple_importance);
 
+        #if 0
         if (m_shader->volume_sampling_method != VOLUME_SAMPLING_CONVERSION[volume_sampling]) {
             m_shader->volume_sampling_method = VOLUME_SAMPLING_CONVERSION[volume_sampling];
         }
+        #endif
         material_updated = true;
     }
 

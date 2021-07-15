@@ -32,12 +32,13 @@
 #include <pxr/pxr.h>
 
 namespace ccl {
-class Session;
-class Scene;
+class InstanceGroup;
 class Mesh;
 class PointCloud;
 class RenderTile;
+class Scene;
 class Shader;
+class Session;
 }  // namespace ccl
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -225,12 +226,15 @@ public:
     void AddObject(ccl::Object* object);
     void AddObjectArray(std::vector<ccl::Object>& objects);
     void AddGeometry(ccl::Geometry* geometry);
+    void AddInstanceGroup(ccl::InstanceGroup* instance_group);
 
     void RemoveShader(ccl::Shader* shader);
     void RemoveLight(ccl::Light* light);
     void RemoveObject(ccl::Object* object);
     void RemoveObjectArray(const std::vector<ccl::Object>& objects);
     void RemoveGeometry(ccl::Geometry* geometry);
+    void RemoveInstanceGroup(ccl::InstanceGroup* instance_group);
+
 
     /* ====== Thread safe operations ====== */
 
@@ -238,11 +242,13 @@ public:
     void AddLightSafe(ccl::Light* light);
     void AddObjectSafe(ccl::Object* object);
     void AddGeometrySafe(ccl::Geometry* geometry);
+    void AddInstanceGroupSafe(ccl::InstanceGroup* instance_group);
 
     void RemoveShaderSafe(ccl::Shader* shader);
     void RemoveLightSafe(ccl::Light* light);
     void RemoveObjectSafe(ccl::Object* object);
     void RemoveGeometrySafe(ccl::Geometry* geometry);
+    void RemoveInstanceGroupSafe(ccl::InstanceGroup* instance_group);
 
 private:
     bool _CreateSession();

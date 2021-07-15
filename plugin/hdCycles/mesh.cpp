@@ -30,6 +30,8 @@
 #include "transformSource.h"
 #include "utils.h"
 
+#include <render/instance_group.h>
+
 #include <pxr/imaging/hd/extComputationUtils.h>
 
 #include <usdCycles/tokens.h>
@@ -905,8 +907,10 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 
     m_texture_names.clear();
 
+    std::cout << "ID " << id << std::endl;
     for (auto& interpolation_description : primvars_desc) {
         for (const HdPrimvarDescriptor& description : interpolation_description.second) {
+            std::cout << "Primvar " << description.name << std::endl;
             // collect texture coordinates names, it's needed to re-compute texture tangents.
             if (description.role == HdPrimvarRoleTokens->textureCoordinate) {
                 m_texture_names.emplace_back(description.name.data(), description.name.size());
@@ -1301,6 +1305,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
 
             // create new instances
             if (newNumInstances != 0) {
+                printf("Creating instances %d transforms %d\n", newNumInstances, m_transformSamples.count);
                 using size_type = typename decltype(m_transformSamples.values)::size_type;
 
                 std::vector<TfSmallVector<GfMatrix4d, 1>> combinedTransforms;
@@ -1346,7 +1351,57 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                     }*/
                 }
 
+                // Forward all primvars in the instancer
+                auto instance_group = new ccl::InstanceGroup(m_cyclesMesh);
+
+                std::cout << "Instancer ID " << instancer_id << std::endl;
+                for (const auto& pv_desc : sceneDelegate->GetPrimvarDescriptors(instancer_id, HdInterpolationInstance)) {
+                    VtValue value = sceneDelegate->Get(instancer_id, pv_desc.name);
+                    if (pv_desc.name == "basecolor") {
+                        std::cout << "Sourcing primvar " << value.GetTypeName() <<  std::endl;
+                        auto colors = value.UncheckedGet<VtVec3fArray>();
+                        std::cout << "Colors size " << colors.size() << std::endl;
+
+#if 1
+                        {
+                            ccl::Attribute* attr_C = m_cyclesMesh->attributes.add(ccl::ustring("basecolor"), ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_MESH, newNumInstances);
+                            std::cout << "Color pointer " << attr_C << std::endl;
+                            ccl::float4* C = attr_C->data_float4();
+
+                            for (size_t i = 0; i < newNumInstances; ++i) {
+                                C[i].x = colors[i][0];
+                                C[i].y = colors[i][1];
+                                C[i].z = colors[i][2];
+                                // printf("Color %f %f %f\n", C[i].x, C[i].y, C[i].z);
+                            }
+                        }
+#endif
+
+#if 1
+                        {
+                            ccl::Attribute* attr_C = instance_group->attributes.add(ccl::ustring("basecolor"), ccl::TypeDesc::TypeColor, ccl::ATTR_ELEMENT_MESH, newNumInstances);
+                            std::cout << "Color pointer " << attr_C << std::endl;
+                            ccl::float4* C = attr_C->data_float4();
+
+                            for (size_t i = 0; i < newNumInstances; ++i) {
+                                C[i].x = colors[i][0];
+                                C[i].y = colors[i][1];
+                                C[i].z = colors[i][2];
+                                // printf("Color %f %f %f\n", C[i].x, C[i].y, C[i].z);
+                            }
+                        }
+#endif
+                    }
+                }
+
+
+                for (size_t i = 0; i < newNumInstances; ++i) {
+                    m_cyclesInstances[i].particle_index = i;
+                    m_cyclesInstances[i].instance_group = instance_group;
+                }
+
                 if (reallocate_array) {
+                    m_renderDelegate->GetCyclesRenderParam()->AddInstanceGroup(instance_group);
                     m_renderDelegate->GetCyclesRenderParam()->AddObjectArray(m_cyclesInstances);
                 }
             }
