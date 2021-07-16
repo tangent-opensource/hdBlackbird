@@ -241,7 +241,7 @@ UsdImagingBbEngine::WriteToFile(const std::string& filename) const
     unsigned int xres = _renderBuffer->GetWidth();
     unsigned int yres = _renderBuffer->GetHeight();
 
-    ImageSpec spec(xres, yres, 1, TypeDesc::TypeFloat4);
+    ImageSpec spec(xres, yres, 4, TypeDesc::TypeFloat4);
     out->open(filename, spec);
     out->write_image(TypeDesc::UINT8, data);
     out->close();
