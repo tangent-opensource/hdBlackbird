@@ -28,6 +28,7 @@ option(USE_IMAGING_ENGINE OFF)
 # Options debug
 option(USE_TESTS "" OFF)
 option(USE_ASAN "" OFF)
+option(USE_TSAN "" OFF)
 
 # Global Settings
 set(CMAKE_CXX_STANDARD 14)
@@ -55,10 +56,16 @@ find_package(Cycles REQUIRED)
 include(cmake/FindUsd.cmake)
 
 # Linux only
-if(${USE_TESTS} AND ${USE_ASAN})
+if(${USE_ASAN})
     add_compile_definitions(USE_ASAN)
     add_compile_options(-fno-omit-frame-pointer -fsanitize=address)
     add_link_options(-fno-omit-frame-pointer -fsanitize=address)
+endif()
+
+if(${USE_TSAN})
+    add_compile_definitions(USE_TSAN)
+    add_compile_options(-fno-omit-frame-pointer -fsanitize=thread)
+    add_link_options(-fno-omit-frame-pointer -fsanitize=thread)
 endif()
 
 add_subdirectory(plugin)
