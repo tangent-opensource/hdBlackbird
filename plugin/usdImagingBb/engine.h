@@ -23,6 +23,7 @@
 #include <pxr/pxr.h>
 #include <pxr/usd/sdf/path.h>
 #include <pxr/usd/usd/common.h>
+#include <pxr/imaging/hd/renderIndex.h>
 
 #include <string>
 #include <memory>
@@ -34,16 +35,20 @@ class ParamsDelegate;
 class UsdImagingDelegate;
 class HdRprimCollection;
 class HdRenderIndex;
+class HdRenderDelegate;
+class HdxTask;
+class HdRenderBuffer;
 
 class UsdImagingBbEngine final {
 public:
     explicit UsdImagingBbEngine(std::string const& usdFilePath);
-
-    void Draw();
-
     ~UsdImagingBbEngine();
 
-private:
+    void Render();
+    bool IsConverged() const;
+    bool WriteToFile(std::string const& filename) const;
+
+public:
     void _Init(UsdStageRefPtr const& usdStage, HdRprimCollection const& collection, SdfPath const& delegateId,
                TfTokenVector const& renderTags);
 
@@ -52,8 +57,12 @@ private:
     std::unique_ptr<UsdImagingDelegate> _sceneDelegate;
     std::unique_ptr<ParamsDelegate> _paramsDelegate;
 
+    HdRenderDelegate* _renderDelegate;
+    HdTaskSharedPtrVector _renderTasks;
+
     UsdStageRefPtr _stage;
 
+    HdRenderBuffer* _renderBuffer;
     SdfPath _cameraId;
     SdfPath _renderBufferId;
     SdfPath _renderSetupTaskId;
