@@ -230,12 +230,6 @@ UsdImagingBbEngine::WriteToFile(const std::string& filename) const
         return false;
     }
 
-    VtValue resource = _renderBuffer->GetResource(false);
-    using Buffer = std::vector<uint8_t>;
-    if (!resource.IsHolding<Buffer>()) {
-        return false;
-    }
-
     void* data = _renderBuffer->Map();
 
     unsigned int xres = _renderBuffer->GetWidth();
@@ -243,7 +237,7 @@ UsdImagingBbEngine::WriteToFile(const std::string& filename) const
 
     ImageSpec spec(xres, yres, 4, TypeDesc::TypeFloat4);
     out->open(filename, spec);
-    out->write_image(TypeDesc::UINT8, data);
+    out->write_image(TypeDesc::FLOAT, data);
     out->close();
 
     _renderBuffer->Unmap();
