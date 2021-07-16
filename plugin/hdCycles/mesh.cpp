@@ -261,6 +261,9 @@ HdCyclesMesh::_AddVelocities(const SdfPath& id, const VtValue& value, HdInterpol
         return;
     }
 
+    m_cyclesMesh->use_motion_blur = true;
+    m_cyclesMesh->motion_steps = m_motionDeformSteps;
+
     if (!value.IsHolding<VtVec3fArray>()) {
         TF_WARN("Unexpected type for velocities for: %s", id.GetText());
         return;
@@ -302,6 +305,9 @@ HdCyclesMesh::_AddAccelerations(const SdfPath& id, const VtValue& value, HdInter
     if (!m_motionBlur || m_motionDeformSteps <= 1) {
         return;
     }
+
+    m_cyclesMesh->use_motion_blur = true;
+    m_cyclesMesh->motion_steps = m_motionDeformSteps;
 
     if (!value.IsHolding<VtVec3fArray>()) {
         TF_WARN("Unexpected type for accelerations for: %s", id.GetText());
@@ -1171,6 +1177,8 @@ void
 HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, HdDirtyBits* dirtyBits,
                    TfToken const& reprToken)
 {
+    std::cout << "Hello " << usdCyclesTokens->primvarsCyclesObjectMblur << std::endl;
+
     auto param = dynamic_cast<HdCyclesRenderParam*>(renderParam);
     m_object_display_color_shader = param->default_object_display_color_surface;
     m_attrib_display_color_shader = param->default_attrib_display_color_surface;
