@@ -42,6 +42,38 @@
 
 PXR_NAMESPACE_OPEN_SCOPE
 
+namespace {
+
+HdTaskSharedPtrVector
+GetTasks(HdRenderIndex* renderIndex, const std::vector<SdfPath>& taskIds)
+{
+    HdTaskSharedPtrVector tasks;
+    tasks.reserve(taskIds.size());
+    for (const auto& taskId : taskIds) {
+        const auto& task = renderIndex->GetTask(taskId);
+        tasks.push_back(task);
+    }
+    return tasks;
+}
+
+bool
+IsConverged(const HdTaskSharedPtrVector& tasks)
+{
+    bool converged = true;
+    for (auto const& task : tasks) {
+        std::shared_ptr<HdxTask> progressiveTask = std::dynamic_pointer_cast<HdxTask>(task);
+        if (progressiveTask) {
+            converged = converged && progressiveTask->IsConverged();
+            if (!converged) {
+                break;
+            }
+        }
+    }
+    return converged;
+}
+
+}  //namespace
+
 TF_DEFINE_PRIVATE_TOKENS(_tokens, (renderBufferDescriptor));
 
 ///
@@ -92,8 +124,6 @@ private:
     _ValueCacheMap _valueCacheMap;
 };
 
-UsdImagingBbEngine::~UsdImagingBbEngine() {}
-
 UsdImagingBbEngine::UsdImagingBbEngine(const std::string& usdFilePath)
 {
     HdRprimCollection collection = HdRprimCollection(HdTokens->geometry, HdReprSelector(HdReprTokens->hull));
@@ -105,26 +135,28 @@ UsdImagingBbEngine::UsdImagingBbEngine(const std::string& usdFilePath)
     _Init(UsdStage::Open(usdFilePath), collection, SdfPath::AbsoluteRootPath(), renderTags);
 }
 
+bool
+UsdImagingBbEngine::CreateRenderDelegate(const std::string& delegateName)
+{
+    PlugRegistry& plug_registry = PlugRegistry::GetInstance();
+
+    renderDelegateId = TfToken { delegateName };
+    HdRendererPluginRegistry& plugin_registry = HdRendererPluginRegistry::GetInstance();
+    HdRendererPlugin* plugin = plugin_registry.GetRendererPlugin(renderDelegateId);
+    _renderDelegate = plugin->CreateRenderDelegate();
+    return true;
+}
+
+UsdImagingBbEngine::~UsdImagingBbEngine() {}
+
 void
 UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollection& collection,
                           const SdfPath& delegateId, const TfTokenVector& renderTags)
 {
-    // discover plugins
-    PlugRegistry& plug_registry = PlugRegistry::GetInstance();
-
-    _cameraId = SdfPath { "/cameras/camera1" };
     _renderBufferId = SdfPath { "/task_controller/render_buffer" };
-    _renderSetupTaskId = SdfPath { "/task_controller/render_setup_task" };
     _renderTaskId = SdfPath { "/task_controller/render_task" };
 
-    //
-    _engine = std::make_unique<HdEngine>();
-
-    // find and create render delegate instance
-    TfToken id { "HdCyclesRendererPlugin" };
-    HdRendererPluginRegistry& plugin_registry = HdRendererPluginRegistry::GetInstance();
-    HdRendererPlugin* plugin = plugin_registry.GetRendererPlugin(id);
-    _renderDelegate = plugin->CreateRenderDelegate();
+    CreateRenderDelegate("HdCyclesRendererPlugin");
 
     // create render index
     _renderIndex = std::unique_ptr<HdRenderIndex>(HdRenderIndex::New(_renderDelegate, HdDriverVector {}));
@@ -133,12 +165,15 @@ UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollectio
     const SdfPath sceneDelegateId = SdfPath::AbsoluteRootPath();
     _sceneDelegate = std::make_unique<UsdImagingDelegate>(_renderIndex.get(), sceneDelegateId);
 
+    //
+    _paramsDelegate = std::make_unique<ParamsDelegate>(_renderIndex.get(), SdfPath { "/task_controller" });
+
+    //
+    _engine = std::make_unique<HdEngine>();
+
     // Populate usd stage
     _stage = usdStage;
     _sceneDelegate->Populate(_stage->GetPseudoRoot());
-
-    //
-    _paramsDelegate = std::make_unique<ParamsDelegate>(_renderIndex.get(), SdfPath { "/task_controller" });
 
     //
     // Render Buffers
@@ -151,7 +186,7 @@ UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollectio
 
         HdRenderBufferDescriptor desc {};
         desc.multiSampled = false;
-        desc.dimensions = GfVec3i { 100, 100, 1 };
+        desc.dimensions = GfVec3i { 1200, 700, 1 };
         desc.format = HdFormatFloat32Vec4;
         _paramsDelegate->SetParameter(_renderBufferId, _tokens->renderBufferDescriptor, desc);
     }
@@ -160,15 +195,11 @@ UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollectio
     // Tasks
     //
 
-    SdfPathVector taskIds;
-
-    // render task
     {
         _renderIndex->InsertTask<HdxRenderTask>(_paramsDelegate.get(), _renderTaskId);
 
         HdxRenderTaskParams params {};
-        params.camera = _cameraId;
-        params.viewport = GfVec4d(0, 0, 100, 100);
+        params.viewport = GfVec4d(0, 0, 1200, 700);
 
         // AOV binding must not be empty, empty is assumed to be GL
         HdRenderPassAovBindingVector aov_binding;
@@ -181,39 +212,19 @@ UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollectio
         _paramsDelegate->SetParameter(_renderTaskId, HdTokens->params, params);
 
         _paramsDelegate->SetParameter(_renderTaskId, HdTokens->collection, collection);
-        taskIds.push_back(_renderTaskId);
-    }
-
-    // collect tasks
-    for (auto& taskId : taskIds) {
-        _renderTasks.push_back(_renderIndex->GetTask(taskId));
+        _taskIds.push_back(_renderTaskId);
     }
 }
 
 void
 UsdImagingBbEngine::Render()
 {
+    auto tasks = GetTasks(_renderIndex.get(), _taskIds);
+
     do {
         TF_PY_ALLOW_THREADS_IN_SCOPE();
-        _engine->Execute(&_sceneDelegate->GetRenderIndex(), &_renderTasks);
-    } while (!IsConverged());
-}
-
-bool
-UsdImagingBbEngine::IsConverged() const
-{
-    bool converged = true;
-    for (auto const& task : _renderTasks) {
-        std::shared_ptr<HdxTask> progressiveTask = std::dynamic_pointer_cast<HdxTask>(task);
-        if (progressiveTask) {
-            converged = converged && progressiveTask->IsConverged();
-            if (!converged) {
-                break;
-            }
-        }
-    }
-
-    return converged;
+        _engine->Execute(&_sceneDelegate->GetRenderIndex(), &tasks);
+    } while (!IsConverged(tasks));
 }
 
 bool
@@ -244,6 +255,34 @@ UsdImagingBbEngine::WriteToFile(const std::string& filename) const
     return true;
 }
 
+void
+UsdImagingBbEngine::SetCamera(const std::string& camera)
+{
+    // confirm that camera exists
+    SdfPath cameraId { camera };
+    HdSprim* cameraPrim = _renderIndex->GetSprim(HdPrimTypeTokens->camera, cameraId);
+    if (!cameraPrim) {
+        // TODO camera not found
+        return;
+    }
+
+    auto tasks = GetTasks(_renderIndex.get(), _taskIds);
+    for (auto& taskId : _taskIds) {
+        const HdTaskSharedPtr& task = _renderIndex->GetTask(taskId);
+
+        auto renderTask = dynamic_cast<const HdxRenderTask*>(task.get());
+        if (!renderTask) {
+            continue;
+        }
+
+        // get existing params and update camera
+        auto params = _paramsDelegate->GetParameter<HdxRenderTaskParams>(taskId, HdTokens->params);
+        params.camera = SdfPath { camera };
+        _paramsDelegate->SetParameter(taskId, HdTokens->params, params);
+        _renderIndex->GetChangeTracker().MarkTaskDirty(taskId, HdChangeTracker::DirtyParams);
+    }
+}
+
 PXR_NAMESPACE_CLOSE_SCOPE
 
 PXR_NAMESPACE_USING_DIRECTIVE
@@ -251,7 +290,10 @@ PXR_NAMESPACE_USING_DIRECTIVE
 int
 main()
 {
+    // cre
     UsdImagingBbEngine engine { "/home/bareya/Downloads/toy.usda" };
+    engine.SetCamera("/cameras/camera1");
+
     engine.Render();
     engine.WriteToFile("/tmp/render.jpeg");
 

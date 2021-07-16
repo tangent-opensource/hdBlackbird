@@ -23,10 +23,9 @@
 #include <pxr/pxr.h>
 #include <pxr/usd/sdf/path.h>
 #include <pxr/usd/usd/common.h>
-#include <pxr/imaging/hd/renderIndex.h>
 
-#include <string>
 #include <memory>
+#include <string>
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -44,28 +43,31 @@ public:
     explicit UsdImagingBbEngine(std::string const& usdFilePath);
     ~UsdImagingBbEngine();
 
+    bool CreateRenderDelegate(std::string const& delegateName);
+    void SetCamera(std::string const& camera);
+
     void Render();
-    bool IsConverged() const;
     bool WriteToFile(std::string const& filename) const;
 
 public:
     void _Init(UsdStageRefPtr const& usdStage, HdRprimCollection const& collection, SdfPath const& delegateId,
                TfTokenVector const& renderTags);
 
-    std::unique_ptr<HdEngine> _engine;
+    TfToken renderDelegateId;
+    HdRenderDelegate* _renderDelegate;
+
     std::unique_ptr<HdRenderIndex> _renderIndex;
     std::unique_ptr<UsdImagingDelegate> _sceneDelegate;
     std::unique_ptr<ParamsDelegate> _paramsDelegate;
-
-    HdRenderDelegate* _renderDelegate;
-    HdTaskSharedPtrVector _renderTasks;
+    std::unique_ptr<HdEngine> _engine;
 
     UsdStageRefPtr _stage;
 
+    std::vector<SdfPath> _taskIds;
+    std::vector<SdfPath> _bufferIds;
+
     HdRenderBuffer* _renderBuffer;
-    SdfPath _cameraId;
     SdfPath _renderBufferId;
-    SdfPath _renderSetupTaskId;
     SdfPath _renderTaskId;
 };
 
