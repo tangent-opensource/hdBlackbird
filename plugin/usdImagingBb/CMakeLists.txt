@@ -17,21 +17,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-#add_library(hdBlackbirdDriver SHARED
-#        usdImagingBb.cpp
-#        )
-
-add_executable(HdBlackbirdEngine
+add_executable(blackbirdengine
         engine.cpp
         engine.h
         )
 
-target_include_directories(HdBlackbirdEngine
+target_include_directories(blackbirdengine
         PUBLIC
         ..
         )
 
-target_link_libraries(HdBlackbirdEngine
+target_link_libraries(blackbirdengine
         PUBLIC
         Cycles::Cycles
         Usd::Usd
@@ -39,7 +35,7 @@ target_link_libraries(HdBlackbirdEngine
         usdCycles
         )
 
-target_compile_options(HdBlackbirdEngine
+target_compile_options(blackbirdengine
         PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /wd4273 /Zi /experimental:external /external:W0>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RelWithDebInfo>>:/Ob0 /Od>
@@ -47,7 +43,7 @@ target_compile_options(HdBlackbirdEngine
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<CONFIG:Debug>>:-g3>
         )
 
-target_link_options(HdBlackbirdEngine
+target_link_options(blackbirdengine
         PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/ignore:4217 /ignore:4049>
         )
