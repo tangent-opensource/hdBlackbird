@@ -39,6 +39,13 @@
 #include <pxr/base/plug/registry.h>
 
 #include <OpenImageIO/imageio.h>
+#include <tbb/task_scheduler_init.h>
+
+#ifdef USE_HBOOST
+#    include <hboost/program_options.hpp>
+#else
+#    include <boost/program_options.hpp>
+#endif
 
 PXR_NAMESPACE_OPEN_SCOPE
 
@@ -124,16 +131,7 @@ private:
     _ValueCacheMap _valueCacheMap;
 };
 
-UsdImagingBbEngine::UsdImagingBbEngine(const std::string& usdFilePath)
-{
-    HdRprimCollection collection = HdRprimCollection(HdTokens->geometry, HdReprSelector(HdReprTokens->hull));
-    collection.SetRootPath(SdfPath::AbsoluteRootPath());
-
-    TfTokenVector renderTags;
-    renderTags.push_back(HdRenderTagTokens->geometry);
-
-    _Init(UsdStage::Open(usdFilePath), collection, SdfPath::AbsoluteRootPath(), renderTags);
-}
+UsdImagingBbEngine::~UsdImagingBbEngine() {}
 
 bool
 UsdImagingBbEngine::CreateRenderDelegate(const std::string& delegateName)
@@ -143,24 +141,35 @@ UsdImagingBbEngine::CreateRenderDelegate(const std::string& delegateName)
     renderDelegateId = TfToken { delegateName };
     HdRendererPluginRegistry& plugin_registry = HdRendererPluginRegistry::GetInstance();
     HdRendererPlugin* plugin = plugin_registry.GetRendererPlugin(renderDelegateId);
+    if (!plugin) {
+        return false;
+    }
+
     _renderDelegate = plugin->CreateRenderDelegate();
-    return true;
-}
-
-UsdImagingBbEngine::~UsdImagingBbEngine() {}
-
-void
-UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollection& collection,
-                          const SdfPath& delegateId, const TfTokenVector& renderTags)
-{
-    _renderBufferId = SdfPath { "/task_controller/render_buffer" };
-    _renderTaskId = SdfPath { "/task_controller/render_task" };
-
-    CreateRenderDelegate("HdCyclesRendererPlugin");
+    if (!_renderDelegate) {
+        return false;
+    }
 
     // create render index
     _renderIndex = std::unique_ptr<HdRenderIndex>(HdRenderIndex::New(_renderDelegate, HdDriverVector {}));
-    TF_VERIFY(_renderIndex != nullptr);
+    if (!_renderIndex) {
+        return false;
+    }
+
+    // create engine
+    _engine = std::make_unique<HdEngine>();
+
+    return true;
+}
+
+bool
+UsdImagingBbEngine::OpenScene(const std::string& filename)
+{
+    // open usd scene
+    UsdStageRefPtr usdStage = UsdStage::Open(filename);
+    if (!usdStage) {
+        return false;
+    }
 
     const SdfPath sceneDelegateId = SdfPath::AbsoluteRootPath();
     _sceneDelegate = std::make_unique<UsdImagingDelegate>(_renderIndex.get(), sceneDelegateId);
@@ -168,25 +177,23 @@ UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollectio
     //
     _paramsDelegate = std::make_unique<ParamsDelegate>(_renderIndex.get(), SdfPath { "/task_controller" });
 
-    //
-    _engine = std::make_unique<HdEngine>();
-
     // Populate usd stage
     _stage = usdStage;
     _sceneDelegate->Populate(_stage->GetPseudoRoot());
 
+
     //
     // Render Buffers
     //
-
+    _renderBufferId = SdfPath { "/task_controller/render_buffer" };
     {
+        _bufferIds.emplace_back("/task_controller/render_buffer");
         _renderIndex->InsertBprim(HdPrimTypeTokens->renderBuffer, _paramsDelegate.get(), _renderBufferId);
         _renderBuffer = dynamic_cast<HdRenderBuffer*>(
             _renderIndex->GetBprim(HdPrimTypeTokens->renderBuffer, _renderBufferId));
 
         HdRenderBufferDescriptor desc {};
         desc.multiSampled = false;
-        desc.dimensions = GfVec3i { 1200, 700, 1 };
         desc.format = HdFormatFloat32Vec4;
         _paramsDelegate->SetParameter(_renderBufferId, _tokens->renderBufferDescriptor, desc);
     }
@@ -194,6 +201,10 @@ UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollectio
     //
     // Tasks
     //
+    HdRprimCollection collection = HdRprimCollection(HdTokens->geometry, HdReprSelector(HdReprTokens->hull));
+    collection.SetRootPath(SdfPath::AbsoluteRootPath());
+
+    _renderTaskId = SdfPath { "/task_controller/render_task" };
 
     {
         _renderIndex->InsertTask<HdxRenderTask>(_paramsDelegate.get(), _renderTaskId);
@@ -214,6 +225,8 @@ UsdImagingBbEngine::_Init(const UsdStageRefPtr& usdStage, const HdRprimCollectio
         _paramsDelegate->SetParameter(_renderTaskId, HdTokens->collection, collection);
         _taskIds.push_back(_renderTaskId);
     }
+
+    return true;
 }
 
 void
@@ -283,19 +296,126 @@ UsdImagingBbEngine::SetCamera(const std::string& camera)
     }
 }
 
+void
+UsdImagingBbEngine::SetResolution(int x, int y)
+{
+    // iterate over buffers
+    for (auto& bufferId : _bufferIds) {
+        const HdBprim* buffer_prim = _renderIndex->GetBprim(HdPrimTypeTokens->renderBuffer, bufferId);
+        if (!buffer_prim) {
+            continue;
+        }
+
+        auto descr = _paramsDelegate->GetParameter<HdRenderBufferDescriptor>(bufferId, _tokens->renderBufferDescriptor);
+        descr.dimensions = GfVec3i { x, y, 1 };
+        _paramsDelegate->SetParameter(bufferId, _tokens->renderBufferDescriptor, descr);
+    }
+
+    // iterate over tasks
+    auto tasks = GetTasks(_renderIndex.get(), _taskIds);
+    for (auto& taskId : _taskIds) {
+        const HdTaskSharedPtr& task = _renderIndex->GetTask(taskId);
+
+        auto renderTask = dynamic_cast<const HdxRenderTask*>(task.get());
+        if (!renderTask) {
+            continue;
+        }
+
+        auto params = _paramsDelegate->GetParameter<HdxRenderTaskParams>(taskId, HdTokens->params);
+        params.viewport = GfVec4d(0, 0, x, y);
+        _paramsDelegate->SetParameter(taskId, HdTokens->params, params);
+        _renderIndex->GetChangeTracker().MarkTaskDirty(taskId, HdChangeTracker::DirtyParams);
+    }
+}
+
 PXR_NAMESPACE_CLOSE_SCOPE
+
+#include <iostream>
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
+namespace po = BOOST_NS::program_options;
+using BOOST_NS::array;
+using Resolution = std::vector<int>;
+
+
 int
-main()
+main(int argc, char** argv)
 {
-    // cre
-    UsdImagingBbEngine engine { "/home/bareya/Downloads/toy.usda" };
-    engine.SetCamera("/cameras/camera1");
+    // clang goes nuts here
+    // clang-format off
+    po::options_description desc {};
+    desc.add_options()("help", "Produce help message")
+        ("usd-input", po::value<std::string>(), "The USD file for the scene")
+        ("camera,c", po::value<std::string>()->default_value("/cameras/camera1"), "Render from the specified camera")
+        ("output,o", po::value<std::string>(), "Output image")
+        ("res,r", po::value<Resolution>()->multitoken()->default_value(Resolution{1280, 720}, "1280 720"), "Image resolution (e.g. '--res 1280 720')")
+        ("renderer,R", po::value<std::string>()->default_value("HdCyclesRendererPlugin"), "Choose a specific delegate. Default is Blackbird")
+        ("threads,j",po::value<int>()->default_value(-1),"Choose an specific delegate. Default is Blackbird");
+    // clang-format on
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << desc << '\n';
+        return EXIT_FAILURE;
+    }
+
+    if (!vm.count("usd-input")) {
+        std::cout << "Missing 'usd-input' argument!" << '\n';
+        std::cout << desc << '\n';
+        return EXIT_FAILURE;
+    }
+
+    if (!vm.count("output")) {
+        std::cout << "Missing 'output' argument!" << '\n';
+        std::cout << desc << '\n';
+        return EXIT_FAILURE;
+    }
+
+    //
+    // initialize thread count
+    //
+    tbb::task_scheduler_init scheduler_init { vm["threads"].as<int>() };
+
+    // create engine
+    UsdImagingBbEngine engine;
+
+    // create delegate
+    {
+        auto renderer = vm["renderer"].as<std::string>();
+        if (!engine.CreateRenderDelegate(renderer)) {
+            std::cout << "Unable to create delegate with name: " << renderer << '\n';
+            return EXIT_FAILURE;
+        }
+    }
+
+    // open usd scene
+    {
+        auto scene = vm["usd-input"].as<std::string>();
+        if (!engine.OpenScene(scene)) {
+            std::cout << "Unable to open scene: " << scene << '\n';
+            return EXIT_FAILURE;
+        }
+    }
+
+    // set properties
+    {
+        auto camera = vm["camera"].as<std::string>();
+        engine.SetCamera(camera);
+
+        auto res = vm["res"].as<Resolution>();
+        engine.SetResolution(res[0], res[1]);
+    }
 
     engine.Render();
-    engine.WriteToFile("/tmp/render.jpeg");
 
-    return 0;
+    {
+        auto output = vm["output"].as<std::string>();
+        engine.WriteToFile(output);
+    }
+
+    return EXIT_SUCCESS;
 }

@@ -40,19 +40,19 @@ class HdRenderBuffer;
 
 class UsdImagingBbEngine final {
 public:
-    explicit UsdImagingBbEngine(std::string const& usdFilePath);
+    UsdImagingBbEngine() = default;
     ~UsdImagingBbEngine();
 
     bool CreateRenderDelegate(std::string const& delegateName);
+    bool OpenScene(std::string const& filename);
+
     void SetCamera(std::string const& camera);
+    void SetResolution(int x, int y);
 
     void Render();
     bool WriteToFile(std::string const& filename) const;
 
-public:
-    void _Init(UsdStageRefPtr const& usdStage, HdRprimCollection const& collection, SdfPath const& delegateId,
-               TfTokenVector const& renderTags);
-
+private:
     TfToken renderDelegateId;
     HdRenderDelegate* _renderDelegate;
 
