@@ -137,6 +137,7 @@ bool
 UsdImagingBbEngine::CreateRenderDelegate(const std::string& delegateName)
 {
     PlugRegistry& plug_registry = PlugRegistry::GetInstance();
+    TF_UNUSED(plug_registry);
 
     renderDelegateId = TfToken { delegateName };
     HdRendererPluginRegistry& plugin_registry = HdRendererPluginRegistry::GetInstance();
