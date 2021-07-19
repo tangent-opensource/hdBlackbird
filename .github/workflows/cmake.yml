@@ -36,7 +36,7 @@ jobs:
       run: cmake --build coreBlackbird-build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Configure HdBlackbird CMake
-      run: cmake -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSD_ROOT=/usr/local/ -DCMAKE_INSTALL_PREFIX=installdir
+      run: cmake -G Ninja -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DUSD_ROOT=/usr/local/ -DCMAKE_INSTALL_PREFIX=installdir -DUSE_IMAGING_ENGINE=ON
 
     - name: Build HdBlackbird
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target install
