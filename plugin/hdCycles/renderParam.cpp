@@ -698,19 +698,19 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
     config.curve_subdivisions.eval(sceneParams->hair_subdivisions, a_forceInit);
 
     // Texture
-    sceneParams->texture.use_cache = config.texture_use_cache.value;
-    sceneParams->texture.cache_size = config.texture_cache_size.value;
-    sceneParams->texture.tile_size = config.texture_tile_size.value;
-    sceneParams->texture.diffuse_blur = config.texture_diffuse_blur.value;
-    sceneParams->texture.glossy_blur = config.texture_glossy_blur.value;
-    sceneParams->texture.auto_convert = config.texture_auto_convert.value;
-    sceneParams->texture.accept_unmipped = config.texture_accept_unmipped.value;
-    sceneParams->texture.accept_untiled = config.texture_accept_untiled.value;
-    sceneParams->texture.auto_tile = config.texture_auto_tile.value;
-    sceneParams->texture.auto_mip = config.texture_auto_mip.value;
-    sceneParams->texture.use_custom_cache_path = config.texture_use_custom_path.value;
-    sceneParams->texture.custom_cache_path = config.texture_custom_path.value;
-    sceneParams->texture_limit = config.texture_max_size.value;
+    config.texture_use_cache.eval(sceneParams->texture.use_cache, a_forceInit);
+    config.texture_cache_size.eval(sceneParams->texture.cache_size, a_forceInit);
+    config.texture_tile_size.eval(sceneParams->texture.tile_size, a_forceInit);
+    config.texture_diffuse_blur.eval(sceneParams->texture.diffuse_blur, a_forceInit);
+    config.texture_glossy_blur.eval(sceneParams->texture.glossy_blur, a_forceInit);
+    config.texture_auto_convert.eval(sceneParams->texture.auto_convert, a_forceInit);
+    config.texture_accept_unmipped.eval(sceneParams->texture.accept_unmipped, a_forceInit);
+    config.texture_accept_untiled.eval(sceneParams->texture.accept_untiled, a_forceInit);
+    config.texture_auto_tile.eval(sceneParams->texture.auto_tile, a_forceInit);
+    config.texture_auto_mip.eval(sceneParams->texture.auto_mip, a_forceInit);
+    config.texture_use_custom_path.eval(sceneParams->texture.use_custom_cache_path, a_forceInit);
+    config.texture_custom_path.eval(sceneParams->texture.custom_cache_path, a_forceInit);
+    config.texture_max_size.eval(sceneParams->texture_limit, a_forceInit);
 }
 
 void
