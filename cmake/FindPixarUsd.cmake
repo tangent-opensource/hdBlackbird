@@ -27,11 +27,12 @@ target_compile_definitions(UsdInterface
     INTERFACE
     BOOST_NS=boost
     $<$<CXX_COMPILER_ID:MSVC>:HAVE_SNPRINTF>
+    $<$<CXX_COMPILER_ID:GNU>:TBB_USE_DEBUG=0>
     )
 
 target_link_libraries(UsdInterface
     INTERFACE
-    hd usdHydra usdImaging usdRender usdSkel
+    hd usdHydra usdImaging usdRender usdSkel hdx
     )
 # Find Usd Schema Generator
 

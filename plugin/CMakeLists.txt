@@ -20,3 +20,7 @@
 add_subdirectory(usdCycles)
 add_subdirectory(ndrCycles)
 add_subdirectory(hdCycles)
+
+if(${USE_IMAGING_ENGINE})
+    add_subdirectory(usdImagingBb)
+endif()
