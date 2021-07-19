@@ -30,9 +30,15 @@ target_compile_definitions(UsdInterface
     $<$<CXX_COMPILER_ID:GNU>:TBB_USE_DEBUG=0>
     )
 
+# optional boost_program_options
+find_library(BOOST_PROGRAM_OPTIONS_LIBRARY
+    NAMES
+    boost_program_options
+    )
+
 target_link_libraries(UsdInterface
     INTERFACE
-    hd usdHydra usdImaging usdRender usdSkel hdx
+    hd usdHydra usdImaging usdRender usdSkel hdx ${BOOST_PROGRAM_OPTIONS_LIBRARY}
     )
 # Find Usd Schema Generator
 
