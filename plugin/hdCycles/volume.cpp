@@ -303,6 +303,16 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         primvar_descriptor_map = GetPrimvarDescriptorMap(sceneDelegate);
         GetObjectPrimvars(primvar_descriptor_map, sceneDelegate, dirtyBits);
+
+         for (auto& primvarDescsEntry : primvar_descriptor_map) {
+            for (auto& pv : primvarDescsEntry.second) {
+                if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
+                    continue;
+                }
+
+                
+            }
+        }
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
@@ -392,6 +402,12 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
                     m_cyclesInstances.push_back(instanceObj);
 
                     m_renderDelegate->GetCyclesRenderParam()->AddObject(instanceObj);
+                }
+
+                std::cout << "Instancer ID " << instancer_id << std::endl;
+                for (const auto& pv_desc : sceneDelegate->GetPrimvarDescriptors(instancer_id, HdInterpolationInstance)) {
+                    VtValue value = sceneDelegate->Get(instancer_id, pv_desc.name);
+                    std::cout << "Primvar " << pv_desc.name << std::endl;
                 }
 
                 update_volumes = true;

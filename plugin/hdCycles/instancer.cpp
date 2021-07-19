@@ -63,9 +63,7 @@ HdCyclesInstancer::Sync()
     }
 
     auto primvarDescs = GetDelegate()->GetPrimvarDescriptors(instancerId, HdInterpolationInstance);
-    std::cout << "Instancer2 " << instancerId << std::endl;
     for (auto& desc : primvarDescs) {
-        std::cout << "Instancer primvar " << desc.name << std::endl;
         if (!HdChangeTracker::IsPrimvarDirty(dirtyBits, instancerId, desc.name)) {
             continue;
         }
