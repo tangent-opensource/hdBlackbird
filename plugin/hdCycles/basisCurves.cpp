@@ -81,17 +81,9 @@ TF_DEFINE_PRIVATE_TOKENS(_tokens,
 
 HdCyclesBasisCurves::HdCyclesBasisCurves(SdfPath const& id, SdfPath const& instancerId,
                                          HdCyclesRenderDelegate* a_renderDelegate)
-    : HdBasisCurves(id, instancerId)
-    , m_visibilityFlags(ccl::PATH_RAY_ALL_VISIBILITY)
-    , m_visCamera(true)
-    , m_visDiffuse(true)
-    , m_visGlossy(true)
-    , m_visScatter(true)
-    , m_visShadow(true)
-    , m_visTransmission(true)
+    : HdBbRPrim<HdBasisCurves>(id, instancerId)
     , m_curveShape(ccl::CURVE_THICK)
     , m_curveResolution(5)
-    , m_cyclesObject(nullptr)
     , m_cyclesMesh(nullptr)
     , m_cyclesHair(nullptr)
     , m_cyclesGeometry(nullptr)
@@ -442,16 +434,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     bool generate_new_curve = false;
     bool update_curve = false;
 
-    // Defaults
-    m_visCamera = m_visDiffuse = m_visGlossy = m_visScatter = m_visShadow = m_visTransmission = true;
-    m_motionBlur = true;
-    m_motionTransformSteps = 3;
-    m_motionDeformSteps = 3;
-    m_cyclesObject->is_shadow_catcher = false;
-    m_cyclesObject->pass_id = 0;
-    m_cyclesObject->use_holdout = false;
-    m_cyclesObject->asset_name = "";
-
     // initial values
     TfToken curveShape = usdCyclesTokens->ribbon;
     m_points.clear();
@@ -459,7 +441,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     m_widths = VtFloatArray(1, 0.1f);
     m_widthsInterpolation = HdInterpolationConstant;
     m_normals.clear();
-    m_visibilityFlags = 0;
     m_curveResolution = 5;
 
     if (*dirtyBits & HdChangeTracker::DirtyTopology) {
@@ -478,20 +459,11 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
     std::vector<HdBbPrimvar> primvars;
 
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
-        std::array<std::pair<HdInterpolation, HdPrimvarDescriptorVector>, 5> primvars_desc {
-            std::make_pair(HdInterpolationConstant, HdPrimvarDescriptorVector {}),
-            std::make_pair(HdInterpolationUniform, HdPrimvarDescriptorVector {}),
-            std::make_pair(HdInterpolationVertex, HdPrimvarDescriptorVector {}),
-            std::make_pair(HdInterpolationVarying, HdPrimvarDescriptorVector {}),
-            std::make_pair(HdInterpolationFaceVarying, HdPrimvarDescriptorVector {}),
-        };
-
-        for (auto& info : primvars_desc) {
-            info.second = sceneDelegate->GetPrimvarDescriptors(id, info.first);
-        }
+        HdPrimvarDescriptorMap primvarDescsPerInterpolation = GetPrimvarDescriptorMap(sceneDelegate);
+        GetObjectPrimvars(primvarDescsPerInterpolation, sceneDelegate, dirtyBits);
 
         //
-        for (auto& interpolation_description : primvars_desc) {
+        for (auto& interpolation_description : primvarDescsPerInterpolation) {
             for (const HdPrimvarDescriptor& description : interpolation_description.second) {
                 if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
                     continue;
@@ -565,100 +537,6 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
                             update_curve = true;
                         }
                     }
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectAsset_name) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectAsset_name);
-                    if (value.IsHolding<std::string>()) {
-                        std::string assetName = value.Get<std::string>();
-                        m_cyclesObject->asset_name = ccl::ustring(assetName);
-                    }
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectMblur) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectMblur);
-                    m_motionBlur = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectTransformSamples) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectTransformSamples);
-                    m_motionTransformSteps = value.Get<int>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectDeformSamples) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectDeformSamples);
-                    m_motionDeformSteps = value.Get<int>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectIs_shadow_catcher);
-                    if (value.IsHolding<bool>())
-                        m_cyclesObject->is_shadow_catcher = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectPass_id) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectPass_id);
-                    if (value.IsHolding<bool>())
-                        m_cyclesObject->pass_id = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectUse_holdout) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectUse_holdout);
-                    if (value.IsHolding<bool>())
-                        m_cyclesObject->use_holdout = value.Get<bool>();
-                    continue;
-                }
-
-                //
-                // Visibility schema
-                //
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityCamera) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityCamera);
-                    if (value.IsHolding<bool>())
-                        m_visCamera = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityDiffuse);
-                    if (value.IsHolding<bool>())
-                        m_visDiffuse = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityGlossy);
-                    if (value.IsHolding<bool>())
-                        m_visGlossy = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityScatter) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityScatter);
-                    if (value.IsHolding<bool>())
-                        m_visScatter = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityShadow) {
-                    VtValue value = GetPrimvar(sceneDelegate, usdCyclesTokens->primvarsCyclesObjectVisibilityShadow);
-                    if (value.IsHolding<bool>())
-                        m_visShadow = value.Get<bool>();
-                    continue;
-                }
-
-                if (primvar_name == usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission) {
-                    VtValue value = GetPrimvar(sceneDelegate,
-                                               usdCyclesTokens->primvarsCyclesObjectVisibilityTransmission);
-                    if (value.IsHolding<bool>())
-                        m_visTransmission = value.Get<bool>();
                     continue;
                 }
             }
@@ -773,23 +651,10 @@ HdCyclesBasisCurves::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderP
 
     if (generate_new_curve || update_curve) {
         m_cyclesHair->curve_shape = m_curveShape;
-
-        m_visibilityFlags |= m_visCamera ? ccl::PATH_RAY_CAMERA : 0;
-        m_visibilityFlags |= m_visDiffuse ? ccl::PATH_RAY_DIFFUSE : 0;
-        m_visibilityFlags |= m_visGlossy ? ccl::PATH_RAY_GLOSSY : 0;
-        m_visibilityFlags |= m_visScatter ? ccl::PATH_RAY_VOLUME_SCATTER : 0;
-        m_visibilityFlags |= m_visShadow ? ccl::PATH_RAY_SHADOW : 0;
-        m_visibilityFlags |= m_visTransmission ? ccl::PATH_RAY_TRANSMIT : 0;
-
-        m_cyclesObject->visibility = m_visibilityFlags;
-        if (!_sharedData.visible)
-            m_cyclesObject->visibility = 0;
-
-        m_cyclesGeometry->tag_update(scene, true);
-        m_cyclesObject->tag_update(scene);
         param->Interrupt();
     }
 
+    UpdateObject(scene, dirtyBits, generate_new_curve);
     *dirtyBits = HdChangeTracker::Clean;
 }
 

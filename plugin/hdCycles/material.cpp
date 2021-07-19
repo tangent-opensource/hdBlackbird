@@ -539,7 +539,6 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
                 cycles_node = convertCyclesNode(node, graph);
             }
 
-            assert(cycles_node);
             if (cycles_node != nullptr) {
                 conversionMap.insert(std::pair<SdfPath, std::pair<HdMaterialNode*, ccl::ShaderNode*>>(
                     node.path, std::make_pair(&node, cycles_node)));

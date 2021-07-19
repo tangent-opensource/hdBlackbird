@@ -46,6 +46,8 @@
 #include <util/util_murmurhash.h>
 #include <util/util_task.h>
 
+#include <tbb/parallel_for.h>
+
 #ifdef WITH_CYCLES_LOGGING
 #    include <util/util_logging.h>
 #endif
@@ -101,9 +103,10 @@ std::array<HdCyclesAov, 27> DefaultAovs = { {
     { "Ngn", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->Ngn, HdFormatFloat32Vec3, false },
 } };
 
-std::array<HdCyclesAov, 2> CustomAovs = { {
+std::array<HdCyclesAov, 3> CustomAovs = { {
     { "AOVC", ccl::PASS_AOV_COLOR, HdCyclesAovTokens->AOVC, HdFormatFloat32Vec3, true },
     { "AOVV", ccl::PASS_AOV_VALUE, HdCyclesAovTokens->AOVV, HdFormatFloat32, true },
+    { "LightGroup", ccl::PASS_LIGHTGROUP, HdCyclesAovTokens->LightGroup, HdFormatFloat32Vec3, true },
 } };
 
 std::array<HdCyclesAov, 3> CryptomatteAovs = { {
@@ -196,7 +199,7 @@ GetAovFlags(const HdCyclesAov& cyclesAov, bool& custom, bool& denoise)
     denoise = false;
     if ((cyclesAov.token == HdCyclesAovTokens->CryptoObject) || (cyclesAov.token == HdCyclesAovTokens->CryptoMaterial)
         || (cyclesAov.token == HdCyclesAovTokens->CryptoAsset) || (cyclesAov.token == HdCyclesAovTokens->AOVC)
-        || (cyclesAov.token == HdCyclesAovTokens->AOVV)) {
+        || (cyclesAov.token == HdCyclesAovTokens->AOVV) || (cyclesAov.token == HdCyclesAovTokens->LightGroup)) {
         custom = true;
     } else if ((cyclesAov.token == HdCyclesAovTokens->DenoiseNormal)
                || (cyclesAov.token == HdCyclesAovTokens->DenoiseAlbedo)) {
@@ -559,6 +562,15 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesAdaptive_sampling) {
         sessionParams->adaptive_sampling = _HdCyclesGetVtValue<bool>(value, sessionParams->adaptive_sampling,
                                                                      &session_updated);
+
+        if (sessionParams->adaptive_sampling) {
+            /* Integrator settings are applied after the scene is created  */
+            if (m_cyclesScene) {
+                m_cyclesScene->integrator->sampling_pattern = ccl::SAMPLING_PATTERN_PMJ;
+                m_cyclesScene->integrator->tag_update(m_cyclesScene);
+                session_updated = true;
+            }
+        }
     }
 
     if (key == usdCyclesTokens->cyclesUse_profiling) {
@@ -584,9 +596,6 @@ HdCyclesRenderParam::_HandleSessionRenderSetting(const TfToken& key, const VtVal
     if (key == usdCyclesTokens->cyclesUse_profiling) {
         sessionParams->use_profiling = _HdCyclesGetVtValue<bool>(value, sessionParams->use_profiling, &session_updated);
     }
-
-    // Session BVH
-
 
     // Denoising
 
@@ -687,6 +696,21 @@ HdCyclesRenderParam::_UpdateSceneFromConfig(bool a_forceInit)
     sceneParams->persistent_data = false;
 
     config.curve_subdivisions.eval(sceneParams->hair_subdivisions, a_forceInit);
+
+    // Texture
+    sceneParams->texture.use_cache = config.texture_use_cache.value;
+    sceneParams->texture.cache_size = config.texture_cache_size.value;
+    sceneParams->texture.tile_size = config.texture_tile_size.value;
+    sceneParams->texture.diffuse_blur = config.texture_diffuse_blur.value;
+    sceneParams->texture.glossy_blur = config.texture_glossy_blur.value;
+    sceneParams->texture.auto_convert = config.texture_auto_convert.value;
+    sceneParams->texture.accept_unmipped = config.texture_accept_unmipped.value;
+    sceneParams->texture.accept_untiled = config.texture_accept_untiled.value;
+    sceneParams->texture.auto_tile = config.texture_auto_tile.value;
+    sceneParams->texture.auto_mip = config.texture_auto_mip.value;
+    sceneParams->texture.use_custom_cache_path = config.texture_use_custom_path.value;
+    sceneParams->texture.custom_cache_path = config.texture_custom_path.value;
+    sceneParams->texture_limit = config.texture_max_size.value;
 }
 
 void
@@ -1294,13 +1318,6 @@ HdCyclesRenderParam::_HandleFilmRenderSetting(const TfToken& key, const VtValue&
         film->use_light_visibility = _HdCyclesGetVtValue<bool>(value, film->use_light_visibility, &film_updated, false);
     }
 
-    // Sampling
-
-    // TODO: Check if cycles actually uses this, doesnt appear to...
-    if (key == usdCyclesTokens->cyclesFilmUse_adaptive_sampling) {
-        film->use_adaptive_sampling = _HdCyclesGetVtValue<bool>(value, film->use_adaptive_sampling, &film_updated,
-                                                                false);
-    }
 
     if (key == usdCyclesTokens->cyclesFilmCryptomatte_depth) {
         auto cryptomatte_depth = _HdCyclesGetVtValue<int>(value, 4, &film_updated, false);
@@ -1479,10 +1496,14 @@ HdCyclesRenderParam::_CreateSession()
     m_cyclesSession = new ccl::Session(m_sessionParams);
 
     m_cyclesSession->display_copy_cb = [this](int samples) {
-        for (auto aov : m_aovs) {
-            BlitFromCyclesPass(aov, m_cyclesSession->tile_manager.state.buffer.width,
-                               m_cyclesSession->tile_manager.state.buffer.height, samples);
-        }
+        const int width = m_cyclesSession->tile_manager.state.buffer.width;
+        const int height = m_cyclesSession->tile_manager.state.buffer.height;
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, m_aovs.size(), 1),
+                          [this, width, height, samples](const tbb::blocked_range<size_t>& r) {
+                              for (size_t i = r.begin(); i < r.end(); ++i) {
+                                  BlitFromCyclesPass(m_aovs[i], width, height, samples);
+                              }
+                          });
     };
 
     m_cyclesSession->write_render_tile_cb = std::bind(&HdCyclesRenderParam::_WriteRenderTile, this, ccl::_1);
@@ -1580,8 +1601,8 @@ HdCyclesRenderParam::_WriteRenderTile(ccl::RenderTile& rtile)
             // Passing the dimension as float to not lose the decimal points in the conversion to int
             // We need to do this only for tiles becase we are scaling the source rect to calculate
             // the region to write to in the destination rect
-            const float width_data_src = m_renderRect[2];
-            const float height_data_src = m_renderRect[3];
+            const float width_data_src = m_bufferParams.width;
+            const float height_data_src = m_bufferParams.height;
 
             rb->BlitTile(cyclesAov.format, x_src, y_src, rtile.w, rtile.h, width_data_src, height_data_src, 0, rtile.w,
                          reinterpret_cast<uint8_t*>(tileData.data()));
@@ -1605,9 +1626,6 @@ HdCyclesRenderParam::_CreateScene()
 
     m_resolutionImage = GfVec2i(0, 0);
     m_resolutionDisplay = GfVec2i(config.render_width.value, config.render_height.value);
-
-    m_renderRect = GfVec4f(0.f, 0.f, static_cast<float>(config.render_width.value),
-                           static_cast<float>(config.render_height.value));
 
     m_cyclesScene->camera->width = m_resolutionDisplay[0];
     m_cyclesScene->camera->height = m_resolutionDisplay[1];
@@ -1856,24 +1874,29 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     if (!m_resolutionAuthored) {
         m_resolutionImage = m_resolutionDisplay;
     }
+    
+    // Since the sensor is scaled uniformly, we also scale all the corners
+    // of the image rect by the maximum amount of overscan
+    // But only allocate and render a subrect
+    const float overscan = MaxOverscan();
 
-    m_renderRect[0] = m_dataWindowNDC[0] * (float)m_resolutionImage[0];
-    m_renderRect[1] = m_dataWindowNDC[1] * (float)m_resolutionImage[1];
-    m_renderRect[2] = m_dataWindowNDC[2] * (float)m_resolutionImage[0] - m_bufferParams.full_x;
-    m_renderRect[3] = m_dataWindowNDC[3] * (float)m_resolutionImage[1] - m_bufferParams.full_y;
+    // Full rect
+    m_bufferParams.full_width = (1.f + overscan * 2.f) * m_resolutionImage[0];
+    m_bufferParams.full_height = (1.f + overscan * 2.f) * m_resolutionImage[1];
 
-    m_bufferParams.full_width = m_resolutionImage[0];
-    m_bufferParams.full_height = m_resolutionImage[1];
-    m_bufferParams.full_x = static_cast<int>(m_renderRect[0]);
-    m_bufferParams.full_y = static_cast<int>(m_renderRect[1]);
-    m_bufferParams.width = static_cast<int>(m_renderRect[2]);
-    m_bufferParams.height = static_cast<int>(m_renderRect[3]);
+    // Translate to the origin of the full rect
+    m_bufferParams.full_x = (m_dataWindowNDC[0] - (-overscan)) * m_resolutionImage[0];
+    m_bufferParams.full_y = (m_dataWindowNDC[1] - (-overscan)) * m_resolutionImage[1];
+    m_bufferParams.width = (m_dataWindowNDC[2] - m_dataWindowNDC[0]) * m_resolutionImage[0];
+    m_bufferParams.height = (m_dataWindowNDC[3] - m_dataWindowNDC[1]) * m_resolutionImage[1];
+
+    m_cyclesScene->camera->width = m_bufferParams.full_width;
+    m_cyclesScene->camera->height = m_bufferParams.full_height;
+    m_cyclesScene->camera->overscan = overscan;
 
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
     m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
 
-    m_cyclesScene->camera->width = m_resolutionImage[0];
-    m_cyclesScene->camera->height = m_resolutionImage[1];
     m_cyclesScene->camera->compute_auto_viewplane();
     m_cyclesScene->camera->need_update = true;
     m_cyclesScene->camera->need_device_update = true;
@@ -2422,7 +2445,10 @@ HdCyclesRenderParam::SetAovBindings(HdRenderPassAovBindingVector const& a_aovs)
         }
     }
 
-    if (m_sessionParams.adaptive_sampling) {
+    /* Reading the latest version of the settings. In viewport mode the session
+     * has already been started typically. */
+    const bool use_adaptive_sampling = m_cyclesSession ? m_cyclesSession->params.adaptive_sampling : m_sessionParams.adaptive_sampling;
+    if (use_adaptive_sampling) {
         ccl::Pass::add(ccl::PASS_ADAPTIVE_AUX_BUFFER, m_bufferParams.passes);
         if (!has_sample_count) {
             ccl::Pass::add(ccl::PASS_SAMPLE_COUNT, m_bufferParams.passes);
@@ -2555,5 +2581,13 @@ HdCyclesRenderParam::BlitFromCyclesPass(const HdRenderPassAovBinding& aov, int w
     }
 }
 
+float 
+HdCyclesRenderParam::MaxOverscan() const {
+    float overscan = ::std::max(-m_dataWindowNDC[0], 0.f);
+    overscan = ::std::max(overscan, ::std::max(-m_dataWindowNDC[1], 0.f));
+    overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[2] - 1, 0.f));
+    overscan = ::std::max(overscan, ::std::max(m_dataWindowNDC[3] - 1, 0.f));
+    return overscan;
+}
 
 PXR_NAMESPACE_CLOSE_SCOPE
