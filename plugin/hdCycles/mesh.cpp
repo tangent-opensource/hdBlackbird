@@ -332,7 +332,6 @@ HdCyclesMesh::_AddAccelerations(const SdfPath& id, const VtValue& value, HdInter
 
     if (interpolation == HdInterpolationVertex) {
         assert(accelerations.size() == m_cyclesMesh->verts.size());
-           
         ccl::float3* A = attr_accel->data_float3();
         for (size_t i = 0; i < accelerations.size(); ++i) {
             A[i] = vec3f_to_float3(accelerations[i]);
@@ -1339,7 +1338,6 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 }
 
                 m_cyclesInstances.resize(newNumInstances);
-
                 for (size_t j = 0; j < newNumInstances; ++j) {
                     ccl::Object* instanceObj = &m_cyclesInstances[j];
 
