@@ -262,7 +262,7 @@ HdCyclesMesh::_AddVelocities(const SdfPath& id, const VtValue& value, HdInterpol
     }
 
     m_cyclesMesh->set_use_motion_blur(true);
-    m_cyclesMesh->set_motion_steps(_motionDeformSteps + ((m_motionDeformSteps % 2) ? 0 : 1));
+    m_cyclesMesh->set_motion_steps(m_motionDeformSteps + ((m_motionDeformSteps % 2) ? 0 : 1));
 
     if (!value.IsHolding<VtVec3fArray>()) {
         TF_WARN("Unexpected type for velocities for: %s", id.GetText());
