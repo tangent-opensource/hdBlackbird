@@ -322,7 +322,6 @@ HdCyclesRenderDelegate::DestroyBprim(HdBprim* bPrim)
 HdInstancer*
 HdCyclesRenderDelegate::CreateInstancer(HdSceneDelegate* delegate, SdfPath const& id, SdfPath const& instancerId)
 {
-    std::cout << "___ Creating instancer " << id << std::endl;
     return new HdCyclesInstancer(delegate, id, instancerId);
 }
 

@@ -910,10 +910,8 @@ HdCyclesMesh::_PopulatePrimvars(HdSceneDelegate* sceneDelegate, ccl::Scene* scen
 
     m_texture_names.clear();
 
-    std::cout << "ID " << id << std::endl;
     for (auto& interpolation_description : primvars_desc) {
         for (const HdPrimvarDescriptor& description : interpolation_description.second) {
-            std::cout << "Primvar " << description.name << " " << interpolation_description.first << std::endl;
             // collect texture coordinates names, it's needed to re-compute texture tangents.
             if (description.role == HdPrimvarRoleTokens->textureCoordinate) {
                 m_texture_names.emplace_back(description.name.data(), description.name.size());
