@@ -79,6 +79,11 @@ HdCyclesMesh::~HdCyclesMesh()
         std::vector<ccl::Object> empty = {};
         m_cyclesInstances.swap(empty);
     }
+
+    if (m_instanceGroup) {
+        m_renderDelegate->GetCyclesRenderParam()->RemoveInstanceGroup(m_instanceGroup);
+        delete m_instanceGroup;
+    }
 }
 
 void
@@ -328,8 +333,6 @@ HdCyclesMesh::_AddAccelerations(const SdfPath& id, const VtValue& value, HdInter
     if (interpolation == HdInterpolationVertex) {
         assert(accelerations.size() == m_cyclesMesh->verts.size());
            
-        printf("Writing %d accelerations with %d vertices\n", (int)accelerations.size(), (int)m_cyclesMesh->verts.size());
-
         ccl::float3* A = attr_accel->data_float3();
         for (size_t i = 0; i < accelerations.size(); ++i) {
             A[i] = vec3f_to_float3(accelerations[i]);
@@ -1300,7 +1303,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 if (m_cyclesInstances.size()) {
                     m_renderDelegate->GetCyclesRenderParam()->RemoveObjectArray(m_cyclesInstances);
                     std::vector<ccl::Object> empty = {};
-                    m_cyclesInstances.swap(empty);                    
+                    m_cyclesInstances.swap(empty);
                 }
             }
 

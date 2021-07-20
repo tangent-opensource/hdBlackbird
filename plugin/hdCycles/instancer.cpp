@@ -25,8 +25,6 @@
 #include <pxr/base/gf/rotation.h>
 #include <pxr/imaging/hd/sceneDelegate.h>
 
-#include <iostream>
-
 PXR_NAMESPACE_OPEN_SCOPE
 
 // TODO: Use HdInstancerTokens when Houdini updates USD to 20.02

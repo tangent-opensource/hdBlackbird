@@ -380,8 +380,6 @@ HdBbAttributeSource::ResolveAsArray()
 
     assert(num_src_comp <= num_dst_comp);
 
-    std::cout << "Committing " << name << " " << src_size << std::endl;
-
     // if Cast fails we must recover
     if (!src_data || !dst_data) {
         return false;
