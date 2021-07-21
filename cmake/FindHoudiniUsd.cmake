@@ -79,7 +79,7 @@ target_link_libraries(Houdini INTERFACE ${_houdini_python_lib} ${_houdini_hboost
 
 # Usd
 list(APPEND CMAKE_FIND_LIBRARY_PREFIXES lib) # append lib prefix to have same behaviour on win and lin
-set(_houdini_pxr_libs pxr_ar;pxr_arch;pxr_cameraUtil;pxr_garch;pxr_gf;pxr_glf;pxr_hd;pxr_hdSt;pxr_hdx;pxr_hf;pxr_hgi;pxr_hgiGL;pxr_hgiInterop;pxr_hio;pxr_js;pxr_kind;pxr_ndr;pxr_pcp;pxr_plug;pxr_pxOsd;pxr_sdf;pxr_sdr;pxr_tf;pxr_trace;pxr_usd;pxr_usdAppUtils;pxr_usdGeom;pxr_usdHydra;pxr_usdImaging;pxr_usdImagingGL;pxr_usdLux;pxr_usdMedia;pxr_usdRender;pxr_usdRi;pxr_usdRiImaging;pxr_usdShade;pxr_usdSkel;pxr_usdSkelImaging;pxr_usdUI;pxr_usdUtils;pxr_usdviewq;pxr_usdVol;pxr_usdVolImaging;pxr_vt;pxr_work;)
+set(_houdini_pxr_libs pxr_ar;pxr_arch;pxr_cameraUtil;pxr_garch;pxr_gf;pxr_glf;pxr_hd;pxr_hdSt;pxr_hdx;pxr_hf;pxr_hgi;pxr_hgiGL;pxr_hio;pxr_js;pxr_kind;pxr_ndr;pxr_pcp;pxr_plug;pxr_pxOsd;pxr_sdf;pxr_sdr;pxr_tf;pxr_trace;pxr_usd;pxr_usdHydra;pxr_usdImaging;pxr_usdImagingGL;pxr_usdLux;pxr_usdRender;pxr_usdShade;pxr_usdSkel;pxr_usdUtils;pxr_usdVol;pxr_vt;pxr_work;pxr_usdGeom)
 foreach(_pxr_lib ${_houdini_pxr_libs})
     find_library(${_pxr_lib}_path
             NAMES
