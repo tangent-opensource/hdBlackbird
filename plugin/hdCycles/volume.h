@@ -25,6 +25,7 @@
 #include "hdcycles.h"
 #include "renderDelegate.h"
 #include "utils.h"
+#include "rprim.h"
 
 #include <util/util_transform.h>
 
@@ -52,7 +53,7 @@ class HdCyclesRenderDelegate;
  * @brief USD Volume mapped to Cycles Volume
  * 
  */
-class HdCyclesVolume final : public HdVolume {
+class HdCyclesVolume final : public HdBbRPrim<HdVolume> {
 public:
     /**
      * @brief Construct a new HdCycles Volume object
@@ -147,7 +148,10 @@ private:
      */
     void _UpdateGrids();
 
-    ccl::Object* m_cyclesObject;
+    /**
+     * @brief Update the Cycles Object   
+     */
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBvh);
 
     ccl::Mesh* m_cyclesVolume;
 

@@ -25,6 +25,7 @@
 #include "hdcycles.h"
 #include "meshRefiner.h"
 #include "objectSource.h"
+#include "rprim.h"
 
 #include <util/util_transform.h>
 
@@ -55,7 +56,7 @@ class HdCyclesRenderParam;
  * @brief HdCycles Mesh Rprim mapped to Cycles mesh
  * 
  */
-class HdCyclesMesh final : public HdMesh {
+class HdCyclesMesh final : public HdBbRPrim<HdMesh> {
 public:
     HF_MALLOC_TAG_NEW("new HdCyclesMesh")
 
@@ -206,6 +207,10 @@ private:
      */
 
     void _PopulateMotion(HdSceneDelegate* sceneDelegate, const SdfPath& id);
+    void _PopulateMotionAttributeVec3f(HdSceneDelegate* sceneDelegate, const SdfPath& id, const TfToken& token,
+                                       const TfToken& role, const HdInterpolation& interpolation_refine,
+                                       const HdInterpolation& interpolation, int cycles_motion_attribute,
+                                       size_t n_expected_samples);
 
     void _PopulateTopology(HdSceneDelegate* sceneDelegate, const SdfPath& id);
     void _PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& id, HdDirtyBits* dirtyBits);
@@ -236,7 +241,6 @@ private:
     HdCyclesObjectSourceSharedPtr m_object_source;
 
     ccl::Mesh* m_cyclesMesh;
-    ccl::Object* m_cyclesObject;
     std::vector<ccl::Object> m_cyclesInstances;
 
     ccl::Shader* m_object_display_color_shader;
@@ -248,19 +252,6 @@ private:
     std::shared_ptr<HdBbMeshTopology> m_topology;
 
     float m_velocityScale;
-
-    bool m_motionBlur;
-    int m_motionTransformSteps;
-    int m_motionDeformSteps;
-
-    unsigned int m_visibilityFlags;
-
-    bool m_visCamera;
-    bool m_visDiffuse;
-    bool m_visGlossy;
-    bool m_visScatter;
-    bool m_visShadow;
-    bool m_visTransmission;
 
     std::vector<ccl::ustring> m_texture_names;
     VtFloat3Array m_limit_us;
