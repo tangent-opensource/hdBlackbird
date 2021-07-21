@@ -235,7 +235,7 @@ HdBbAttributeSource::_CheckBuffersSize() const
     };
 
     const size_t source_size = get_source_size();
-    const size_t element_size = GetGeometry()->element_size(element, m_attributes->prim) * m_attributes->instances;
+    const size_t element_size = GetGeometry()->element_size(element, m_attributes->prim) * m_attributes->instances_size();
     if (!TF_VERIFY(source_size == element_size,
                    "SourceSize:%lu is not the same as ElementSize:%lu ! Attribute:%s can not be committed!",
                    source_size, element_size, m_name.data())) {
