@@ -74,6 +74,11 @@ HdCyclesVolume::HdCyclesVolume(SdfPath const& id, SdfPath const& instancerId, Hd
     m_renderDelegate->GetCyclesRenderParam()->AddGeometrySafe(m_cyclesVolume);
 
     m_cyclesObject->geometry = m_cyclesVolume;
+
+    auto resource_registry = dynamic_cast<HdCyclesResourceRegistry*>(m_renderDelegate->GetResourceRegistry().get());
+    HdInstance<HdCyclesObjectSourceSharedPtr> object_instance = resource_registry->GetObjectInstance(id);
+    object_instance.SetValue(std::make_shared<HdCyclesObjectSource>(m_cyclesObject, id, true));
+    m_object_source = object_instance.GetValue();
 }
 
 HdCyclesVolume::~HdCyclesVolume()
@@ -199,6 +204,29 @@ HdCyclesVolume::_PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, cc
 }
 
 void
+HdCyclesVolume::_PopulateConstantPrimvars(const SdfPath& id, HdSceneDelegate* delegate, ccl::Scene* scene,
+                                          HdPrimvarDescriptorMap const& descriptor_map, HdDirtyBits* dirtyBits)
+{
+    for (auto& interpolation_description : descriptor_map) {
+        if (interpolation_description.first != HdInterpolationConstant) {
+            continue;
+        }
+
+        for (const HdPrimvarDescriptor& description : interpolation_description.second) {
+            if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, description.name)) {
+                continue;
+            }
+
+            auto value = GetPrimvar(delegate, description.name);
+            const ccl::TypeDesc value_type = HdBbAttributeSource::GetTypeDesc(HdGetValueTupleType(value).type);
+            m_object_source->CreateAttributeSource<HdBbAttributeSource>(description.name, description.role, value,
+                                                                        &m_cyclesVolume->attributes,
+                                                                        ccl::ATTR_ELEMENT_OBJECT, value_type);
+        }
+    }
+}
+
+void
 HdCyclesVolume::_UpdateGrids()
 {
 #ifdef WITH_OPENVDB
@@ -303,6 +331,8 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     if (*dirtyBits & HdChangeTracker::DirtyPrimvar) {
         primvar_descriptor_map = GetPrimvarDescriptorMap(sceneDelegate);
         GetObjectPrimvars(primvar_descriptor_map, sceneDelegate, dirtyBits);
+        _PopulateConstantPrimvars(id, sceneDelegate, scene, primvar_descriptor_map, dirtyBits);
+        update_volumes = true;
     }
 
     if (*dirtyBits & HdChangeTracker::DirtyMaterialId) {
@@ -325,7 +355,6 @@ HdCyclesVolume::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     for (auto& primvarDescsEntry : primvar_descriptor_map) {
         for (auto& pv : primvarDescsEntry.second) {
-
             if (!HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, pv.name)) {
                 continue;
             }
