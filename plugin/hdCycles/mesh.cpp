@@ -213,11 +213,9 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
             continue;
         }
 
-        if (need_tangent) {
-            // Forced for now
-            bool need_sign = true;
-            mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
-        }
+        // Forced for now
+        bool need_sign = true;
+        mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
     }
 }
 
