@@ -489,7 +489,7 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
             tex->colorspace = ccl::ustring("Filmic sRGB");
         } else if (tex->colorspace == "Filmic_Log") {
             tex->colorspace = ccl::ustring("Filmic Log");
-        } else if (tex->colorspace == "Linear ACES") {
+        } else if (tex->colorspace == "Linear_ACES") {
             tex->colorspace = ccl::ustring("Linear ACES");
         }
 
