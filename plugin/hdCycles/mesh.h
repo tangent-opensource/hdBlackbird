@@ -250,6 +250,7 @@ private:
 
     int m_refineLevel;
     std::shared_ptr<HdBbMeshTopology> m_topology;
+    bool m_useLimitSurfaceTangents;
 
     float m_velocityScale;
 

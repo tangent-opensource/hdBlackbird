@@ -213,9 +213,32 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
             continue;
         }
 
-        // Forced for now
-        bool need_sign = true;
-        mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
+        // Take tangent from subdivision limit surface
+        if (refiner->IsSubdivided() && m_useLimitSurfaceTangents) {
+            // subdivided tangents are per vertex
+            if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT)) {
+                ccl::Attribute* tangent_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT, tangent_name);
+                ccl::float3* tangent_data = tangent_attrib->data_float3();
+
+                for (size_t i = 0; i < m_cyclesMesh->triangles.size(); ++i) {
+                    auto vertex_index = m_cyclesMesh->triangles[i];
+                    tangent_data[i] = ccl::normalize(m_limit_vs[vertex_index]);
+                }
+            }
+
+            if (m_cyclesMesh->need_attribute(scene, ccl::ATTR_STD_UV_TANGENT_SIGN)) {
+                auto sign_attrib = attributes->add(ccl::ATTR_STD_UV_TANGENT_SIGN, sign_name);
+                auto sign_data = sign_attrib->data_float();
+
+                for (size_t i = 0; i < m_cyclesMesh->triangles.size(); ++i) {
+                    sign_data[i] = 1.0f;
+                }
+            }
+        } else {
+            // Forced for now
+            bool need_sign = true;
+            mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
+        }
     }
 }
 
@@ -1160,6 +1183,7 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
     // -- Resolve Drawstyles
 
     m_refineLevel = 0;
+    m_useLimitSurfaceTangents = false;
 
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {
         _sharedData.visible = sceneDelegate->GetVisible(id);
@@ -1184,6 +1208,12 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_max_level) {
                     VtValue value = GetPrimvar(sceneDelegate, pv.name);
                     m_refineLevel = value.Get<int>();
+                    continue;
+                }
+
+                if (primvar_name == usdCyclesTokens->primvarsCyclesMeshSubdivision_use_limit_tangents) {
+                    VtValue value = GetPrimvar(sceneDelegate, pv.name);
+                    m_useLimitSurfaceTangents = value.Get<bool>();
                     continue;
                 }
             }
