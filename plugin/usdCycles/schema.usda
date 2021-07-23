@@ -1418,7 +1418,7 @@ class "CyclesMeshSettingsAPI" (
         doc = "Stop subdividing when this level is reached even if the dice rate would produce finer tessellation"
     )
 
-    uniform bool primvars:cycles:mesh:subdivision_use_limit_tangents = 3 (
+    uniform bool primvars:cycles:mesh:subdivision_use_limit_tangents = false (
         customData = {
             string apiName = "mesh_subdivision_use_limit_tangents"
         }
