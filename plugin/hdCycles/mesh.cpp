@@ -222,7 +222,7 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
                 for (size_t i = 0; i < m_cyclesMesh->triangles.size(); ++i) {
                     auto vertex_index = m_cyclesMesh->triangles[i];
-                    tangent_data[i] = ccl::normalize(m_limit_vs[vertex_index]);
+                    tangent_data[i] = ccl::normalize(m_limit_us[vertex_index]);
                 }
             }
 
