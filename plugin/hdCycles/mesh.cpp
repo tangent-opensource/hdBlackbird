@@ -109,6 +109,11 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
 
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
+    if (refiner->IsSubdivided()) {
+        m_uvsUnrefined = uvs_value;
+        m_uvsUnrefinedInterpolation = interpolation;
+    }
+
     if (interpolation == HdInterpolationConstant) {
         VtValue refined_value = refiner->RefineConstantData(name, HdPrimvarRoleTokens->textureCoordinate, uvs_value);
         if (refined_value.GetArraySize() != 1) {
@@ -235,9 +240,16 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
                 }
             }
         } else {
-            // Forced for now
-            bool need_sign = true;
-            mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
+            if (refiner->IsSubdivided() && !m_normalsUnrefined.IsEmpty()) {
+                mikk_compute_tangents_deleteme(m_topology.get(), m_pointsUnrefined, m_normalsUnrefined,
+                                               m_normalsUnrefinedInterpolation, m_uvsUnrefined,
+                                               m_uvsUnrefinedInterpolation);
+            }
+            //else {
+                // Forced for now
+                bool need_sign = true;
+                mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
+            // }
         }
     }
 }
@@ -399,25 +411,6 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     m_cyclesMesh->attributes.remove(ccl::ATTR_STD_MOTION_CORNER_NORMAL);
 
     //
-    // Auto generated normals from limit surface
-    //
-    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
-    if (refiner->IsSubdivided()) {
-        assert(m_limit_us.size() == m_cyclesMesh->verts.size());
-        assert(m_limit_vs.size() == m_cyclesMesh->verts.size());
-
-        ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
-        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
-        ccl::float3* normal_data = normal_attr->data_float3();
-
-        for (size_t i = 0; i < m_limit_vs.size(); ++i) {
-            normal_data[i] = ccl::normalize(ccl::cross(m_limit_us[i], m_limit_vs[i]));
-        }
-
-        return;
-    }
-
-    //
     // Authored normals from Primvar
     //
     auto GetPrimvarInterpolation = [sceneDelegate, &id](HdInterpolation& interpolation) -> bool {
@@ -447,7 +440,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     if (normals_value.IsEmpty()) {
         TF_WARN("Empty normals for: %s", id.GetText());
         return;
-    }
+    }    
 
     if (!normals_value.IsHolding<VtVec3fArray>()) {
         if (!normals_value.CanCast<VtVec3fArray>()) {
@@ -456,6 +449,30 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
         }
 
         normals_value = normals_value.Cast<VtVec3fArray>();
+    }
+
+    const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
+    if (refiner->IsSubdivided()) {
+        m_normalsUnrefined = normals_value;
+        m_normalsUnrefinedInterpolation = interpolation;
+    }
+
+    //
+    // Auto generated normals from limit surface
+    //
+    if (refiner->IsSubdivided()) {
+        assert(m_limit_us.size() == m_cyclesMesh->verts.size());
+        assert(m_limit_vs.size() == m_cyclesMesh->verts.size());
+
+        ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
+        ccl::Attribute* normal_attr = attributes.add(ccl::ATTR_STD_VERTEX_NORMAL);
+        ccl::float3* normal_data = normal_attr->data_float3();
+
+        for (size_t i = 0; i < m_limit_vs.size(); ++i) {
+            normal_data[i] = ccl::normalize(ccl::cross(m_limit_us[i], m_limit_vs[i]));
+        }
+
+        return;
     }
 
     ccl::AttributeSet& attributes = m_cyclesMesh->attributes;
@@ -1045,6 +1062,8 @@ HdCyclesMesh::_PopulateVertices(HdSceneDelegate* sceneDelegate, const SdfPath& i
 
         // snap to limit surface
         std::memcpy(m_cyclesMesh->verts.data(), limit_ps.data(), limit_ps.size() * sizeof(ccl::float3));
+
+        m_pointsUnrefined = points_value.UncheckedGet<VtVec3fArray>();
     }
 
     // TODO: populate motion ?

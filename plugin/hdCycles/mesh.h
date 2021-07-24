@@ -259,6 +259,13 @@ private:
     VtFloat3Array m_limit_vs;
 
     HdCyclesRenderDelegate* m_renderDelegate;
+
+    // deleteme
+    VtVec3fArray m_pointsUnrefined;
+    VtValue m_normalsUnrefined;
+    HdInterpolation m_normalsUnrefinedInterpolation;
+    VtValue m_uvsUnrefined;
+    HdInterpolation m_uvsUnrefinedInterpolation;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

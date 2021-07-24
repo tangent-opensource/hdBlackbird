@@ -751,6 +751,152 @@ to_cycles<GfVec4i>(const GfVec4i& v) noexcept
 
 /* ========= MikkTSpace ========= */
 
+struct MikkUserData2 {
+    MikkUserData2(const VtIntArray& face_indices, const VtIntArray& face_vertex_counts, const VtVec3fArray& points,
+     const VtValue& normals, const HdInterpolation& normals_interp, const VtValue& uvs, const HdInterpolation& uvs_interp, ccl::float3* tangent_in, float* tangent_sign_in) :
+         face_indices(face_indices)
+        , face_vertex_counts(face_vertex_counts)
+        , points(points)
+        , normals_interp(normals_interp)
+        , uvs_interp(uvs_interp)
+        , tangent(tangent_in)
+        , tangent_sign(tangent_sign_in)
+    {
+        this->normals = normals.UncheckedGet<VtVec3fArray>();
+        if (uvs.IsEmpty()) {
+            uvs_empty = true;
+        } else {
+            this->uvs = uvs.UncheckedGet<VtVec2fArray>();
+        }
+
+        start_corner.resize(face_vertex_counts.size());
+        int idx = 0;
+        for (size_t i = 0; i < face_vertex_counts.size(); ++i) {
+            start_corner[i] = idx;
+            idx += face_vertex_counts[i];
+        }
+    }
+
+    const VtIntArray& face_indices;
+    const VtIntArray& face_vertex_counts;
+    const VtVec3fArray& points;
+    VtVec3fArray normals;
+    HdInterpolation normals_interp;
+    VtVec2fArray uvs;
+    HdInterpolation uvs_interp;
+    bool uvs_empty = false;
+
+    std::vector<int> start_corner;
+
+    ccl::float3* tangent;
+    float* tangent_sign;
+};
+
+int
+mikk_get_num_faces2(const SMikkTSpaceContext* context)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    return userdata->face_vertex_counts.size();
+}
+
+int
+mikk_get_num_verts_of_face2(const SMikkTSpaceContext* context, const int face_num)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    return userdata->face_vertex_counts[face_num];
+}
+
+int
+mikk_vertex_index2(const SMikkTSpaceContext* context, const int face_num, const int vert_num)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    return userdata->face_indices[userdata->start_corner[face_num] + vert_num];
+}
+
+int
+mikk_corner_index2(const SMikkTSpaceContext* context, const int face_num, const int vert_num)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    return userdata->start_corner[face_num] + vert_num;
+}
+
+void
+mikk_get_position2(const SMikkTSpaceContext* context, float P[3], const int face_num, const int vert_num)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    const int vertex_index = mikk_vertex_index2(context, face_num, vert_num);
+    P[0] = userdata->points[vertex_index][0];
+    P[1] = userdata->points[vertex_index][1];
+    P[2] = userdata->points[vertex_index][2];
+}
+
+void
+mikk_get_texture_coordinate2(const SMikkTSpaceContext* context, float uv[2], const int face_num, const int vert_num)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    if (userdata->uvs_empty) {
+        uv[0] = 0.0f;
+        uv[1] = 0.0f;
+    } else if (userdata->uvs_interp == HdInterpolationUniform) {
+        uv[0] = userdata->uvs[face_num][0];
+        uv[1] = userdata->uvs[face_num][1];
+    } else if (userdata->uvs_interp == HdInterpolationVertex) {
+        const int vertex_index = mikk_vertex_index2(context, face_num, vert_num);
+        uv[0] = userdata->uvs[vertex_index][0];
+        uv[1] = userdata->uvs[vertex_index][1];
+    } else if (userdata->uvs_interp == HdInterpolationFaceVarying) {
+        const int corner_index = mikk_corner_index2(context, face_num, vert_num);
+        uv[0] = userdata->uvs[corner_index][0];
+        uv[1] = userdata->uvs[corner_index][1];
+    } else {
+        uv[0] = 0.0f;
+        uv[1] = 0.0f;
+    }
+}
+
+void
+mikk_get_normal2(const SMikkTSpaceContext* context, float N[3], const int face_num, const int vert_num)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    if (userdata->normals_interp == HdInterpolationConstant) {
+        N[0] = userdata->normals[0][0];    
+        N[1] = userdata->normals[0][1];    
+        N[2] = userdata->normals[0][2];    
+    } else if (userdata->normals_interp == HdInterpolationUniform) {
+        N[0] = userdata->normals[face_num][0];
+        N[1] = userdata->normals[face_num][1];
+        N[2] = userdata->normals[face_num][2];
+    } else if (userdata->normals_interp == HdInterpolationVertex || userdata->normals_interp == HdInterpolationVarying) {
+        const int vertex_index = mikk_vertex_index2(context, face_num, vert_num);
+        N[0] = userdata->normals[vertex_index][0];
+        N[1] = userdata->normals[vertex_index][1];
+        N[2] = userdata->normals[vertex_index][2];
+    } else if (userdata->normals_interp == HdInterpolationFaceVarying) {
+        const int corner_index = mikk_corner_index2(context, face_num, vert_num);
+        N[0] = userdata->normals[corner_index][0];
+        N[1] = userdata->normals[corner_index][1];
+        N[2] = userdata->normals[corner_index][2];
+    } else {
+        N[0] = 0.f;
+        N[1] = 0.f;
+        N[2] = 0.f;
+    }
+}
+
+void
+mikk_set_tangent_space2(const SMikkTSpaceContext* context, const float T[], const float sign, const int face_num,
+                       const int vert_num)
+{
+    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    const int corner_index = mikk_corner_index2(context, face_num, vert_num);
+    userdata->tangent[corner_index * 3].x = T[0];
+    userdata->tangent[corner_index * 3].y = T[1];
+    userdata->tangent[corner_index * 3].z = T[2];
+    userdata->tangent_sign[corner_index] = sign;
+}
+
+/* ========= MikkTSpace ========= */
+
 struct MikkUserData {
     MikkUserData(const char* layer_name, ccl::Mesh* mesh_in, ccl::float3* tangent_in, float* tangent_sign_in)
         : mesh(mesh_in)
@@ -966,6 +1112,34 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, b
     sm_interface.m_getTexCoord = mikk_get_texture_coordinate;
     sm_interface.m_getNormal = mikk_get_normal;
     sm_interface.m_setTSpaceBasic = mikk_set_tangent_space;
+    /* Setup context. */
+    SMikkTSpaceContext context;
+    memset(&context, 0, sizeof(context));
+    context.m_pUserData = &userdata;
+    context.m_pInterface = &sm_interface;
+    /* Compute tangents. */
+    genTangSpaceDefault(&context);
+}
+
+void
+mikk_compute_tangents_deleteme(const HdBbMeshTopology* topology, const VtVec3fArray& points, const VtValue& normals, HdInterpolation normals_interp, const VtValue& uvs, HdInterpolation uvs_interp) {
+    const VtIntArray& face_vertex_counts = topology->GetFaceVertexCounts();
+    const VtIntArray& face_indices = topology->GetFaceVertexIndices();
+
+    std::vector<ccl::float3> tangent(face_indices.size());
+    std::vector<float> tangent_sign(face_indices.size());
+
+    /* Setup userdata. */
+    MikkUserData2 userdata(face_indices, face_vertex_counts, points, normals, normals_interp, uvs, uvs_interp, tangent.data(), tangent_sign.data());
+    /* Setup interface. */
+    SMikkTSpaceInterface sm_interface;
+    memset(&sm_interface, 0, sizeof(sm_interface));
+    sm_interface.m_getNumFaces = mikk_get_num_faces2;
+    sm_interface.m_getNumVerticesOfFace = mikk_get_num_verts_of_face2;
+    sm_interface.m_getPosition = mikk_get_position2;
+    sm_interface.m_getTexCoord = mikk_get_texture_coordinate2;
+    sm_interface.m_getNormal = mikk_get_normal2;
+    sm_interface.m_setTSpaceBasic = mikk_set_tangent_space2;
     /* Setup context. */
     SMikkTSpaceContext context;
     memset(&context, 0, sizeof(context));
