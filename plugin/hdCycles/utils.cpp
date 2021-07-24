@@ -752,16 +752,17 @@ to_cycles<GfVec4i>(const GfVec4i& v) noexcept
 /* ========= MikkTSpace ========= */
 
 struct MikkUserData2 {
-    MikkUserData2(const VtIntArray& face_indices, const VtIntArray& face_vertex_counts, const VtVec3fArray& points,
-     const VtValue& normals, const HdInterpolation& normals_interp, const VtValue& uvs, const HdInterpolation& uvs_interp, ccl::float3* tangent_in, float* tangent_sign_in) :
-         face_indices(face_indices)
-        , face_vertex_counts(face_vertex_counts)
+    MikkUserData2(const HdBbMeshTopology* topology, const VtVec3fArray& points,
+     const VtValue& normals, const HdInterpolation& normals_interp, const VtValue& uvs, const HdInterpolation& uvs_interp)
+        : face_indices(topology->GetFaceVertexIndices())
+        , face_vertex_counts(topology->GetFaceVertexCounts())
         , points(points)
         , normals_interp(normals_interp)
         , uvs_interp(uvs_interp)
-        , tangent(tangent_in)
-        , tangent_sign(tangent_sign_in)
     {
+        tangent.resize(face_indices.size());
+        tangent_sign.resize(face_indices.size());
+
         this->normals = normals.UncheckedGet<VtVec3fArray>();
         if (uvs.IsEmpty()) {
             uvs_empty = true;
@@ -777,9 +778,9 @@ struct MikkUserData2 {
         }
     }
 
-    const VtIntArray& face_indices;
-    const VtIntArray& face_vertex_counts;
-    const VtVec3fArray& points;
+    VtIntArray face_indices;
+    VtIntArray face_vertex_counts;
+    VtVec3fArray points;
     VtVec3fArray normals;
     HdInterpolation normals_interp;
     VtVec2fArray uvs;
@@ -788,8 +789,8 @@ struct MikkUserData2 {
 
     std::vector<int> start_corner;
 
-    ccl::float3* tangent;
-    float* tangent_sign;
+    VtVec3fArray tangent;
+    VtFloatArray tangent_sign;
 };
 
 int
@@ -887,11 +888,11 @@ void
 mikk_set_tangent_space2(const SMikkTSpaceContext* context, const float T[], const float sign, const int face_num,
                        const int vert_num)
 {
-    const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
+    auto userdata = static_cast<MikkUserData2*>(context->m_pUserData);
     const int corner_index = mikk_corner_index2(context, face_num, vert_num);
-    userdata->tangent[corner_index].x = T[0];
-    userdata->tangent[corner_index].y = T[1];
-    userdata->tangent[corner_index].z = T[2];
+    userdata->tangent[corner_index * 3][0] = T[0];
+    userdata->tangent[corner_index * 3][1] = T[1];
+    userdata->tangent[corner_index * 3][2] = T[2];
     userdata->tangent_sign[corner_index] = sign;
 }
 
@@ -1123,14 +1124,8 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, b
 
 void
 mikk_compute_tangents_deleteme(const HdBbMeshTopology* topology, const VtVec3fArray& points, const VtValue& normals, HdInterpolation normals_interp, const VtValue& uvs, HdInterpolation uvs_interp) {
-    const VtIntArray& face_vertex_counts = topology->GetFaceVertexCounts();
-    const VtIntArray& face_indices = topology->GetFaceVertexIndices();
-
-    std::vector<ccl::float3> tangent(face_indices.size());
-    std::vector<float> tangent_sign(face_indices.size());
-
     /* Setup userdata. */
-    MikkUserData2 userdata(face_indices, face_vertex_counts, points, normals, normals_interp, uvs, uvs_interp, tangent.data(), tangent_sign.data());
+    MikkUserData2 userdata(topology, points, normals, normals_interp, uvs, uvs_interp);
     /* Setup interface. */
     SMikkTSpaceInterface sm_interface;
     memset(&sm_interface, 0, sizeof(sm_interface));
