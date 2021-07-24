@@ -110,7 +110,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     if (refiner->IsSubdivided()) {
-        m_uvsUnrefined.push_back({uvs_value, interpolation});
+        m_uvsUnrefined.push_back({ uvs_value, interpolation });
     }
 
     if (interpolation == HdInterpolationConstant) {
@@ -207,9 +207,9 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     assert(m_texture_names.size() != m_uvsUnrefined.size());
-    for(size_t index = 0; index < m_texture_names.size(); ++index) {
+    for (size_t index = 0; index < m_texture_names.size(); ++index) {
         const ccl::ustring& name = m_texture_names[index];
-        const PrimvarValue& primvar_normals = m_uvsUnrefined[index];
+        const PrimvarValue& primvar_uvs = m_uvsUnrefined[index];
 
         ccl::ustring tangent_name = ccl::ustring(name.string() + ".tangent");
         ccl::ustring sign_name = ccl::ustring(name.string() + ".tangent_sign");
@@ -244,11 +244,10 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
             }
         } else {
             if (refiner->IsSubdivided() && !m_normalsUnrefined.IsEmpty()) {
-                ComputedTangents computed_tangents = mikk_compute_tangents(m_topology.get(), m_pointsUnrefined,
-                                                                           m_normalsUnrefined,
-                                                                           m_normalsUnrefinedInterpolation,
-                                                                           primvar_normals.value,
-                                                                           primvar_normals.interpolation);
+                ComputedTangents computed_tangents
+                    = mikk_compute_tangents(m_topology.get(), m_pointsUnrefined, m_normalsUnrefined,
+                                            m_normalsUnrefinedInterpolation, primvar_uvs.value,
+                                            primvar_uvs.interpolation);
 
                 // refine tangent and sign
                 VtValue refined_tangent = refiner->RefineFaceVaryingData(TfToken {}, HdPrimvarRoleTokens->vector,
@@ -299,14 +298,14 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
                 }
 
                 // copy corner values
-                if(tangent && !refined_tangent.IsEmpty()) {
+                if (tangent && !refined_tangent.IsEmpty()) {
                     auto& tangent_values = refined_tangent.Get<VtVec3fArray>();
                     for (size_t i = 0; i < m_cyclesMesh->num_triangles() * 3; ++i) {
                         tangent[i] = vec3f_to_float3(tangent_values[i]);
                     }
                 }
 
-                if(tangent_sign && !refined_sign.IsEmpty()) {
+                if (tangent_sign && !refined_sign.IsEmpty()) {
                     auto& sign_values = refined_sign.Get<VtFloatArray>();
                     for (size_t i = 0; i < m_cyclesMesh->num_triangles() * 3; ++i) {
                         tangent_sign[i] = sign_values[i];
