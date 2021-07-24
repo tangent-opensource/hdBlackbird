@@ -678,8 +678,13 @@ mikk_set_tangent_space(const SMikkTSpaceContext* context, const float T[], const
 void
 mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, bool active_render);
 
-void
-mikk_compute_tangents_deleteme(const HdBbMeshTopology* topology, const VtVec3fArray& points, const VtValue& normals, HdInterpolation normals_interp, const VtValue& uvs, HdInterpolation uvs_interp);
+struct ComputedTangents {
+    VtValue tangent;
+    VtValue sign;
+};
+
+ComputedTangents
+mikk_compute_tangents(const HdBbMeshTopology* topology, const VtVec3fArray& points, const VtValue& normals, HdInterpolation normals_interp, const VtValue& uvs, HdInterpolation uvs_interp);
 
 
 PXR_NAMESPACE_CLOSE_SCOPE

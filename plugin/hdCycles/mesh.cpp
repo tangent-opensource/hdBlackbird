@@ -241,15 +241,79 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
             }
         } else {
             if (refiner->IsSubdivided() && !m_normalsUnrefined.IsEmpty()) {
-                mikk_compute_tangents_deleteme(m_topology.get(), m_pointsUnrefined, m_normalsUnrefined,
-                                               m_normalsUnrefinedInterpolation, m_uvsUnrefined,
-                                               m_uvsUnrefinedInterpolation);
-            }
-            //else {
+                ComputedTangents computed_tangents = mikk_compute_tangents(m_topology.get(), m_pointsUnrefined,
+                                                                           m_normalsUnrefined,
+                                                                           m_normalsUnrefinedInterpolation,
+                                                                           m_uvsUnrefined, m_uvsUnrefinedInterpolation);
+
+                // refine tangent and sign
+                VtValue refined_tangent = refiner->RefineFaceVaryingData(TfToken {}, HdPrimvarRoleTokens->vector,
+                                                                         computed_tangents.tangent);
+                VtValue refined_sign = refiner->RefineFaceVaryingData(TfToken {}, HdPrimvarRoleTokens->none,
+                                                                      computed_tangents.sign);
+
+                // store attribute
+                const char* layer_name = name.c_str();
+                bool need_sign = true;
+                bool active_render = true;
+
+                ccl::AttributeSet& attributes = (m_cyclesMesh->subd_faces.size()) ? m_cyclesMesh->subd_attributes
+                                                                                  : m_cyclesMesh->attributes;
+                ccl::Attribute* attr;
+                ccl::ustring name;
+
+                if (layer_name != nullptr) {
+                    name = ccl::ustring((std::string(layer_name) + ".tangent").c_str());
+                } else {
+                    name = ccl::ustring("orco.tangent");
+                }
+
+                if (active_render) {
+                    attr = attributes.add(ccl::ATTR_STD_UV_TANGENT, name);
+                } else {
+                    attr = attributes.add(name, ccl::TypeDesc::TypeVector, ccl::ATTR_ELEMENT_CORNER);
+                }
+                ccl::float3* tangent = attr->data_float3();
+
+                float* tangent_sign = nullptr;
+                if (need_sign) {
+                    ccl::Attribute* attr_sign;
+                    ccl::ustring name_sign;
+
+                    if (layer_name != nullptr) {
+                        name_sign = ccl::ustring((std::string(layer_name) + ".tangent_sign").c_str());
+                    } else {
+                        name_sign = ccl::ustring("orco.tangent_sign");
+                    }
+
+                    if (active_render) {
+                        attr_sign = attributes.add(ccl::ATTR_STD_UV_TANGENT_SIGN, name_sign);
+                    } else {
+                        attr_sign = attributes.add(name_sign, ccl::TypeDesc::TypeFloat, ccl::ATTR_ELEMENT_CORNER);
+                    }
+                    tangent_sign = attr_sign->data_float();
+                }
+
+                // copy corner values
+                if(tangent && !refined_tangent.IsEmpty()) {
+                    auto& tangent_values = refined_tangent.Get<VtVec3fArray>();
+                    for (size_t i = 0; i < m_cyclesMesh->num_triangles() * 3; ++i) {
+                        tangent[i] = vec3f_to_float3(tangent_values[i]);
+                    }
+                }
+
+                if(tangent_sign && !refined_sign.IsEmpty()) {
+                    auto& sign_values = refined_sign.Get<VtFloatArray>();
+                    for (size_t i = 0; i < m_cyclesMesh->num_triangles() * 3; ++i) {
+                        tangent_sign[i] = sign_values[i];
+                    }
+                }
+
+            } else {
                 // Forced for now
                 bool need_sign = true;
                 mikk_compute_tangents(name.c_str(), m_cyclesMesh, need_sign, true);
-            // }
+            }
         }
     }
 }
@@ -440,7 +504,7 @@ HdCyclesMesh::_PopulateNormals(HdSceneDelegate* sceneDelegate, const SdfPath& id
     if (normals_value.IsEmpty()) {
         TF_WARN("Empty normals for: %s", id.GetText());
         return;
-    }    
+    }
 
     if (!normals_value.IsHolding<VtVec3fArray>()) {
         if (!normals_value.CanCast<VtVec3fArray>()) {

@@ -1122,8 +1122,8 @@ mikk_compute_tangents(const char* layer_name, ccl::Mesh* mesh, bool need_sign, b
     genTangSpaceDefault(&context);
 }
 
-void
-mikk_compute_tangents_deleteme(const HdBbMeshTopology* topology, const VtVec3fArray& points, const VtValue& normals, HdInterpolation normals_interp, const VtValue& uvs, HdInterpolation uvs_interp) {
+ComputedTangents
+mikk_compute_tangents(const HdBbMeshTopology* topology, const VtVec3fArray& points, const VtValue& normals, HdInterpolation normals_interp, const VtValue& uvs, HdInterpolation uvs_interp) {
     /* Setup userdata. */
     MikkUserData2 userdata(topology, points, normals, normals_interp, uvs, uvs_interp);
     /* Setup interface. */
@@ -1142,6 +1142,7 @@ mikk_compute_tangents_deleteme(const HdBbMeshTopology* topology, const VtVec3fAr
     context.m_pInterface = &sm_interface;
     /* Compute tangents. */
     genTangSpaceDefault(&context);
+    return {VtValue{userdata.tangent}, VtValue{userdata.tangent_sign}};
 }
 
 template<>
