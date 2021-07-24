@@ -889,9 +889,9 @@ mikk_set_tangent_space2(const SMikkTSpaceContext* context, const float T[], cons
 {
     const MikkUserData2* userdata = static_cast<const MikkUserData2*>(context->m_pUserData);
     const int corner_index = mikk_corner_index2(context, face_num, vert_num);
-    userdata->tangent[corner_index * 3].x = T[0];
-    userdata->tangent[corner_index * 3].y = T[1];
-    userdata->tangent[corner_index * 3].z = T[2];
+    userdata->tangent[corner_index].x = T[0];
+    userdata->tangent[corner_index].y = T[1];
+    userdata->tangent[corner_index].z = T[2];
     userdata->tangent_sign[corner_index] = sign;
 }
 
