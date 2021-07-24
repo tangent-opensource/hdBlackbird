@@ -1,11 +1,11 @@
-# HdCycles
+# HdBlackbird
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.txt)
 
 A USD/Hydra RenderDelegate plugin that adds support for the 
-Cycles renderer (Blender's physically based path tracer) to any client.
+Blackbird renderer (a fork of the Blender Foundation's Cycles renderer) to any client.
 
-Its goal is to render a one-to-one representation of a USD scene with Cycles. 
+Its goal is to render a one-to-one representation of a USD scene with Blackbird. 
 
 This requires three components:
 * hdCycles (Cycles Hydra Delegate)
@@ -18,7 +18,7 @@ The first two of which are implemented in this repository.
 
 ### Requirements
 
-* Cycles standalone libraries and headers [Source](https://git.blender.org/gitweb/gitweb.cgi/cycles.git)
+* Blackbird standalone libraries and headers [Source](https://github.com/tangent-opensource/coreBlackbird)
 * USD 19.xx+
   * Most of the USD requirements need to be available (OpenSubdiv, PNG, OpenImageIO, OpenVDB ...)
 
@@ -117,8 +117,8 @@ Currently supported features:
 |                 | Point Instances       | ✅    |                                                   |
 |                 | usdCycles Schema Support| ✅  |                                                   |
 |                 | Motion Blur (Transform) | ✅  |                                                   |
-|                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
-|                 | Motion Blur (Velocity)  | ❌  |                                                   |
+|                 | Motion Blur (Deforming) | ✅  |                                                   |
+|                 | Motion Blur (Velocity)  | ✅  |                                                   |
 |                 | Motion Blur (Instances) | ❌  |                                                   |
 | **Materials**   | Cycles Material Graph | ✅    | Ongoing support                                   |
 |                 | Displacement          | ✅    |                                                   |
@@ -133,7 +133,7 @@ Currently supported features:
 |                 | usdCycles Schema Support | ✅  |                                                   |
 | **Curves**      | BasisCurves           | ✅    |                                                   |
 |                 | NURBs                 | ❌    |                                                   |
-|                 | Point Instancing      | ❌    |                                                   |
+|                 | Point Instancing      | ✅    |                                                   |
 |                 | Motion Blur (Transform) | ✅  |                                                   |
 |                 | Motion Blur (Deforming) | ✅  | Known slow down.                                  |
 |                 | Motion Blur (Velocity)  | ❌  |                                                   |
@@ -147,7 +147,7 @@ Currently supported features:
 |                 | Directional           | ✅    |                                                   |
 |                 | Spot                  | ✅    |                                                   |
 |                 | Area                  | ✅    |                                                   |
-|                 | Dome                  | ✅    |                                                   |
+|                 | Dome                  | ✅    | Limited to only one at a time                     |
 |                 | Temperature           | ✅    | We manually create a blackbody shader for now...  |
 |                 | Light Materials       |   ❌  | Pending support for new USD Light network shaders |
 |                 | usdCycles Schema Support| ✅  |                                                   |
@@ -155,8 +155,8 @@ Currently supported features:
 |                 | usdCycles Schema Support  | ✅| Render Settings, Render Products, etc.            |
 | **Rendering**   | Combined AOV          | ✅    |                                                   |
 |                 | Tiled Rendering       | ✅    |                                                   |
-|                 | Full AOV Support      | ❌    |                                                   |
-|                 | Cryptomatte           | ❌    |                                                   |
+|                 | Full AOV Support      | ✅    |                                                   |
+|                 | Cryptomatte           | ✅    |                                                   |
 |                 | OCIO Support          | ✅    |                                                   |
 |                 | CUDA/GPU Support      | ❌    | Should just require adjustments to build scripts  |
 

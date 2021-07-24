@@ -551,6 +551,15 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
     if (cycles_node_name == "image_texture") {
         ccl::ImageTextureNode* tex = static_cast<ccl::ImageTextureNode*>(cyclesNode);
 
+        // Tangent Animation specific fix - Blender->USD inserts underscores in those color spaces.
+        if (tex->get_colorspace() == "Filmic_sRGB") {
+            tex->set_colorspace(ccl::ustring("Filmic sRGB"));
+        } else if (tex->get_colorspace() == "Filmic_Log") {
+            tex->set_colorspace(ccl::ustring("Filmic Log"));
+        } else if (tex->get_colorspace() == "Linear_ACES") {
+            tex->set_colorspace(ccl::ustring("Linear ACES"));
+        }
+
         // Handle udim tiles
         if (HdCyclesPathIsUDIM(tex->get_filename().string())) {
             ccl::array<int> tiles;

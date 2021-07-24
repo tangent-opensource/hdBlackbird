@@ -1918,15 +1918,19 @@ HdCyclesRenderParam::SetViewport(int w, int h)
     m_bufferParams.width = (m_dataWindowNDC[2] - m_dataWindowNDC[0]) * m_resolutionImage[0];
     m_bufferParams.height = (m_dataWindowNDC[3] - m_dataWindowNDC[1]) * m_resolutionImage[1];
 
-    m_cyclesScene->camera->set_full_width(m_bufferParams.full_width);
-    m_cyclesScene->camera->set_full_height(m_bufferParams.full_height);
-    m_cyclesScene->camera->set_overscan(overscan);
-
     m_bufferParams.width = ::std::max(m_bufferParams.width, 1);
     m_bufferParams.height = ::std::max(m_bufferParams.height, 1);
 
-    m_cyclesScene->camera->compute_auto_viewplane();
-    m_cyclesScene->camera->need_device_update = true;
+    ccl::Camera *camera = m_cyclesScene->camera;
+    camera->set_full_width(m_bufferParams.full_width);
+    camera->set_full_height(m_bufferParams.full_height);
+    camera->set_overscan(overscan);
+
+    if (camera->get_camera_type() != ccl::CAMERA_ORTHOGRAPHIC) {
+      camera->compute_auto_viewplane();
+    }
+    camera->need_flags_update = true;
+    camera->need_device_update = true;
 
     m_aovBindingsNeedValidation = true;
 

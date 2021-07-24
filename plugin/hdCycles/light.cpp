@@ -438,6 +438,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         if (m_hdLightType == HdPrimTypeTokens->cylinderLight) {
             // TODO: Implement
             // Cycles has no concept of cylinder lights.
+            intensity = 0.0f;
         }
 
         if (m_hdLightType == HdPrimTypeTokens->sphereLight) {
@@ -445,7 +446,14 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             if (radius.IsHolding<float>())
                 m_cyclesLight->set_size(radius.UncheckedGet<float>());
 
-            exposureOffset = 1.0f;
+            VtValue treatAsPoint = sceneDelegate->GetLightParamValue(id, UsdLuxTokens->treatAsPoint);
+            if (treatAsPoint.IsHolding<bool>() && treatAsPoint.UncheckedGet<bool>()) {
+                m_cyclesLight->set_size(0.0f);
+                normalize = true;
+                exposureOffset = 3.0f;
+            }
+
+            exposureOffset += 1.0f;
 
             if (!normalize) {
                 size = m_cyclesLight->get_size() * m_cyclesLight->get_size() * 4.0f * M_PI_F;
@@ -463,14 +471,9 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
                 m_cyclesLight->set_spot_smooth(shapingConeSoftness.UncheckedGet<float>());
                 m_cyclesLight->set_light_type(ccl::LIGHT_SPOT);
             }
-
-            if (m_cyclesLight->get_light_type() == ccl::LIGHT_SPOT) {
-                exposureOffset += 1.0f;
-            }
         }
 
         if (m_hdLightType == HdPrimTypeTokens->distantLight) {
-            // TODO: Test this
             VtValue angle = sceneDelegate->GetLightParamValue(id, HdLightTokens->angle);
             if (angle.IsHolding<float>()) {
                 m_cyclesLight->set_angle(angle.UncheckedGet<float>() * (M_PI_F / 180.0f));

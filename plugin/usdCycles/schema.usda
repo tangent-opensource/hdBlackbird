@@ -1417,6 +1417,15 @@ class "CyclesMeshSettingsAPI" (
         displayName = "Max Subdivisions"
         doc = "Stop subdividing when this level is reached even if the dice rate would produce finer tessellation"
     )
+
+    uniform bool primvars:cycles:mesh:subdivision_use_limit_tangents = false (
+        customData = {
+            string apiName = "mesh_subdivision_use_limit_tangents"
+        }
+        displayGroup = "Subdivision"
+        displayName = "Use tangents calculated from the limit surface derivatives"
+        doc = "Use the Opensubdiv tangent space. Toggle this only if you know that normal maps have been authored on the limit surface."
+    )
 }
 
 class "CyclesMaterialSettingsAPI" (
