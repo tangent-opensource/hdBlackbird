@@ -260,12 +260,16 @@ private:
 
     HdCyclesRenderDelegate* m_renderDelegate;
 
+    struct PrimvarValue {
+        VtValue value;
+        HdInterpolation interpolation;
+    };
+
     // deleteme
     VtVec3fArray m_pointsUnrefined;
     VtValue m_normalsUnrefined;
     HdInterpolation m_normalsUnrefinedInterpolation;
-    VtValue m_uvsUnrefined;
-    HdInterpolation m_uvsUnrefinedInterpolation;
+    std::vector<PrimvarValue> m_uvsUnrefined;
 };
 
 PXR_NAMESPACE_CLOSE_SCOPE

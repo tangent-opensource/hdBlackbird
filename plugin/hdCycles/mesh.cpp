@@ -110,8 +110,7 @@ HdCyclesMesh::_AddUVSet(const TfToken& name, const VtValue& uvs, ccl::Scene* sce
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
     if (refiner->IsSubdivided()) {
-        m_uvsUnrefined = uvs_value;
-        m_uvsUnrefinedInterpolation = interpolation;
+        m_uvsUnrefined.push_back({uvs_value, interpolation});
     }
 
     if (interpolation == HdInterpolationConstant) {
@@ -207,7 +206,11 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
     ccl::AttributeSet* attributes = &m_cyclesMesh->attributes;
     const HdCyclesMeshRefiner* refiner = m_topology->GetRefiner();
 
-    for (const ccl::ustring& name : m_texture_names) {
+    assert(m_texture_names.size() != m_uvsUnrefined.size());
+    for(size_t index = 0; index < m_texture_names.size(); ++index) {
+        const ccl::ustring& name = m_texture_names[index];
+        const PrimvarValue& primvar_normals = m_uvsUnrefined[index];
+
         ccl::ustring tangent_name = ccl::ustring(name.string() + ".tangent");
         ccl::ustring sign_name = ccl::ustring(name.string() + ".tangent_sign");
         bool need_tangent = false;
@@ -244,7 +247,8 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
                 ComputedTangents computed_tangents = mikk_compute_tangents(m_topology.get(), m_pointsUnrefined,
                                                                            m_normalsUnrefined,
                                                                            m_normalsUnrefinedInterpolation,
-                                                                           m_uvsUnrefined, m_uvsUnrefinedInterpolation);
+                                                                           primvar_normals.value,
+                                                                           primvar_normals.interpolation);
 
                 // refine tangent and sign
                 VtValue refined_tangent = refiner->RefineFaceVaryingData(TfToken {}, HdPrimvarRoleTokens->vector,
@@ -260,18 +264,18 @@ HdCyclesMesh::_PopulateTangents(HdSceneDelegate* sceneDelegate, const SdfPath& i
                 ccl::AttributeSet& attributes = (m_cyclesMesh->subd_faces.size()) ? m_cyclesMesh->subd_attributes
                                                                                   : m_cyclesMesh->attributes;
                 ccl::Attribute* attr;
-                ccl::ustring name;
+                ccl::ustring attr_name;
 
                 if (layer_name != nullptr) {
-                    name = ccl::ustring((std::string(layer_name) + ".tangent").c_str());
+                    attr_name = ccl::ustring((std::string(layer_name) + ".tangent").c_str());
                 } else {
-                    name = ccl::ustring("orco.tangent");
+                    attr_name = ccl::ustring("orco.tangent");
                 }
 
                 if (active_render) {
-                    attr = attributes.add(ccl::ATTR_STD_UV_TANGENT, name);
+                    attr = attributes.add(ccl::ATTR_STD_UV_TANGENT, attr_name);
                 } else {
-                    attr = attributes.add(name, ccl::TypeDesc::TypeVector, ccl::ATTR_ELEMENT_CORNER);
+                    attr = attributes.add(attr_name, ccl::TypeDesc::TypeVector, ccl::ATTR_ELEMENT_CORNER);
                 }
                 ccl::float3* tangent = attr->data_float3();
 
