@@ -48,8 +48,12 @@ else()
     add_compile_definitions(HD_CYCLES_VERSION="${HD_CYCLES_VERSION}")
 endif()
 
-# Find Cycles and Usd
-find_package(Cycles REQUIRED)
+# Find Cycles, Blackbird project uses it as submodule
+if(NOT TARGET Cycles::Cycles)
+    find_package(Cycles REQUIRED)
+endif()
+
+# Find Usd
 include(cmake/FindUsd.cmake)
 
 # Linux only
