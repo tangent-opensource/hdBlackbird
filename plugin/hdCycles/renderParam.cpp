@@ -1234,6 +1234,7 @@ HdCyclesRenderParam::_UpdateFilmFromConfig(bool a_forceInit)
 
     float exposure = film->get_exposure();
     config.exposure.eval(exposure, a_forceInit);
+    film->set_exposure(exposure);
 
     film->tag_modified();
 }
