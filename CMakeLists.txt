@@ -33,21 +33,6 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-if (MSVC)
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:libmmd.lib /NODEFAULTLIB:libirc.lib /NODEFAULTLIB:svml_dispmd.lib /NODEFAULTLIB:libdecimal.lib" )
-    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
-endif()
-
-if(NOT MSVC AND ${USE_CXX11_ABI})
-    add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
-endif()
-
-if(NOT DEFINED HD_CYCLES_VERSION)
-    add_compile_definitions(HD_CYCLES_VERSION="0.0.0")
-else()
-    add_compile_definitions(HD_CYCLES_VERSION="${HD_CYCLES_VERSION}")
-endif()
-
 # Find Cycles, Blackbird project uses it as submodule
 if(NOT TARGET Cycles::Cycles)
     find_package(Cycles REQUIRED)
@@ -55,6 +40,11 @@ endif()
 
 # Find Usd
 include(cmake/FindUsd.cmake)
+
+if (MSVC)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /NODEFAULTLIB:libmmd.lib /NODEFAULTLIB:libirc.lib /NODEFAULTLIB:svml_dispmd.lib /NODEFAULTLIB:libdecimal.lib" )
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+endif()
 
 # Linux only
 if(${USE_TESTS} AND ${USE_ASAN})
