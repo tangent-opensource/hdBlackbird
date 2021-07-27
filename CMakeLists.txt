@@ -20,13 +20,11 @@
 cmake_minimum_required(VERSION 3.18)
 project(HdBlackbird CXX C)
 
-# Options
-option(USE_HOUDINI_USD "" OFF)
-option(USE_CXX11_ABI "" ON)
-
 # Options debug
 option(USE_TESTS "" OFF)
 option(USE_ASAN "" OFF)
+option(USE_TSAN "" OFF)
+option(USE_IMAGING_ENGINE "" OFF)
 
 # Global Settings
 set(CMAKE_CXX_STANDARD 14)

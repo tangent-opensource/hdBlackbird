@@ -32,7 +32,19 @@ target_compile_definitions(UsdInterface
     Houdini_FOUND=TRUE
 )
 
-set(_houdini_libs OpenImageIO_sidefx;hboost_filesystem-mt-x64;hboost_iostreams-mt-x64;hboost_system-mt-x64;hboost_regex-mt-x64)
+set(_houdini_libs
+    OpenImageIO_sidefx;
+    hboost_filesystem-mt-x64;
+    hboost_iostreams-mt-x64;
+    hboost_system-mt-x64;
+    hboost_regex-mt-x64;
+    )
+
+# optional boost_program_options
+if(${USE_IMAGING_ENGINE})
+    list(APPEND _houdini_libs hboost_program_options-mt-x64)
+endif()
+
 foreach(_houdini_lib ${_houdini_libs})
     find_library(${_houdini_lib}_path
             NAMES
