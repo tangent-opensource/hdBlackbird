@@ -47,3 +47,5 @@ target_link_options(blackbirdengine
         PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/ignore:4217 /ignore:4049>
         )
+
+install(TARGETS blackbirdengine DESTINATION bin)
