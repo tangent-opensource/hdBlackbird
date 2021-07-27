@@ -23,7 +23,6 @@ project(HdBlackbird CXX C)
 # Options debug
 option(USE_TESTS "" OFF)
 option(USE_ASAN "" OFF)
-option(USE_TSAN "" OFF)
 option(USE_IMAGING_ENGINE "" OFF)
 
 # Global Settings
