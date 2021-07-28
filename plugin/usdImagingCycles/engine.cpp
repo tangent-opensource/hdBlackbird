@@ -38,6 +38,10 @@
 #include <pxr/base/plug/plugin.h>
 #include <pxr/base/plug/registry.h>
 
+#include <pxr/usd/usdRender/settings.h>
+#include <pxr/usd/usdRender/spec.h>
+#include <pxr/usd/usd/common.h>
+
 #include <OpenImageIO/imageio.h>
 #include <tbb/task_scheduler_init.h>
 
@@ -133,55 +137,50 @@ private:
 
 UsdImagingBbEngine::~UsdImagingBbEngine() {}
 
-bool
-UsdImagingBbEngine::CreateRenderDelegate(const std::string& delegateName)
-{
+HdRendererPlugin* UsdImagingBbEngine::FindPlugin(std::string const& pluginName) {
     PlugRegistry& plug_registry = PlugRegistry::GetInstance();
     TF_UNUSED(plug_registry);
 
-    renderDelegateId = TfToken { delegateName };
     HdRendererPluginRegistry& plugin_registry = HdRendererPluginRegistry::GetInstance();
-    HdRendererPlugin* plugin = plugin_registry.GetRendererPlugin(renderDelegateId);
-    if (!plugin) {
-        return false;
-    }
+    HdRendererPlugin* plugin = plugin_registry.GetRendererPlugin(TfToken{pluginName});
+    return plugin;
+}
 
-    _renderDelegate = plugin->CreateRenderDelegate();
+bool
+UsdImagingBbEngine::CreateDelegates(HdRendererPlugin* plugin, const HdRenderSettingsMap& render_settings)
+{
+    //
+    // Create Render Delegate
+    //
+    _renderDelegate = plugin->CreateRenderDelegate(render_settings);
     if (!_renderDelegate) {
         return false;
     }
 
-    // create render index
+    //
+    // Create Render Index
+    //
     _renderIndex = std::unique_ptr<HdRenderIndex>(HdRenderIndex::New(_renderDelegate, HdDriverVector {}));
     if (!_renderIndex) {
         return false;
     }
 
-    // create engine
-    _engine = std::make_unique<HdEngine>();
-
-    return true;
-}
-
-bool
-UsdImagingBbEngine::OpenScene(const std::string& filename)
-{
-    // open usd scene
-    UsdStageRefPtr usdStage = UsdStage::Open(filename);
-    if (!usdStage) {
-        return false;
-    }
-
+    //
+    // Create Scene Delegate
+    //
     const SdfPath sceneDelegateId = SdfPath::AbsoluteRootPath();
     _sceneDelegate = std::make_unique<UsdImagingDelegate>(_renderIndex.get(), sceneDelegateId);
+    _sceneDelegate->Populate(_stage->GetPseudoRoot());
 
+    //
+    // Create Params Delegate
     //
     _paramsDelegate = std::make_unique<ParamsDelegate>(_renderIndex.get(), SdfPath { "/task_controller" });
 
-    // Populate usd stage
-    _stage = usdStage;
-    _sceneDelegate->Populate(_stage->GetPseudoRoot());
-
+    //
+    // Create Engine
+    //
+    _engine = std::make_unique<HdEngine>();
 
     //
     // Render Buffers
@@ -227,6 +226,18 @@ UsdImagingBbEngine::OpenScene(const std::string& filename)
         _taskIds.push_back(_renderTaskId);
     }
 
+    return true;
+}
+
+bool
+UsdImagingBbEngine::OpenUsdScene(const std::string& filename)
+{
+    UsdStageRefPtr usdStage = UsdStage::Open(filename);
+    if (!usdStage) {
+        return false;
+    }
+
+    _stage = usdStage;
     return true;
 }
 
@@ -329,6 +340,41 @@ UsdImagingBbEngine::SetResolution(int x, int y)
     }
 }
 
+bool
+UsdImagingBbEngine::ReadRenderSettings(const std::string& path, HdRenderSettingsMap& render_settings)
+{
+    render_settings.clear();
+
+    // find settings
+    UsdRenderSettings settings = UsdRenderSettings::Get(_stage, SdfPath{path});
+    if(!settings) {
+        return false;
+    }
+
+    // convert attributes to Render Settings Map
+    std::vector<UsdAttribute> attributes = settings.GetPrim().GetAuthoredAttributes();
+    for(auto& a : attributes) {
+        std::cout << a.GetName() << " " << a.GetTypeName() << std::endl;
+
+        VtValue value;
+        a.Get(&value);
+        render_settings[a.GetName()] = value;
+    }
+
+    // camera rel
+    UsdRelationship cam_rel = settings.GetCameraRel();
+    if(cam_rel) {
+        SdfPathVector targets;
+        cam_rel.GetTargets(&targets);
+        if(!targets.empty()) {
+            std::string cam_rel_path = targets[0].GetString();
+            render_settings[HdTokens->camera] = cam_rel_path;
+        }
+    }
+
+    return true;
+}
+
 PXR_NAMESPACE_CLOSE_SCOPE
 
 #include <iostream>
@@ -348,29 +394,30 @@ main(int argc, char** argv)
     po::options_description desc {};
     desc.add_options()("help", "Produce help message")
         ("usd-input", po::value<std::string>(), "The USD file for the scene")
-        ("camera,c", po::value<std::string>()->default_value("/cameras/camera1"), "Render from the specified camera")
+        ("camera,c", po::value<std::string>(), "Render from the specified camera")
         ("output,o", po::value<std::string>(), "Output image")
-        ("res,r", po::value<Resolution>()->multitoken()->default_value(Resolution{1280, 720}, "1280 720"), "Image resolution (e.g. '--res 1280 720')")
+        ("res,r", po::value<Resolution>(), "Image resolution (e.g. '--res 1280 720')")
         ("renderer,R", po::value<std::string>()->default_value("HdCyclesRendererPlugin"), "Choose a specific delegate. Default is Blackbird")
-        ("threads,j",po::value<int>()->default_value(-1),"Choose an specific delegate. Default is Blackbird");
+        ("threads,j",po::value<int>()->default_value(-1),"Choose an specific delegate. Default is Blackbird")
+        ("settings,s",po::value<std::string>()->default_value("/Render/rendersettings1"),"Render using properties defined by node.");
     // clang-format on
 
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
-    po::notify(vm);
+    po::variables_map var_map;
+    po::store(po::command_line_parser(argc, argv).options(desc).run(), var_map);
+    po::notify(var_map);
 
-    if (vm.count("help")) {
+    if (var_map.count("help")) {
         std::cout << desc << '\n';
-        return EXIT_FAILURE;
+        return EXIT_SUCCESS;
     }
 
-    if (!vm.count("usd-input")) {
+    if (!var_map.count("usd-input")) {
         std::cout << "Missing 'usd-input' argument!" << '\n';
         std::cout << desc << '\n';
         return EXIT_FAILURE;
     }
 
-    if (!vm.count("output")) {
+    if (!var_map.count("output")) {
         std::cout << "Missing 'output' argument!" << '\n';
         std::cout << desc << '\n';
         return EXIT_FAILURE;
@@ -379,15 +426,18 @@ main(int argc, char** argv)
     //
     // initialize thread count
     //
-    tbb::task_scheduler_init scheduler_init { vm["threads"].as<int>() };
+    tbb::task_scheduler_init scheduler_init { var_map["threads"].as<int>() };
 
     // create engine
     UsdImagingBbEngine engine;
 
-    // create delegate
+    HdRendererPlugin* plugin = nullptr;
+
+    // find renderer plugin
     {
-        auto renderer = vm["renderer"].as<std::string>();
-        if (!engine.CreateRenderDelegate(renderer)) {
+        auto renderer = var_map["renderer"].as<std::string>();
+        plugin = engine.FindPlugin(renderer);
+        if (!plugin) {
             std::cout << "Unable to create delegate with name: " << renderer << '\n';
             return EXIT_FAILURE;
         }
@@ -395,26 +445,50 @@ main(int argc, char** argv)
 
     // open usd scene
     {
-        auto scene = vm["usd-input"].as<std::string>();
-        if (!engine.OpenScene(scene)) {
+        auto scene = var_map["usd-input"].as<std::string>();
+        if (!engine.OpenUsdScene(scene)) {
             std::cout << "Unable to open scene: " << scene << '\n';
             return EXIT_FAILURE;
         }
     }
 
-    // set properties
+    // Read RenderSettings
+    HdRenderSettingsMap render_settings;
     {
-        auto camera = vm["camera"].as<std::string>();
-        engine.SetCamera(camera);
+        auto path = var_map["settings"].as<std::string>();
+        if(!engine.ReadRenderSettings(path, render_settings)) {
+            std::cout << "Unable to read render settings: " << path << '\n';
+        }
+    }
 
-        auto res = vm["res"].as<Resolution>();
-        engine.SetResolution(res[0], res[1]);
+    // create delegates
+    {
+        if (!engine.CreateDelegates(plugin, render_settings)) {
+            std::cout << "Unable to create render and scene delegate\n";
+            return EXIT_FAILURE;
+        }
+    }
+
+    // override properties from render settings, TODO: maybe there is a better option to feed them to a task.
+    {
+        for(auto& key_val : render_settings) {
+
+            if(key_val.first == "camera") {
+                engine.SetCamera(key_val.second.Get<std::string>());
+            }
+
+            if(key_val.first == "resolution") {
+                auto res = key_val.second.Get<GfVec2i>();
+                engine.SetResolution(res[0], res[1]);
+            }
+        }
     }
 
     engine.Render();
 
+    // write
     {
-        auto output = vm["output"].as<std::string>();
+        auto output = var_map["output"].as<std::string>();
         engine.WriteToFile(output);
     }
 

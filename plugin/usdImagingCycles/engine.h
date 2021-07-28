@@ -25,6 +25,7 @@
 #include <pxr/usd/usd/common.h>
 
 #include <memory>
+#include <pxr/imaging/hd/renderDelegate.h>
 #include <string>
 
 PXR_NAMESPACE_OPEN_SCOPE
@@ -37,14 +38,18 @@ class HdRenderIndex;
 class HdRenderDelegate;
 class HdxTask;
 class HdRenderBuffer;
+class HdRendererPlugin;
 
 class UsdImagingBbEngine final {
 public:
     UsdImagingBbEngine() = default;
     ~UsdImagingBbEngine();
 
-    bool CreateRenderDelegate(std::string const& delegateName);
-    bool OpenScene(std::string const& filename);
+    HdRendererPlugin* FindPlugin(std::string const& pluginName);
+    bool OpenUsdScene(std::string const& filename);
+    bool ReadRenderSettings(const std::string& path, HdRenderSettingsMap& render_settings_map);
+
+    bool CreateDelegates(HdRendererPlugin* plugin, const HdRenderSettingsMap& render_settings);
 
     void SetCamera(std::string const& camera);
     void SetResolution(int x, int y);
