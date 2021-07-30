@@ -34,6 +34,22 @@ target_link_libraries(UsdInterface
     INTERFACE
     hd usdHydra usdImaging usdRender usdSkel
     )
+
+# optional boost_program_options
+if(${USE_IMAGING_ENGINE})
+    find_library(BOOST_PROGRAM_OPTIONS_LIBRARY
+            NAMES
+            boost_program_options
+            REQUIRED
+            )
+
+    target_link_libraries(UsdInterface
+            INTERFACE
+            hdx
+            ${BOOST_PROGRAM_OPTIONS_LIBRARY}
+            )
+endif()
+
 # Find Usd Schema Generator
 
 find_program(USD_SCHEMA_GENERATOR
