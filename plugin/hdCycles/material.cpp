@@ -484,6 +484,15 @@ convertCyclesNode(HdMaterialNode& usd_node, ccl::ShaderGraph* cycles_shader_grap
     if (cycles_node_name == "image_texture") {
         ccl::ImageTextureNode* tex = static_cast<ccl::ImageTextureNode*>(cyclesNode);
 
+        // Tangent Animation specific fix - Blender->USD inserts underscores in those color spaces.
+        if (tex->colorspace == "Filmic_sRGB") {
+            tex->colorspace = ccl::ustring("Filmic sRGB");
+        } else if (tex->colorspace == "Filmic_Log") {
+            tex->colorspace = ccl::ustring("Filmic Log");
+        } else if (tex->colorspace == "Linear_ACES") {
+            tex->colorspace = ccl::ustring("Linear ACES");
+        }
+
         // Handle udim tiles
         if (HdCyclesPathIsUDIM(tex->filename.string())) {
             HdCyclesParseUDIMS(tex->filename.string(), tex->tiles);
@@ -539,7 +548,6 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
                 cycles_node = convertCyclesNode(node, graph);
             }
 
-            assert(cycles_node);
             if (cycles_node != nullptr) {
                 conversionMap.insert(std::pair<SdfPath, std::pair<HdMaterialNode*, ccl::ShaderNode*>>(
                     node.path, std::make_pair(&node, cycles_node)));
@@ -553,10 +561,33 @@ GetMaterialNetwork(TfToken const& terminal, HdSceneDelegate* delegate, HdMateria
                                 graph->connect(cycles_node->output("BSDF"), graph->output()->input("Surface"));
 
                             } else if (cycles_node->output("Closure") != NULL) {
-                                graph->connect(cycles_node->output("Closure"), graph->output()->input("Surface"));
+                                bool has_volume_connection = false;
+
+                                for (const HdMaterialRelationship& matRel : net.second.relationships) {
+                                    ccl::ShaderNode* tonode = conversionMap[matRel.outputId].second;
+                                    ccl::ShaderNode* fromnode = conversionMap[matRel.inputId].second;
+
+                                    // Skip invalid connections.
+                                    if (fromnode == nullptr || tonode == nullptr) {
+                                        continue;
+                                    }
+
+                                    if (tonode->output("Volume") != NULL || fromnode->output("Volume") != NULL) {
+                                        has_volume_connection = true;
+                                        break;
+                                    }
+                                }
+
+                                if (has_volume_connection) {
+                                    graph->connect(cycles_node->output("Closure"), graph->output()->input("Volume"));
+                                } else {
+                                    graph->connect(cycles_node->output("Closure"), graph->output()->input("Surface"));
+                                }
 
                             } else if (cycles_node->output("Emission") != NULL) {
                                 graph->connect(cycles_node->output("Emission"), graph->output()->input("Surface"));
+                            } else if (cycles_node->output("Volume") != NULL) {
+                                graph->connect(cycles_node->output("Volume"), graph->output()->input("Volume"));
                             }
                         }
                         if (terminal == HdCyclesMaterialTerminalTokens->displacement) {

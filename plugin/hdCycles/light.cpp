@@ -200,6 +200,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
     m_cyclesLight->samples = 1;
     m_cyclesLight->max_bounces = 1024;
     m_cyclesLight->map_resolution = 0;
+    m_cyclesLight->lightgroup = "";
 
     // Always rebuild dome lights on transform change, the transform texture co-ordinate gets
     // optimised/folded out and we can't get it back to tweak...
@@ -436,6 +437,7 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
         if (m_hdLightType == HdPrimTypeTokens->cylinderLight) {
             // TODO: Implement
             // Cycles has no concept of cylinder lights.
+            intensity = 0.0f;
         }
 
         if (m_hdLightType == HdPrimTypeTokens->sphereLight) {
@@ -443,7 +445,14 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
             if (radius.IsHolding<float>())
                 m_cyclesLight->size = radius.UncheckedGet<float>();
 
-            exposureOffset = 1.0f;
+            VtValue treatAsPoint = sceneDelegate->GetLightParamValue(id, UsdLuxTokens->treatAsPoint);
+            if (treatAsPoint.IsHolding<bool>() && treatAsPoint.UncheckedGet<bool>()) {
+                m_cyclesLight->size = 0.0f;
+                normalize = true;
+                exposureOffset = 3.0f;
+            }
+
+            exposureOffset += 1.0f;
 
             if (!normalize) {
                 size = m_cyclesLight->size * m_cyclesLight->size * 4.0f * M_PI_F;
@@ -461,14 +470,9 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
                 m_cyclesLight->spot_smooth = shapingConeSoftness.UncheckedGet<float>();
                 m_cyclesLight->type = ccl::LIGHT_SPOT;
             }
-
-            if (m_cyclesLight->type == ccl::LIGHT_SPOT) {
-                exposureOffset += 1.0f;
-            }
         }
 
         if (m_hdLightType == HdPrimTypeTokens->distantLight) {
-            // TODO: Test this
             VtValue angle = sceneDelegate->GetLightParamValue(id, HdLightTokens->angle);
             if (angle.IsHolding<float>()) {
                 m_cyclesLight->angle = angle.UncheckedGet<float>() * (M_PI_F / 180.0f);
@@ -596,8 +600,14 @@ HdCyclesLight::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, 
     m_cyclesLight->max_bounces = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->cyclesLightMax_bounces,
                                                              m_cyclesLight->max_bounces);
 
-    m_cyclesLight->map_resolution = _HdCyclesGetLightParam<int>(id, sceneDelegate, usdCyclesTokens->cyclesLightMap_resolution,
-                                                             m_cyclesLight->map_resolution);
+    m_cyclesLight->map_resolution = _HdCyclesGetLightParam<int>(id, sceneDelegate,
+                                                                usdCyclesTokens->cyclesLightMap_resolution,
+                                                                m_cyclesLight->map_resolution);
+
+    std::string lightGroup = m_cyclesLight->lightgroup.c_str();
+    lightGroup = _HdCyclesGetLightParam<std::string>(id, sceneDelegate, usdCyclesTokens->cyclesLightLightgroup,
+                                                     lightGroup);
+    m_cyclesLight->lightgroup = ccl::ustring(lightGroup);
 
     // TODO: Light is_enabled doesn't seem to have any effect
     if (*dirtyBits & HdChangeTracker::DirtyVisibility) {

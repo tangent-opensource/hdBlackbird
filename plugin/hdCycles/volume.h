@@ -24,6 +24,7 @@
 
 #include "hdcycles.h"
 #include "renderDelegate.h"
+#include "rprim.h"
 #include "utils.h"
 
 #include <util/util_transform.h>
@@ -52,7 +53,7 @@ class HdCyclesRenderDelegate;
  * @brief USD Volume mapped to Cycles Volume
  * 
  */
-class HdCyclesVolume final : public HdVolume {
+class HdCyclesVolume final : public HdBbRPrim<HdVolume> {
 public:
     /**
      * @brief Construct a new HdCycles Volume object
@@ -141,15 +142,22 @@ private:
      * @brief Populate the Cycles mesh representation from delegate's data
      */
     void _PopulateVolume(const SdfPath& id, HdSceneDelegate* delegate, ccl::Scene* scene);
+    void _PopulateConstantPrimvars(const SdfPath& id, HdSceneDelegate* delegate, ccl::Scene* scene,
+                                   HdPrimvarDescriptorMap const& descriptor_map, HdDirtyBits* dirtyBits);
 
     /**
      * @brief Update the OpenVDB loader grid for mesh builder  
      */
     void _UpdateGrids();
 
-    ccl::Object* m_cyclesObject;
+    /**
+     * @brief Update the Cycles Object   
+     */
+    void _UpdateObject(ccl::Scene* scene, HdCyclesRenderParam* param, HdDirtyBits* dirtyBits, bool rebuildBvh);
 
     ccl::Mesh* m_cyclesVolume;
+
+    HdCyclesObjectSourceSharedPtr m_object_source;
 
     std::vector<ccl::Object*> m_cyclesInstances;
 

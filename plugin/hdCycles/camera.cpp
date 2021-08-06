@@ -159,6 +159,10 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
 
     HdCyclesRenderParam* param = static_cast<HdCyclesRenderParam*>(renderParam);
 
+    if (*dirtyBits & HdCamera::AllDirty) {
+        m_needsUpdate = true;
+    }
+
     if (*dirtyBits & HdCamera::DirtyClipPlanes) {
         bool has_clippingRange = EvalCameraParam(&m_clippingRange, HdCameraTokens->clippingRange, sceneDelegate, id,
                                                  GfRange1f(0.1f, 100000.0f));
@@ -168,13 +172,13 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
     }
 
     if (*dirtyBits & HdCamera::DirtyParams) {
-        m_needsUpdate = true;
 
-        // TODO:
-        // Offset (requires viewplane work)
-
+        // Aperture
         EvalCameraParam(&m_horizontalApertureOffset, HdCameraTokens->horizontalApertureOffset, sceneDelegate, id);
         EvalCameraParam(&m_verticalApertureOffset, HdCameraTokens->verticalApertureOffset, sceneDelegate, id);
+
+        bool has_horizontalAp = EvalCameraParam(&m_horizontalAperture, HdCameraTokens->horizontalAperture, sceneDelegate, id);
+        bool has_verticalAp = EvalCameraParam(&m_verticalAperture, HdCameraTokens->verticalAperture, sceneDelegate, id);
 
         // TODO:
         // Shutter
@@ -194,17 +198,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         bool has_projection = EvalCameraParam(&m_projectionType, UsdGeomTokens->projection, sceneDelegate, id);
         // TODO: has_projection
         (void)has_projection;
-
-        // Aperture
-
-        float horizontalAp, verticalAp;
-        bool has_horizontalAp = EvalCameraParam(&horizontalAp, HdCameraTokens->horizontalAperture, sceneDelegate, id);
-        if (has_horizontalAp)
-            m_horizontalAperture = horizontalAp * 10.0f;
-
-        bool has_verticalAp = EvalCameraParam(&verticalAp, HdCameraTokens->verticalAperture, sceneDelegate, id);
-        if (has_verticalAp)
-            m_verticalAperture = verticalAp * 10.0f;
 
         // Focal Length
 
@@ -388,7 +381,6 @@ HdCyclesCamera::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam,
         // flipping the Z axis.
 
         sceneDelegate->SampleTransform(id, &m_transformSamples);
-        SetTransform(m_projMtx);
     }
 
     if (m_needsUpdate) {
@@ -451,8 +443,13 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
     if (m_projectionType == UsdGeomTokens->orthographic) {
         a_camera->type = ccl::CameraType::CAMERA_ORTHOGRAPHIC;
+        a_camera->viewplane.left = (-m_horizontalAperture + m_horizontalApertureOffset) * 0.5f;
+        a_camera->viewplane.right = (m_horizontalAperture + m_horizontalApertureOffset) * 0.5f;
+        a_camera->viewplane.top = (m_verticalAperture + m_verticalApertureOffset) * 0.5f;
+        a_camera->viewplane.bottom = (-m_verticalAperture + m_verticalApertureOffset) * 0.5f;
     } else {
         a_camera->type = ccl::CameraType::CAMERA_PERSPECTIVE;
+        a_camera->compute_auto_viewplane();
     }
 
     bool shouldUpdate = m_needsUpdate;
@@ -463,8 +460,19 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
     // TODO:
     // We likely need to ensure motion_position is respected when
     // populating the camera->motion array.
-    if (m_useMotionBlur) {
-        a_camera->motion.clear();
+
+    // There are always transform samples, right?
+    assert(m_transformSamples.count);
+
+    a_camera->motion.clear();
+    bool has_motion = false;
+    for (size_t i = 1; i < m_transformSamples.count; i++) {
+        if (m_transformSamples.values.data()[i] != m_transformSamples.values.data()[0]) {
+            has_motion = true;
+            break;
+        }
+    }
+    if (m_useMotionBlur && has_motion) {
         a_camera->motion.resize(m_transformSamples.count, ccl::transform_identity());
 
         for (size_t i = 0; i < m_transformSamples.count; i++) {
@@ -474,6 +482,8 @@ HdCyclesCamera::ApplyCameraSettings(ccl::Camera* a_camera)
 
             a_camera->motion[i] = mat4d_to_transform(ConvertCameraTransform(m_transformSamples.values.data()[i]));
         }
+    } else if (m_transformSamples.count){
+      a_camera->matrix = mat4d_to_transform(ConvertCameraTransform(m_transformSamples.values.data()[0]));
     }
 
     return shouldUpdate;
@@ -589,6 +599,7 @@ HdCyclesCamera::SetFOV(const float& a_value)
     m_fov = a_value;
 }
 
+// TODO (Stefan) I think this is unecessary. We only need the transform samples, don't we?
 void
 HdCyclesCamera::SetTransform(const GfMatrix4d a_projectionMatrix)
 {

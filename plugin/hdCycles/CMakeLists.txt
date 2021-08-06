@@ -17,6 +17,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+if(NOT DEFINED HD_CYCLES_VERSION)
+    add_compile_definitions(HD_CYCLES_VERSION="0.0.0")
+else()
+    add_compile_definitions(HD_CYCLES_VERSION="${HD_CYCLES_VERSION}")
+endif()
+
 add_library(MikktSpace STATIC
         Mikktspace/mikktspace.c
         Mikktspace/mikktspace.h
@@ -25,6 +31,7 @@ add_library(MikktSpace::MikktSpace ALIAS MikktSpace)
 
 add_library(hdCycles SHARED
         api.h
+        rprim.h
         basisCurves.cpp
         basisCurves.h
         camera.cpp
