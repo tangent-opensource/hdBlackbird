@@ -110,23 +110,34 @@ foreach(_pxr_lib ${_houdini_pxr_libs})
 endforeach()
 
 # Find Usd Schema Generator
-
-if(APPLE)
-        set(HOUDINI_BIN ${HOUDINI_ROOT}/Resources/bin)
-else()
-        set(HOUDINI_BIN ${HOUDINI_ROOT}/bin)
-endif()
-
 if (NOT USD_SCHEMA_GENERATOR)
-        find_program(USD_SCHEMA_GENERATOR
+    find_program(USD_SCHEMA_GENERATOR
+            NAMES
+            usdGenSchema
+            usdGenSchema.py
+            PATHS
+            ${HOUDINI_ROOT}/bin
+            ${HOUDINI_ROOT}/Resources/bin
+            REQUIRED
+            NO_DEFAULT_PATH
+            )
+
+    get_filename_component(USD_SCHEMA_GENERATOR_EXT
+            ${USD_SCHEMA_GENERATOR}
+            EXT
+            )
+
+    if("${USD_SCHEMA_GENERATOR_EXT}" STREQUAL ".py")
+        find_program(HYTHON_EXECUTABLE
                 NAMES
-                usdGenSchema.py
-                usdGenSchema
+                hython
                 PATHS
-                ${HOUDINI_BIN}
+                ${HOUDINI_ROOT}/bin
+                ${HOUDINI_ROOT}/Resources/bin
                 REQUIRED
                 NO_DEFAULT_PATH
                 )
-        list(PREPEND USD_SCHEMA_GENERATOR ${HOUDINI_BIN}/hython)
+        list(PREPEND USD_SCHEMA_GENERATOR ${HYTHON_EXECUTABLE})
         set(USD_SCHEMA_GENERATOR ${USD_SCHEMA_GENERATOR} CACHE STRING "" FORCE)
+    endif()
 endif()
