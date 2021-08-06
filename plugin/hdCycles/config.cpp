@@ -129,7 +129,7 @@ HdCyclesConfig::HdCyclesConfig()
     start_resolution = HdCyclesEnvValue<int>("HD_CYCLES_START_RESOLUTION", 8);
     shutter_motion_position = HdCyclesEnvValue<int>("HD_CYCLES_SHUTTER_MOTION_POSITION", 1);
 
-    default_point_style      = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE", ccl::POINT_CLOUD_POINT_SPHERE);
+    default_point_style      = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_STYLE", ccl::POINT_CLOUD_POINT_DISC);
     default_point_resolution = HdCyclesEnvValue<int>("HD_CYCLES_DEFAULT_POINT_RESOLUTION", 16);
 
     texture_use_cache = HdCyclesEnvValue<bool>("HD_BLACKBIRD_TEXTURE_USE_CACHE", false);
