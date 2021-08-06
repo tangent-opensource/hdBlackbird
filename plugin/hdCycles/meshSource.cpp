@@ -21,6 +21,7 @@
 #include "meshRefiner.h"
 
 #include <render/mesh.h>
+#include <render/instance_group.h>
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
@@ -35,7 +36,7 @@ interpolation_to_mesh_element(const HdInterpolation& interpolation)
     case HdInterpolationVarying: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
     case HdInterpolationVertex: return ccl::AttributeElement::ATTR_ELEMENT_VERTEX;
     case HdInterpolationFaceVarying: return ccl::AttributeElement::ATTR_ELEMENT_CORNER;
-    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_NONE;  // not supported
+    case HdInterpolationInstance: return ccl::AttributeElement::ATTR_ELEMENT_OBJECT;
     default: return ccl::AttributeElement::ATTR_ELEMENT_NONE;
     }
 }
@@ -46,6 +47,17 @@ HdBbMeshAttributeSource::HdBbMeshAttributeSource(TfToken name, const TfToken& ro
                                                  ccl::Mesh* mesh, const HdInterpolation& interpolation,
                                                  std::shared_ptr<HdBbMeshTopology> topology)
     : HdBbAttributeSource(std::move(name), role, value, &mesh->attributes, interpolation_to_mesh_element(interpolation),
+                          GetTypeDesc(HdGetValueTupleType(value).type, role))
+    , m_interpolation { interpolation }
+    , m_topology { std::move(topology) }
+{
+}
+
+
+HdBbMeshAttributeSource::HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value,
+                                                 ccl::InstanceGroup* instance_group, const HdInterpolation& interpolation,
+                                                 std::shared_ptr<HdBbMeshTopology> topology)
+    : HdBbAttributeSource(std::move(name), role, value, &instance_group->attributes, interpolation_to_mesh_element(interpolation),
                           GetTypeDesc(HdGetValueTupleType(value).type, role))
     , m_interpolation { interpolation }
     , m_topology { std::move(topology) }

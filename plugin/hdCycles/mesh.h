@@ -43,6 +43,7 @@
 namespace ccl {
 class Scene;
 class Mesh;
+class InstanceGroup;
 class Object;
 }  // namespace ccl
 
@@ -242,6 +243,7 @@ private:
 
     ccl::Mesh* m_cyclesMesh;
     std::vector<ccl::Object> m_cyclesInstances;
+    ccl::InstanceGroup* m_instanceGroup;
 
     ccl::Shader* m_object_display_color_shader;
     ccl::Shader* m_attrib_display_color_shader;

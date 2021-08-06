@@ -22,6 +22,10 @@
 
 #include "attributeSource.h"
 
+namespace ccl {
+    class InstanceGroup;
+} // namespace ccl
+
 PXR_NAMESPACE_OPEN_SCOPE
 
 class HdBbMeshTopology;
@@ -33,6 +37,10 @@ class HdBbMeshAttributeSource : public HdBbAttributeSource {
 public:
     HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::Mesh* mesh,
                             const HdInterpolation& interpolation, std::shared_ptr<HdBbMeshTopology> topology);
+
+    HdBbMeshAttributeSource(TfToken name, const TfToken& role, const VtValue& value, ccl::InstanceGroup* instance_group,
+                            const HdInterpolation& interpolation, std::shared_ptr<HdBbMeshTopology> topology);
+
 
     // Underlying VtValue has different size than ccl::Geometry, we have to accommodate for that.
     bool Resolve() override;

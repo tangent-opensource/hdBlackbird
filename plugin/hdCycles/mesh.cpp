@@ -30,6 +30,8 @@
 #include "transformSource.h"
 #include "utils.h"
 
+#include <render/instance_group.h>
+
 #include <pxr/imaging/hd/extComputationUtils.h>
 
 #include <usdCycles/tokens.h>
@@ -55,6 +57,7 @@ HdCyclesMesh::HdCyclesMesh(SdfPath const& id, SdfPath const& instancerId, HdCycl
     , m_cyclesMesh(nullptr)
     , m_velocityScale(1.0f)
     , m_renderDelegate(a_renderDelegate)
+    , m_instanceGroup(nullptr)
 {
     _InitializeNewCyclesMesh();
 }
@@ -75,6 +78,11 @@ HdCyclesMesh::~HdCyclesMesh()
         m_renderDelegate->GetCyclesRenderParam()->RemoveObjectArray(m_cyclesInstances);
         std::vector<ccl::Object> empty = {};
         m_cyclesInstances.swap(empty);
+    }
+
+    if (m_instanceGroup) {
+        m_renderDelegate->GetCyclesRenderParam()->RemoveInstanceGroup(m_instanceGroup);
+        delete m_instanceGroup;
     }
 }
 
@@ -323,7 +331,6 @@ HdCyclesMesh::_AddAccelerations(const SdfPath& id, const VtValue& value, HdInter
 
     if (interpolation == HdInterpolationVertex) {
         assert(accelerations.size() == m_cyclesMesh->verts.size());
-
         ccl::float3* A = attr_accel->data_float3();
         for (size_t i = 0; i < accelerations.size(); ++i) {
             A[i] = vec3f_to_float3(accelerations[i]);
@@ -1305,6 +1312,13 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                 }
             }
 
+            if (m_instanceGroup) {
+                m_renderDelegate->GetCyclesRenderParam()->RemoveInstanceGroup(m_instanceGroup);
+                delete m_instanceGroup;
+            }
+            m_instanceGroup = new ccl::InstanceGroup(m_cyclesMesh, newNumInstances);
+            m_renderDelegate->GetCyclesRenderParam()->AddInstanceGroup(m_instanceGroup);
+
             // create new instances
             if (newNumInstances != 0) {
                 using size_type = typename decltype(m_transformSamples.values)::size_type;
@@ -1337,6 +1351,8 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                     instanceObj->geometry = m_cyclesMesh;
                     instanceObj->pass_id = -1;
                     instanceObj->visibility = m_visibilityFlags;
+                    instanceObj->instance_group = m_instanceGroup;
+                    instanceObj->instance_index = j;
 
                     // TODO: Implement motion blur for point instanced objects
                     /*if (m_motionBlur) {
@@ -1350,6 +1366,18 @@ HdCyclesMesh::Sync(HdSceneDelegate* sceneDelegate, HdRenderParam* renderParam, H
                                 combinedTransforms[j].data()[j]);
                         }
                     }*/
+                }
+
+                // Forward all primvars to the instance group
+                for (const auto& pv_desc : sceneDelegate->GetPrimvarDescriptors(instancer_id, HdInterpolationInstance)) {
+                    VtValue value = sceneDelegate->Get(instancer_id, pv_desc.name);
+
+                    // These primvars are resolved into the object transform
+                    if (pv_desc.name == "translate" || pv_desc.name == "rotate" || pv_desc.name == "scale" || pv_desc.name == "instanceTransform") {
+                        continue;
+                    }
+
+                    m_object_source->CreateAttributeSource<HdBbMeshAttributeSource>(pv_desc.name, pv_desc.role, value, m_instanceGroup, HdInterpolationInstance, m_topology);
                 }
 
                 if (reallocate_array) {

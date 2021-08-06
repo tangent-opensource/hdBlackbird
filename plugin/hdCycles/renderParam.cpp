@@ -35,6 +35,7 @@
 #include <render/curves.h>
 #include <render/hair.h>
 #include <render/integrator.h>
+#include <render/instance_group.h>
 #include <render/light.h>
 #include <render/mesh.h>
 #include <render/nodes.h>
@@ -2030,6 +2031,22 @@ HdCyclesRenderParam::AddGeometry(ccl::Geometry* geometry)
 }
 
 void
+HdCyclesRenderParam::AddInstanceGroup(ccl::InstanceGroup* instance_group)
+{
+    if (!m_cyclesScene) {
+        TF_WARN("Couldn't add instance group to scene. Scene is null.");
+        return;
+    }
+
+    // todo(Edo)
+    m_objectsUpdated = true;
+
+    m_cyclesScene->instance_groups.push_back(instance_group);
+
+    Interrupt();
+}
+
+void
 HdCyclesRenderParam::RemoveShader(ccl::Shader* shader)
 {
     for (auto it = m_cyclesScene->shaders.begin(); it != m_cyclesScene->shaders.end();) {
@@ -2112,6 +2129,25 @@ HdCyclesRenderParam::RemoveGeometry(ccl::Geometry* geometry)
 }
 
 void
+HdCyclesRenderParam::RemoveInstanceGroup(ccl::InstanceGroup* instance_group) {
+    for (auto it = m_cyclesScene->instance_groups.begin(); it != m_cyclesScene->instance_groups.end();) {
+        if (instance_group == *it) {
+            it = m_cyclesScene->instance_groups.erase(it);
+
+            // todo(Edo)
+            m_objectsUpdated = true;
+
+            break;
+        } else {
+            ++it;
+        }
+    }
+
+    if (m_objectsUpdated)
+        Interrupt();
+}
+
+void
 HdCyclesRenderParam::AddShaderSafe(ccl::Shader* shader)
 {
     ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
@@ -2140,6 +2176,12 @@ HdCyclesRenderParam::AddGeometrySafe(ccl::Geometry* geometry)
 }
 
 void
+HdCyclesRenderParam::AddInstanceGroupSafe(ccl::InstanceGroup* instance_group) {
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    AddInstanceGroup(instance_group);
+}
+
+void
 HdCyclesRenderParam::RemoveShaderSafe(ccl::Shader* shader)
 {
     ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
@@ -2165,6 +2207,13 @@ HdCyclesRenderParam::RemoveGeometrySafe(ccl::Geometry* geometry)
 {
     ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
     RemoveGeometry(geometry);
+}
+
+void
+HdCyclesRenderParam::RemoveInstanceGroupSafe(ccl::InstanceGroup* instance_group)
+{
+    ccl::thread_scoped_lock lock { m_cyclesScene->mutex };
+    RemoveInstanceGroup(instance_group);
 }
 
 VtDictionary
